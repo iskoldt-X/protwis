@@ -125,10 +125,10 @@ class TissueExpression(models.Model):
     value = models.FloatField(null=True, blank=True)
 
     def __str__(self):
-        return self.slug
+        return self.tissue.slug
 
     class Meta():
-        db_table = "tissueexpression"
+        db_table = "tissue_expression"
 
 class ProteinConformation(models.Model):
     protein = models.ForeignKey('Protein', on_delete=models.CASCADE)

@@ -21,7 +21,7 @@ class Command(BaseCommand):
     publication_cache = {}
 
     def add_arguments(self, parser):
-        parser.add_argument('--filename'], action='store'], dest='filename'],
+        parser.add_argument('--filename', action='store', dest='filename',
                             help='Filename to import. Can be used multiple times')
 
     logger = logging.getLogger(__name__)
@@ -37,9 +37,9 @@ class Command(BaseCommand):
                             action="store_true",
                             help="Skip this during a test run",
                             default=False)
-        parser.add_argument('-u'], '--purge'],
-                            action='store_true'],
-                            dest='purge'],
+        parser.add_argument('-u', '--purge',
+                            action='store_true',
+                            dest='purge',
                             default=False,
                             help='Purge existing ligand records')
 
@@ -73,25 +73,25 @@ class Command(BaseCommand):
         print("\n\nWelcome to the Drugs2024 build process. Build steps will be printed.")
         print("##### STEP 0 START #####")
         print("\n\nStarted parsing data and setting up different dataframes")
-        indication_df, tissue_df, cancer_df, drug_df = self.setup_data()
+        indication_df, tissue_df, cancer_df, drug_df = Command.setup_data()
         print("##### STEP 1 START #####")
         print("\n\nStarted parsing Indication data and building Indication Model")
-        self.generate_indications(indication_df)    #DONE
+        Command.generate_indications(indication_df)    #DONE
         print("\n\nIndication Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 2 START #####")
         print("\n\nStarted parsing Tissue Expression data and building TissueExpression Model")
-        self.generate_tissue_expression(tissue_df)  #DONE
+        Command.generate_tissue_expression(tissue_df)  #DONE
         print("\n\TissueExpression Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 3 START #####")
         print("\n\nStarted parsing Cancer Prognostics data and building CancerPrognostics Model")
-        self.generate_cancer_prog(cancer_df)        #DONE
+        Command.generate_cancer_prog(cancer_df)        #DONE
         print("\n\CancerPrognostics Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 4 START #####")
         print("\n\nStarted parsing Drug data and building Drug2024 Model")
-        self.create_drug_data(drug_df)
+        Command.create_drug_data(drug_df)
         print("\n\Drug Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
 
@@ -119,7 +119,7 @@ class Command(BaseCommand):
         drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'IndicationID'], how='inner')
         #Drop the duplicates
         drug_data = drug_data.drop_duplicates()
-        return indication_data, tissues_data, cancer_data, merged_df
+        return indication_data, tissues_data, cancer_data, drug_data
 
     @staticmethod
     def transform_column_name(col_name):
@@ -133,7 +133,7 @@ class Command(BaseCommand):
 
     def generate_tissue_expression(tissues_data):
         #process the column headers
-        tissues_data.columns = [transform_column_name(col) for col in tissues_data.columns]
+        tissues_data.columns = [Command.transform_column_name(col) for col in tissues_data.columns]
         tissues = list(tissues_data.columns)[1:]
         for i, row in tissues_data.iterrows():
             protein = Command.fetch_protein(row['entry_name'])
@@ -293,10 +293,10 @@ class Command(BaseCommand):
         for key, values in mapper.items():
             for code in values:
                 try:
-                    check = LigandID.objects.get(index=mapper[code], ligand_id=ligand.id, web_resource__slug=code)
+                    check = LigandID.objects.get(index=code, ligand_id=ligand.id, web_resource__slug=key)
                 except LigandID.DoesNotExist:
-                    wr = WebResource.objects.get(slug=code)
-                    LigandID(index=mapper[code], web_resource=wr, ligand_id=ligand.id).save()
+                    wr = WebResource.objects.get(slug=key)
+                    LigandID(index=code, web_resource=wr, ligand_id=ligand.id).save()
 
     @staticmethod
     def fetch_role(action):
@@ -351,8 +351,8 @@ class Command(BaseCommand):
             return None
 
     @staticmethod
-    def read_csv_data(self, filename):
-        filepath = os.sep.join([self.data_dir, filename])
+    def read_csv_data(filename):
+        filepath = os.sep.join([Command.data_dir, filename])
         data = pd.read_csv(filepath, low_memory=False)
         return data
 
