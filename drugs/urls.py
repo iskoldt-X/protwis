@@ -9,4 +9,6 @@ urlpatterns = [
     url(r'^drugmapping',  views.drugmapping, name='drugmapping'),
     url(r'^nhs/section/(?P<slug>[\w|\W]+)/$',  views.nhs_section, name='nhs_section'),
     url(r'^nhs/(?P<slug>[\w|\W]+)/$',  views.nhs_drug, name='nhs_drug'),
+    url(r'^indication/(?P<code>[\w|\W]+)/$',  views.indication_detail, name='indication'),
+
 ]
