@@ -24,7 +24,7 @@
     margin-bottom: 2px;
     width: 100%;
   }
- 
+
   tr.no-border-bottom th {
     text-align: center;
     border-left: 1px solid black;
@@ -52,7 +52,7 @@
                   <tr class="no-border-bottom">
                     <th colspan="2" style="border-left: none;">DRUGS</th>
                     <th colspan="5">RECEPTOR</th>
-                    <th colspan="7">CLINICAL INFORMATION</th>  
+                    <th colspan="7">CLINICAL INFORMATION</th>
                   </tr>
 
                   <!-- yadcf filter rows -->
@@ -169,12 +169,12 @@ $('#references').on('show.bs.modal', function(e) {
             { targets: '_all', width: '100px' }
           ]
         }
-      ); 
+      );
       let column_filters = [];
       column_filters = column_filters.concat(createYADCFfilters(0, 3,"multi_select", "select2", "Select", false, null, null, null, 'data-filter'));
       column_filters = column_filters.concat(createYADCFfilters(3, 10,"multi_select", select_type="select2", filter_default_label="Select"));
       column_filters[12]["data"] = ["yes", "no"];
-      // YADCF filter 
+      // YADCF filter
       yadcf.init(
         table, column_filters
       );

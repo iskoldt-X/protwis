@@ -2,12 +2,15 @@ from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseRedirect
 from django.conf import settings
 from django.db.models import Count, Max, Q, F, Value, CharField, Case, When, IntegerField
+from django.db.models import Count, Max
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
+from drugs.models import Drugs, Drugs2024, Indication
+from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mutational_landscape.models import NHSPrescribings
 
 import re
@@ -338,10 +341,10 @@ class NewDrugsBrowser(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get data - server side - Queries #
         Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','target__family__parent__parent','target__family__parent__parent__parent','indication','indication__code','ligand','ligand__ligand_type','moa')
-        # GtoPdb = 
+        # GtoPdb =
         # Possible addons: 'target__family__parent','target__family__parent__parent','target__family__parent__parent__parent','indication','ligand','moa'
         # initialize context list for pushing data to html #
         context_data_browser = list()
@@ -418,9 +421,9 @@ class TargetSelectionTool(TemplateView):
                     Active=Count(Case(When(state_id=2, then=1), output_field=IntegerField())),
                     Intermediate=Count(Case(When(state_id=3, then=1), output_field=IntegerField())),
                     Other=Count(Case(When(state_id=4, then=1), output_field=IntegerField())),
-                ).order_by('protein_conformation__protein__parent__id') # Fetches only human structures --> make sure we dont want other species 
-        
-        
+                ).order_by('protein_conformation__protein__parent__id') # Fetches only human structures --> make sure we dont want other species
+
+
         #'target__family__parent__parent','target__family__parent__parent__parent','indication','indication__code','ligand','moa'
         # Context lists for pushing data #
         context_target_selection = list()
@@ -594,7 +597,7 @@ class TargetSelectionTool(TemplateView):
                 }
             # Append context data into list #
             context_data_tissue.append(jsondata_tissue)
-        # Create context data for tissue expression data # 
+        # Create context data for tissue expression data #
         context['Tissue_data'] = context_data_tissue
         # Lastly return context for html usage #
         return context
