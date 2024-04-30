@@ -30,6 +30,7 @@ class Drugs(models.Model):
 class Drugs2024(models.Model):
     target = models.ForeignKey('protein.Protein', on_delete=models.CASCADE)
     indication = models.ForeignKey('Indication', on_delete=models.CASCADE)
+    # indication = models.ManyToManyField('Indication')
     ligand = models.ForeignKey('ligand.Ligand', on_delete=models.CASCADE)
     charge = models.CharField(max_length=5, null=True)
     complexity = models.FloatField(max_length=4, null=True)
@@ -37,6 +38,7 @@ class Drugs2024(models.Model):
     drug_status = models.CharField(max_length=15, null=True)
     approval_year = models.IntegerField(null=True)
     indication_max_phase = models.IntegerField(null=True)
+    indication_status = models.CharField(max_length=15, null=True)
     moa = models.ForeignKey('ligand.LigandRole', on_delete=models.CASCADE, null=True)
     genetic_association = models.CharField(max_length=30, null=True)
     affected_pathway = models.CharField(max_length=30, null=True)
@@ -45,18 +47,35 @@ class Drugs2024(models.Model):
     novelty_score = models.FloatField(max_length=4, null=True)
     reference = models.ManyToManyField('common.Publication')
 
+    # TO BE ADDED
+    # IndicationStatus
+    # ICD name
+    # ICD code (website https://icd.who.int/browse/2024-01/mms/en#821852937)
+    # ATC code (website https://atcddd.fhi.no/atc_ddd_index/?code=N06B)
+
     def __str__(self):
         return self.ligand.name
 
     class Meta():
         db_table = 'drugs_new'
 
+#Do we need to fix this model structure?
 class Indication(models.Model):
     name =  models.CharField(max_length=70)
-    code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    web_link =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return self.name
 
     class Meta():
         db_table = 'indication'
+
+# class CancerExpression(models.Model):
+#     cancer = models.ForeignKey('CancerType', on_delete=models.CASCADE)
+#     expression = models.ForeignKey('ExpressionValue', on_delete=models.CASCADE)
+#
+#     def __str__(self):
+#         return self.cancer.slug
+#
+#     class Meta():
+#         db_table = 'cancer_expression'

@@ -1,5 +1,6 @@
 {% extends "home/base.html" %}
 {% load static %}
+
 {% block addon_css %}
 <link rel="stylesheet" href="{% static 'home/css/jquery.dataTables.min.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/jquery.dataTables.yadcf.css' %}" type="text/css">
@@ -115,6 +116,7 @@
   </div>
 </div>
 <br>
+{% endblock %}
 
 {% block popup %}
 <div class="modal" id="references">
