@@ -10,7 +10,9 @@ urlpatterns = [
     url(r'^nhs/section/(?P<slug>[\w|\W]+)/$',  views.nhs_section, name='nhs_section'),
     url(r'^nhs/(?P<slug>[\w|\W]+)/$',  views.nhs_drug, name='nhs_drug'),
     url(r'^indication/(?P<code>[\w|\W]+)/$',  views.indication_detail, name='indication'),
-
-    url(r'^NewDrugsBrowser', views.NewDrugsBrowser.as_view(), name='NewDrugsBrowser'),
+    url(r'^DrugsIndicationsTargets', views.Drugs_Indications_Targets.as_view(), name='Drugs_Indications_Targets'),
+    url(r'^Drugs', views.Drugs.as_view(), name='Drugs'),
+    url(r'^Indications', views.Indications.as_view(), name='Indications'),
+    url(r'^Targets', views.Targets.as_view(), name='Targets'),
     url(r'^TargetSelectionTool', views.TargetSelectionTool.as_view(), name='TargetSelectionTool')
 ]

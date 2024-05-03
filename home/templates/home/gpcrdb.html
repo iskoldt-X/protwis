@@ -169,7 +169,16 @@
         <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Drug statistics</a></li>
         <li class="divider"></li>
         <li class="nav-header disabled"><a>New Drugs tabs</a></li>
-        <li><a href="{{ hosts.gpcr }}/drugs/NewDrugsBrowser">Drugs, Indications & Targets</a></li>
+        
+        <li class="dropdown-submenu">
+            <a tabindex="0" href="#">Drugs, Indications & Targets</a>
+            <ul class="dropdown-menu">
+                <li><a href="{{ hosts.gpcr }}/drugs/DrugsIndicationsTargets">Drugs, Indications & Targets</a></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/Drugs">Drugs</a></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/Indications">Indications</a></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/Targets">Targets</a></li>
+            </ul>
+        </li>
         <li><a href="{{ hosts.gpcr }}/drugs/TargetSelectionTool">Target Selection Tool</a></li>
         <li class="divider"></li>
         <!-- DEPRECATED FUNCTION
