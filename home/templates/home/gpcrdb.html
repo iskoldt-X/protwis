@@ -162,8 +162,33 @@
         <li class="divider"></li>
         <li class="nav-header disabled"><a>ENDOGENOUS LIGANDS</a></li>
         <li><a href="{{ hosts.gpcr }}/ligand/endogenousbrowser">Endogenous ligands (GtP)</a></li>
+
         <li class="divider"></li>
         <li class="nav-header disabled"><a>DRUGS & AGENTS IN TRIAL</a></li>
+
+        <li class="dropdown-submenu">
+            <a tabindex="0" href="#">Drug & Agents in trial</a>
+            <ul class="dropdown-menu">
+                <li><a href="{{ hosts.gpcr }}/drugs/drugs_venn">Agents/drugs by phase I-IV<a/></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Agent/drug page</a></li>
+            </ul>
+        </li>
+        <li class="dropdown-submenu">
+            <a tabindex="0" href="#">Targets</a>
+            <ul class="dropdown-menu">
+                <li><a href="{{ hosts.gpcr }}/drugs/targets_venn">Targets by phase I-IV<a/></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">The drugged GPCRome<a/></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Target page</a></li>
+                <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Target selection tool</a></li>
+            </ul>
+        </li>
+        <li class="dropdown-submenu">
+            <a tabindex="0" href="#">Diseases</a>
+            <ul class="dropdown-menu">
+                <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Disease page</a></li>
+            </ul>
+        </li>
+        <li class="divider"></li>
         <li><a href="{{ hosts.gpcr }}/drugs/drugbrowser">Drugs, targets <span>&#38;</span> indications</a></li>
         <li><a href="{{ hosts.gpcr }}/drugs/drugmapping">Drug target tree</a></li>
         <li><a href="{{ hosts.gpcr }}/drugs/drugstatistics">Drug statistics</a></li>
