@@ -106,7 +106,7 @@ function copyToClipboard(txt) {
         datatable = $("#receptor_table").DataTable(table_options);
 
         var yadcf_options = [];
-        var list = [0, 1, 2, 3, 4];
+        var list = [0, 1, 2, 3, 4, 5, 6, 7];
         for (i in list){
           yadcf_options.push({
             column_number : list[i],
@@ -115,7 +115,7 @@ function copyToClipboard(txt) {
             filter_default_label: "",
             filter_reset_button_text: false,
             select_type_options: {
-                width: "100%",
+                width: "80%",
             }
           });
         }
@@ -155,17 +155,21 @@ function copyToClipboard(txt) {
                 var value = "";
                 datatable.clear().draw();
                 for (val in this.list) {
-                  item = this.list[val].split('_')[0].toUpperCase();
-                  datatable.row.add([
-                    dict[item][0],
-                    dict[item][1],
-                    dict[item][2],
-                    dict[item][3],
-                    dict[item][4],
-                    dict[item][5],
-                    dict[item][6],
-                    dict[item][7],
-                  ]);
+                  item = this.list[val].toLowerCase().replace(/^\w/, c => c.toUpperCase());
+                  console.log(item);
+                  console.log(dict[item]);
+                  for (let record of dict[item]){
+                    datatable.row.add([
+                      record[0],
+                      record[1],
+                      record[2],
+                      record[3],
+                      record[4],
+                      record[5],
+                      record[6],
+                      record[7],
+                    ]);
+                  }
                   value += this.list[val] + " ";
                 }
                 datatable.draw();
@@ -278,6 +282,12 @@ function copyToClipboard(txt) {
                 "white-space": "nowrap"  // Prevents the text from breaking into multiple lines
             });
             $(".number-empty").html("-");
+            $("#frame").css({
+              "left": "50%"
+            });
+            $("#module-export").css({
+              "left": "750px"
+            });
           }
 
         updateJvenn(gprotein_ID)
@@ -392,31 +402,8 @@ function copyToClipboard(txt) {
   canvas#test-canvas {
     display: none;
   }
-</style>
 
-<script>
-  function ToTable(list) {
-    var dict = {{ drug_dictionary|safe }};
-    datatable.clear().draw();
-    var parse = list.split(" ").filter(Boolean);
-    for (val in parse) {
-      item = parse[val].split('_')[0].toUpperCase();
-      datatable.row.add([
-        dict[item][0],
-        dict[item][1],
-        dict[item][2],
-        dict[item][3],
-        dict[item][4],
-        dict[item][5],
-        dict[item][6],
-        dict[item][7],
-      ]);
-    }
-    datatable.draw();
-    $( "#copytoclip" ).unbind( "click" );
-    $( "#copytoclip" ).bind( "click", function(event){copyToClipboard(list);});
-  }
-</script>
+</style>
 <script language='Javascript'>
 function highlightBG(element, color) {
     element.style.backgroundColor = color;
@@ -428,7 +415,7 @@ function linkLikeClick(element, color) {
 </script>
 <div class="container">
   <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-12" style="justify-content: center;">
       <div class="text-center">
         {% if layout == "drugs" %}
         <p>	Click a Venn or table area to retrieve the agents/drugs with the given clinical phase profile. </p>
@@ -436,40 +423,40 @@ function linkLikeClick(element, color) {
         <p>	Click a Venn or table area to retrieve the receptors with the given clinical phase profile. </p>
         {% endif %}
       </div>
+      <div id="jvenn-container"></div>
     </div>
-      <div class="col-md-6">
-        <div id="jvenn-container"></div>
-      </div>
-      <div class="col-md-6">
-        <table class="compact text-nowrap" id="receptor_table">
-          <thead>
-            <tr>
-                <th>Ligand name</th>
-                <th>Ligand type</th>
-                <th>Receptor Family</th>
-                <th>Receptor<br>(UniProt)</th>
-                <th>Receptor<br>(GtP)</th>
-                <th>Clinical phase</th>
-                <th>Indication</th>
-                <th>ICD code</th>
-            </tr>
-            <tr>
-              <th></th>
-              <th></th>
-              <th></th>
-              <th></th>
-              <th></th>
-              <th></th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-        </table>
-        <button id="copytoclip" type="button" class="btn btn-info" style="float:right;margin-top:10px;"> Copy receptor names to clipboard </button>
-        <input id="cb" type="text" hidden>
-        <canvas id="test-canvas"></canvas>
-      </div>
+  </div>
+  <div class="row">
+    <div class="col-md-12">
+      <table class="compact text-nowrap" id="receptor_table">
+        <thead>
+          <tr>
+              <th>Ligand name</th>
+              <th>Ligand type</th>
+              <th>Receptor Family</th>
+              <th>Receptor<br>(UniProt)</th>
+              <th>Receptor<br>(GtP)</th>
+              <th>Clinical phase</th>
+              <th>Indication</th>
+              <th>ICD code</th>
+          </tr>
+          <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+      </table>
+      <button id="copytoclip" type="button" class="btn btn-info" style="float:right;margin-top:10px;"> Copy receptor names to clipboard </button>
+      <input id="cb" type="text" hidden>
+      <canvas id="test-canvas"></canvas>
     </div>
+  </div>
   <hr>
 </div>
 

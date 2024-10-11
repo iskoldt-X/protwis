@@ -373,8 +373,8 @@ def Venn(request, origin="both"):
             for item in receptor_phases:
                 if item[0] not in phases_dict.keys():
                     phases_dict[item[0]] = []
-                phases_dict[item[0]].append(item[1])
-            phases_dict = {key_mapping[k]: v for k, v in phases_dict.items()}
+                phases_dict[item[0]].append(item[1].split("_")[0].upper())
+            phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
 
@@ -403,9 +403,22 @@ def Venn(request, origin="both"):
             clinical_phase = p.indication_max_phase
             indication_name = p.indication.name
             indication_code = p.indication.code.index
-            drug_dictionary[lig_name] = [lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code]
+            # Create a tuple to store the values
+            drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
+            # Initialize key if it doesn't exist
+            if origin == 'drugs':
+                key = lig_name
+            else:
+                key = rec_uniprot.lower().capitalize()
+            if key not in drug_dictionary:
+                drug_dictionary[key] = []
+            # Check for duplicates before adding
+            if drug_entry not in drug_dictionary[key]:
+                drug_dictionary[key].append(drug_entry)
+
         print('Check 7')
         context["drug_dictionary"] = json.dumps(drug_dictionary)
+        print(drug_dictionary)
     # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
     context["layout"] = origin
 
