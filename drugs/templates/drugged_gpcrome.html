@@ -9,16 +9,16 @@
       background: linear-gradient(to right, white 0%, black 100%)
   }
   .color_phase1 {
-    color: "f5bcbf";
+    color: #f5bcbf;
   }
   .color_phase2 {
-    color: "f17270";
+    color: #f17270;
   }
   .color_phase3 {
-    color: "dd2628";
+    color: #dd2628;
   }
   .color_phase4 {
-    color: "2c87c8";
+    color: #2c87c8;
   }
 </style>
 {% endblock %}
@@ -65,7 +65,7 @@
         <b>Clinical phase</b> <br/>
             <span class="color_phase1">&#9644; <b>Phase 1</b></span>
             <span class="color_phase2">&#9644; <b>Phase 2</b></span>
-            <span class="color_phase3">&#9644; <b>Phase 3/b></span>
+            <span class="color_phase3">&#9644; <b>Phase 3</b></span>
             <span class="color_phase4">&#9644; <b>Phase 4</b></span>
       </div>
     </div>
@@ -143,7 +143,7 @@ GPCRome_fill_avg = (GPCRome_fill_minValue+GPCRome_fill_maxValue)/2
 var GPCRomes_styling = {
   Spacing: true,
   family: true,
-  datatype: "Continuous",
+  datatype: "Druggome",
   minValue: GPCRome_fill_minValue,
   median_value: GPCRome_fill_medianValue,
   avg_value: GPCRome_fill_avg,

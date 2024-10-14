@@ -3313,7 +3313,16 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     if (value === "ARRS") return "cornflowerblue";
                     if (value === "empty") return "white";
                     return "none";  // Make the slice invisible if the value is ""
+                } else if (datatype === "Druggome") {
+                    // Handle discrete data or default case
+                    if (value === 1) return "#f5bcbf";
+                    if (value === 2) return "#f17270";
+                    if (value === 3) return "#dd2628";
+                    if (value === 4) return "#2c87c8";
+                    if (value === 0) return "white";
+                    return "none";  // Make the slice invisible if the value is ""
                 }
+
             })
             .style("stroke", (d) => {
                 const value = fill_data[d.data]?.Value1;
