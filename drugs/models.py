@@ -30,6 +30,7 @@ class Drugs(models.Model):
 class Drugs2024(models.Model):
     target = models.ForeignKey('protein.Protein', on_delete=models.CASCADE)
     indication = models.ForeignKey('Indication', on_delete=models.CASCADE)
+    # indication = models.ManyToManyField('Indication')
     ligand = models.ForeignKey('ligand.Ligand', on_delete=models.CASCADE)
     charge = models.CharField(max_length=5, null=True)
     complexity = models.FloatField(max_length=4, null=True)
@@ -37,6 +38,7 @@ class Drugs2024(models.Model):
     drug_status = models.CharField(max_length=15, null=True)
     approval_year = models.IntegerField(null=True)
     indication_max_phase = models.IntegerField(null=True)
+    indication_status = models.CharField(max_length=15, null=True)
     moa = models.ForeignKey('ligand.LigandRole', on_delete=models.CASCADE, null=True)
     genetic_association = models.CharField(max_length=30, null=True)
     affected_pathway = models.CharField(max_length=30, null=True)
@@ -51,8 +53,9 @@ class Drugs2024(models.Model):
     class Meta():
         db_table = 'drugs_new'
 
+#Do we need to fix this model structure?
 class Indication(models.Model):
-    name =  models.CharField(max_length=70)
+    name =  models.CharField(max_length=150)
     code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
 
     def __str__(self):

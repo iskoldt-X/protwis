@@ -21,7 +21,7 @@
   }
   .dataTables_length {
     position: relative;
-    white-space:pre-wrap; 
+    white-space:pre-wrap;
     /* float: none !important; */
     /* text-align: center; */
   }
@@ -75,13 +75,13 @@
   <table width="100%" class="display compact" id="Table_example">
   <!-- <table width="100%" class="display" id="Table_example"> -->
     <thead>
-      <!-- !!! Stupid work around !!! Fixed headers and resposive tables havent work out the issue of complex headers yet, 
-        so inserting a "dummy header row" this allows the table to correspond correctly. 
+      <!-- !!! Stupid work around !!! Fixed headers and resposive tables havent work out the issue of complex headers yet,
+        so inserting a "dummy header row" this allows the table to correspond correctly.
         Should have been fixed by patch 2.1.0 responsive, but still not working..." -->
       <script type="text/javascript">
           var timerStart = Date.now();
       </script>
-      <tr> 
+      <tr>
         <td style="text-align: center" data-dt-order="disable"></td>
         <td style="text-align: center" data-dt-order="disable"></td>
         <td style="text-align: center" data-dt-order="disable"></td>
@@ -130,7 +130,7 @@
       </tr>
     </thead>
     <tbody>
-      
+
     </tbody>
   </table>
 </div>
@@ -163,7 +163,7 @@
 
 var drugs_data = {{drug_data|safe}};
 var table1;
- 
+
 // ######################
 // ## Ordering schemes ##
 // ######################
@@ -180,21 +180,21 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
 // ###############################
 
   $(document).ready(function() {
-    
+
   // #############################
   // ### Create the Datatable  ###
   // #############################
 
-  
+
   var table1 = $('#Table_example').on( 'draw.dt', function () {
     $("#containerexample").attr("id", "container"); $("#loadercontainer").css("display","none");
   } ).DataTable({
     // ####################
     // ## Table settings ##
     // ####################
-    
+
     // ## Layout positions ##
-    dom: 
+    dom:
     "<'row'<'col-sm-12 dt-btn'B>>" +
      "<'row'<'col-sm-6'l><'col-sm-3'><'col-sm-3'f>>" +
      "<'row'<'col-sm-12'tr>>" + "<'row'<'col-sm-12'ip>>",
@@ -220,13 +220,13 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
     responsive: true,
     // fixedColumns: true,
     // fixedHeader: true,
-    "sScrollX": "200%", 
+    "sScrollX": "200%",
     "sScrollXInner": "200%",
-    
+
     // ###################
     // ## Load the data ##
     // ###################
-    
+
     data: drugs_data,
 
     // ###################
@@ -234,7 +234,7 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
     // ###################
 
     columns:[
-    
+
     // #####################
     // #  Column 1 - Drugs #
     // #####################
@@ -250,17 +250,17 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
     {data: "Indication",
       name: "Indication",
       width:'10%'},
-    
+
     // #####################################
     // #  Column 3 - Target Name (Uniprot) #
     // #####################################
-    
+
     {data: "Protein_name",
       render: function (data, type, row, meta) { // To put links into the table data use the render function.
         data = '<a href="https://www.uniprot.org/uniprot/' + row.Protein_uniprot + '" target="_blank">' + data + '</a>';
         return data},
-      width:'8%'}, 
-    
+      width:'8%'},
+
     // ######################################
     // #  Column 4 - Receptor Name (GPCRdb) #
     // ######################################
@@ -273,12 +273,12 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
         return data // "data-toggle="popover" title="something...." data-content="interesting info" data-trigger="hover" is the hover over toggle tag
       },
       width: '10%'},
-    
+
     // #############################
     // #  Column 5 - Target Class  #
     // #############################
 
-    {data: "Protein_class", 
+    {data: "Protein_class",
       name:"Protein_class",
       width: '10%'},
 
@@ -286,42 +286,42 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
     // # Column 6 - Target Family  #
     // #############################
 
-    {data: "Protein_family", 
+    {data: "Protein_family",
       name:"Protein_family",
       width: '10%'},
-    
+
     // ###########################
     // # Column 7 - Drug Status  #
     // ###########################
 
-    {data: "Drug_status", 
+    {data: "Drug_status",
       name:"Drug_status",
       width: '10%'},
-    
+
     // #####################
     // # Column 8 - Phase  #
     // #####################
 
-    {data: "Indication_max_phase", 
+    {data: "Indication_max_phase",
       name:"Indication_max_phase",
       width: '8%'},
-    
+
     // ################################
     // # Column 9 - Year of approval  #
     // ################################
 
-    {data: "Approval_year", 
+    {data: "Approval_year",
       name:"Approval_year",
       width: '8%'},
 
-    // ##########################  
+    // ##########################
     // # Column 10 - Drug type  #
     // ##########################
 
     {"data": "Drug_type",
       name:"Drug_type",
       width: '8%'},
-    
+
     // ####################################
     // # Column 11 - Mechanism of action  #
     // ####################################
@@ -340,7 +340,7 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
       { type: namesType, targets: 10 },
       {className: "dt-center expand", "targets": "_all"}
       ],
-    
+
     // ###########################################
     // ## Needed for the popover toggle of data ##
     // ###########################################
@@ -348,26 +348,26 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
     fnDrawCallback: function() {
       $('[data-toggle="popover"]').popover();
     },
-    
+
     // ############################
     // ### Table control button ###
     // ############################
 
     buttons: [
-      { 
+      {
         text: 'Table control',
         extend: 'collection',
-        buttons: [{ 
+        buttons: [{
           text: 'Toggle Receptor Info',
           action: function ( e, dt, node, config ) {
-            dt.column( 3 ).visible( ! dt.column( 3 ).visible() );  
+            dt.column( 3 ).visible( ! dt.column( 3 ).visible() );
             dt.column( 4 ).visible( ! dt.column( 4 ).visible() );
             dt.column( 5 ).visible( ! dt.column( 5 ).visible() );
             // dt.column( 6 ).visible( ! dt.column( 6 ).visible() );
             this.active(!this.active());
           }
         },
-        { 
+        {
           text: 'Toggle Clinical Info',
           action: function ( e, dt, node, config ) {
               dt.column( 6 ).visible( ! dt.column( 6 ).visible() );
@@ -404,7 +404,7 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
           }
                 }], // End of buttons
         }); // End of DataTables
-        
+
         // #############################
         // ###    Create Filters     ###
         // #############################
@@ -419,15 +419,15 @@ var numbersType = $.fn.dataTable.absoluteOrderNumber( [
         // #############################
         // ###   Initialize filters  ###
         // #############################
-        
+
         createDropdownFilters(table1,column_filters);
-        
-        
+
+
         // ## run time printer ##
         const time = Date.now();
         const time_now = time-timerStart;
         const time_s = (time_now*0.001).toFixed(2);
-        console.log("all done in: "+time_s+'s'); 
+        console.log("all done in: "+time_s+'s');
 }); // End document ready function
 
 
@@ -441,5 +441,3 @@ function reset_all() {
 }
 </script>
 {%endblock%}
-
-

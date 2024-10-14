@@ -1,6 +1,6 @@
 /*! Norges Databtables Filter Builder
  * Verison 1.0.0 - 2024
- * Architect: Søren Norge Andreassen 
+ * Architect: Søren Norge Andreassen
 */
 
 
@@ -18,7 +18,7 @@ $.fn.dataTable.Api.register('column().searchable()', function() {
 });
 
 // ##############################################################
-// ##                 Create Column filters                    ## 
+// ##                 Create Column filters                    ##
 // ##############################################################
 
 function CreateColumnFilters(datatable_selector,column_number, column_range, filter_type, width) {
@@ -35,7 +35,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
 
     if ($.fn.dataTable.isDataTable(datatable_selector)) {
         array_check[0] = true;
-    } else { 
+    } else {
         console.log("Why did you not pass a valid DataTable? You might have mispelled, no worries, or go read up on $.fn.dataTable.isDataTable() and try again.")
     }
 
@@ -61,7 +61,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
         // ######################################################################
         // # Check if column_number is an integer in the range of the DataTable #
         // ######################################################################
-        
+
         if (Number.isInteger(column_number) && column_number >= 0 && column_number <= column_number_max) {
             
             // #################################################################
@@ -69,7 +69,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
             // #################################################################
 
             array_check[1] = true;
-        
+
         } else {
 
             // # Write to console that an incorrect column number is set (array check for column number remains false) #
@@ -91,7 +91,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
         }
 
         // ######################################################################
-        // #                Check if column_range is an integer                 # 
+        // #                Check if column_range is an integer                 #
         // #            that does not exceed the DataTable's max number         #
         // #          of columns from the starting point of column_number       #
         // ######################################################################
@@ -131,7 +131,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
         }
         // Check if all conditions are met
         const allConditionsMet = array_check.every(Boolean);
-        
+
         // Construct and return the filter array
         if (allConditionsMet == true) {
             if (column_range > 1) {
@@ -153,7 +153,7 @@ function CreateColumnFilters(datatable_selector,column_number, column_range, fil
         } else {
             console.log(`will not pass filter array of: [${"dt assigned value"},${column_number},${column_range},${filter_type}]`)
         }
-        
+
     }
 }
 
@@ -166,7 +166,7 @@ function createDropdownFilters(api,column_filters) {
     // ###################################
     // ## check if the input is correct ##
     // ###################################
-    
+
     // ################################################
     // # Check if the filter elements are all correct #
     // ################################################
@@ -236,11 +236,11 @@ function createDropdownFilters(api,column_filters) {
         // ####################################################
 
         for (const column_filter of column_filters) {
-            
+
             // ###################################
             // ###     Initialize values       ###
             // ###################################
-            
+
             const column_number = column_filter[0];
 
             const filter_type = column_filter[2];

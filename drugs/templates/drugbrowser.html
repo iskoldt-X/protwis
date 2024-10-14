@@ -1,5 +1,6 @@
 {% extends "home/base.html" %}
 {% load static %}
+
 {% block addon_css %}
 <link rel="stylesheet" href="{% static 'home/css/jquery.dataTables.min.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/jquery.dataTables.yadcf.css' %}" type="text/css">
@@ -24,7 +25,7 @@
     margin-bottom: 2px;
     width: 100%;
   }
- 
+
   tr.no-border-bottom th {
     text-align: center;
     border-left: 1px solid black;
@@ -52,7 +53,7 @@
                   <tr class="no-border-bottom">
                     <th colspan="2" style="border-left: none;">DRUGS</th>
                     <th colspan="5">RECEPTOR</th>
-                    <th colspan="7">CLINICAL INFORMATION</th>  
+                    <th colspan="7">CLINICAL INFORMATION</th>
                   </tr>
 
                   <!-- yadcf filter rows -->
@@ -115,6 +116,7 @@
   </div>
 </div>
 <br>
+{% endblock %}
 
 {% block popup %}
 <div class="modal" id="references">
@@ -130,7 +132,6 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block addon_js %}
@@ -170,12 +171,12 @@ $('#references').on('show.bs.modal', function(e) {
             { targets: '_all', width: '100px' }
           ]
         }
-      ); 
+      );
       let column_filters = [];
       column_filters = column_filters.concat(createYADCFfilters(0, 3,"multi_select", "select2", "Select", false, null, null, null, 'data-filter'));
       column_filters = column_filters.concat(createYADCFfilters(3, 10,"multi_select", select_type="select2", filter_default_label="Select"));
       column_filters[12]["data"] = ["yes", "no"];
-      // YADCF filter 
+      // YADCF filter
       yadcf.init(
         table, column_filters
       );

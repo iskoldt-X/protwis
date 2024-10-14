@@ -3,6 +3,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.conf import settings
 from django.db.models import Count, Max, Q, F, Value, CharField, Case, When, IntegerField
 from django.db.models import Count, Max
+from django.core.cache import cache
+from django.db import connection, reset_queries
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 
@@ -324,13 +326,103 @@ class DrugBrowser(TemplateView):
 
         return context
 
+def DrugsVenn(request):
+    return Venn(request, "drugs")
+
+def TargetVenn(request):
+    return Venn(request, "targets")
 
 
+def Venn(request, origin="both"):
+    name_of_cache = 'venn_' + origin
+    context = cache.get(name_of_cache)
+    # NOTE cache disabled for development only!
+    # context = None
+    if context == None:
+        context = OrderedDict()
 
+    # Here we need to generate fata for three different Venn diagrams plus associated tables:
+    # if origin is drugs, we need a Venn diagram showing drugs across different clinical phases
+    # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
+    # if origin is targets, we need a single Venn diagram showing targets across different clinical phases
+    # the Venn design has to be the same of the SignProt pages
+        print('Check 1')
+        phases_dict = {}
+        key_mapping = {
+            1: "Phase I",
+            2: "Phase II",
+            3: "Phase III",
+            4: "Phase IV"
+        }
+        if origin == "drugs":
+            print('Check 2')
+            # Call to get drugs in each maximum phase
+            drug_phases = Drugs2024.objects.all().values_list('indication_max_phase','ligand_id__name').distinct()
+            for item in drug_phases:
+                if item[0] not in phases_dict.keys():
+                    phases_dict[item[0]] = []
+                phases_dict[item[0]].append(item[1])
+            phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
+            print('Check 3')
+            for key in phases_dict.keys():
+                phases_dict[key] = '\n'.join(phases_dict[key])
+            print('Check 4')
+        else:
+            # Call to get receptors in each maximum phase
+            receptor_phases = Drugs2024.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
+            for item in receptor_phases:
+                if item[0] not in phases_dict.keys():
+                    phases_dict[item[0]] = []
+                phases_dict[item[0]].append(item[1].split("_")[0].upper())
+            phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
+            for key in phases_dict.keys():
+                phases_dict[key] = '\n'.join(phases_dict[key])
 
+        print('Check 5')
 
+        context["phases_dict"] = phases_dict
+        context["phases_dict_keys"] = list(phases_dict.keys())
 
+        # Collect drugs information
+        drugs_panel = Drugs2024.objects.all().select_related(
+                                                            "ligand",
+                                                            "moa",
+                                                            "target__family__parent",
+                                                            "target",
+                                                            "indication__code"
+                                                            )
+        print('Check 6')
+        drug_dictionary = {}
+        for p in drugs_panel:
+            # Collect receptor data
+            lig_name = p.ligand.name.lower().capitalize()
+            lig_type = p.moa.name
+            rec_family = p.target.family.parent.short()
+            rec_uniprot = p.target.entry_short()
+            rec_iuphar = p.target.family.name.replace("receptor", '').replace("<i>","").replace("</i>","").strip()
+            clinical_phase = p.indication_max_phase
+            indication_name = p.indication.name
+            indication_code = p.indication.code.index
+            # Create a tuple to store the values
+            drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
+            # Initialize key if it doesn't exist
+            if origin == 'drugs':
+                key = lig_name
+            else:
+                key = rec_uniprot.lower().capitalize()
+            if key not in drug_dictionary:
+                drug_dictionary[key] = []
+            # Check for duplicates before adding
+            if drug_entry not in drug_dictionary[key]:
+                drug_dictionary[key].append(drug_entry)
 
+        print('Check 7')
+        context["drug_dictionary"] = json.dumps(drug_dictionary)
+        print(drug_dictionary)
+    # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
+    context["layout"] = origin
+
+    return render(request,'venn_diagrams.html',context)
 
 ##########################################
 #### Drugs, Indications, and Targets #####
@@ -342,10 +434,10 @@ class Drugs_Indications_Targets(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get data - server side - Queries #
         Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','target__family__parent__parent','target__family__parent__parent__parent','indication','indication__code','ligand','ligand__ligand_type','moa')
-        # GtoPdb = 
+        # GtoPdb =
         # Possible addons: 'target__family__parent','target__family__parent__parent','target__family__parent__parent__parent','indication','ligand','moa'
         # initialize context list for pushing data to html #
         context_data_browser = list()
@@ -567,9 +659,9 @@ class TargetSelectionTool(TemplateView):
                     Active=Count(Case(When(state_id=2, then=1), output_field=IntegerField())),
                     Intermediate=Count(Case(When(state_id=3, then=1), output_field=IntegerField())),
                     Other=Count(Case(When(state_id=4, then=1), output_field=IntegerField())),
-                ).order_by('protein_conformation__protein__parent__id') # Fetches only human structures --> make sure we dont want other species 
-        
-        
+                ).order_by('protein_conformation__protein__parent__id') # Fetches only human structures --> make sure we dont want other species
+
+
         #'target__family__parent__parent','target__family__parent__parent__parent','indication','indication__code','ligand','moa'
         # Context lists for pushing data #
         context_target_selection = list()
@@ -752,7 +844,7 @@ class TargetSelectionTool(TemplateView):
                 }
             # Append context data into list #
             context_data_tissue.append(jsondata_tissue)
-        # Create context data for tissue expression data # 
+        # Create context data for tissue expression data #
         context['Tissue_data'] = context_data_tissue
         context['Tissue_header_list'] = ['Adipose tissue',
                                        'Adrenal gland',

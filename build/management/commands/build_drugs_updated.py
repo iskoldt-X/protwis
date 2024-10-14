@@ -97,7 +97,7 @@ class Command(BaseCommand):
 
     def setup_data():
         #Loading the two csv files
-        all_data = Command.read_csv_data('03_FINAL_DATA_UPDATED.csv')
+        all_data = Command.read_csv_data('03_FinalData.csv') #old one:03_FINAL_DATA_UPDATED.csv new one:03_FinalData.csv
         target_data = Command.read_csv_data('08_TargetPrioritazion_AllData.csv')
         #getting the cancer data for each protein
         cancer_data = target_data[['entry_name','Cancer','MaxExpression']]
@@ -109,14 +109,14 @@ class Command(BaseCommand):
         #Clean the tissues data from NaN data columns
         tissues_data = tissues_data.dropna(subset=[col for col in tissues_data.columns if col.startswith('Tissue')], how='all').drop_duplicates()
         #getting the indications data from the all_data file
-        indication_data = all_data[['IndicationName', 'IndicationID']].drop_duplicates()
+        indication_data = all_data[['ICD_Title', 'ICD_Code', 'IndicationStatus', 'IndicationMaxPhase']].drop_duplicates()
         #remove cancer and tissue columns from data
-        columns_to_keep = ['entry_name', 'IndicationID', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score']
+        columns_to_keep = ['entry_name', 'ICD_Code', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score']
         #define a filtered version of the target_data dataframe
         shaved_data = target_data[columns_to_keep]
         shaved_data = shaved_data.dropna(subset=['genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score'], how='all').drop_duplicates()
         #merge dataframes to have everything connected for Drugs model
-        drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'IndicationID'], how='inner')
+        drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'ICD_Code'], how='inner')
         #Drop the duplicates
         drug_data = drug_data.drop_duplicates()
         return indication_data, tissues_data, cancer_data, drug_data
@@ -133,10 +133,10 @@ class Command(BaseCommand):
 
     def generate_tissue_expression(tissues_data):
         #process the column headers
-        tissues_data.columns = [Command.transform_column_name(col) for col in tissues_data.columns]
+        tissues_data.columns = [transform_column_name(col) for col in tissues_data.columns]
         tissues = list(tissues_data.columns)[1:]
         for i, row in tissues_data.iterrows():
-            protein = Command.fetch_protein(row['entry_name'])
+            protein = fetch_protein(row['entry_name'])
             for tissue in tissues:
                 slug_tissue = slugify(tissue)
                 t, _ = Tissues.objects.get_or_create(slug=slug_tissue, name=tissue)
@@ -145,17 +145,29 @@ class Command(BaseCommand):
 
     def generate_indications(indication_data):
         #Create the reference for the Ontology web resource
-        defaults = {
+        EMBL = {
             'name': 'EMBL Ontology',
             'url': 'https://www.ebi.ac.uk/ols4/ontologies/efo/classes?short_form=$index'
         }
-        wr, created = WebResource.objects.get_or_create(slug='indication', defaults=defaults)
+        #Create the reference for the ICD Ontology web resource
+        ICD = {
+            'name': 'ICD-11 Ontology',
+            'url': 'https://icd.who.int/browse/2024-01/mms/en#$index'
+        }
+        #Create the reference for the ATC Ontology web resource
+        ATC = {
+            'name': 'ATC Ontology',
+            'url': 'https://atcddd.fhi.no/atc_ddd_index/?code=$index'
+        }
+        wr_embl, created = WebResource.objects.get_or_create(slug='indication_embl', defaults=EMBL)
+        wr_icd, created = WebResource.objects.get_or_create(slug='indication_icd', defaults=ICD)
+        wr_atc, created = WebResource.objects.get_or_create(slug='indication_atc', defaults=ATC)
         #Define the Web Resource
-        web_resource = WebResource.objects.get(slug='indication')
+        web_resource = WebResource.objects.get(slug='indication_icd')
         for i, row in indication_data.iterrows():
             indication = Indication()
-            indication.name = row['IndicationName']
-            indication.code, created = WebLink.objects.get_or_create(index=row['IndicationID'], web_resource=web_resource)
+            indication.name = row['ICD_Title']
+            indication.code, created = WebLink.objects.get_or_create(index=row['ICD_Code'], web_resource=web_resource)
             indication.save()
 
     def generate_cancer_prog(cancer_data):
@@ -184,9 +196,12 @@ class Command(BaseCommand):
             #Fetch the reference protein
             protein = Command.fetch_protein(row['entry_name'])
             #fetch the indication
-            indication = Command.fetch_indication(row['IndicationName'])
+            indication = Command.fetch_indication(row['ICD_Title'])
             #Fetch the ligand action (role)
             moa = Command.fetch_role(row['Action'])
+            print(moa)
+            if not moa:
+                break
             #TODO: adjust the length of float numbers
             #TODO: adjust and rename the numerical values of animal_model and affected_pathway
             #to be human readable instead of numerical values (ask David)
@@ -201,6 +216,7 @@ class Command(BaseCommand):
                                                       similarity_to_model=row['animal_model'] if pd.notna(row['animal_model']) else None,
                                                       novelty_score=row['novelty_score'],
                                                       genetic_association=row['genetic_association'] if pd.notna(row['genetic_association']) else None,
+                                                      indication_status=row['IndicationStatus'],
                                                       moa=moa,
                                                       indication=indication,
                                                       ligand=ligand,
@@ -258,7 +274,7 @@ class Command(BaseCommand):
             if check == None:
                 type = Command.fetch_type(row['Drug_Type'])
                 #TODO: adjust the length of float numbers
-                check, _ = Ligand.objects.get_or_create(name=row['Name'],
+                check, _ = Ligand.objects.get_or_create(name=row['ligand_name'],
                                                         ambiguous_alias=False,
                                                         hacc=row['HBondAceptorCount'] if pd.notna(row['HBondAceptorCount']) else None,
                                                         hdon=row['HBondDonorCount'] if pd.notna(row['HBondDonorCount']) else None,
@@ -304,16 +320,17 @@ class Command(BaseCommand):
         fetch ligand role based on action, from a conversion dict
         requires: action
         """
-        conversion = {'antagonist': 'Antagonist',
-                      'agonist': 'Agonist',
-                      'inverse agonist': 'Inverse agonist',
+        conversion = {'Antagonist': 'Antagonist',
+                      'Agonist': 'Agonist',
+                      'Inverse agonist': 'Inverse agonist',
+                      'Partial agonist': 'Partial agonist',
                       'partial agonist': 'Partial agonist',
                       'unknown': 'unknown',
-                      'negative allosteric modulator': 'NAM',
-                      'modulator': 'NAM',
-                      'binding agent': 'Binding - unknown pharmacological activity',
-                      'inhibitor': 'Antagonist',
-                      'positive allosteric modulator': 'PAM',
+                      'Modulator': 'NAM',
+                      'NAM': 'NAM',
+                      'Binding agent': 'Binding - unknown pharmacological activity',
+                      'Inhibitor': 'Antagonist',
+                      'PAM': 'PAM',
                       'partial antagonist': 'Antagonist',
                       'cross-linking agent': 'Agonist'
                       }
