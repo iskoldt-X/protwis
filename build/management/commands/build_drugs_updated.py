@@ -199,7 +199,6 @@ class Command(BaseCommand):
             indication = Command.fetch_indication(row['ICD_Title'])
             #Fetch the ligand action (role)
             moa = Command.fetch_role(row['Action'])
-            print(moa)
             if not moa:
                 break
             #TODO: adjust the length of float numbers

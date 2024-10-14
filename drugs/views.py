@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.db import connection, reset_queries
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
-
+from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
@@ -428,7 +428,32 @@ def Venn(request, origin="both"):
 #### Drugs, Indications, and Targets #####
 ##########################################
 
-class Drugs_Indications_Targets(TemplateView):
+class DrugSectionSelection(AbsTargetSelection):
+    # Left panel
+    page = 'drugs'
+    step = 1
+    number_of_steps = 1
+    template_name = 'common/selection_drugs.html'
+    filters = False
+    import_export_box = False
+    target_input = False
+    psets = False
+    family_tree = False
+    type_of_selection = 'ligands'
+    selection_only_receptors = False
+    title = "Drug search"
+    description = 'Search by drug name or database ID (GPCRdb, GtP, ChEMBL)'
+
+    buttons = {
+        'continue' : {
+            'label' : 'Show ligand information',
+            'url' : '',
+            'color' : 'success',
+            }
+        }
+
+
+class NewDrugsBrowser(TemplateView):
     # Template using this class #
     template_name = 'Drugs_Indications_Targets.html'
     # Get context for hmtl usage #

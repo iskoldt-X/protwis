@@ -13,7 +13,7 @@ urlpatterns = [
 
     #url(r'^NewDrugsBrowser', views.NewDrugsBrowser.as_view(), name='NewDrugsBrowser'),
     ## These three can be the same view maybe? ##
-    # url(r'^drug_selection', views.DrugSectionSelection.as_view(page='drugs'), name='DrugSearch'),
+    url(r'^drug_selection', views.DrugSectionSelection.as_view(), name='DrugSearch'),
     # url(r'^target_selection', views.DrugSectionSelection.as_view(page='targets'), name='TargetSearch'),
     # url(r'^disease_selection', views.DrugSectionSelection.as_view(page='diseases'), name='DiseaseSearch'),
     #############################################
