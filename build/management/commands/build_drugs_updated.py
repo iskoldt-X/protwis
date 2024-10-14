@@ -133,10 +133,10 @@ class Command(BaseCommand):
 
     def generate_tissue_expression(tissues_data):
         #process the column headers
-        tissues_data.columns = [transform_column_name(col) for col in tissues_data.columns]
+        tissues_data.columns = [Command.transform_column_name(col) for col in tissues_data.columns]
         tissues = list(tissues_data.columns)[1:]
         for i, row in tissues_data.iterrows():
-            protein = fetch_protein(row['entry_name'])
+            protein = Command.fetch_protein(row['entry_name'])
             for tissue in tissues:
                 slug_tissue = slugify(tissue)
                 t, _ = Tissues.objects.get_or_create(slug=slug_tissue, name=tissue)
@@ -199,7 +199,6 @@ class Command(BaseCommand):
             indication = Command.fetch_indication(row['ICD_Title'])
             #Fetch the ligand action (role)
             moa = Command.fetch_role(row['Action'])
-            print(moa)
             if not moa:
                 break
             #TODO: adjust the length of float numbers
