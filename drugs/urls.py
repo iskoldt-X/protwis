@@ -11,7 +11,7 @@ urlpatterns = [
     url(r'^nhs/(?P<slug>[\w|\W]+)/$',  views.nhs_drug, name='nhs_drug'),
     url(r'^indication/(?P<code>[\w|\W]+)/$',  views.indication_detail, name='indication'),
 
-    url(r'^NewDrugsBrowser', views.NewDrugsBrowser.as_view(), name='NewDrugsBrowser'),
+    #url(r'^NewDrugsBrowser', views.NewDrugsBrowser.as_view(), name='NewDrugsBrowser'),
     ## These three can be the same view maybe? ##
     # url(r'^drug_selection', views.DrugSectionSelection.as_view(page='drugs'), name='DrugSearch'),
     # url(r'^target_selection', views.DrugSectionSelection.as_view(page='targets'), name='TargetSearch'),
