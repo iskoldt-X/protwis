@@ -14,6 +14,7 @@ from structure.models import Structure
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mutational_landscape.models import NHSPrescribings
+from mapper.views import LandingPage
 
 import re
 import json
@@ -448,6 +449,172 @@ class DrugSectionSelection(AbsTargetSelection):
             'color' : 'success',
             }
         }
+
+
+class DruggedGPCRome(TemplateView):
+    """
+    Per class statistics of known ligands.
+    """
+
+    template_name = 'drugged_gpcrome.html'
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+
+        drug_count_receptor_dict = {}
+
+        # Use iterator to process the queryset in chunks
+        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'indication_max_phase').distinct()
+
+        all_proteins = Protein.objects.filter(species_id=1, parent_id__isnull=True, accession__isnull=False, family_id__slug__startswith='0').exclude(
+                                            family_id__slug__startswith='007'
+                                        ).exclude(
+                                            family_id__slug__startswith='008'
+                                        )
+        for prot in all_proteins:
+            drug_count_receptor_dict[prot.entry_name] = 0
+
+        for pair in drug_data:
+            if pair[0] in drug_count_receptor_dict.keys():
+                if int(pair[1]) > int(drug_count_receptor_dict[pair[0]]):
+                    drug_count_receptor_dict[pair[0]] = int(pair[1])
+
+        proteins = list(Protein.objects.filter(entry_name__in=drug_count_receptor_dict.keys()
+        ).values('entry_name', 'name').order_by('entry_name'))
+
+        names_conversion_dict = {item['entry_name']: item['name'] for item in proteins}
+
+        names = list(names_conversion_dict.values())
+        IUPHAR_to_uniprot_dict = {item['name']: item['entry_name'] for item in proteins}
+
+        families = ProteinFamily.objects.all()
+        datatree = {}
+        conversion = {}
+
+        for item in families:
+            if len(item.slug) == 3 and item.slug not in datatree.keys():
+                datatree[item.slug] = {}
+                conversion[item.slug] = item.name
+            if len(item.slug) == 7 and item.slug not in datatree[item.slug[:3]].keys():
+                datatree[item.slug[:3]][item.slug[:7]] = {}
+                conversion[item.slug] = item.name
+            if len(item.slug) == 11 and item.slug not in datatree[item.slug[:3]][item.slug[:7]].keys():
+                datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]] = []
+                conversion[item.slug] = item.name
+            if len(item.slug) == 15 and item.slug not in datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]]:
+                datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]].append(item.name)
+
+        datatree2 = LandingPage.convert_keys(datatree, conversion)
+        datatree2.pop('Parent family', None)
+        datatree3 = LandingPage.filter_dict(datatree2, names)
+        data_converted = {names_conversion_dict[key]: {'Value1':value} for key, value in drug_count_receptor_dict.items()}
+        Data_full = {"NameList": datatree3, "DataPoints": data_converted, "LabelConversionDict":IUPHAR_to_uniprot_dict}
+        context['GPCRome_data'] = json.dumps(Data_full["NameList"])
+        context['GPCRome_data_variables'] = json.dumps(Data_full['DataPoints'])
+        context['GPCRome_Label_Conversion'] = json.dumps(Data_full['LabelConversionDict'])
+
+        # tree = PhylogeneticTreeGenerator()
+        # class_a_data = tree.get_tree_data(ProteinFamily.objects.get(name='Class A (Rhodopsin)'))
+        # context['class_a_options'] = deepcopy(tree.d3_options)
+        # context['class_a_options']['anchor'] = 'class_a'
+        # context['class_a_options']['leaf_offset'] = 50
+        # context['class_a_options']['label_free'] = []
+        # # section to remove Orphan from Class A tree and apply to a different tree
+        # whole_class_a = class_a_data.get_nodes_dict(self.page)
+        # for item in whole_class_a['children']:
+        #     if item['name'] == 'Orphan':
+        #         orphan_data = OrderedDict(
+        #             [('name', ''), ('value', 3000), ('color', ''), ('children', [item])])
+        #         whole_class_a['children'].remove(item)
+        #         break
+        # context['class_a'] = json.dumps(whole_class_a)
+        # class_b1_data = tree.get_tree_data(
+        #     ProteinFamily.objects.get(name__startswith='Class B1 (Secretin)'))
+        # context['class_b1_options'] = deepcopy(tree.d3_options)
+        # context['class_b1_options']['anchor'] = 'class_b1'
+        # context['class_b1_options']['branch_trunc'] = 60
+        # context['class_b1_options']['label_free'] = [1, ]
+        # context['class_b1'] = json.dumps(
+        #     class_b1_data.get_nodes_dict(self.page))
+        # class_b2_data = tree.get_tree_data(
+        #     ProteinFamily.objects.get(name__startswith='Class B2 (Adhesion)'))
+        # context['class_b2_options'] = deepcopy(tree.d3_options)
+        # context['class_b2_options']['anchor'] = 'class_b2'
+        # context['class_b2_options']['label_free'] = [1, ]
+        # context['class_b2'] = json.dumps(
+        #     class_b2_data.get_nodes_dict(self.page))
+        # class_c_data = tree.get_tree_data(
+        #     ProteinFamily.objects.get(name__startswith='Class C (Glutamate)'))
+        # context['class_c_options'] = deepcopy(tree.d3_options)
+        # context['class_c_options']['anchor'] = 'class_c'
+        # context['class_c_options']['branch_trunc'] = 50
+        # context['class_c_options']['label_free'] = [1, ]
+        # context['class_c'] = json.dumps(class_c_data.get_nodes_dict(self.page))
+        # class_f_data = tree.get_tree_data(
+        #     ProteinFamily.objects.get(name__startswith='Class F (Frizzled)'))
+        # context['class_f_options'] = deepcopy(tree.d3_options)
+        # context['class_f_options']['anchor'] = 'class_f'
+        # context['class_f_options']['label_free'] = [1, ]
+        # context['class_f'] = json.dumps(class_f_data.get_nodes_dict(self.page))
+        # class_t2_data = tree.get_tree_data(
+        #     ProteinFamily.objects.get(name__startswith='Class T (Taste 2)'))
+        # context['class_t2_options'] = deepcopy(tree.d3_options)
+        # context['class_t2_options']['anchor'] = 'class_t2'
+        # context['class_t2_options']['label_free'] = [1, ]
+        # context['class_t2'] = json.dumps(
+        #     class_t2_data.get_nodes_dict(self.page))
+        # # definition of the class a orphan tree
+        # context['orphan_options'] = deepcopy(tree.d3_options)
+        # context['orphan_options']['anchor'] = 'orphan'
+        # context['orphan_options']['label_free'] = [1, ]
+        # context['orphan'] = json.dumps(orphan_data)
+        #
+        # whole_receptors = Protein.objects.prefetch_related(
+        #     "family", "family__parent__parent__parent")
+        # whole_rec_dict = {}
+        # for rec in whole_receptors:
+        #     rec_uniprot = rec.entry_short()
+        #     rec_iuphar = rec.family.name.replace("receptor", '').replace(
+        #         "<i>", "").replace("</i>", "").strip()
+        #     if (rec_iuphar[0].isupper()) or (rec_iuphar[0].isdigit()):
+        #         whole_rec_dict[rec_uniprot] = [rec_iuphar]
+        #     else:
+        #         whole_rec_dict[rec_uniprot] = [rec_iuphar.capitalize()]
+        #
+        # context["whole_receptors"] = json.dumps(whole_rec_dict)
+        #
+        #
+        # circle_data = BiasedData.objects.filter(physiology_biased__isnull=False).values_list(
+        #               "physiology_biased", "receptor_id__entry_name", "ligand_id").order_by(
+        #               "physiology_biased", "receptor_id__entry_name", "ligand_id").distinct(
+        #               "physiology_biased", "receptor_id__entry_name", "ligand_id")
+        #
+        # circles = {}
+        # label_converter = {'Arrestin-2': "β-Arr",
+        #                    'Arrestin-3': "β-Arr 2",
+        #                    'Gaq/i-chimera': "Gq/i-chim",
+        #                    'Minigi': "Mini-Gi"}
+        # endpoint = 0
+        # for data in circle_data:
+        #     # if data[1].split('_')[1] == 'human':
+        #     key = data[1].split('_')[0].upper()
+        #     val = data[0].split(' (')[0].capitalize()
+        #     if val in label_converter.keys():
+        #         val = label_converter[val]
+        #     if key not in circles.keys():
+        #         circles[key] = {}
+        #     if val not in circles[key].keys():
+        #         circles[key][val] = 1
+        #     circles[key][val] += 1
+        #     if circles[key][val] > endpoint:
+        #         endpoint = circles[key][val]
+        #
+        # context["circles_data"] = json.dumps(circles)
+        # context["endpoint"] = endpoint
+
+        return context
+
 
 
 class NewDrugsBrowser(TemplateView):

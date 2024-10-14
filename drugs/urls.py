@@ -13,11 +13,11 @@ urlpatterns = [
 
     url(r'^NewDrugsBrowser', views.NewDrugsBrowser.as_view(), name='NewDrugsBrowser'),
     ## These three can be the same view maybe? ##
-    url(r'^drug_selection', views.DrugSectionSelection.as_view(), name='DrugSearch'),
-    # url(r'^target_selection', views.DrugSectionSelection.as_view(page='targets'), name='TargetSearch'),
-    # url(r'^disease_selection', views.DrugSectionSelection.as_view(page='diseases'), name='DiseaseSearch'),
+    # url(r'^drug_selection', views.DrugSectionSelection.as_view(page='drugs', title='Drug Lookup'), name='DrugSearch'),
+    # url(r'^target_selection', views.DrugSectionSelection.as_view(page='targets'), name='DrugSearch'),
+    # url(r'^disease_selection', views.DrugSectionSelection.as_view(page='diseases'), name='DrugSearch'),
     #############################################
-    # url(r'^overview', views.DruggedGPCRome.as_view(), name='DruggedGPCRome'),
+    url(r'^overview', views.DruggedGPCRome.as_view(), name='DruggedGPCRome'),
     ## Make a single view for the Venn diagrams, add a variable to define which page is shown ##
     url(r'^drugs_venn', views.DrugsVenn, name='DrugsVenn'),
     url(r'^targets_venn', views.TargetVenn, name='DrugsVenn'),
