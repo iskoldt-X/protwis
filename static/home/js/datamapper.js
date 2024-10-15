@@ -120,6 +120,15 @@ function draw_tree(data, options,circle_size) {
             else if (d.value === 1) {
                 return "FireBrick";
             }
+            else if (d.value === 2) {
+                return "#f17270";
+            }
+            else if (d.value === 3) {
+                return "#dd2628";
+            }
+            else if (d.value === 4) {
+                return "#2c87c8";
+            }
             else if (d.value === 10) {
                 return "LightGray";
             }

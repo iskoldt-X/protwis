@@ -514,104 +514,27 @@ class DruggedGPCRome(TemplateView):
         context['GPCRome_data_variables'] = json.dumps(Data_full['DataPoints'])
         context['GPCRome_Label_Conversion'] = json.dumps(Data_full['LabelConversionDict'])
 
-        # tree = PhylogeneticTreeGenerator()
-        # class_a_data = tree.get_tree_data(ProteinFamily.objects.get(name='Class A (Rhodopsin)'))
-        # context['class_a_options'] = deepcopy(tree.d3_options)
-        # context['class_a_options']['anchor'] = 'class_a'
-        # context['class_a_options']['leaf_offset'] = 50
-        # context['class_a_options']['label_free'] = []
-        # # section to remove Orphan from Class A tree and apply to a different tree
-        # whole_class_a = class_a_data.get_nodes_dict(self.page)
-        # for item in whole_class_a['children']:
-        #     if item['name'] == 'Orphan':
-        #         orphan_data = OrderedDict(
-        #             [('name', ''), ('value', 3000), ('color', ''), ('children', [item])])
-        #         whole_class_a['children'].remove(item)
-        #         break
-        # context['class_a'] = json.dumps(whole_class_a)
-        # class_b1_data = tree.get_tree_data(
-        #     ProteinFamily.objects.get(name__startswith='Class B1 (Secretin)'))
-        # context['class_b1_options'] = deepcopy(tree.d3_options)
-        # context['class_b1_options']['anchor'] = 'class_b1'
-        # context['class_b1_options']['branch_trunc'] = 60
-        # context['class_b1_options']['label_free'] = [1, ]
-        # context['class_b1'] = json.dumps(
-        #     class_b1_data.get_nodes_dict(self.page))
-        # class_b2_data = tree.get_tree_data(
-        #     ProteinFamily.objects.get(name__startswith='Class B2 (Adhesion)'))
-        # context['class_b2_options'] = deepcopy(tree.d3_options)
-        # context['class_b2_options']['anchor'] = 'class_b2'
-        # context['class_b2_options']['label_free'] = [1, ]
-        # context['class_b2'] = json.dumps(
-        #     class_b2_data.get_nodes_dict(self.page))
-        # class_c_data = tree.get_tree_data(
-        #     ProteinFamily.objects.get(name__startswith='Class C (Glutamate)'))
-        # context['class_c_options'] = deepcopy(tree.d3_options)
-        # context['class_c_options']['anchor'] = 'class_c'
-        # context['class_c_options']['branch_trunc'] = 50
-        # context['class_c_options']['label_free'] = [1, ]
-        # context['class_c'] = json.dumps(class_c_data.get_nodes_dict(self.page))
-        # class_f_data = tree.get_tree_data(
-        #     ProteinFamily.objects.get(name__startswith='Class F (Frizzled)'))
-        # context['class_f_options'] = deepcopy(tree.d3_options)
-        # context['class_f_options']['anchor'] = 'class_f'
-        # context['class_f_options']['label_free'] = [1, ]
-        # context['class_f'] = json.dumps(class_f_data.get_nodes_dict(self.page))
-        # class_t2_data = tree.get_tree_data(
-        #     ProteinFamily.objects.get(name__startswith='Class T (Taste 2)'))
-        # context['class_t2_options'] = deepcopy(tree.d3_options)
-        # context['class_t2_options']['anchor'] = 'class_t2'
-        # context['class_t2_options']['label_free'] = [1, ]
-        # context['class_t2'] = json.dumps(
-        #     class_t2_data.get_nodes_dict(self.page))
-        # # definition of the class a orphan tree
-        # context['orphan_options'] = deepcopy(tree.d3_options)
-        # context['orphan_options']['anchor'] = 'orphan'
-        # context['orphan_options']['label_free'] = [1, ]
-        # context['orphan'] = json.dumps(orphan_data)
-        #
-        # whole_receptors = Protein.objects.prefetch_related(
-        #     "family", "family__parent__parent__parent")
-        # whole_rec_dict = {}
-        # for rec in whole_receptors:
-        #     rec_uniprot = rec.entry_short()
-        #     rec_iuphar = rec.family.name.replace("receptor", '').replace(
-        #         "<i>", "").replace("</i>", "").strip()
-        #     if (rec_iuphar[0].isupper()) or (rec_iuphar[0].isdigit()):
-        #         whole_rec_dict[rec_uniprot] = [rec_iuphar]
-        #     else:
-        #         whole_rec_dict[rec_uniprot] = [rec_iuphar.capitalize()]
-        #
-        # context["whole_receptors"] = json.dumps(whole_rec_dict)
-        #
-        #
-        # circle_data = BiasedData.objects.filter(physiology_biased__isnull=False).values_list(
-        #               "physiology_biased", "receptor_id__entry_name", "ligand_id").order_by(
-        #               "physiology_biased", "receptor_id__entry_name", "ligand_id").distinct(
-        #               "physiology_biased", "receptor_id__entry_name", "ligand_id")
-        #
-        # circles = {}
-        # label_converter = {'Arrestin-2': "β-Arr",
-        #                    'Arrestin-3': "β-Arr 2",
-        #                    'Gaq/i-chimera': "Gq/i-chim",
-        #                    'Minigi': "Mini-Gi"}
-        # endpoint = 0
-        # for data in circle_data:
-        #     # if data[1].split('_')[1] == 'human':
-        #     key = data[1].split('_')[0].upper()
-        #     val = data[0].split(' (')[0].capitalize()
-        #     if val in label_converter.keys():
-        #         val = label_converter[val]
-        #     if key not in circles.keys():
-        #         circles[key] = {}
-        #     if val not in circles[key].keys():
-        #         circles[key][val] = 1
-        #     circles[key][val] += 1
-        #     if circles[key][val] > endpoint:
-        #         endpoint = circles[key][val]
-        #
-        # context["circles_data"] = json.dumps(circles)
-        # context["endpoint"] = endpoint
+        #TREE SECTION
+        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'indication_max_phase')
+        drug_dict = {}
+        for drug in drug_data:
+            if drug[0] not in drug_dict.keys():
+                drug_dict[drug[0]] = {'Outer1': 0, 'Outer2': 0, 'Outer3': 0, 'Outer4': 0, 'Inner': 0}
+            if drug[1] in [1, 2, 3, 4]:
+                outer_key = f"Outer{drug[1]}"
+                drug_dict[drug[0]][outer_key] += 1
+            if drug[1] > drug_dict[drug[0]]['Inner']:
+                drug_dict[drug[0]]['Inner'] = drug[1]
+
+        tree, tree_options, circles, receptors = LandingPage.generate_tree_plot(drug_dict)
+        #Remove 0 circles
+        for key, outer_dict in circles.items():
+            circles[key] = {k: v for k, v in outer_dict.items() if v != 0}
+
+        context['tree'] = json.dumps(tree)
+        context['tree_options'] = tree_options
+        context['circles'] = json.dumps(circles)
+        context['whole_dict'] = json.dumps(receptors)
 
         return context
 
