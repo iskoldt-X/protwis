@@ -5,9 +5,8 @@ from django.utils.text import slugify
 
 from common.models import WebResource, WebLink, Publication
 from protein.models import Protein, TissueExpression, CancerType, CancerExpression, Tissues, ExpressionValue
-from drugs.models import Drugs2024, Indication
+from drugs.models import Drugs2024, Indication, IndicationAssociation
 from ligand.models import Ligand, LigandID, LigandType, LigandRole
-from mutational_landscape.models import NHSPrescribings
 from common.tools import test_model_updates
 
 import pandas as pd
@@ -52,6 +51,7 @@ class Command(BaseCommand):
             CancerType.objects.all().delete()
             CancerExpression.objects.all().delete()
             ExpressionValue.objects.all().delete()
+            IndicationAssociation.objects.all().delete()
             # NHSPrescribings.objects.all().delete()
         except Exception as msg:
             print(msg)
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         print("\n\nWelcome to the Drugs2024 build process. Build steps will be printed.")
         print("##### STEP 0 START #####")
         print("\n\nStarted parsing data and setting up different dataframes")
-        indication_df, tissue_df, cancer_df, drug_df = Command.setup_data()
+        indication_df, tissue_df, cancer_df, drug_df, association_data = Command.setup_data()
         print("##### STEP 1 START #####")
         print("\n\nStarted parsing Indication data and building Indication Model")
         Command.generate_indications(indication_df)    #DONE
@@ -90,6 +90,11 @@ class Command(BaseCommand):
         print("\n\CancerPrognostics Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 4 START #####")
+        print("\n\nStarted parsing Disease Association data and building IndicationAssociation Model")
+        Command.generate_disease_associations(association_data)        #DONE
+        print("\n\IndicationAssociation Model built. Performing checks")
+        test_model_updates(self.all_models, self.tracker, check=True)
+        print("##### STEP 5 START #####")
         print("\n\nStarted parsing Drug data and building Drug2024 Model")
         Command.create_drug_data(drug_df)
         print("\n\Drug Model built. Performing checks")
@@ -99,6 +104,8 @@ class Command(BaseCommand):
         #Loading the two csv files
         all_data = Command.read_csv_data('03_FinalData.csv') #old one:03_FINAL_DATA_UPDATED.csv new one:03_FinalData.csv
         target_data = Command.read_csv_data('08_TargetPrioritazion_AllData.csv')
+        atc_codes = Command.read_csv_data('03_ligand_ATCCodes.csv')
+        opentarget_scores = Command.read_csv_data('08_TargetPrioritazion_Data_DiseaseAssociations.csv')
         #getting the cancer data for each protein
         cancer_data = target_data[['entry_name','Cancer','MaxExpression']]
         #Clean the cancer data from NaN data columns
@@ -109,7 +116,7 @@ class Command(BaseCommand):
         #Clean the tissues data from NaN data columns
         tissues_data = tissues_data.dropna(subset=[col for col in tissues_data.columns if col.startswith('Tissue')], how='all').drop_duplicates()
         #getting the indications data from the all_data file
-        indication_data = all_data[['ICD_Title', 'ICD_Code', 'IndicationStatus', 'IndicationMaxPhase']].drop_duplicates()
+        indication_data = all_data[['ICD_Title', 'ICD_Code']].drop_duplicates()
         #remove cancer and tissue columns from data
         columns_to_keep = ['entry_name', 'ICD_Code', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score']
         #define a filtered version of the target_data dataframe
@@ -117,9 +124,15 @@ class Command(BaseCommand):
         shaved_data = shaved_data.dropna(subset=['genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score'], how='all').drop_duplicates()
         #merge dataframes to have everything connected for Drugs model
         drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'ICD_Code'], how='inner')
+        drug_data = pd.merge(drug_data, atc_codes, on=['ligand_name'], how='inner')
         #Drop the duplicates
         drug_data = drug_data.drop_duplicates()
-        return indication_data, tissues_data, cancer_data, drug_data
+        opentarget_scores = opentarget_scores.drop_duplicates()
+        opentarget_scores = opentarget_scores.where(pd.notnull(opentarget_scores), None)
+        #Somehow, opentargets has new indications that we need to add to the database
+        opentarget_ICD = opentarget_scores[['ICD_Title', 'ICD_Code']].drop_duplicates()
+        indication_data = pd.concat([indication_data, opentarget_ICD]).drop_duplicates()
+        return indication_data, tissues_data, cancer_data, drug_data, opentarget_scores
 
     @staticmethod
     def transform_column_name(col_name):
@@ -142,6 +155,37 @@ class Command(BaseCommand):
                 t, _ = Tissues.objects.get_or_create(slug=slug_tissue, name=tissue)
                 record, _ = TissueExpression.objects.get_or_create(value=row[tissue], protein=protein, tissue=t)
 
+    def generate_disease_associations(association_data):
+        #parse che association data to fill in the specific model
+        #need to fetch protein and also indication
+        for i, row in association_data.iterrows():
+            protein = Command.fetch_protein(row['entry_name'])
+            indication = Command.fetch_indication(row['ICD_Title'])
+            association, _ = IndicationAssociation.objects.get_or_create(target = protein,
+                                                                        indication = indication,
+                                                                        association_score = row['Score'],
+                                                                        ot_genetics_portal = row['ot_genetics_portal'],
+                                                                        gene_burden = row['gene_burden'],
+                                                                        clingen = row['clingen'],
+                                                                        gene2phenotype = row['gene2phenotype'],
+                                                                        orphanet = row['orphanet'],
+                                                                        genomics_england = row['genomics_england'],
+                                                                        uniprot_literature = row['uniprot_literature'],
+                                                                        uniprot_variants = row['uniprot_variants'],
+                                                                        sysbio = row['sysbio'],
+                                                                        cancer_gene_census  = row['cancer_gene_census'],
+                                                                        cancer_biomarkers = row['cancer_biomarkers'],
+                                                                        intogen = row['intogen'],
+                                                                        eva = row['eva'],
+                                                                        eva_somatic = row['eva_somatic'],
+                                                                        chembl = row['chembl'],
+                                                                        slapenrich = row['slapenrich'],
+                                                                        crispr = row['crispr'],
+                                                                        crispr_screen = row['crispr_screen'],
+                                                                        reactome = row['reactome'],
+                                                                        europepmc = row['europepmc'],
+                                                                        expression_atlas = row['expression_atlas'],
+                                                                        impc = row['impc'])
 
     def generate_indications(indication_data):
         #Create the reference for the Ontology web resource
@@ -199,10 +243,8 @@ class Command(BaseCommand):
             indication = Command.fetch_indication(row['ICD_Title'])
             #Fetch the ligand action (role)
             moa = Command.fetch_role(row['Action'])
-            if not moa:
-                break
-            #TODO: adjust the length of float numbers
-            #TODO: adjust and rename the numerical values of animal_model and affected_pathway
+            #Fetch the inidcation association
+            association = Command.fetch_association(row['entry_name'], row['ICD_Title'])
             #to be human readable instead of numerical values (ask David)
             drug, _ = Drugs2024.objects.get_or_create(charge=row['Charge'],
                                                       complexity=row['Complexity'],
@@ -216,9 +258,11 @@ class Command(BaseCommand):
                                                       novelty_score=row['novelty_score'],
                                                       genetic_association=row['genetic_association'] if pd.notna(row['genetic_association']) else None,
                                                       indication_status=row['IndicationStatus'],
+                                                      atc_code=row['ATC_Code'],
                                                       moa=moa,
                                                       indication=indication,
                                                       ligand=ligand,
+                                                      disease_association=association,
                                                       target=protein)
 
             #Commented for the sake of testing
@@ -229,7 +273,7 @@ class Command(BaseCommand):
             #     try:
             #         for pmid in ref:
             #             if pmid != '':
-            #                 publication = Command.fetch_publication(pmid)
+            #                 publication = fetch_publication(pmid)
             #                 drug.reference.add(publication)
             #     except Exception as e:
             #         print(f'The Drugs {pmid} publication was not added to the data base'))
@@ -285,6 +329,18 @@ class Command(BaseCommand):
                                                         smiles=row['SMILES'])
                 return check
 
+    @staticmethod
+    def fetch_association(target, indication):
+        """
+        fetch indication association with indication title and target entry name
+        requires: indication title and target entry name
+        """
+        try:
+            association = IndicationAssociation.objects.get(target_id__entry_name=target, indication_id__name=indication)
+            return association
+        except:
+            print('No association found for this pais or target-indication')
+            return None
 
     @staticmethod
     def fetch_type(record):
