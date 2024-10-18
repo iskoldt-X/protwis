@@ -20,6 +20,8 @@ import json
 import numpy as np
 from collections import OrderedDict
 from copy import deepcopy
+import pandas as pd
+import os
 
 
 
@@ -428,30 +430,305 @@ def Venn(request, origin="both"):
 #### Drugs, Indications, and Targets #####
 ##########################################
 
-class DrugSectionSelection(AbsTargetSelection):
-    # Left panel
-    page = 'drugs'
-    step = 1
-    number_of_steps = 1
+class DrugSectionSelection(TemplateView):
+    # variable setup #
     template_name = 'common/selection_drugs.html'
-    filters = False
-    import_export_box = False
-    target_input = False
-    psets = False
-    family_tree = False
-    type_of_selection = 'ligands'
-    selection_only_receptors = False
+
+    page = 'Drugs'
     title = "Drug search"
-    description = 'Search by drug name or database ID (GPCRdb, GtP, ChEMBL)'
+    description = 'Search by drug name'  # Default description
 
-    buttons = {
-        'continue' : {
-            'label' : 'Show ligand information',
-            'url' : '',
-            'color' : 'success',
-            }
-        }
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
+        # Ensure that both title and description are initialized
+        title = self.title
+        description = self.description  # Set default description
+        page = self.page
+
+         # Modify the description and fetch data based on the page type
+        if page == 'Drugs':
+            description = 'Search by agent / drug name'
+            # Fetch distinct ligands and create a dictionary of {ligand.name: ligand.id}
+            search_data = Drugs2024.objects.all().prefetch_related('ligand').distinct('ligand')
+            search_dict = {drug.ligand.name: drug.ligand.id for drug in search_data}
+
+            # Fetch table data with all related information
+            table_data = Drugs2024.objects.select_related(
+                'ligand', 
+                'target__family__parent__parent__parent', # All target info
+                'indication__code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'ligand__name', # Agent/Drug name
+                'target__entry_name', # Gene name
+                'target__name', # Protein name
+                'target__family__parent__name',  # Receptor family
+                'target__family__parent__parent__name',  # Ligand type
+                'target__family__parent__parent__parent__name',  # Class
+                'indication__name', # Disease name
+                'indication__code__index', # Disease ICD11 code
+                'indication_max_phase', # Max phase
+                'drug_status', # Approval
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'ligand': 'Ligand ID',
+                'ligand__name': 'Ligand name',
+                'target__entry_name': 'Gene name',
+                'target__name': 'Protein name',
+                'target__family__parent__name': 'Receptor family',
+                'target__family__parent__parent__name': 'Ligand type',
+                'target__family__parent__parent__parent__name': 'Class',
+                'indication__name': 'Indication name',
+                'indication__code__index': 'ICD11',
+                'indication_max_phase': 'Phase',
+                'drug_status': 'Status'}, inplace=True)
+            
+            # Group the data by 'Ligand ID', 'Gene name', 'Indication name'
+            grouped = df.groupby(
+                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11']
+            )
+
+
+            # Create the new columns
+            Modified_df = grouped.agg(
+                Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
+                Phase_I_trials=('Phase', lambda x: (x == 1).sum()),  # Count Phase I trials
+                Phase_II_trials=('Phase', lambda x: (x == 2).sum()),  # Count Phase II trials
+                Phase_III_trials=('Phase', lambda x: (x == 3).sum()),  # Count Phase III trials
+                Approved=('Status', lambda x: 'Yes' if (x == 'Approved').any() else 'No')  # Check if any row has 'Approved' status
+            ).reset_index()
+
+            # Convert DataFrame to JSON
+            json_records = Modified_df.to_json(orient='records')
+
+            # Pass the JSON data to the template context
+            context['Full_data'] = json_records
+
+        elif page == 'Targets':
+            description = 'Search by target name'
+            # Fetch distinct targets and create a dictionary of {target.name: target.id}
+            search_data = Drugs2024.objects.all().prefetch_related('target').distinct('target')
+            search_dict = {drug.target.name: drug.target.id for drug in search_data}
+
+            # Fetch table data with all related information
+            table_data = Drugs2024.objects.select_related(
+                'target',
+                'ligand__ligand_type',
+                'indication__code',
+                'moa'
+            ).values(
+                'target',  # Target ID
+                'target__name',  # Target name
+                'ligand__name',  # Agent/Drug
+                'ligand__ligand_type__name',  # Modality
+                'moa__name',  # Mode of action
+                'indication__name',  # Disease name
+                'indication__code__index',  # Disease ICD11 code
+                'indication_max_phase',  # Max phase
+                'drug_status',  # Approval
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'target': 'Target ID',
+                'target__name': 'Target name',
+                'ligand__name': 'Ligand name',
+                'ligand__ligand_type__name': 'Modality',
+                'moa__name': 'Mode of action',
+                'indication__name': 'Indication name',
+                'indication__code__index': 'ICD11',
+                'indication_max_phase': 'Phase',
+                'drug_status': 'Status'
+            }, inplace=True)
+            
+            # Group the data by 'Target ID', 'Ligand name', 'Indication name'
+            grouped = df.groupby(
+                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11']
+            )
+
+            # Create the new columns
+            Modified_df = grouped.agg(
+                Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
+                Phase_I_trials=('Phase', lambda x: (x == 1).sum()),  # Count Phase I trials
+                Phase_II_trials=('Phase', lambda x: (x == 2).sum()),  # Count Phase II trials
+                Phase_III_trials=('Phase', lambda x: (x == 3).sum()),  # Count Phase III trials
+                Approved=('Status', lambda x: 'Yes' if (x == 'Approved').any() else 'No')  # Check if any row has 'Approved' status
+            ).reset_index()
+
+            # Convert DataFrame to JSON
+            json_records = Modified_df.to_json(orient='records')
+
+            # Pass the JSON data to the template context
+            context['Full_data'] = json_records
+
+
+        elif page == 'Indications':
+            description = 'Search by indication name'
+            # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
+            search_data = Drugs2024.objects.all().prefetch_related('indication').distinct('indication')
+            search_dict = {drug.indication.name: drug.indication.id for drug in search_data}
+
+            # ###########################
+            # Single Data Query
+            # ###########################
+            # Fetch all data in a single query
+            table_data = Drugs2024.objects.select_related(
+                'indication',
+                'ligand__ligand_type',
+                'target__family__parent__parent__parent',  # All target info
+                'moa'
+            ).values(
+                'indication',  # Indication ID
+                'indication__name',  # Indication name
+                'ligand__id',  # Ligand ID
+                'ligand__name',  # Ligand name
+                'indication_max_phase',  # Max phase
+                'drug_status',  # Approval
+                'ligand__ligand_type__name',  # Molecule type
+                'moa__name',  # Mode of action
+                'target__entry_name',  # Gene name
+                'target__name',  # Protein name
+                'target__family__parent__name',  # Receptor family
+                'target__family__parent__parent__name',  # Ligand type
+                'target__family__parent__parent__parent__name'  # Class
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'indication': 'Indication ID',
+                'indication__name': 'Indication name',
+                'ligand__id': 'Ligand ID',
+                'ligand__name': 'Drug name',
+                'indication_max_phase': 'Phase',
+                'drug_status': 'Status',
+                'ligand__ligand_type__name': 'Molecule_type',
+                'moa__name': 'Mode of action',
+                'target__entry_name': 'Gene name',
+                'target__name': 'Protein name',
+                'target__family__parent__name': 'Receptor family',
+                'target__family__parent__parent__name': 'Ligand type',
+                'target__family__parent__parent__parent__name': 'Class'
+            }, inplace=True)
+
+            # Define MOA categories
+            stim_moa = ['Partial agonist', 'Agonist', 'PAM']
+            inhib_moa = ['Antagonist', 'Inverse agonist', 'NAM']
+
+            # Split the DataFrame into two: one for targets and one for drugs
+            df_targets = df.copy()
+            df_drugs = df.copy()
+
+            # ###########################
+            # Data Aggregation for Targets
+            # ###########################
+            # Update group_cols to include 'Indication name'
+            group_cols = ['Indication ID', 'Gene name', 'Indication name', 'Protein name', 'Receptor family', 'Ligand type', 'Class']
+
+            # Precompute classifications
+            df_targets['Classification'] = df_targets['Status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
+
+            # Pre-filter the DataFrame for stimulatory and inhibitory MOAs
+            stim_moa_df = df_targets[df_targets['Mode of action'].isin(stim_moa)]
+            inhib_moa_df = df_targets[df_targets['Mode of action'].isin(inhib_moa)]
+
+            # Create a function to get the max phase safely
+            def get_max_phase(df, group_cols):
+                if df.empty:
+                    return pd.Series(dtype='float64')  # Return an empty Series if DataFrame is empty
+                return df.groupby(group_cols)['Phase'].max()
+
+            # Group the targets DataFrame by the updated columns
+            grouped_targets = df_targets.groupby(group_cols)
+
+            # Aggregate data using efficient vectorized operations
+            agg_data_targets = grouped_targets.agg(
+                All_max_phase=('Phase', 'max'),
+                All_Drugs=('Classification', lambda x: (x == 'Drug').sum()),
+                All_Agents=('Classification', lambda x: (x == 'Agent').sum())
+            ).reset_index()
+
+            # Compute the stimulatory and inhibitory max phase and counts efficiently
+            stim_max_phase = get_max_phase(stim_moa_df, group_cols)
+            inhib_max_phase = get_max_phase(inhib_moa_df, group_cols)
+
+            # Add the precomputed data into the DataFrame
+            agg_data_targets = agg_data_targets.merge(stim_max_phase.rename('Stimulatory_max_phase'), on=group_cols, how='left')
+            agg_data_targets = agg_data_targets.merge(inhib_max_phase.rename('Inhibitory_max_phase'), on=group_cols, how='left')
+
+            # Compute Stimulatory and Inhibitory Drugs and Agents counts
+            stim_counts = stim_moa_df.groupby(group_cols)['Classification'].value_counts().unstack().fillna(0).reset_index()
+            stim_counts.rename(columns={'Drug': 'Stimulatory_Drugs', 'Agent': 'Stimulatory_Agents'}, inplace=True)
+
+            inhib_counts = inhib_moa_df.groupby(group_cols)['Classification'].value_counts().unstack().fillna(0).reset_index()
+            inhib_counts.rename(columns={'Drug': 'Inhibitory_Drugs', 'Agent': 'Inhibitory_Agents'}, inplace=True)
+
+            # Merge the counts back into the aggregated data
+            agg_data_targets = agg_data_targets.merge(stim_counts[group_cols + ['Stimulatory_Drugs', 'Stimulatory_Agents']], on=group_cols, how='left').fillna(0)
+            agg_data_targets = agg_data_targets.merge(inhib_counts[group_cols + ['Inhibitory_Drugs', 'Inhibitory_Agents']], on=group_cols, how='left').fillna(0)
+
+            # Convert DataFrame to JSON
+            json_records_targets = agg_data_targets.to_json(orient='records')
+            context['Full_data_targets'] = json_records_targets
+
+            # ###########################
+            # Data Aggregation for Drugs
+            # ###########################
+            group_cols_drugs = ['Indication ID', 'Gene name', 'Drug name', 'Indication name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'Molecule_type','Mode of action']
+
+            # Precompute relevant columns
+            df_drugs['Is_Approved'] = df_drugs['Status'].apply(lambda x: 1 if x == 'Approved' else 0)
+            df_drugs['Is_Phase_I'] = (df_drugs['Phase'] == 1).astype(int)
+            df_drugs['Is_Phase_II'] = (df_drugs['Phase'] == 2).astype(int)
+            df_drugs['Is_Phase_III'] = (df_drugs['Phase'] == 3).astype(int)
+
+            # Group the DataFrame only once
+            grouped_drugs = df_drugs.groupby(group_cols_drugs)
+
+            # Aggregate data using vectorized operations
+            agg_data_drugs = grouped_drugs.agg(
+                Highest_phase=('Phase', 'max'),
+                Phase_I_trials=('Is_Phase_I', 'sum'),
+                Phase_II_trials=('Is_Phase_II', 'sum'),
+                Phase_III_trials=('Is_Phase_III', 'sum'),
+                Approved=('Is_Approved', 'max')
+            ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            agg_data_drugs['Approved'] = agg_data_drugs['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
+            # Convert DataFrame to JSON
+            json_records_drugs = agg_data_drugs.to_json(orient='records')
+            context['Full_data_drugs'] = json_records_drugs
+
+        # Convert to JSON string and pass to context
+        context['search_data'] = json.dumps(search_dict)
+        context['page'] = page
+        context['title'] = title
+        context['description'] = description
+        # context['table_data'] = table_data
+
+        return context
 
 class NewDrugsBrowser(TemplateView):
     # Template using this class #
