@@ -14,6 +14,7 @@ from structure.models import Structure
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mutational_landscape.models import NHSPrescribings
+from mapper.views import LandingPage
 
 import re
 import json
@@ -62,7 +63,7 @@ def drugstatistics(request):
         drugtargets_trials.append(drugtarget)
 
 
-    all_human_GPCRs = Protein.objects.filter(species_id=1, sequence_type_id=1, family__slug__startswith='00').distinct()
+    all_human_GPCRs = Protein.objects.filter(species_id=1, sequence_type_id=1, family__slug__startswith='0').distinct()
 
     in_trial = Protein.objects.filter(drugs__status__in=['in trial'] ).exclude(drugs__status='approved').distinct() #drugs__clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']
 
@@ -730,6 +731,95 @@ class DrugSectionSelection(TemplateView):
 
         return context
 
+class DruggedGPCRome(TemplateView):
+    """
+    Per class statistics of known ligands.
+    """
+
+    template_name = 'drugged_gpcrome.html'
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+
+        drug_count_receptor_dict = {}
+
+        # Use iterator to process the queryset in chunks
+        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'indication_max_phase').distinct()
+
+        all_proteins = Protein.objects.filter(species_id=1, parent_id__isnull=True, accession__isnull=False, family_id__slug__startswith='0').exclude(
+                                            family_id__slug__startswith='007'
+                                        ).exclude(
+                                            family_id__slug__startswith='008'
+                                        )
+        for prot in all_proteins:
+            drug_count_receptor_dict[prot.entry_name] = 0
+
+        for pair in drug_data:
+            if pair[0] in drug_count_receptor_dict.keys():
+                if int(pair[1]) > int(drug_count_receptor_dict[pair[0]]):
+                    drug_count_receptor_dict[pair[0]] = int(pair[1])
+
+        proteins = list(Protein.objects.filter(entry_name__in=drug_count_receptor_dict.keys()
+        ).values('entry_name', 'name').order_by('entry_name'))
+
+        names_conversion_dict = {item['entry_name']: item['name'] for item in proteins}
+
+        names = list(names_conversion_dict.values())
+        IUPHAR_to_uniprot_dict = {item['name']: item['entry_name'] for item in proteins}
+
+        families = ProteinFamily.objects.all()
+        datatree = {}
+        conversion = {}
+
+        for item in families:
+            if len(item.slug) == 3 and item.slug not in datatree.keys():
+                datatree[item.slug] = {}
+                conversion[item.slug] = item.name
+            if len(item.slug) == 7 and item.slug not in datatree[item.slug[:3]].keys():
+                datatree[item.slug[:3]][item.slug[:7]] = {}
+                conversion[item.slug] = item.name
+            if len(item.slug) == 11 and item.slug not in datatree[item.slug[:3]][item.slug[:7]].keys():
+                datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]] = []
+                conversion[item.slug] = item.name
+            if len(item.slug) == 15 and item.slug not in datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]]:
+                datatree[item.slug[:3]][item.slug[:7]][item.slug[:11]].append(item.name)
+
+        datatree2 = LandingPage.convert_keys(datatree, conversion)
+        datatree2.pop('Parent family', None)
+        datatree3 = LandingPage.filter_dict(datatree2, names)
+        data_converted = {names_conversion_dict[key]: {'Value1':value} for key, value in drug_count_receptor_dict.items()}
+        Data_full = {"NameList": datatree3, "DataPoints": data_converted, "LabelConversionDict":IUPHAR_to_uniprot_dict}
+        context['GPCRome_data'] = json.dumps(Data_full["NameList"])
+        context['GPCRome_data_variables'] = json.dumps(Data_full['DataPoints'])
+        context['GPCRome_Label_Conversion'] = json.dumps(Data_full['LabelConversionDict'])
+
+        #TREE SECTION
+        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'indication_max_phase')
+        drug_dict = {}
+        for drug in drug_data:
+            if drug[0] not in drug_dict.keys():
+                drug_dict[drug[0]] = {'Outer1': 0, 'Outer2': 0, 'Outer3': 0, 'Outer4': 0, 'Inner': 0}
+            if drug[1] in [1, 2, 3, 4]:
+                outer_key = f"Outer{drug[1]}"
+                drug_dict[drug[0]][outer_key] += 1
+            if drug[1] > drug_dict[drug[0]]['Inner']:
+                drug_dict[drug[0]]['Inner'] = drug[1]
+
+        tree, tree_options, circles, receptors = LandingPage.generate_tree_plot(drug_dict)
+        #Remove 0 circles
+        for key, outer_dict in circles.items():
+            circles[key] = {k: v for k, v in outer_dict.items() if v != 0}
+
+        context['tree'] = json.dumps(tree)
+        context['tree_options'] = tree_options
+        context['circles'] = json.dumps(circles)
+        context['whole_dict'] = json.dumps(receptors)
+
+        return context
+
+
+
 class NewDrugsBrowser(TemplateView):
     # Template using this class #
     template_name = 'Drugs_Indications_Targets.html'
@@ -1212,7 +1302,7 @@ def drugmapping(request):
     for f in families:
         lookup[f.slug] = f.name.replace("receptors","").replace(" receptor","").replace(" hormone","").replace("/neuropeptide","/").replace(" (G protein-coupled)","").replace(" factor","").replace(" (LPA)","").replace(" (S1P)","").replace("GPR18, GPR55 and GPR119","GPR18/55/119").replace("-releasing","").replace(" peptide","").replace(" and oxytocin","/Oxytocin").replace("Adhesion class orphans","Adhesion orphans").replace("muscarinic","musc.").replace("-concentrating","-conc.")
 
-    class_proteins = Protein.objects.filter(family__slug__startswith="00",source__name='SWISSPROT', species_id=1).prefetch_related('family').order_by('family__slug')
+    class_proteins = Protein.objects.filter(family__slug__startswith="0",source__name='SWISSPROT', species_id=1).prefetch_related('family').order_by('family__slug')
 
     temp = OrderedDict([
                     ('name',''),
