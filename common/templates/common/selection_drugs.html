@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
 <link rel="stylesheet" href="{% static 'home/css/button_spinner.css' %}" type="text/css" />
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
 <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
@@ -33,8 +34,10 @@ th .dt-column-order {
     margin-right: -12px; /* Shift the sort arrow to the right */
 }
 th .dt-column-title {
-    padding-left: 24px; /* Shift the sort arrow to the right */
+    /* padding-left: 24px; */
+    margin-left: 24px;
 }
+
 
 </style>
 
@@ -90,7 +93,6 @@ th .dt-column-title {
                       <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
                       <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
                   {% elif page == 'Targets' %}
-                      <th colspan="2" style="text-align:center">Target Details</th>
                       <th colspan="3" style="text-align:center">Molecule</th>
                       <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
                       <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
@@ -107,9 +109,9 @@ th .dt-column-title {
                       <th style="text-align: center;">Receptor family</th>
                       <th style="text-align: center;">Ligand type</th>
                       <th style="text-align: center;">Class</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc;">Indication</th>
-                      <th style="text-align: center;">Disease (ICD11)</th>
-                      <th style="text-align: center;">Indication (ATC)</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+                      <th style="text-align: center;">ICD11</th>
+                      <th style="text-align: center;">ATC</th>
                       <th style="text-align: center;">Association score</th>
                       <th style="text-align: center;border-left: 1px solid #cccccc;">Highest phase</th>
                       <th style="text-align: center;">Phase I trials</th>
@@ -117,19 +119,17 @@ th .dt-column-title {
                       <th style="text-align: center;">Phase III trials</th>
                       <th style="text-align: center;">Approved</th>
                   {% elif page == 'Targets' %}
-                      <th style="text-align: center;">Target ID</th>
-                      <th style="text-align: center;">Target name</th>
                       <th style="text-align: center;">Name</th>
                       <th style="text-align: center;">Type</th>
                       <th style="text-align: center;">Modality</th>
                       <th style="text-align: center;border-left: 1px solid #cccccc;">Indication name</th>
                       <th style="text-align: center;">ICD11</th>
-                      <th style="text-align: center;">Indication (ATC)</th>
+                      <th style="text-align: center;">ATC</th>
                       <th style="text-align: center;">Association score</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc;">Highest phase</th>
-                      <th style="text-align: center;">Phase I trials</th>
-                      <th style="text-align: center;">Phase II trials</th>
-                      <th style="text-align: center;">Phase III trials</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc;">Highest</th>
+                      <th style="text-align: center;">I</th>
+                      <th style="text-align: center;">II</th>
+                      <th style="text-align: center;">III</th>
                       <th style="text-align: center;">Approved</th>
                   {% endif %}
               </tr>
@@ -140,7 +140,7 @@ th .dt-column-title {
                       <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                       <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                   {% elif page == 'Targets' %}
-                      <td colspan="5" style="text-align: center;" data-dt-order="disable"></td>
+                      <td colspan="3" style="text-align: center;" data-dt-order="disable"></td>
                       <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                       <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                   {% endif %}
@@ -402,7 +402,7 @@ th .dt-column-title {
             ];
         } else if (type === 'Targets') {
             pageSpecificDefs = [
-                { targets: [5, 9], className: 'border-left' }
+                { targets: [3, 7], className: 'border-left' }
             ];
         } else if (type === 'Agents/Drugs') {
             pageSpecificDefs = [
@@ -428,8 +428,8 @@ th .dt-column-title {
                 {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
                 {data: "Indication name", name: "Indication"},
                 {data: "ICD11", name: "ICD11"},
-                {data: null, name: "ATC", render: function() { return "coming soon"; }}, // New static column
-                {data: null, name: "Association score", render: function() { return "coming soon"; }}, // New static column
+                {data: 'ATC', name: "ATC"},
+                {data: 'Association score', name: "Association score", render: function (data) {return parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
                 {data: "Highest_phase", name: "Highest phase"},
                 {data: "Phase_I_trials", name: "Phase I trials"},
                 {data: "Phase_II_trials", name: "Phase II trials"},
@@ -438,20 +438,18 @@ th .dt-column-title {
             ];
         } else if (type === 'Targets') {
             columns = [
-                {data: "Target ID", name: "Target ID", visible: false},
-                {data: "Target name", name: "Target name", visible: false},
-                {data: "Ligand name", name: "Name"},
-                {data: "Modality", name: "Type"},
-                {data: "Mode of action", name: "Modality"},
+                {data: "Ligand name", name: "Name",width: "7%"},
+                {data: "Modality", name: "Type",width: "7%"}, 
+                {data: "Mode of action", name: "Modality",width: "10%"},
                 {data: "Indication name", name: "Indication"},
-                {data: "ICD11", name: "ICD11"},
-                {data: null, name: "ATC", render: function() { return "coming soon"; }}, // New static column
-                {data: null, name: "Association score", render: function() { return "coming soon"; }}, // New static column
-                {data: "Highest_phase", name: "Highest phase"},
-                {data: "Phase_I_trials", name: "Phase I trials"},
-                {data: "Phase_II_trials", name: "Phase II trials"},
-                {data: "Phase_III_trials", name: "Phase III trials"},
-                {data: "Approved", name: "Approved"}
+                {data: "ICD11", name: "ICD11",width: "5%"},
+                {data: 'ATC', name: "ATC",width: "5%"},
+                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
+                {data: "Highest_phase", name: "Highest",width: "5%"},
+                {data: "Phase_I_trials", name: "I",width: "3%"},
+                {data: "Phase_II_trials", name: "II",width: "3%"},
+                {data: "Phase_III_trials", name: "III",width: "3%"},
+                {data: "Approved", name: "Approved",width: "8%"}
             ];
         } else if (type === 'Targets for Indications') {
             columns = [
@@ -500,19 +498,25 @@ th .dt-column-title {
             table.draw();
         } else {
             $(tableId).DataTable({
-                dom: "<'row'<'col-sm-12 dt-btn'B>>" +
-                    "<'row'<'col-sm-6'l><'col-sm-3'><'col-sm-3'f>>" +
-                    "<'row'<'col-sm-12'tr>>" + "<'row'<'col-sm-12'ip>>",
+                dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-1'f><'col-sm-10'>>" +  // Buttons and search bar in the same row
+                "<'row'<'col-sm-12'tr>>" +                    // Table rows
+                "<'row'<'col-sm-12'ip>>", // Pagination and info
 
                 order: [0, "asc"],
                 pageLength: -1,
-                lengthMenu: [10, 20, { label: 'All', value: -1 }],
+                // lengthMenu: [10, 20, { label: 'All', value: -1 }],
                 data: data,
                 columns: columns,
                 columnDefs: columnDefs,
+                autoWidth: false,  // Disable automatic column width calculation
+                processing: false,
+                deferRender: true,
+                paging: false,
+                // scrollY: "50vh",
+                scrollX: false,  // Disable horizontal scrolling
 
                 buttons: [
-                    { text: 'Table control', extend: 'colvis', columns: [0, 1, 2, 3, 4] },
+                    // { text: 'Table control', extend: 'colvis', columns: [0, 1, 2, 3, 4] },
                     { text: 'Reset filters', action: function () { reset_all(); } }
                 ]
             });

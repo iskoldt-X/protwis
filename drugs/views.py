@@ -459,6 +459,7 @@ class DrugSectionSelection(TemplateView):
                 'ligand', 
                 'target__family__parent__parent__parent', # All target info
                 'indication__code'
+                'disease_association'
             ).values(
                 'ligand', # Agent/Drug id
                 'ligand__name', # Agent/Drug name
@@ -471,6 +472,8 @@ class DrugSectionSelection(TemplateView):
                 'indication__code__index', # Disease ICD11 code
                 'indication_max_phase', # Max phase
                 'drug_status', # Approval
+                'atc_code', # Indication ATC code
+                'disease_association__association_score' # Disease association score
             )
 
             # Convert the table_data queryset to a list of dictionaries
@@ -491,11 +494,13 @@ class DrugSectionSelection(TemplateView):
                 'indication__name': 'Indication name',
                 'indication__code__index': 'ICD11',
                 'indication_max_phase': 'Phase',
+                'atc_code': 'ATC',
+                'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'}, inplace=True)
             
             # Group the data by 'Ligand ID', 'Gene name', 'Indication name'
             grouped = df.groupby(
-                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11']
+                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11','ATC','Association score']
             )
 
 
@@ -525,7 +530,8 @@ class DrugSectionSelection(TemplateView):
                 'target',
                 'ligand__ligand_type',
                 'indication__code',
-                'moa'
+                'moa',
+                'disease_association'
             ).values(
                 'target',  # Target ID
                 'target__name',  # Target name
@@ -535,6 +541,8 @@ class DrugSectionSelection(TemplateView):
                 'indication__name',  # Disease name
                 'indication__code__index',  # Disease ICD11 code
                 'indication_max_phase',  # Max phase
+                'atc_code', # Indication ATC code
+                'disease_association__association_score', # Disease association score
                 'drug_status',  # Approval
             )
 
@@ -554,12 +562,14 @@ class DrugSectionSelection(TemplateView):
                 'indication__name': 'Indication name',
                 'indication__code__index': 'ICD11',
                 'indication_max_phase': 'Phase',
+                'atc_code': 'ATC',
+                'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'
             }, inplace=True)
             
             # Group the data by 'Target ID', 'Ligand name', 'Indication name'
             grouped = df.groupby(
-                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11']
+                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11','ATC','Association score']
             )
 
             # Create the new columns
