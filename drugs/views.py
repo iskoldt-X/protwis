@@ -349,7 +349,6 @@ def Venn(request, origin="both"):
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
     # if origin is targets, we need a single Venn diagram showing targets across different clinical phases
     # the Venn design has to be the same of the SignProt pages
-        print('Check 1')
         phases_dict = {}
         key_mapping = {
             1: "Phase I",
@@ -358,7 +357,6 @@ def Venn(request, origin="both"):
             4: "Phase IV"
         }
         if origin == "drugs":
-            print('Check 2')
             # Call to get drugs in each maximum phase
             drug_phases = Drugs2024.objects.all().values_list('indication_max_phase','ligand_id__name').distinct()
             for item in drug_phases:
@@ -366,10 +364,8 @@ def Venn(request, origin="both"):
                     phases_dict[item[0]] = []
                 phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
-            print('Check 3')
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
-            print('Check 4')
         else:
             # Call to get receptors in each maximum phase
             receptor_phases = Drugs2024.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
@@ -380,8 +376,6 @@ def Venn(request, origin="both"):
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
-
-        print('Check 5')
 
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
@@ -394,7 +388,7 @@ def Venn(request, origin="both"):
                                                             "target",
                                                             "indication__code"
                                                             )
-        print('Check 6')
+
         drug_dictionary = {}
         for p in drugs_panel:
             # Collect receptor data
@@ -419,9 +413,7 @@ def Venn(request, origin="both"):
             if drug_entry not in drug_dictionary[key]:
                 drug_dictionary[key].append(drug_entry)
 
-        print('Check 7')
         context["drug_dictionary"] = json.dumps(drug_dictionary)
-        print(drug_dictionary)
     # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
     context["layout"] = origin
 
@@ -498,20 +490,25 @@ class DrugSectionSelection(TemplateView):
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'}, inplace=True)
             
-            # Group the data by 'Ligand ID', 'Gene name', 'Indication name'
-            grouped = df.groupby(
-                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11','ATC','Association score']
-            )
+            # Precompute Phase and Status Information
+            df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
+            df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
+            df['Is_Phase_III'] = (df['Phase'] == 3).astype(int)
+            df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
 
-
-            # Create the new columns
-            Modified_df = grouped.agg(
+            # Perform GroupBy and Aggregate
+            Modified_df = df.groupby(
+                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11', 'ATC', 'Association score']
+            ).agg(
                 Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
-                Phase_I_trials=('Phase', lambda x: (x == 1).sum()),  # Count Phase I trials
-                Phase_II_trials=('Phase', lambda x: (x == 2).sum()),  # Count Phase II trials
-                Phase_III_trials=('Phase', lambda x: (x == 3).sum()),  # Count Phase III trials
-                Approved=('Status', lambda x: 'Yes' if (x == 'Approved').any() else 'No')  # Check if any row has 'Approved' status
+                Phase_I_trials=('Is_Phase_I', 'sum'),  # Count Phase I trials
+                Phase_II_trials=('Is_Phase_II', 'sum'),  # Count Phase II trials
+                Phase_III_trials=('Is_Phase_III', 'sum'),  # Count Phase III trials
+                Approved=('Is_Approved', 'max')  # Check if any row has 'Approved' status
             ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
 
             # Convert DataFrame to JSON
             json_records = Modified_df.to_json(orient='records')
@@ -567,19 +564,29 @@ class DrugSectionSelection(TemplateView):
                 'drug_status': 'Status'
             }, inplace=True)
             
-            # Group the data by 'Target ID', 'Ligand name', 'Indication name'
+            # Precompute flags for phase and approval status
+            df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
+            df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
+            df['Is_Phase_III'] = (df['Phase'] == 3).astype(int)
+            df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
+
+            # Group by necessary columns and perform aggregation in one go
             grouped = df.groupby(
-                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11','ATC','Association score']
+                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11', 'ATC', 'Association score']
             )
 
-            # Create the new columns
+            # Perform aggregation
             Modified_df = grouped.agg(
                 Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
-                Phase_I_trials=('Phase', lambda x: (x == 1).sum()),  # Count Phase I trials
-                Phase_II_trials=('Phase', lambda x: (x == 2).sum()),  # Count Phase II trials
-                Phase_III_trials=('Phase', lambda x: (x == 3).sum()),  # Count Phase III trials
-                Approved=('Status', lambda x: 'Yes' if (x == 'Approved').any() else 'No')  # Check if any row has 'Approved' status
+                Phase_I_trials=('Is_Phase_I', 'sum'),  # Sum up the Phase I trials
+                Phase_II_trials=('Is_Phase_II', 'sum'),  # Sum up the Phase II trials
+                Phase_III_trials=('Is_Phase_III', 'sum'),  # Sum up the Phase III trials
+                Approved=('Is_Approved', 'max')  # Check if any row has 'Approved' status (max of binary flag)
             ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
 
             # Convert DataFrame to JSON
             json_records = Modified_df.to_json(orient='records')
@@ -602,7 +609,8 @@ class DrugSectionSelection(TemplateView):
                 'indication',
                 'ligand__ligand_type',
                 'target__family__parent__parent__parent',  # All target info
-                'moa'
+                'moa',
+                'disease_association'
             ).values(
                 'indication',  # Indication ID
                 'indication__name',  # Indication name
@@ -616,7 +624,30 @@ class DrugSectionSelection(TemplateView):
                 'target__name',  # Protein name
                 'target__family__parent__name',  # Receptor family
                 'target__family__parent__parent__name',  # Ligand type
-                'target__family__parent__parent__parent__name'  # Class
+                'target__family__parent__parent__parent__name',  # Class
+                'disease_association__association_score', # Disease association score
+                "disease_association__ot_genetics_portal", # OT Genetics
+                "disease_association__gene_burden", # Gene Burden
+                "disease_association__eva", # ClinVar
+                "disease_association__genomics_england", # GEL PanelApp
+                "disease_association__gene2phenotype", # Gene2phenotype
+                "disease_association__uniprot_literature", # UniProt literature
+                "disease_association__uniprot_variants", # UniProt curated variants
+                "disease_association__orphanet", # Orphanet
+                "disease_association__clingen", # ClinGen
+                "disease_association__cancer_gene_census", # Cancer Gene Census
+                "disease_association__intogen", # IntOGen
+                "disease_association__eva_somatic", # Clinvar (somatic)
+                "disease_association__cancer_biomarkers", # Cancer Biomarkers
+                "disease_association__chembl", # ChEMBL
+                "disease_association__crispr_screen", # CRISPR Screens
+                "disease_association__crispr", # Project Score
+                "disease_association__slapenrich", # SLAPenrich
+                "disease_association__reactome", # Reactome
+                "disease_association__sysbio", # Gene signatures
+                "disease_association__europepmc", # Europe PMC
+                "disease_association__expression_atlas", # Expression Atlas
+                "disease_association__impc" # IMPC
             )
 
             # Convert the table_data queryset to a list of dictionaries
@@ -639,7 +670,30 @@ class DrugSectionSelection(TemplateView):
                 'target__name': 'Protein name',
                 'target__family__parent__name': 'Receptor family',
                 'target__family__parent__parent__name': 'Ligand type',
-                'target__family__parent__parent__parent__name': 'Class'
+                'target__family__parent__parent__parent__name': 'Class',
+                'disease_association__association_score' : 'Association score',
+                "disease_association__ot_genetics_portal": "OT Genetics",
+                "disease_association__gene_burden": "Gene Burden",
+                "disease_association__eva": "ClinVar",
+                "disease_association__genomics_england": "GEL PanelApp",
+                "disease_association__gene2phenotype": "Gene2phenotype",
+                "disease_association__uniprot_literature": "UniProt literature",
+                "disease_association__uniprot_variants": "UniProt curated variants",
+                "disease_association__orphanet": "Orphanet",
+                "disease_association__clingen": "ClinGen",
+                "disease_association__cancer_gene_census": "Cancer Gene Census",
+                "disease_association__intogen": "IntOGen",
+                "disease_association__eva_somatic": "Clinvar (somatic)",
+                "disease_association__cancer_biomarkers": "Cancer Biomarkers",
+                "disease_association__chembl":"ChEMBL",
+                "disease_association__crispr_screen": "CRISPR Screens",
+                "disease_association__crispr": "Project Score",
+                "disease_association__slapenrich": "SLAPenrich",
+                "disease_association__reactome": "Reactome",
+                "disease_association__sysbio": "Gene signatures",
+                "disease_association__europepmc": "Europe PMC",
+                "disease_association__expression_atlas": "Expression Atlas",
+                "disease_association__impc": "IMPC"
             }, inplace=True)
 
             # Define MOA categories
@@ -656,12 +710,27 @@ class DrugSectionSelection(TemplateView):
             # Update group_cols to include 'Indication name'
             group_cols = ['Indication ID', 'Gene name', 'Indication name', 'Protein name', 'Receptor family', 'Ligand type', 'Class']
 
+            # Define disease association columns to be added to the grouping
+            disease_cols = [
+                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp', 
+                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet', 
+                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers', 
+                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures', 
+                'Europe PMC', 'Expression Atlas', 'IMPC'
+            ]
+
+            # Add these to group_cols
+            group_cols += disease_cols
+
+            df_targets[disease_cols] = df[disease_cols].fillna("")
+
             # Precompute classifications
             df_targets['Classification'] = df_targets['Status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
 
             # Pre-filter the DataFrame for stimulatory and inhibitory MOAs
             stim_moa_df = df_targets[df_targets['Mode of action'].isin(stim_moa)]
             inhib_moa_df = df_targets[df_targets['Mode of action'].isin(inhib_moa)]
+
 
             # Create a function to get the max phase safely
             def get_max_phase(df, group_cols):
@@ -687,11 +756,19 @@ class DrugSectionSelection(TemplateView):
             agg_data_targets = agg_data_targets.merge(stim_max_phase.rename('Stimulatory_max_phase'), on=group_cols, how='left')
             agg_data_targets = agg_data_targets.merge(inhib_max_phase.rename('Inhibitory_max_phase'), on=group_cols, how='left')
 
-            # Compute Stimulatory and Inhibitory Drugs and Agents counts
-            stim_counts = stim_moa_df.groupby(group_cols)['Classification'].value_counts().unstack().fillna(0).reset_index()
+           # Compute Stimulatory and Inhibitory Drugs and Agents counts
+            # Reindex to ensure both 'Drug' and 'Agent' columns are present, even if they don't exist in the data
+            stim_counts = stim_moa_df.groupby(group_cols)['Classification'].value_counts().unstack(fill_value=0).reindex(
+                columns=['Drug', 'Agent'], fill_value=0).reset_index()
+
+            # Rename columns to make sure they have meaningful names
             stim_counts.rename(columns={'Drug': 'Stimulatory_Drugs', 'Agent': 'Stimulatory_Agents'}, inplace=True)
 
-            inhib_counts = inhib_moa_df.groupby(group_cols)['Classification'].value_counts().unstack().fillna(0).reset_index()
+            # Reindex to ensure both 'Drug' and 'Agent' columns are present for inhibitory counts
+            inhib_counts = inhib_moa_df.groupby(group_cols)['Classification'].value_counts().unstack(fill_value=0).reindex(
+                columns=['Drug', 'Agent'], fill_value=0).reset_index()
+
+            # Rename columns for inhibitory MOAs
             inhib_counts.rename(columns={'Drug': 'Inhibitory_Drugs', 'Agent': 'Inhibitory_Agents'}, inplace=True)
 
             # Merge the counts back into the aggregated data
@@ -731,6 +808,7 @@ class DrugSectionSelection(TemplateView):
             # Convert DataFrame to JSON
             json_records_drugs = agg_data_drugs.to_json(orient='records')
             context['Full_data_drugs'] = json_records_drugs
+
 
         # Convert to JSON string and pass to context
         context['search_data'] = json.dumps(search_dict)

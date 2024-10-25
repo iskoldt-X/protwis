@@ -24,18 +24,25 @@
     .border-left {
         border-left: 1px solid #cccccc !important; /* Adjust the width and color as needed */
     }
-   /* Adjust the padding and position of the sortable headers for the version using "DataTable" */
-/* Change the color of the sorting icons to black */
-/* Target the sorting icon directly */
-/* Target the sorting icon inside the header cell */
-/* Directly target the sorting icon within any table header cell */
-/* Even more generic targeting */
-th .dt-column-order {
-    margin-right: -12px; /* Shift the sort arrow to the right */
+    /* Centered */
+    th .dt-column-order {
+        margin-right: -12px; /* Shift the sort arrow to the right */
+    }
+    th .dt-column-title {
+        /* padding-left: 24px; */
+        margin-left: 24px;
+    }
+
+    #targetsTable {
+    table-layout: auto;  /* Ensure columns can adjust width */
+    width: 100%;         /* Set table width to 100% of container */
 }
-th .dt-column-title {
-    /* padding-left: 24px; */
-    margin-left: 24px;
+#targetsTable th {
+    width: 250px !important; /* Force width on <th> elements */
+    max-width: 250px;        /* Set a maximum width */
+    overflow: hidden;
+    white-space: nowrap;     /* Prevent line wrapping */
+    text-overflow: ellipsis; /* Add ellipsis if text overflows */
 }
 
 
@@ -104,8 +111,8 @@ th .dt-column-title {
                   {% if page == 'Drugs' %}
                       <th style="text-align: center;">Drug ID</th>
                       <th style="text-align: center;">Drug name</th>
-                      <th style="text-align: center;">Gene name</th>
-                      <th style="text-align: center;">Protein name</th>
+                      <th style="text-align: center;">Gene</th>
+                      <th style="text-align: center;">Protein</th>
                       <th style="text-align: center;">Receptor family</th>
                       <th style="text-align: center;">Ligand type</th>
                       <th style="text-align: center;">Class</th>
@@ -166,58 +173,100 @@ th .dt-column-title {
             <!-- Targets Tab Content -->
             <div class="tab-pane fade in active" id="targets-indication" role="tabpanel" aria-labelledby="targets-indication-tab">
                 <!-- Button Group for Column Visibility Control -->
-                <div class="btn-group" role="group" aria-label="Column visibility controls" style="margin-top: 15px;">
+                <div class="btn-group" role="group" aria-label="Column visibility controls" style="margin-top: 15px;margin-bottom: 15px;">
                     <button type="button" class="btn btn-primary" data-column="0">Disease Association</button>
                     <button type="button" class="btn btn-secondary" data-column="1">Agents/Drugs</button>
                 </div>
 
                 <!-- Single DataTable for All Sub-Tabs -->
-                <table width="100%" class="display compact" id="targetsTable" style="margin-top: 15px;">
+                <table width="100%" class="display compact" id="targetsTable">
                     <thead>
                         <!-- Dummy Header Row for Complex Header Fix -->
                         <tr>
-                            <td colspan="18" style="text-align: center" data-dt-order="disable"></td>
+                            <td colspan="37" style="text-align: center" data-dt-order="disable"></td>
                         </tr>
                         <!-- Super Header Row -->
                         <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
-                            <th colspan="2" style="text-align:center">Indication Details</th>
-                            <th colspan="5" style="text-align:center">Classification</th>
-                            <th colspan="2" style="text-align:center">Disease association</th>
-                            <th colspan="3" style="text-align:center">All</th>
-                            <th colspan="3" style="text-align:center">Stimulatory</th>
-                            <th colspan="3" style="text-align:center">Inhibitory</th>
+                            <th colspan="5" style="text-align:center;">Classification</th>
+                            <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Disease association</th>
+                            <th colspan="9" style="text-align:center;border-left: 1px solid #cccccc;">Genetic association</th>
+                            <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Somatic mutations</th>
+                            <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Known drug</th>
+                            <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Affected pathway</th>
+                            <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Literature</th>
+                            <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">RNA Expression</th>
+                            <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Animal model</th>
+                            <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">All</th>
+                            <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
+                            <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
                         </tr>
                         <!-- Header Row -->
                         <tr>
-                            <!-- Indication Details -->
-                            <th style="text-align: center">Indication ID</th>
-                            <th style="text-align: center">Indication name</th>
                             <!-- Classification -->
-                            <th style="text-align: center">Gene name</th>
-                            <th style="text-align: center">Protein name</th>
+                            <th style="text-align: center;">Gene</th>
+                            <th style="text-align: center">Protein</th>
                             <th style="text-align: center">Receptor family</th>
                             <th style="text-align: center">Ligand type</th>
                             <th style="text-align: center">Class</th>
                             <!-- Disease association -->
-                            <th style="text-align: center">Association score</th>
-                            <th style="text-align: center">Opentargets</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Association score</th>
+                            <!-- Genetic association -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">OT Genetics</th>
+                            <th style="text-align: center">Gene Burden</th>
+                            <th style="text-align: center">ClinVar</th>
+                            <th style="text-align: center">GEL PanelApp</th>
+                            <th style="text-align: center">Gene2phenotype</th>
+                            <th style="text-align: center">UniProt literature</th>
+                            <th style="text-align: center">UniProt curated variants</th>
+                            <th style="text-align: center">Orphanet</th>
+                            <th style="text-align: center">ClinGen</th>
+                            <!-- Somatic mutations -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Cancer Gene Census</th>
+                            <th style="text-align: center">IntOGen</th>
+                            <th style="text-align: center">Clinvar (somatic)</th>
+                            <th style="text-align: center">Cancer Biomarkers</th>
+                            <!-- Known drug -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">ChEMBL</th>
+                            <!-- Affected pathway -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">CRISPR Screens</th>
+                            <th style="text-align: center">Project Score</th>
+                            <th style="text-align: center">SLAPenrich</th>
+                            <th style="text-align: center">Reactome</th>
+                            <th style="text-align: center">Gene signatures</th>
+                            <!-- Literature -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Europe PMC</th>
+                            <!-- RNA Expression -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Expression Atlas</th>
+                            <!-- Animal model -->
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">IMPC</th>
                             <!-- Agent/Drugs -->
                             <!-- All -->
-                            <th style="text-align: center">Highest phase</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Max phase</th>
                             <th style="text-align: center">Drugs</th>
                             <th style="text-align: center">Agents</th>
                             <!-- Stimulatory -->
-                            <th style="text-align: center">Highest phase</th>
-                            <th style="text-align: center">Drugs</th>
-                            <th style="text-align: center">Agents</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Max phase</th>
+                            <th style="text-align: center;">Drugs</th>
+                            <th style="text-align: center;">Agents</th>
                             <!-- Inhibitory -->
-                            <th style="text-align: center">Highest phase</th>
-                            <th style="text-align: center">Drugs</th>
-                            <th style="text-align: center">Agents</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Max phase</th>
+                            <th style="text-align: center;">Drugs</th>
+                            <th style="text-align: center;">Agents</th>
                         </tr>
                         <!-- Filter Row for header -->
                         <tr>
-                            <td colspan="18" style="text-align: center" data-dt-order="disable"></td>
+                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="9" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                         </tr>
                     </thead>
                     <tbody>
@@ -226,8 +275,8 @@ th .dt-column-title {
             </div>
 
             <!-- Agents/Drugs Tab Content -->
-            <div class="tab-pane fade" id="agents-drugs-indication" role="tabpanel" aria-labelledby="agents-drugs-indication-tab">
-                <table width="100%" class="display compact" id="agentsDrugsSuperTable">
+            <div class="tab-pane fade" id="agents-drugs-indication" role="tabpanel" aria-labelledby="agents-drugs-indication-tab" style="margin-top:20px">
+                <table width="100%" class="display compact mt-4" id="agentsDrugsSuperTable">
                     <thead>
                         <tr>
                             <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
@@ -242,17 +291,17 @@ th .dt-column-title {
                             <!-- Drug -->
                             <th style="text-align: center">Drug name</th>
                             <!-- Phase -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Highest phase</th>
-                            <th style="text-align: center">Phase I trials</th>
-                            <th style="text-align: center">Phase II trials</th>
-                            <th style="text-align: center">Phase III trials</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
+                            <th style="text-align: center">I</th>
+                            <th style="text-align: center">II</th>
+                            <th style="text-align: center">III</th>
                             <th style="text-align: center">Approved</th>
                             <!-- Molecule -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">Type</th>
                             <th style="text-align: center">Modality</th>
                             <!-- Target -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Gene name</th>
-                            <th style="text-align: center">Protein name</th>
+                            <th style="text-align: center;border-left: 1px solid #cccccc;">Gene</th>
+                            <th style="text-align: center">Protein</th>
                             <th style="text-align: center">Receptor family</th>
                             <th style="text-align: center">Ligand type</th>
                             <th style="text-align: center">Class</th>
@@ -408,13 +457,22 @@ th .dt-column-title {
             pageSpecificDefs = [
                 { targets: [1, 6,8], className: 'border-left' }
             ];
+        } else if (type === 'Targets for Indications') {
+            pageSpecificDefs = [
+            { targets: [5, 6, 15,19,20,,25,26,27,28,31,34], className: 'border-left' }
+            ];
         }
+        
+        // digit fixed value
+        const digit_fixed = 4
 
         // Add common column definitions to the page-specific ones
-        var columnDefs = [
-            { className: "dt-head-center dt-center dt-body-center expand", "targets": "_all" }
-        ].concat(pageSpecificDefs);
-
+        
+        if (type === "Targets for Indications") {
+            var columnDefs = [{ className: "dt-head-center dt-center dt-body-center", "targets": "_all" }].concat(pageSpecificDefs);
+        } else {
+            var columnDefs = [{ className: "dt-head-center dt-center dt-body-center expand", "targets": "_all" }].concat(pageSpecificDefs);
+        }
         // Define columns dynamically based on the type
         var columns = [];
         if (type === 'Drugs') {
@@ -453,15 +511,34 @@ th .dt-column-title {
             ];
         } else if (type === 'Targets for Indications') {
             columns = [
-                {data: "Indication ID", name: "Indication ID",visible: false},
-                {data: "Indication name", name: "Indication name",visible: false},
                 {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
                 {data: "Protein name", name: "Protein name"},
                 {data: "Receptor family", name: "Receptor family"},
                 {data: "Ligand type", name: "Ligand type"},
                 {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
-                {data: null, name: "Association score", render: function() { return "coming soon"; }}, // New static column
-                {data: null, name: "Opentargets", render: function() { return "coming soon"; }}, // New static column
+                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
+                {data: "OT Genetics", name: "OT Genetics",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Gene Burden", name: "Gene Burden",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "ClinVar", name: "ClinVar",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "GEL PanelApp", name: "GEL PanelApp",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Gene2phenotype", name: "Gene2phenotype",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "UniProt literature", name: "UniProt literature",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "UniProt curated variants", name: "UniProt curated variants",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Orphanet", name: "Orphanet",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "ClinGen", name: "ClinGen",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Cancer Gene Census", name: "Cancer Gene Census",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "IntOGen", name: "IntOGen",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Clinvar (somatic)", name: "Clinvar (somatic)",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Cancer Biomarkers", name: "Cancer Biomarkers",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "ChEMBL", name: "ChEMBL",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "CRISPR Screens", name: "CRISPR Screens",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Project Score", name: "Project Score",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "SLAPenrich", name: "SLAPenrich",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Reactome", name: "Reactome",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Gene signatures", name: "Gene signatures",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Europe PMC", name: "Europe PMC",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "Expression Atlas", name: "Expression Atlas",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+                {data: "IMPC", name: "IMPC",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
                 {data: "All_max_phase", name: "Highest phase"},
                 {data: "All_Drugs", name: "Drugs"},
                 {data: "All_Agents", name: "Agents"},
@@ -474,19 +551,19 @@ th .dt-column-title {
             ];
         } else if (type === 'Agents/Drugs') {
             columns = [
-                {data: "Drug name", name: "Drug name"},
-                {data: "Highest_phase", name: "Highest phase"},
-                {data: "Phase_I_trials", name: "Phase I trials"},
-                {data: "Phase_II_trials", name: "Phase II trials"},
-                {data: "Phase_III_trials", name: "Phase III trials"},
-                {data: "Approved", name: "Approved"},
-                {data: "Molecule_type", name: "Type"},
-                {data: "Mode of action", name: "Modality"},
-                {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
-                {data: "Protein name", name: "Protein name"},
-                {data: "Receptor family", name: "Receptor family"},
-                {data: "Ligand type", name: "Ligand type"},
-                {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
+                {data: "Drug name", name: "Drug name",width: "10%"},
+                {data: "Highest_phase", name: "Max",width: "6%"},
+                {data: "Phase_I_trials", name: "Phase I trials",width: "2%"},
+                {data: "Phase_II_trials", name: "Phase II trials",width: "2%"},
+                {data: "Phase_III_trials", name: "Phase III trials",width: "2%"},
+                {data: "Approved", name: "Approved",width: "9%"},
+                {data: "Molecule_type", name: "Type",width: "7%"},
+                {data: "Mode of action", name: "Modality",width: "7%"},
+                {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+                {data: "Protein name", name: "Protein name",width: "10%"},
+                {data: "Receptor family", name: "Receptor family",width: "10%"},
+                {data: "Ligand type", name: "Ligand type",width: "10%"},
+                {data: "Class", name: "Class",width: "5%", render: function (data) { return data.split(' (')[0]; }},
             ];
         }
 
@@ -498,7 +575,7 @@ th .dt-column-title {
             table.draw();
         } else {
             $(tableId).DataTable({
-                dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-1'f><'col-sm-10'>>" +  // Buttons and search bar in the same row
+                dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
                 "<'row'<'col-sm-12'tr>>" +                    // Table rows
                 "<'row'<'col-sm-12'ip>>", // Pagination and info
 
@@ -512,11 +589,10 @@ th .dt-column-title {
                 processing: false,
                 deferRender: true,
                 paging: false,
-                // scrollY: "50vh",
-                scrollX: false,  // Disable horizontal scrolling
-
+                scrollX: type === "Targets for Indications",
+                autoWidth: false, // Prevent automatic column width adjustment
+                // scrollX: false,
                 buttons: [
-                    // { text: 'Table control', extend: 'colvis', columns: [0, 1, 2, 3, 4] },
                     { text: 'Reset filters', action: function () { reset_all(); } }
                 ]
             });
@@ -534,30 +610,28 @@ th .dt-column-title {
         if (columnType == 0) {
             // 'All' button: Show only classification columns
             table.columns().visible(false);
-            table.column(2).visible(true); // Gene name
-            table.column(3).visible(true); // Protein name
-            table.column(4).visible(true); // Receptor family
-            table.column(5).visible(true); // Ligand type
-            table.column(6).visible(true); // Class
-            table.column(7).visible(true); // Association score
-            table.column(8).visible(true); // Opentargets
+            table.column(0).visible(true); // Gene name
+            table.column(1).visible(true); // Protein name
+            table.column(2).visible(true); // Receptor family
+            table.column(3).visible(true); // Ligand type
+            table.column(4).visible(true); // Class
+            table.column(5).visible(true); // Association score
+             // Loop through columns 9 to 17
+             for (let i = 6; i <= 27; i++) {
+                table.column(i).visible(true);
+            }
         } else if (columnType == 1) {
             // 'Agents/Drugs' button: Show only agents/drugs columns
             table.columns().visible(false);
-            table.column(2).visible(true); // Gene name
-            table.column(3).visible(true); // Protein name
-            table.column(4).visible(true); // Receptor family
-            table.column(5).visible(true); // Ligand type
-            table.column(6).visible(true); // Class
-            table.column(9).visible(true);  // All_max_phase
-            table.column(10).visible(true); // All_Drugs
-            table.column(11).visible(true); // All_Agents
-            table.column(12).visible(true); // Stimulatory_max_phase
-            table.column(13).visible(true); // Stimulatory_Drugs
-            table.column(14).visible(true); // Stimulatory_Agents
-            table.column(15).visible(true); // Inhibitory_max_phase
-            table.column(16).visible(true); // Inhibitory_Drugs
-            table.column(17).visible(true); // Inhibitory_Agents
+            table.column(0).visible(true); // Gene name
+            table.column(1).visible(true); // Protein name
+            table.column(2).visible(true); // Receptor family
+            table.column(3).visible(true); // Ligand type
+            table.column(4).visible(true); // Class
+            // Loop through columns 9 to 17 (All_max_phase, All_Drugs, All_Agents, Stimulatory_max_phase, Stimulatory_Drugs,Stimulatory_Agents, Inhibitory_max_phase, Inhibitory_Drugs,Inhibitory_Agents)
+            for (let i = 28; i <= 36; i++) {
+                table.column(i).visible(true);
+            }
         }
     });
 
