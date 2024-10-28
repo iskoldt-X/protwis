@@ -347,7 +347,6 @@ def Venn(request, origin="both"):
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
     # if origin is targets, we need a single Venn diagram showing targets across different clinical phases
     # the Venn design has to be the same of the SignProt pages
-        print('Check 1')
         phases_dict = {}
         key_mapping = {
             1: "Phase I",
@@ -356,7 +355,6 @@ def Venn(request, origin="both"):
             4: "Phase IV"
         }
         if origin == "drugs":
-            print('Check 2')
             # Call to get drugs in each maximum phase
             drug_phases = Drugs2024.objects.all().values_list('indication_max_phase','ligand_id__name').distinct()
             for item in drug_phases:
@@ -364,10 +362,8 @@ def Venn(request, origin="both"):
                     phases_dict[item[0]] = []
                 phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
-            print('Check 3')
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
-            print('Check 4')
         else:
             # Call to get receptors in each maximum phase
             receptor_phases = Drugs2024.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
@@ -378,8 +374,6 @@ def Venn(request, origin="both"):
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
-
-        print('Check 5')
 
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
@@ -392,7 +386,6 @@ def Venn(request, origin="both"):
                                                             "target",
                                                             "indication__code"
                                                             )
-        print('Check 6')
         drug_dictionary = {}
         for p in drugs_panel:
             # Collect receptor data
@@ -417,9 +410,7 @@ def Venn(request, origin="both"):
             if drug_entry not in drug_dictionary[key]:
                 drug_dictionary[key].append(drug_entry)
 
-        print('Check 7')
         context["drug_dictionary"] = json.dumps(drug_dictionary)
-        print(drug_dictionary)
     # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
     context["layout"] = origin
 
