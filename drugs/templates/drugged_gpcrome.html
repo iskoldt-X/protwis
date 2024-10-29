@@ -162,6 +162,19 @@ var GPCRome_categories_data = {{ GPCRome_data|safe }};
 var fill_data = {{ GPCRome_data_variables|safe }};
 var GPCRome_Label_conversion_dict = {{GPCRome_Label_Conversion|safe}};
 
+console.log(fill_data)
+// Loop through each key in fill_data
+for (const key in fill_data) {
+    if (fill_data.hasOwnProperty(key)) {
+        const item = fill_data[key];
+
+        // Check if Value1 is not 4 or 0
+        if (item.Value1 !== 4 && item.Value1 !== 0) {
+            console.log(`Key: ${key}, Value1: ${item.Value1}`);
+        }
+    }
+}
+
 // Initialize the conversion dictionary
 GPCRome_Label_conversion_dict = initializeGPCRomeLabelConversionDict(GPCRome_Label_conversion_dict);
 
@@ -327,10 +340,10 @@ function updateFillData(fill_data, conversionDict, labelType) {
 
     // # Initialize data #
     tree_data = {{ tree | safe }};
-    console.log(tree_data);
     tree_options = {{ tree_options | safe }};
     Tree_circles = {{ circles|safe }};
     Tree_label_dict = {{ whole_dict|safe }};
+    console.log(Tree_circles);
 
     tree_data = update_tree_data(tree_data,tree_options.depth);
     const depth = tree_options.depth;  // Set this value when the page loads

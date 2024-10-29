@@ -343,7 +343,6 @@ def Venn(request, origin="both"):
     # context = None
     if context == None:
         context = OrderedDict()
-
     # Here we need to generate fata for three different Venn diagrams plus associated tables:
     # if origin is drugs, we need a Venn diagram showing drugs across different clinical phases
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
@@ -372,7 +371,7 @@ def Venn(request, origin="both"):
             for item in receptor_phases:
                 if item[0] not in phases_dict.keys():
                     phases_dict[item[0]] = []
-                phases_dict[item[0]].append(item[1].split("_")[0].upper())
+                phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
@@ -380,40 +379,101 @@ def Venn(request, origin="both"):
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
 
+        
+        #  Fetch table data with all related information
+        table_data = Drugs2024.objects.select_related(
+            'target__family__parent__parent__parent',  # All target info
+            'ligand__ligand_type',
+            'indication__code',
+            'moa',
+            'disease_association'
+        ).values(
+
+            'target__entry_name',  # Gene name
+            'target__name',  # Protein name
+            'target__family__parent__name',  # Receptor family
+            'target__family__parent__parent__name',  # Ligand type
+            'target__family__parent__parent__parent__name',  # Class
+            'ligand__name',  # Agent/Drug
+            'ligand__ligand_type__name',  # Modality
+            'moa__name',  # Mode of action
+            'indication__name',  # Disease name
+            'indication__code__index',  # Disease ICD11 code
+            'indication_max_phase',  # Max phase
+            'atc_code', # Indication ATC code
+            'disease_association__association_score', # Disease association score
+            'drug_status',  # Approval
+        )
+
+        # Convert the table_data queryset to a list of dictionaries
+        table_data_list = list(table_data)
+
+        # Convert the list of dictionaries to a pandas DataFrame
+        df = pd.DataFrame(table_data_list)
+
+        # Rename the columns to your desired format
+        df.rename(columns={
+            'target__entry_name': "Gene name",
+            'target__name': "Protein name",
+            'target__family__parent__name': 'Receptor family',
+            'target__family__parent__parent__name': 'Ligand type',
+            'target__family__parent__parent__parent__name': 'Class',
+            'ligand__name': 'Ligand name',
+            'ligand__ligand_type__name': 'Drug type',
+            'moa__name': 'Modality',
+            'indication__name': 'Indication name',
+            'indication__code__index': 'ICD11',
+            'indication_max_phase': 'Phase',
+            'atc_code': 'ATC',
+            'disease_association__association_score' : 'Association score',
+            'drug_status': 'Approved'
+        }, inplace=True)
+            
+
+        # Convert 'Approved' from integer to 'Yes'/'No'
+        df['Approved'] = df['Approved'].apply(lambda x: 'Yes' if x == "Approved" else 'No')
+
+
+        # Convert DataFrame to JSON
+        json_records = df.to_json(orient='records')
+
+        # Pass the JSON data to the template context
+        context['Full_data'] = json_records
+
         # Collect drugs information
-        drugs_panel = Drugs2024.objects.all().select_related(
-                                                            "ligand",
-                                                            "moa",
-                                                            "target__family__parent",
-                                                            "target",
-                                                            "indication__code"
-                                                            )
+        # drugs_panel = Drugs2024.objects.all().select_related(
+        #                                                     "ligand",
+        #                                                     "moa",
+        #                                                     "target__family__parent",
+        #                                                     "target",
+        #                                                     "indication__code"
+        #                                                     )
 
-        drug_dictionary = {}
-        for p in drugs_panel:
-            # Collect receptor data
-            lig_name = p.ligand.name.lower().capitalize()
-            lig_type = p.moa.name
-            rec_family = p.target.family.parent.short()
-            rec_uniprot = p.target.entry_short()
-            rec_iuphar = p.target.family.name.replace("receptor", '').replace("<i>","").replace("</i>","").strip()
-            clinical_phase = p.indication_max_phase
-            indication_name = p.indication.name
-            indication_code = p.indication.code.index
-            # Create a tuple to store the values
-            drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
-            # Initialize key if it doesn't exist
-            if origin == 'drugs':
-                key = lig_name
-            else:
-                key = rec_uniprot.lower().capitalize()
-            if key not in drug_dictionary:
-                drug_dictionary[key] = []
-            # Check for duplicates before adding
-            if drug_entry not in drug_dictionary[key]:
-                drug_dictionary[key].append(drug_entry)
+        # drug_dictionary = {}
+        # for p in drugs_panel:
+        #     # Collect receptor data
+        #     lig_name = p.ligand.name.lower().capitalize()
+        #     lig_type = p.moa.name
+        #     rec_family = p.target.family.parent.short()
+        #     rec_uniprot = p.target.entry_short()
+        #     rec_iuphar = p.target.family.name.replace("receptor", '').replace("<i>","").replace("</i>","").strip()
+        #     clinical_phase = p.indication_max_phase
+        #     indication_name = p.indication.name
+        #     indication_code = p.indication.code.index
+        #     # Create a tuple to store the values
+        #     drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
+        #     # Initialize key if it doesn't exist
+        #     if origin == 'drugs':
+        #         key = lig_name
+        #     else:
+        #         key = rec_uniprot.lower().capitalize()
+        #     if key not in drug_dictionary:
+        #         drug_dictionary[key] = []
+        #     # Check for duplicates before adding
+        #     if drug_entry not in drug_dictionary[key]:
+        #         drug_dictionary[key].append(drug_entry)
 
-        context["drug_dictionary"] = json.dumps(drug_dictionary)
+        # context["drug_dictionary"] = json.dumps(drug_dictionary)
     # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
     context["layout"] = origin
 

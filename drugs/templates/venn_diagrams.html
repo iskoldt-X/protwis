@@ -10,13 +10,10 @@
 <link href="{% static 'home/css/yadcf_bootstrap_version.css' %}" rel="stylesheet" media="screen">
 <link href="{% static 'home/css/targetselect_functions.css' %}" rel="stylesheet" media="screen">
 <link href="{% static 'home/css/select2.css' %}" rel="stylesheet" media="screen">
+<link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
 <style type="text/css">
-  /* Maintain original width of page */
-  /* @media (min-width: 1600px) {
-    #content.container {
-      width: 1570px;
-    }
-  } */
+  
   textarea {
     resize: none;
     overflow: hidden;
@@ -39,6 +36,18 @@
     align-items: center;
     text-align: center;
     margin-left: 18%; /* Moves the container 20px to the right */
+}
+
+.border-left {
+    border-left: 1px solid #cccccc !important; /* Adjust the width and color as needed */
+}
+/* Centered */
+th .dt-column-order {
+    margin-right: -12px; /* Shift the sort arrow to the right */
+}
+th .dt-column-title {
+    /* padding-left: 24px; */
+    margin-left: 24px;
 }
 
 </style>
@@ -68,36 +77,49 @@
   </div>
 
   <!-- Table Row (Unaffected by Flex) -->
-  <div class="row mt-4">
-    <div class="col-md-12">
-      <table class="compact text-nowrap" id="receptor_table">
-        <thead>
-          <tr>
-            <th>Ligand name</th>
-            <th>Ligand type</th>
-            <th>Receptor Family</th>
-            <th>Receptor<br>(UniProt)</th>
-            <th>Receptor<br>(GtP)</th>
-            <th>Clinical phase</th>
-            <th>Indication</th>
-            <th>ICD code</th>
-          </tr>
-          <tr>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-          </tr>
-        </thead>
-      </table>
-      <canvas id="test-canvas"></canvas>
+  <div style="font-size: 11px; white-space: nowrap; display: none;" id="table-container">
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <table width="100%" class="display compact" id="receptor_table">
+          <thead>
+            <tr>
+              <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+            </tr>
+            <tr>
+              <th colspan="3" style="text-align:center">Drug/Agent</th>
+              <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
+              <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+              <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+            </tr>
+            <tr>
+              <th style="text-align: center;">Name</th>
+              <th style="text-align: center;">Type</th>
+              <th style="text-align: center;">Modality</th>
+              <th style="text-align: center;border-left: 1px solid #cccccc;">Gene</th>
+              <th style="text-align: center;">Protein</th>
+              <th style="text-align: center;">Receptor family</th>
+              <th style="text-align: center;">Ligand type</th>
+              <th style="text-align: center;">Class</th>
+              <th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+              <th style="text-align: center;">ICD11</th>
+              <th style="text-align: center;">ATC</th>
+              <th style="text-align: center;">Association score</th>
+              <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
+              <th style="text-align: center;">Approved</th>
+            </tr>
+            <tr>
+              <td colspan="3" style="text-align: center;" data-dt-order="disable"></td>
+              <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td colspan="2" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+            </tr>
+          </thead>
+        </table>
+        <canvas id="test-canvas"></canvas>
+      </div>
     </div>
   </div>
-</div>
+</div> 
 
 
 {% endblock %}
@@ -115,6 +137,11 @@
 <script src="{% static 'home/js/nv.d3.min.js' %}"></script>
 <script src="{% static 'home/js/saveSvgAsPng.js' %}"></script>
 <script src="{% static 'home/js/saveSvg.js' %}"></script>
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+<script src="{% static 'home/js/DataTables_v2.0.5.js' %}"></script>
+<script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
+<script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
+<script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
 
 
 <script>
@@ -127,7 +154,6 @@
 
 
 <script type="text/javascript" charset="utf-8">
-  var drug_dictionary = {{ drug_dictionary|safe }};
   $(document).ready(function(){
     paper.install(window);
     });
@@ -137,7 +163,7 @@
 
 
 <script language="Javascript">
-  //creating a dictionary for the path translation
+//   //creating a dictionary for the path translation
   const trackTranslate = {
     '0123': "resultC111100",  '023': "resultC101100",  '123': "resultC011100",
     '012': "resultC111000",  '02': "resultC101000",  '12': "resultC011000",
@@ -145,54 +171,6 @@
     '01': "resultC110000",  '0': "resultC100000",  '1': "resultC010000",
     '23': "resultC001100", '2': "resultC001000", '3': "resultC000100"
   };
-
-  function clear_select_segmentselection(form) {
-
-    ClearSelection('targets')
-    //Dealing with csrf token
-    function getCookie(c_name) {
-        if (document.cookie.length > 0) {
-            c_start = document.cookie.indexOf(c_name + "=");
-            if (c_start != -1) {
-                c_start = c_start + c_name.length + 1;
-                c_end = document.cookie.indexOf(";", c_start);
-                if (c_end == -1) c_end = document.cookie.length;
-                return unescape(document.cookie.substring(c_start, c_end));
-            }
-        }
-        return "";
-    }
-    $.ajaxSetup({
-        headers: { "X-CSRFToken": getCookie("csrftoken") }
-    });
-    //Actual post
-    var fd = new FormData(form);
-    $.ajax({
-        type: 'POST',
-        url: '/common/targetformread',
-        data: fd,
-        cache: false,
-        processData: false,
-        contentType: false,
-        'success': function (data) {
-            location.href="/alignment/segmentselection";
-            console.log('ready!');
-        },
-    }).fail(function (jqXHR, textStatus, error) {
-        alert("Request failed: " + textStatus + error);
-    });
-    return false;
-}
-
-function copyToClipboard(txt) {
-    var cb = document.getElementById("cb");
-    cb.value = txt.slice(0, -1);
-    cb.style.display='block';
-    cb.select();
-    document.execCommand('copy');
-    cb.style.display='none';
-    showAlert("Selected receptors have been copied to your clipboard.", "info");
-}
 
 $(document).ready(function () {
 var colorDefault = ["#5a9bd4", "#f15a60", "#808080", "#006600"],
@@ -203,8 +181,11 @@ var colorDefault = ["#5a9bd4", "#f15a60", "#808080", "#006600"],
     fontSize     = "16px",
     fontFamily   = "Arial";
 
-gdata = {{ phases_dict|safe }};
-gprotein_ID = {{ phases_dict_keys|safe }};
+var gdata = {{ phases_dict|safe }};
+var gprotein_ID = {{ phases_dict_keys|safe }};
+// var dict = {{ drug_dictionary|safe }};
+var fullData = {{ Full_data|safe }};
+const layout = "{{ layout|escapejs }}";
 
 function getArrayFromData(gprotein) {
   var lines = gdata[gprotein].split("\n");
@@ -214,32 +195,72 @@ function getArrayFromData(gprotein) {
   } return (table);
 }
 
-var table_options = {
-  "paging":       false,
-  "lengthChange": false,
-  "order":        [[ 3, "desc" ]],
-  "scrollX":      false,
-  "deferRender": true,
-}
-// init datattable
-datatable = $("#receptor_table").DataTable(table_options);
 
-var yadcf_options = [];
-var list = [0, 1, 2, 3, 4, 5, 6, 7];
-for (i in list){
-  yadcf_options.push({
-    column_number : list[i],
-    filter_type: "multi_select",
-    select_type: "select2",
-    filter_default_label: "",
-    filter_reset_button_text: false,
-    select_type_options: {
-        width: "80%",
-    }
-  });
+function initializeDataTable(tableId, data) {
+  
+  // Add common column definitions
+  var columnDefs = [
+    { className: "dt-head-center dt-center dt-body-center expand", targets: "_all" },
+    { className: 'border-left', targets: [3, 8, 12] }
+];
+  
+  // Set order based on layout value: column 3 for "Targets" and column 0 for "Drugs"
+  const order = layout === "targets" ? [3, "asc"] : [0, "asc"];
+
+  // Define columns
+  var columns = [
+          {data: "Ligand name", name: "Ligand name"},
+          {data: "Drug type", name: "Drug type"},
+          {data: "Modality", name: "Modality"},
+          {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+          {data: "Protein name", name: "Protein name"},
+          {data: "Receptor family", name: "Receptor family"},
+          {data: "Ligand type", name: "Ligand type"},
+          {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
+          {data: "Indication name", name: "Indication"},
+          {data: "ICD11", name: "ICD11"},
+          {data: 'ATC', name: "ATC"},
+          {data: 'Association score', name: "Association score",  render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
+          {data: "Phase", name: "Max"},
+          {data: "Approved", name: "Approved"}
+                      
+      ];
+
+  // Initialize or reinitialize DataTable
+  if ($.fn.DataTable.isDataTable(tableId)) {
+      var table = $(tableId).DataTable();
+      table.clear();
+      table.rows.add(data);
+      table.draw();
+  } else {
+      $(tableId).DataTable({
+          dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+          "<'row'<'col-sm-12'tr>>" +                    // Table rows
+          "<'row'<'col-sm-12'ip>>", // Pagination and info
+
+
+          order: order,
+          pageLength: 20,
+          lengthMenu: [10, 20, { label: 'All', value: -1 }],
+          data: data,
+          columns: columns,
+          columnDefs: columnDefs,
+          autoWidth: false,  // Disable automatic column width calculation
+          processing: false,
+          deferRender: true,
+          paging: true,
+          autoWidth: false, // Prevent automatic column width adjustment
+          // scrollX: false,
+          buttons: [
+              { text: 'Reset filters', action: function () { reset_all(); } }
+          ]
+      });
+  }
 }
-// init yadcf
-yadcf.init(datatable, yadcf_options);
+
+// init datattable
+// datatable = $("#receptor_table").DataTable(table_options);
+
 function updateJvenn(gprotein_ID) {
   displaySwitch = false;
   var seriesTable = new Array();
@@ -270,35 +291,22 @@ function updateJvenn(gprotein_ID) {
       displayStat: displayStat,
       exporting: true,
       fnClickCallback: function() {
-        var dict = {{ drug_dictionary|safe }};
-        var value = "";
-        datatable.clear().draw();
-        for (val in this.list) {
-          item = this.list[val].toLowerCase().replace(/^\w/, c => c.toUpperCase());
-          console.log(item);
-          console.log(dict[item]);
-          for (let record of dict[item]){
-            datatable.row.add([
-              record[0],
-              record[1],
-              record[2],
-              record[3],
-              record[4],
-              record[5],
-              record[6],
-              record[7],
-            ]);
-          }
-          value += this.list[val] + " ";
-        }
-        datatable.draw();
-        $("td").each(function() {
-          $(this).addClass("expand");
-        });
-        $("#copytoclip").unbind("click");
-        $("#copytoclip").bind("click", function(event) {
-          copyToClipboard(value);
-        });
+        
+        // Define the column to filter by and the values to match in that column
+        // Set filterColumn based on the layout value
+        const filterColumn = layout === "targets" ? "Gene name" : "Ligand name";
+
+        // set filter values
+        const filterValues = this.list;
+
+        // Filter the data based on the specified column and values
+        const selectedData = fullData.filter(row => filterValues.includes(row[filterColumn]));
+
+        // Show the table only after the search is clicked
+        $('#table-container').show();
+
+        // Pass selected data to initializeDataTable function
+        initializeDataTable("#receptor_table", selectedData);
       }
     });
 

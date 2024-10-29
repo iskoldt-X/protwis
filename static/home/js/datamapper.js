@@ -3084,6 +3084,13 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     if (value === 6) return "#A3D9C8";
                     if (value === 7) return "White";
                     return "none";  // Make the slice invisible if the value is ""
+                } else if (datatype === "Druggome") {
+                    // Handle discrete data or default case
+                    if (value === 1) return "#F5BCBF";
+                    if (value === 2) return "#F17270";
+                    if (value === 3) return "#DD2628";
+                    if (value === 4) return "#2C87C8";
+                    return "none";  // Make the slice invisible if the value is ""
                 }
             })
             .style("stroke", (d) => {
