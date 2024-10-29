@@ -30,7 +30,6 @@ class Drugs2024(models.Model):
     target = models.ForeignKey('protein.Protein', on_delete=models.CASCADE)
     indication = models.ForeignKey('Indication', on_delete=models.CASCADE)
     ligand = models.ForeignKey('ligand.Ligand', on_delete=models.CASCADE)
-    atc_code = models.CharField(max_length=5, null=True)
     charge = models.CharField(max_length=5, null=True)
     complexity = models.FloatField(max_length=4, null=True)
     tpsa = models.CharField(max_length=10, null=True)
@@ -97,3 +96,13 @@ class IndicationAssociation(models.Model):
 
     class Meta():
         db_table = 'indication_association'
+
+class ATCCodes(models.Model):
+    ligand =  models.ForeignKey('ligand.Ligand', on_delete=models.CASCADE, null=True)
+    code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta():
+        db_table = 'atc_codes'

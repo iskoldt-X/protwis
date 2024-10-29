@@ -5,7 +5,7 @@ from django.utils.text import slugify
 
 from common.models import WebResource, WebLink, Publication
 from protein.models import Protein, TissueExpression, CancerType, CancerExpression, Tissues, ExpressionValue
-from drugs.models import Drugs2024, Indication, IndicationAssociation
+from drugs.models import Drugs2024, Indication, IndicationAssociation, ATCCodes
 from ligand.models import Ligand, LigandID, LigandType, LigandRole
 from common.tools import test_model_updates
 
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         print("\n\nWelcome to the Drugs2024 build process. Build steps will be printed.")
         print("##### STEP 0 START #####")
         print("\n\nStarted parsing data and setting up different dataframes")
-        indication_df, tissue_df, cancer_df, drug_df, association_data = Command.setup_data()
+        indication_df, tissue_df, cancer_df, drug_df, association_data, atc_df = Command.setup_data()
         print("##### STEP 1 START #####")
         print("\n\nStarted parsing Indication data and building Indication Model")
         Command.generate_indications(indication_df)    #DONE
@@ -98,6 +98,10 @@ class Command(BaseCommand):
         print("\n\nStarted parsing Drug data and building Drug2024 Model")
         Command.create_drug_data(drug_df)
         print("\n\Drug Model built. Performing checks")
+        print("##### STEP 6 START #####")
+        print("\n\nStarted parsing ATC Codes data and building ATC Model")
+        Command.create_atc_codes_data(atc_df)
+        print("\n\ATC Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
 
     def setup_data():
@@ -124,7 +128,7 @@ class Command(BaseCommand):
         shaved_data = shaved_data.dropna(subset=['genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score'], how='all').drop_duplicates()
         #merge dataframes to have everything connected for Drugs model
         drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'ICD_Code'], how='inner')
-        drug_data = pd.merge(drug_data, atc_codes, on=['ligand_name'], how='inner')
+        # drug_data = pd.merge(drug_data, atc_codes, on=['ligand_name'], how='inner')
         #Drop the duplicates
         drug_data = drug_data.drop_duplicates()
         opentarget_scores = opentarget_scores.drop_duplicates()
@@ -132,7 +136,7 @@ class Command(BaseCommand):
         #Somehow, opentargets has new indications that we need to add to the database
         opentarget_ICD = opentarget_scores[['ICD_Title', 'ICD_Code']].drop_duplicates()
         indication_data = pd.concat([indication_data, opentarget_ICD]).drop_duplicates()
-        return indication_data, tissues_data, cancer_data, drug_data, opentarget_scores
+        return indication_data, tissues_data, cancer_data, drug_data, opentarget_scores, atc_codes
 
     @staticmethod
     def transform_column_name(col_name):
@@ -228,6 +232,25 @@ class Command(BaseCommand):
             ce.save()
             protein.cancer.add(ce)
 
+    def create_atc_codes_data(atc_codes):
+        #Parse the drug dataframe
+        #Create the reference for the ATC Ontology web resource
+        ATC = {
+            'name': 'ATC Ontology',
+            'url': 'https://atcddd.fhi.no/atc_ddd_index/?code=$index'
+        }
+        wr_atc, created = WebResource.objects.get_or_create(slug='indication_atc', defaults=ATC)
+        web_resource = WebResource.objects.get(slug='indication_atc')
+        for i, row in atc_codes.iterrows():
+            try:
+                #fetch the ligand
+                ligand = Ligand.objects.get(name=row['ligand_name'])
+                atc_record = ATCCodes()
+                atc_record.ligand = ligand
+                atc_record.code, created = WebLink.objects.get_or_create(index=row['ATC_Code'], web_resource=web_resource)
+                atc_record.save()
+            except:
+                continue
 
     def create_drug_data(drug_data):
         #Parse the drug dataframe
@@ -258,7 +281,6 @@ class Command(BaseCommand):
                                                       novelty_score=row['novelty_score'],
                                                       genetic_association=row['genetic_association'] if pd.notna(row['genetic_association']) else None,
                                                       indication_status=row['IndicationStatus'],
-                                                      atc_code=row['ATC_Code'],
                                                       moa=moa,
                                                       indication=indication,
                                                       ligand=ligand,
@@ -269,7 +291,7 @@ class Command(BaseCommand):
             #since it's calculated to have more than 300k unique pubs to be added
 
             # if pd.notna(row['PubMedID']):
-            #     ref = row['PubMedID'].split(';')
+            #     ref = row['PubMedID'].split(',')
             #     try:
             #         for pmid in ref:
             #             if pmid != '':
@@ -339,7 +361,7 @@ class Command(BaseCommand):
             association = IndicationAssociation.objects.get(target_id__entry_name=target, indication_id__name=indication)
             return association
         except:
-            print('No association found for this pais or target-indication')
+            print('No association found for this pair or target-indication')
             return None
 
     @staticmethod
