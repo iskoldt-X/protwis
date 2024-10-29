@@ -11,7 +11,7 @@ from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigan
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mutational_landscape.models import NHSPrescribings
 from mapper.views import LandingPage
@@ -379,7 +379,6 @@ def Venn(request, origin="both"):
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
 
-        
         #  Fetch table data with all related information
         table_data = Drugs2024.objects.select_related(
             'target__family__parent__parent__parent',  # All target info
@@ -388,7 +387,6 @@ def Venn(request, origin="both"):
             'moa',
             'disease_association'
         ).values(
-
             'target__entry_name',  # Gene name
             'target__name',  # Protein name
             'target__family__parent__name',  # Receptor family
@@ -400,7 +398,6 @@ def Venn(request, origin="both"):
             'indication__name',  # Disease name
             'indication__code__index',  # Disease ICD11 code
             'indication_max_phase',  # Max phase
-            'atc_code', # Indication ATC code
             'disease_association__association_score', # Disease association score
             'drug_status',  # Approval
         )
@@ -424,7 +421,6 @@ def Venn(request, origin="both"):
             'indication__name': 'Indication name',
             'indication__code__index': 'ICD11',
             'indication_max_phase': 'Phase',
-            'atc_code': 'ATC',
             'disease_association__association_score' : 'Association score',
             'drug_status': 'Approved'
         }, inplace=True)
@@ -506,6 +502,26 @@ class DrugSectionSelection(TemplateView):
             search_data = Drugs2024.objects.all().prefetch_related('ligand').distinct('ligand')
             search_dict = {drug.ligand.name: drug.ligand.id for drug in search_data}
 
+            # Fetch ATC codes for the table
+            ATC_data = ATCCodes.objects.select_related(
+                'code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'code__index' # ATC codes
+            )
+
+            # Convert ATC_data queryset to a list of dictionaries
+            ATC_data_list = list(ATC_data)
+
+            # Create a DataFrame from the ATC data
+            atc_df = pd.DataFrame(ATC_data_list)
+
+            # Group ATC codes by 'Ligand ID' and concatenate them
+            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+
+            # Rename columns for the ATC DataFrame
+            atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
+
             # Fetch table data with all related information
             table_data = Drugs2024.objects.select_related(
                 'ligand', 
@@ -524,7 +540,6 @@ class DrugSectionSelection(TemplateView):
                 'indication__code__index', # Disease ICD11 code
                 'indication_max_phase', # Max phase
                 'drug_status', # Approval
-                'atc_code', # Indication ATC code
                 'disease_association__association_score' # Disease association score
             )
 
@@ -546,9 +561,13 @@ class DrugSectionSelection(TemplateView):
                 'indication__name': 'Indication name',
                 'indication__code__index': 'ICD11',
                 'indication_max_phase': 'Phase',
-                'atc_code': 'ATC',
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'}, inplace=True)
+
+            # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
+            df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
+            # Fill NaN values in the 'ATC' column with None
+            df['ATC'] = df['ATC'].fillna("Unavailable")
             
             # Precompute Phase and Status Information
             df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
@@ -582,6 +601,27 @@ class DrugSectionSelection(TemplateView):
             search_data = Drugs2024.objects.all().prefetch_related('target').distinct('target')
             search_dict = {drug.target.name: drug.target.id for drug in search_data}
 
+            # Fetch ATC codes for the table
+            ATC_data = ATCCodes.objects.select_related(
+                'code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'code__index' # ATC codes
+            )
+
+            # Convert ATC_data queryset to a list of dictionaries
+            ATC_data_list = list(ATC_data)
+
+            # Create a DataFrame from the ATC data
+            atc_df = pd.DataFrame(ATC_data_list)
+
+            # Group ATC codes by 'Ligand ID' and concatenate them
+            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+
+            # Rename columns for the ATC DataFrame
+            atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
+
+
             # Fetch table data with all related information
             table_data = Drugs2024.objects.select_related(
                 'target',
@@ -598,7 +638,7 @@ class DrugSectionSelection(TemplateView):
                 'indication__name',  # Disease name
                 'indication__code__index',  # Disease ICD11 code
                 'indication_max_phase',  # Max phase
-                'atc_code', # Indication ATC code
+                'ligand', # ligand ID
                 'disease_association__association_score', # Disease association score
                 'drug_status',  # Approval
             )
@@ -619,11 +659,16 @@ class DrugSectionSelection(TemplateView):
                 'indication__name': 'Indication name',
                 'indication__code__index': 'ICD11',
                 'indication_max_phase': 'Phase',
-                'atc_code': 'ATC',
+                'ligand': 'Ligand ID',
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'
             }, inplace=True)
             
+            # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
+            df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
+            # Fill NaN values in the 'ATC' column with None
+            df['ATC'] = df['ATC'].fillna("Unavailable")
+
             # Precompute flags for phase and approval status
             df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
             df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
@@ -646,7 +691,6 @@ class DrugSectionSelection(TemplateView):
 
             # Convert 'Approved' from integer to 'Yes'/'No'
             Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
-
 
             # Convert DataFrame to JSON
             json_records = Modified_df.to_json(orient='records')

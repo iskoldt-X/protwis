@@ -302,11 +302,19 @@ function createDropdownFilters(api,column_filters) {
                     
                     // ##  add empty to be selected as the first option ##
                     // ##  so it doesnt select a value. (process speed optimazation) ##
-                    $('#'+Table_id+'_Filter'+col).append('<option>'+''+'</option>'); // <-- this is added to be selected as the first option, so it doesnt select a value.      
+                    $('#'+Table_id+'_Filter'+col).append('<option>'+''+'</option>'); // <-- this is added to be selected as the first option, so it doesnt select a value.
+
+                    // Retrieve the render function for the specific column
+                    var renderFunction = that.settings()[0].aoColumns[col].mRender;
+
                     api.cells(null, col, {
                         search: 'applied'
                     }).data().unique().sort().each(function(d) {
-                        $('#'+Table_id+'_Filter'+col).append($('<option>' + d + '</option>'));
+                        // Use the render function and convert to string if necessary
+                        var renderedValue = renderFunction ? renderFunction(d, 'display') : d; // Fallback to raw data if no render function
+
+                        // Append the rendered value to the select2 options
+                        $('#'+Table_id+'_Filter'+col).append($('<option>' + renderedValue + '</option>'));
                     });
                     // ###############################################################
                     // ## Remove the empty string value from the selection options  ##

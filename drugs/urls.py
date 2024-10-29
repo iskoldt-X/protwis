@@ -15,7 +15,7 @@ urlpatterns = [
     ## These three can be the same view maybe? ##
     url(r'^drug_selection', views.DrugSectionSelection.as_view(title='Agent / Drug search', page='Drugs'), name='DrugSearch'),
     url(r'^target_selection', views.DrugSectionSelection.as_view(title='Target search', page='Targets'), name='TargetSearch'),
-    url(r'^disease_selection', views.DrugSectionSelection.as_view(title='Indication search', page='Indications'), name='IndicationSearch'),
+    url(r'^indication_selection', views.DrugSectionSelection.as_view(title='Indication search', page='Indications'), name='IndicationSearch'),
     #############################################
     url(r'^overview', views.DruggedGPCRome.as_view(), name='DruggedGPCRome'),
     ## Make a single view for the Venn diagrams, add a variable to define which page is shown ##

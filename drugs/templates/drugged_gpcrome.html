@@ -162,19 +162,6 @@ var GPCRome_categories_data = {{ GPCRome_data|safe }};
 var fill_data = {{ GPCRome_data_variables|safe }};
 var GPCRome_Label_conversion_dict = {{GPCRome_Label_Conversion|safe}};
 
-console.log(fill_data)
-// Loop through each key in fill_data
-for (const key in fill_data) {
-    if (fill_data.hasOwnProperty(key)) {
-        const item = fill_data[key];
-
-        // Check if Value1 is not 4 or 0
-        if (item.Value1 !== 4 && item.Value1 !== 0) {
-            console.log(`Key: ${key}, Value1: ${item.Value1}`);
-        }
-    }
-}
-
 // Initialize the conversion dictionary
 GPCRome_Label_conversion_dict = initializeGPCRomeLabelConversionDict(GPCRome_Label_conversion_dict);
 
@@ -343,7 +330,30 @@ function updateFillData(fill_data, conversionDict, labelType) {
     tree_options = {{ tree_options | safe }};
     Tree_circles = {{ circles|safe }};
     Tree_label_dict = {{ whole_dict|safe }};
-    console.log(Tree_circles);
+   
+    // normalizeOuterValues(Tree_circles);
+    // Function to normalize each object's outer values, even if some are missing
+    function normalizeOuterValues(obj) {
+        for (const key in obj) {
+            const entry = obj[key];
+            
+            // Collect available Outer values dynamically
+            const outerKeys = ["Outer1", "Outer2", "Outer3", "Outer4"];
+            const availableOuterValues = outerKeys
+                .filter(outerKey => entry[outerKey] !== undefined)
+                .map(outerKey => ({ key: outerKey, value: entry[outerKey] }));
+
+            // Calculate the sum of available Outer values
+            const sum = availableOuterValues.reduce((acc, item) => acc + item.value, 0);
+
+            // Normalize each available Outer value
+            if (sum > 0) { // Only normalize if there's a positive sum
+                availableOuterValues.forEach(item => {
+                    entry[item.key] = item.value / sum;
+                });
+            }
+        }
+    }
 
     tree_data = update_tree_data(tree_data,tree_options.depth);
     const depth = tree_options.depth;  // Set this value when the page loads
@@ -354,11 +364,12 @@ function updateFillData(fill_data, conversionDict, labelType) {
     } else if (tree_options.depth == 3) {
       maxLeafNodeLenght = 4*parseInt(tree_options.fontSize.receptorfamily);
     }
-    circle_size = 4;
+    circle_size = 6;
     circle_spacer = circle_size*2+1;
+    circle_spacer = circle_spacer+2
 
     var Tree_circle_styling_dict = {
-      "Inner":'One',
+      "Inner":'Drugged_tree',
       "Outer1":"Two",
       "Outer2":"Two",
       "Outer3":"Two",
@@ -366,11 +377,18 @@ function updateFillData(fill_data, conversionDict, labelType) {
       "Outer5":"Three",
     }
 
-    Tree_colors = {"Outer1":["#FFFFFF","#f5bcbf"],
+    Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
+                  "Outer1":["#FFFFFF","#f5bcbf"],
                   "Outer2":["#FFFFFF","#f17270"],
                   "Outer3":["#FFFFFF","#dd2628"],
                   "Outer4":["#FFFFFF","#2c87c8"],
                   "Outer5":["#FFFFFF","#FFA500"]};
+
+
+    tree_options.fontSize.class = "18px";
+    tree_options.fontSize.ligandtype = "18px";
+    tree_options.fontSize.receptorfamily = "18px";
+    tree_options.fontSize.receptor = "17px";
 
     // # Change leaves buttons #
     $("#TREE_UniProtNames").click(function(){

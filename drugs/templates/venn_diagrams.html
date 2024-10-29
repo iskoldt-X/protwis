@@ -9,7 +9,7 @@
 <link href="{% static 'home/css/jquery.dataTables.min.css' %}" rel="stylesheet" media="screen">
 <link href="{% static 'home/css/yadcf_bootstrap_version.css' %}" rel="stylesheet" media="screen">
 <link href="{% static 'home/css/targetselect_functions.css' %}" rel="stylesheet" media="screen">
-<link href="{% static 'home/css/select2.css' %}" rel="stylesheet" media="screen">
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
 <link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
 <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
 <style type="text/css">
@@ -50,6 +50,13 @@ th .dt-column-title {
     margin-left: 24px;
 }
 
+.select2-search__field::placeholder{
+    text-align:center;
+}
+.select2-container--default .select2-selection--multiple{
+    overflow: hidden !important;
+}
+
 </style>
 
 {% endblock %}
@@ -83,12 +90,12 @@ th .dt-column-title {
         <table width="100%" class="display compact" id="receptor_table">
           <thead>
             <tr>
-              <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+              <td colspan="13" style="text-align: center" data-dt-order="disable"></td>
             </tr>
             <tr>
               <th colspan="3" style="text-align:center">Drug/Agent</th>
               <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
-              <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+              <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
               <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
             </tr>
             <tr>
@@ -102,16 +109,24 @@ th .dt-column-title {
               <th style="text-align: center;">Class</th>
               <th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
               <th style="text-align: center;">ICD11</th>
-              <th style="text-align: center;">ATC</th>
               <th style="text-align: center;">Association score</th>
               <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
               <th style="text-align: center;">Approved</th>
             </tr>
             <tr>
-              <td colspan="3" style="text-align: center;" data-dt-order="disable"></td>
-              <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-              <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-              <td colspan="2" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
+              <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+              <td style="text-align: center;" data-dt-order="disable"></td>
             </tr>
           </thead>
         </table>
@@ -127,7 +142,7 @@ th .dt-column-title {
 <script src="{% static 'home/js/d3.min.js' %}"></script>
 <script src="{% static 'home/js/newick.js' %}"></script>
 <script src="{% static 'home/js/targetselect_functions.js' %}"></script>
-<script src="{% static 'home/js/select2.js' %}"></script>
+<!-- <script src="{% static 'home/js/select2.js' %}"></script> -->
 <script src="{% static 'home/js/jquery.dataTables.yadcf.js' %}"></script>
 <script src="{% static 'home/js/jquery.dataTables.min.js' %}"></script>
 <script src="{% static 'home/js/paper-full.min.js' %}"></script>
@@ -142,6 +157,7 @@ th .dt-column-title {
 <script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
 <script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
 <script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
+<script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
 
 
 <script>
@@ -219,7 +235,7 @@ function initializeDataTable(tableId, data) {
           {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
           {data: "Indication name", name: "Indication"},
           {data: "ICD11", name: "ICD11"},
-          {data: 'ATC', name: "ATC"},
+          // {data: 'ATC', name: "ATC"},
           {data: 'Association score', name: "Association score",  render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
           {data: "Phase", name: "Max"},
           {data: "Approved", name: "Approved"}
@@ -256,8 +272,20 @@ function initializeDataTable(tableId, data) {
           ]
       });
   }
+  var column_filters = [];
+  const Table_selector = $(tableId).DataTable();
+  // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+      column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,10,"Multi-select-exact"));
+      column_filters = column_filters.concat(CreateColumnFilters(Table_selector,10,2,"Range-float-vertical"));
+      column_filters = column_filters.concat(CreateColumnFilters(Table_selector,12,1,"Multi-select-exact"));
+  
+  // Create the filteres
+  createDropdownFilters(Table_selector,column_filters);
 }
 
+function reset_all() {
+        $('.select2').val(null).trigger('change');
+    }
 // init datattable
 // datatable = $("#receptor_table").DataTable(table_options);
 

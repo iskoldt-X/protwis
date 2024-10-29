@@ -36,47 +36,62 @@
     #targetsTable {
     table-layout: auto;  /* Ensure columns can adjust width */
     width: 100%;         /* Set table width to 100% of container */
-}
-#targetsTable th {
-    width: 250px !important; /* Force width on <th> elements */
-    max-width: 250px;        /* Set a maximum width */
-    overflow: hidden;
-    white-space: nowrap;     /* Prevent line wrapping */
-    text-overflow: ellipsis; /* Add ellipsis if text overflows */
-}
+    }
+
+    /* Add this CSS rule to keep font size consistent in tables with scrollX */
+    table.dataTable {
+        font-size: 12px; /* Adjust to match your standard font size */
+    }
+    #targetsTable th {
+        width: 250px !important; /* Force width on <th> elements */
+        max-width: 250px;        /* Set a maximum width */
+        overflow: hidden;
+        white-space: nowrap;     /* Prevent line wrapping */
+        text-overflow: ellipsis; /* Add ellipsis if text overflows */
+    }
+
+    .select2-search__field::placeholder{
+        text-align:center;
+    }
+    .select2-container--default .select2-selection--multiple{
+        overflow: hidden !important;
+    }
+
+    .custom-col-right {
+        padding-right: 0 !important;
+    }
+
+    .custom-col-left {
+        padding-left: 0 !important;
+    }
 
 
 </style>
 
 {% endblock %}
 {% block content %}
-
-  <div class="row">
+<div class="row">
     <div class="col-md-3"></div>
     <!-- Search bar -->
-    <div class="col-md-4" style="margin-top: 30px">
+    <div class="col-md-5" style="margin-top: 30px">
         <!-- main description -->
-        <div class="col-md-12 panel panel-primary">
+        <div class="panel panel-primary">
             <div class="panel-body">
-                <!-- Title and description -->
-                <div class="col-md-12">
-                    <h4>{{ title }}</h4>
-                    <p>{{ description }}</p>
-                </div>
-
-                <!-- Select2 Dropdown and Search Button aligned properly -->
-                <div class="col-md-12 d-flex">
-                    <div class="col-md-9" style="padding-left: 0;">
+                <div class="row">
+                    <div class="col-md-4 d-flex align-items-center pr-0 custom-col-right">
+                        <h4 class="mb-0">{{ title }}</h4>
+                    </div>
+                    <div class="col-md-5 d-flex align-items-center pl-0 custom-col-left">
                         <select id="entity-select" class="form-control" style="width: 100%;"></select>
                     </div>
-                    <div class="col-md-3" style="margin-top: -3px">
-                        <button id="search-btn" class="btn btn-primary" disabled>Search</button>
+                    <div class="col-md-3 d-flex align-items-center">
+                        <button id="search-btn" class="btn btn-primary" style="width: 100%;" disabled>Search</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-  </div>
+</div>
 
   <!-- Table for Drugs and Targets Pages -->
   {% if page == 'Drugs' or page == 'Targets' %}
@@ -86,16 +101,15 @@
               <!-- Dummy Header Row for Complex Header Fix -->
               <tr>
                   {% if page == 'Drugs' %}
-                      <td colspan="16" style="text-align: center" data-dt-order="disable"></td>
-                  {% elif page == 'Targets' %}
                       <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+                  {% elif page == 'Targets' %}
+                      <td colspan="12" style="text-align: center" data-dt-order="disable"></td>
                   {% endif %}
               </tr>
 
               <!-- Super Header Row -->
               <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
                   {% if page == 'Drugs' %}
-                      <th colspan="2" style="text-align:center">Index</th>
                       <th colspan="5" style="text-align:center">Target</th>
                       <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
                       <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
@@ -109,8 +123,6 @@
               <!-- Header Row -->
               <tr>
                   {% if page == 'Drugs' %}
-                      <th style="text-align: center;">Drug ID</th>
-                      <th style="text-align: center;">Drug name</th>
                       <th style="text-align: center;">Gene</th>
                       <th style="text-align: center;">Protein</th>
                       <th style="text-align: center;">Receptor family</th>
@@ -120,10 +132,10 @@
                       <th style="text-align: center;">ICD11</th>
                       <th style="text-align: center;">ATC</th>
                       <th style="text-align: center;">Association score</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc;">Highest phase</th>
-                      <th style="text-align: center;">Phase I trials</th>
-                      <th style="text-align: center;">Phase II trials</th>
-                      <th style="text-align: center;">Phase III trials</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
+                      <th style="text-align: center;">I</th>
+                      <th style="text-align: center;">II</th>
+                      <th style="text-align: center;">III</th>
                       <th style="text-align: center;">Approved</th>
                   {% elif page == 'Targets' %}
                       <th style="text-align: center;">Name</th>
@@ -143,13 +155,33 @@
               <!-- Filter Row for header -->
               <tr>
                   {% if page == 'Drugs' %}
-                      <td colspan="7" style="text-align: center;" data-dt-order="disable"></td>
-                      <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                      <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
                   {% elif page == 'Targets' %}
-                      <td colspan="3" style="text-align: center;" data-dt-order="disable"></td>
-                      <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                      <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
+                      <td style="text-align: center;" data-dt-order="disable"></td>
                   {% endif %}
               </tr>
           </thead>
@@ -255,18 +287,43 @@
                         </tr>
                         <!-- Filter Row for header -->
                         <tr>
-                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="9" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="4" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="1" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="3" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
                         </tr>
                     </thead>
                     <tbody>
@@ -308,10 +365,19 @@
                             
                         </tr>
                         <tr>
-                            <td colspan="1" style="text-align: center" data-dt-order="disable"></td>
-                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="2" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td colspan="5" style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
+                            <td style="text-align: center" data-dt-order="disable"></td>
                         </tr>
                     </thead>
                     <tbody>
@@ -333,6 +399,7 @@
 <script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
 <script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
 <script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
+<script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
     
 <script type="text/javascript">
     var page = '{{ page }}';
@@ -447,7 +514,7 @@
 
         if (type === 'Drugs') {
             pageSpecificDefs = [
-                { targets: [7, 11], className: 'border-left' }
+                { targets: [5, 9], className: 'border-left' }
             ];
         } else if (type === 'Targets') {
             pageSpecificDefs = [
@@ -464,7 +531,7 @@
         }
         
         // digit fixed value
-        const digit_fixed = 4
+        const digit_fixed = 3
 
         // Add common column definitions to the page-specific ones
         
@@ -477,22 +544,20 @@
         var columns = [];
         if (type === 'Drugs') {
             columns = [
-                {data: "Ligand ID", name: "Ligand ID", visible: false},
-                {data: "Ligand name", name: "Ligand name", visible: false},
-                {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
-                {data: "Protein name", name: "Protein name"},
-                {data: "Receptor family", name: "Receptor family"},
-                {data: "Ligand type", name: "Ligand type"},
-                {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
-                {data: "Indication name", name: "Indication"},
-                {data: "ICD11", name: "ICD11"},
-                {data: 'ATC', name: "ATC"},
-                {data: 'Association score', name: "Association score", render: function (data) {return parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
-                {data: "Highest_phase", name: "Highest phase"},
-                {data: "Phase_I_trials", name: "Phase I trials"},
-                {data: "Phase_II_trials", name: "Phase II trials"},
-                {data: "Phase_III_trials", name: "Phase III trials"},
-                {data: "Approved", name: "Approved"}
+                {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+                {data: "Protein name", name: "Protein name",width: "7%"},
+                {data: "Receptor family", name: "Receptor family",width: "9%"},
+                {data: "Ligand type", name: "Ligand type",width: "8%"},
+                {data: "Class", name: "Class",width: "7%", render: function (data) { return data.split(' (')[0]; }},
+                {data: "Indication name", name: "Indication",width: "10%"},
+                {data: "ICD11", name: "ICD11",width: "7%"},
+                {data: 'ATC', name: "ATC",width: "7%"},
+                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
+                {data: "Highest_phase", name: "Highest phase",width: "3%"},
+                {data: "Phase_I_trials", name: "Phase I trials",width: "3%"},
+                {data: "Phase_II_trials", name: "Phase II trials",width: "3%"},
+                {data: "Phase_III_trials", name: "Phase III trials",width: "3%"},
+                {data: "Approved", name: "Approved",width: "8%"}
             ];
         } else if (type === 'Targets') {
             columns = [
@@ -502,7 +567,7 @@
                 {data: "Indication name", name: "Indication"},
                 {data: "ICD11", name: "ICD11",width: "5%"},
                 {data: 'ATC', name: "ATC",width: "5%"},
-                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
+                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
                 {data: "Highest_phase", name: "Highest",width: "5%"},
                 {data: "Phase_I_trials", name: "I",width: "3%"},
                 {data: "Phase_II_trials", name: "II",width: "3%"},
@@ -597,6 +662,36 @@
                 ]
             });
         }
+        // #############################
+        // ###    Create Filters     ###
+        // #############################
+
+
+        var column_filters = [];
+        const Table_selector = $(tableId).DataTable();
+        // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+        if (type === 'Drugs') {
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,8,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,5,"Range-float-vertical"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,13,1,"Multi-select-exact"));
+
+        } else if (type === 'Targets') {
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,6,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,6,5,"Range-float-vertical"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,11,1,"Multi-select-exact"));
+        } else if (type === 'Targets for Indications') {
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,5,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,5,32,"Range-float-vertical"));
+            // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,11,1,"Multi-select-exact"));
+        } else if (type === 'Agents/Drugs') {
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,1,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,1,4,"Range-float-vertical"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,5,8,"Multi-select-exact"));
+        }
+        
+        // Create the filteres
+        createDropdownFilters(Table_selector,column_filters);
+
     }
 
     $('.btn-group button').on('click', function() {
@@ -640,12 +735,8 @@
     });  
 
     function reset_all() {
-        $('#entity-select').val(null).trigger('change');
+        $('.select2').val(null).trigger('change');
     }
 </script>
-
-    
-    
-
 {% endblock %}
 

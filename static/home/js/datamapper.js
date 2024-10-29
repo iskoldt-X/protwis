@@ -370,7 +370,7 @@ function DrawCircles(location, data, starter, dict, clean = true, gradient = tru
 
         for (var unit of keys) {
             var leaf = svg.selectAll('g[id=X' + x + ']');  // Use the node positions from the tree
-
+            
             if (unit === 'Inner') {
                 // Draw 'Inner' circle at the node position
                 if (dict[unit]) {
@@ -383,7 +383,12 @@ function DrawCircles(location, data, starter, dict, clean = true, gradient = tru
 
                     // Create color scale based on min and max values
                     var colorScale;
-                    if (styling === "Three") {
+                    if (styling === "Drugged_tree") {
+                        // Discrete color scale for "Drugged_tree"
+                        colorScale = d3.scale.ordinal()
+                        .domain([1, 2, 3, 4])
+                        .range(["#f5bcbf", "#f17270", "#dd2628", "#2c87c8"]);
+                    } else if (styling === "Three") {
                         // Three-color gradient with white in the middle
                         colorScale = d3.scale.linear()
                             .domain([minValue, (minValue + maxValue) / 2, maxValue])
