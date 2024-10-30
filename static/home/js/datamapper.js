@@ -3095,6 +3095,8 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     if (value === 2) return "#F17270";
                     if (value === 3) return "#DD2628";
                     if (value === 4) return "#2C87C8";
+                    if (value === 5) return "#D3D3D3";
+                    if (value === 6) return "#A3D9C8";
                     return "none";  // Make the slice invisible if the value is ""
                 }
             })

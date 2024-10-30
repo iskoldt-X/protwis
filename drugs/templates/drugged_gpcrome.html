@@ -10,16 +10,33 @@
   }
   .color_phase1 {
     color: #f5bcbf;
-  }
-  .color_phase2 {
+    font-size: 15px;
+}
+
+.color_phase2 {
     color: #f17270;
-  }
-  .color_phase3 {
+    font-size: 15px;
+}
+
+.color_phase3 {
     color: #dd2628;
-  }
-  .color_phase4 {
+    font-size: 15px;
+}
+
+.color_phase4 {
     color: #2c87c8;
-  }
+    font-size: 15px;
+}
+
+.color_untapped {
+    color: #D3D3D3;
+    font-size: 15px;
+}
+
+.color_sensory {
+    color: #A3D9C8;
+    font-size: 15px;
+}
 </style>
 {% endblock %}
 
@@ -47,7 +64,7 @@
         <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
           <div class="col-md-12">
             <br>
-            <div class="col-md-3">
+            <div class="col-md-2">
               Receptor names:
               <div class="btn-group" role="group" id="gtp_plus">
                   <button id="GPCRome_UniProtNames" class="btn btn-info ">Gene</button>
@@ -60,7 +77,7 @@
               <button id="ToggleIcon" class="btn btn-info active">On</button>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-2">
               <div class="text-center">
                 <div class="dropdown">
                   <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -75,13 +92,16 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-6">
               <div style="float: left; position: relative" class="text-center">
-                <b>Clinical phase</b> <br/>
+                <b style="font-size: 15px;">Colors</b> <br/>
                     <span class="color_phase1">&#9644; <b>Phase 1</b></span>
                     <span class="color_phase2">&#9644; <b>Phase 2</b></span>
                     <span class="color_phase3">&#9644; <b>Phase 3</b></span>
                     <span class="color_phase4">&#9644; <b>Phase 4</b></span>
+                    <span class="color_untapped">&#9644; <b>Untapped targets</b></span>
+                    <span class="color_sensory">&#9644; <b>Sensory</b></span>
+
               </div>
             </div>
           <br />
@@ -161,6 +181,31 @@
 var GPCRome_categories_data = {{ GPCRome_data|safe }};
 var fill_data = {{ GPCRome_data_variables|safe }};
 var GPCRome_Label_conversion_dict = {{GPCRome_Label_Conversion|safe}};
+
+const receptorData = {"kisspeptin receptor": 5, "PKR<sub>2</sub>": 5, "LPA<sub>6</sub> receptor": 5, "Rhodopsin": 6, "OPN3": 6, "OPN4": 6, "OPN5": 6, "OPN1SW": 6,
+ "OPN1MW": 6, "OPN1LW": 6, "GPR20": 5, "GPR50": 5, "GPR65": 5, "GPR68": 5, "ADGRE2": 5, "CELSR1": 5, "ADGRG1": 5, "ADGRG2": 5, "ADGRG6": 5, "ADGRV1": 5, 
+ "mGlu<sub>1</sub> receptor": 5, "mGlu<sub>6</sub> receptor": 5, "mGlu<sub>7</sub> receptor": 5, "TAS1R1": 6, "TAS1R2": 6, "TAS1R3": 6, "GPR179": 5, "FZD<sub>2</sub>": 5, 
+ "FZD<sub>4</sub>": 5, "FZD<sub>5</sub>": 5, "FZD<sub>6</sub>": 5, "o51a2_human": 6, "o51a4_human": 6, "o51a7_human": 6, "o51b2_human": 6, "o51b4_human": 6, "o51b5_human": 6,
+  "o51b6_human": 6, "o51d1_human": 6, "o51e1_human": 6, "o51e2_human": 6, "o51f1_human": 6, "o51f2_human": 6, "o51g1_human": 6, "o51g2_human": 6, "o51i1_human": 6, "o51i2_human": 6, 
+  "o51j1_human": 6, "o51l1_human": 6, "o51m1_human": 6, "o51q1_human": 6, "o51s1_human": 6, "o51t1_human": 6, "o51v1_human": 6, "or1a1_human": 6, "or1g1_human": 6, "o2t11_human": 6,
+   "TAS2R1": 6, "TAS2R3": 6, "TAS2R4": 6, "TAS2R5": 6, "TAS2R7": 6, "TAS2R8": 6, "TAS2R9": 6, "TAS2R10": 6, "TAS2R13": 6, "TAS2R14": 6, "TAS2R16": 6, "TAS2R19": 6, "TAS2R20": 6,
+    "TAS2R30": 6, "TAS2R31": 6, "TAS2R38": 6, "TAS2R39": 6, "TAS2R40": 6, "TAS2R41": 6, "TAS2R42": 6, "TAS2R43": 6, "TAS2R45": 6, "TAS2R46": 6, "TAS2R50": 6, "TAS2R60": 6, "GPR137": 5, "GPR143": 5};
+
+// Function to update fill_data based on receptorData
+function updateFillData_missingData(data, data_update) {
+    for (const receptorName in data_update) {
+        // console.log(receptorName);
+        // Check if the receptorName exists in fill_data
+        if (data.hasOwnProperty(receptorName)) {
+            // Update the Value1 field with the value from receptorData
+            data[receptorName]["Value1"] = receptorData[receptorName];
+        }
+    }
+}
+
+// Execute the function to update fill_data
+updateFillData_missingData(fill_data, receptorData);
+
 
 // Initialize the conversion dictionary
 GPCRome_Label_conversion_dict = initializeGPCRomeLabelConversionDict(GPCRome_Label_conversion_dict);

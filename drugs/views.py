@@ -567,7 +567,7 @@ class DrugSectionSelection(TemplateView):
             # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
             df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
             # Fill NaN values in the 'ATC' column with None
-            df['ATC'] = df['ATC'].fillna("Unavailable")
+            df['ATC'] = df['ATC'].fillna("")
             
             # Precompute Phase and Status Information
             df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
