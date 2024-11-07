@@ -11,7 +11,7 @@ from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigan
 from drugs.models import Drugs, Drugs2024, Indication
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mutational_landscape.models import NHSPrescribings
 from mapper.views import LandingPage
@@ -21,6 +21,8 @@ import json
 import numpy as np
 from collections import OrderedDict
 from copy import deepcopy
+import pandas as pd
+import os
 
 
 
@@ -341,7 +343,6 @@ def Venn(request, origin="both"):
     # context = None
     if context == None:
         context = OrderedDict()
-
     # Here we need to generate fata for three different Venn diagrams plus associated tables:
     # if origin is drugs, we need a Venn diagram showing drugs across different clinical phases
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
@@ -370,7 +371,7 @@ def Venn(request, origin="both"):
             for item in receptor_phases:
                 if item[0] not in phases_dict.keys():
                     phases_dict[item[0]] = []
-                phases_dict[item[0]].append(item[1].split("_")[0].upper())
+                phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
             for key in phases_dict.keys():
                 phases_dict[key] = '\n'.join(phases_dict[key])
@@ -378,69 +379,549 @@ def Venn(request, origin="both"):
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
 
-        # Collect drugs information
-        drugs_panel = Drugs2024.objects.all().select_related(
-                                                            "ligand",
-                                                            "moa",
-                                                            "target__family__parent",
-                                                            "target",
-                                                            "indication__code"
-                                                            )
-        drug_dictionary = {}
-        for p in drugs_panel:
-            # Collect receptor data
-            lig_name = p.ligand.name.lower().capitalize()
-            lig_type = p.moa.name
-            rec_family = p.target.family.parent.short()
-            rec_uniprot = p.target.entry_short()
-            rec_iuphar = p.target.family.name.replace("receptor", '').replace("<i>","").replace("</i>","").strip()
-            clinical_phase = p.indication_max_phase
-            indication_name = p.indication.name
-            indication_code = p.indication.code.index
-            # Create a tuple to store the values
-            drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
-            # Initialize key if it doesn't exist
-            if origin == 'drugs':
-                key = lig_name
-            else:
-                key = rec_uniprot.lower().capitalize()
-            if key not in drug_dictionary:
-                drug_dictionary[key] = []
-            # Check for duplicates before adding
-            if drug_entry not in drug_dictionary[key]:
-                drug_dictionary[key].append(drug_entry)
+        #  Fetch table data with all related information
+        table_data = Drugs2024.objects.select_related(
+            'target__family__parent__parent__parent',  # All target info
+            'ligand__ligand_type',
+            'indication__code',
+            'moa',
+            'disease_association'
+        ).values(
+            'target__entry_name',  # Gene name
+            'target__name',  # Protein name
+            'target__family__parent__name',  # Receptor family
+            'target__family__parent__parent__name',  # Ligand type
+            'target__family__parent__parent__parent__name',  # Class
+            'ligand__name',  # Agent/Drug
+            'ligand__ligand_type__name',  # Modality
+            'moa__name',  # Mode of action
+            'indication__name',  # Disease name
+            'indication__code__index',  # Disease ICD11 code
+            'indication_max_phase',  # Max phase
+            'disease_association__association_score', # Disease association score
+            'drug_status',  # Approval
+        )
 
-        context["drug_dictionary"] = json.dumps(drug_dictionary)
+        # Convert the table_data queryset to a list of dictionaries
+        table_data_list = list(table_data)
+
+        # Convert the list of dictionaries to a pandas DataFrame
+        df = pd.DataFrame(table_data_list)
+
+        # Rename the columns to your desired format
+        df.rename(columns={
+            'target__entry_name': "Gene name",
+            'target__name': "Protein name",
+            'target__family__parent__name': 'Receptor family',
+            'target__family__parent__parent__name': 'Ligand type',
+            'target__family__parent__parent__parent__name': 'Class',
+            'ligand__name': 'Ligand name',
+            'ligand__ligand_type__name': 'Drug type',
+            'moa__name': 'Modality',
+            'indication__name': 'Indication name',
+            'indication__code__index': 'ICD11',
+            'indication_max_phase': 'Phase',
+            'disease_association__association_score' : 'Association score',
+            'drug_status': 'Approved'
+        }, inplace=True)
+            
+
+        # Convert 'Approved' from integer to 'Yes'/'No'
+        df['Approved'] = df['Approved'].apply(lambda x: 'Yes' if x == "Approved" else 'No')
+
+
+        # Convert DataFrame to JSON
+        json_records = df.to_json(orient='records')
+
+        # Pass the JSON data to the template context
+        context['Full_data'] = json_records
+
+        # Collect drugs information
+        # drugs_panel = Drugs2024.objects.all().select_related(
+        #                                                     "ligand",
+        #                                                     "moa",
+        #                                                     "target__family__parent",
+        #                                                     "target",
+        #                                                     "indication__code"
+        #                                                     )
+
+        # drug_dictionary = {}
+        # for p in drugs_panel:
+        #     # Collect receptor data
+        #     lig_name = p.ligand.name.lower().capitalize()
+        #     lig_type = p.moa.name
+        #     rec_family = p.target.family.parent.short()
+        #     rec_uniprot = p.target.entry_short()
+        #     rec_iuphar = p.target.family.name.replace("receptor", '').replace("<i>","").replace("</i>","").strip()
+        #     clinical_phase = p.indication_max_phase
+        #     indication_name = p.indication.name
+        #     indication_code = p.indication.code.index
+        #     # Create a tuple to store the values
+        #     drug_entry = (lig_name, lig_type, rec_family, rec_uniprot, rec_iuphar, clinical_phase, indication_name, indication_code)
+        #     # Initialize key if it doesn't exist
+        #     if origin == 'drugs':
+        #         key = lig_name
+        #     else:
+        #         key = rec_uniprot.lower().capitalize()
+        #     if key not in drug_dictionary:
+        #         drug_dictionary[key] = []
+        #     # Check for duplicates before adding
+        #     if drug_entry not in drug_dictionary[key]:
+        #         drug_dictionary[key].append(drug_entry)
+
+        # context["drug_dictionary"] = json.dumps(drug_dictionary)
     # cache.set(name_of_cache, context, 60 * 60 * 24 * 7)  # seven days timeout on cache
     context["layout"] = origin
 
     return render(request,'venn_diagrams.html',context)
 
+##########################################
+#### Drugs, Indications, and Targets #####
+##########################################
 
-class DrugSectionSelection(AbsTargetSelection):
-    # Left panel
-    page = 'drugs'
-    step = 1
-    number_of_steps = 1
+class DrugSectionSelection(TemplateView):
+    # variable setup #
     template_name = 'common/selection_drugs.html'
-    filters = False
-    import_export_box = False
-    target_input = False
-    psets = False
-    family_tree = False
-    type_of_selection = 'ligands'
-    selection_only_receptors = False
+
+    page = 'Drugs'
     title = "Drug search"
-    description = 'Search by drug name or database ID (GPCRdb, GtP, ChEMBL)'
+    description = 'Search by drug name'  # Default description
 
-    buttons = {
-        'continue' : {
-            'label' : 'Show ligand information',
-            'url' : '',
-            'color' : 'success',
-            }
-        }
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
+        # Ensure that both title and description are initialized
+        title = self.title
+        description = self.description  # Set default description
+        page = self.page
+
+         # Modify the description and fetch data based on the page type
+        if page == 'Drugs':
+            description = 'Search by agent / drug name'
+            # Fetch distinct ligands and create a dictionary of {ligand.name: ligand.id}
+            search_data = Drugs2024.objects.all().prefetch_related('ligand').distinct('ligand')
+            search_dict = {drug.ligand.name: drug.ligand.id for drug in search_data}
+
+            # Fetch ATC codes for the table
+            ATC_data = ATCCodes.objects.select_related(
+                'code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'code__index' # ATC codes
+            )
+
+            # Convert ATC_data queryset to a list of dictionaries
+            ATC_data_list = list(ATC_data)
+
+            # Create a DataFrame from the ATC data
+            atc_df = pd.DataFrame(ATC_data_list)
+
+            # Group ATC codes by 'Ligand ID' and concatenate them
+            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+
+            # Rename columns for the ATC DataFrame
+            atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
+
+            # Fetch table data with all related information
+            table_data = Drugs2024.objects.select_related(
+                'ligand', 
+                'target__family__parent__parent__parent', # All target info
+                'indication__code'
+                'disease_association'
+            ).values(
+                'ligand', # Agent/Drug id
+                'ligand__name', # Agent/Drug name
+                'target__entry_name', # Gene name
+                'target__name', # Protein name
+                'target__family__parent__name',  # Receptor family
+                'target__family__parent__parent__name',  # Ligand type
+                'target__family__parent__parent__parent__name',  # Class
+                'indication__name', # Disease name
+                'indication__code__index', # Disease ICD11 code
+                'indication_max_phase', # Max phase
+                'drug_status', # Approval
+                'disease_association__association_score' # Disease association score
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'ligand': 'Ligand ID',
+                'ligand__name': 'Ligand name',
+                'target__entry_name': 'Gene name',
+                'target__name': 'Protein name',
+                'target__family__parent__name': 'Receptor family',
+                'target__family__parent__parent__name': 'Ligand type',
+                'target__family__parent__parent__parent__name': 'Class',
+                'indication__name': 'Indication name',
+                'indication__code__index': 'ICD11',
+                'indication_max_phase': 'Phase',
+                'disease_association__association_score' : 'Association score',
+                'drug_status': 'Status'}, inplace=True)
+
+            # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
+            df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
+            # Fill NaN values in the 'ATC' column with None
+            df['ATC'] = df['ATC'].fillna("")
+            
+            # Precompute Phase and Status Information
+            df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
+            df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
+            df['Is_Phase_III'] = (df['Phase'] == 3).astype(int)
+            df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
+
+            # Perform GroupBy and Aggregate
+            Modified_df = df.groupby(
+                ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11', 'ATC', 'Association score']
+            ).agg(
+                Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
+                Phase_I_trials=('Is_Phase_I', 'sum'),  # Count Phase I trials
+                Phase_II_trials=('Is_Phase_II', 'sum'),  # Count Phase II trials
+                Phase_III_trials=('Is_Phase_III', 'sum'),  # Count Phase III trials
+                Approved=('Is_Approved', 'max')  # Check if any row has 'Approved' status
+            ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
+            # Convert DataFrame to JSON
+            json_records = Modified_df.to_json(orient='records')
+
+            # Pass the JSON data to the template context
+            context['Full_data'] = json_records
+
+        elif page == 'Targets':
+            description = 'Search by target name'
+            # Fetch distinct targets and create a dictionary of {target.name: target.id}
+            search_data = Drugs2024.objects.all().prefetch_related('target').distinct('target')
+            search_dict = {drug.target.name: drug.target.id for drug in search_data}
+
+            # Fetch ATC codes for the table
+            ATC_data = ATCCodes.objects.select_related(
+                'code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'code__index' # ATC codes
+            )
+
+            # Convert ATC_data queryset to a list of dictionaries
+            ATC_data_list = list(ATC_data)
+
+            # Create a DataFrame from the ATC data
+            atc_df = pd.DataFrame(ATC_data_list)
+
+            # Group ATC codes by 'Ligand ID' and concatenate them
+            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+
+            # Rename columns for the ATC DataFrame
+            atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
+
+
+            # Fetch table data with all related information
+            table_data = Drugs2024.objects.select_related(
+                'target',
+                'ligand__ligand_type',
+                'indication__code',
+                'moa',
+                'disease_association'
+            ).values(
+                'target',  # Target ID
+                'target__name',  # Target name
+                'ligand__name',  # Agent/Drug
+                'ligand__ligand_type__name',  # Modality
+                'moa__name',  # Mode of action
+                'indication__name',  # Disease name
+                'indication__code__index',  # Disease ICD11 code
+                'indication_max_phase',  # Max phase
+                'ligand', # ligand ID
+                'disease_association__association_score', # Disease association score
+                'drug_status',  # Approval
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'target': 'Target ID',
+                'target__name': 'Target name',
+                'ligand__name': 'Ligand name',
+                'ligand__ligand_type__name': 'Modality',
+                'moa__name': 'Mode of action',
+                'indication__name': 'Indication name',
+                'indication__code__index': 'ICD11',
+                'indication_max_phase': 'Phase',
+                'ligand': 'Ligand ID',
+                'disease_association__association_score' : 'Association score',
+                'drug_status': 'Status'
+            }, inplace=True)
+            
+            # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
+            df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
+            # Fill NaN values in the 'ATC' column with None
+            df['ATC'] = df['ATC'].fillna("Unavailable")
+
+            # Precompute flags for phase and approval status
+            df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
+            df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
+            df['Is_Phase_III'] = (df['Phase'] == 3).astype(int)
+            df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
+
+            # Group by necessary columns and perform aggregation in one go
+            grouped = df.groupby(
+                ['Target ID', 'Target name', 'Ligand name', 'Indication name', 'Modality', 'Mode of action', 'ICD11', 'ATC', 'Association score']
+            )
+
+            # Perform aggregation
+            Modified_df = grouped.agg(
+                Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
+                Phase_I_trials=('Is_Phase_I', 'sum'),  # Sum up the Phase I trials
+                Phase_II_trials=('Is_Phase_II', 'sum'),  # Sum up the Phase II trials
+                Phase_III_trials=('Is_Phase_III', 'sum'),  # Sum up the Phase III trials
+                Approved=('Is_Approved', 'max')  # Check if any row has 'Approved' status (max of binary flag)
+            ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
+            # Convert DataFrame to JSON
+            json_records = Modified_df.to_json(orient='records')
+
+            # Pass the JSON data to the template context
+            context['Full_data'] = json_records
+
+
+        elif page == 'Indications':
+            description = 'Search by indication name'
+            # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
+            search_data = Drugs2024.objects.all().prefetch_related('indication').distinct('indication')
+            search_dict = {drug.indication.name: drug.indication.id for drug in search_data}
+
+            # ###########################
+            # Single Data Query
+            # ###########################
+            # Fetch all data in a single query
+            table_data = Drugs2024.objects.select_related(
+                'indication',
+                'ligand__ligand_type',
+                'target__family__parent__parent__parent',  # All target info
+                'moa',
+                'disease_association'
+            ).values(
+                'indication',  # Indication ID
+                'indication__name',  # Indication name
+                'ligand__id',  # Ligand ID
+                'ligand__name',  # Ligand name
+                'indication_max_phase',  # Max phase
+                'drug_status',  # Approval
+                'ligand__ligand_type__name',  # Molecule type
+                'moa__name',  # Mode of action
+                'target__entry_name',  # Gene name
+                'target__name',  # Protein name
+                'target__family__parent__name',  # Receptor family
+                'target__family__parent__parent__name',  # Ligand type
+                'target__family__parent__parent__parent__name',  # Class
+                'disease_association__association_score', # Disease association score
+                "disease_association__ot_genetics_portal", # OT Genetics
+                "disease_association__gene_burden", # Gene Burden
+                "disease_association__eva", # ClinVar
+                "disease_association__genomics_england", # GEL PanelApp
+                "disease_association__gene2phenotype", # Gene2phenotype
+                "disease_association__uniprot_literature", # UniProt literature
+                "disease_association__uniprot_variants", # UniProt curated variants
+                "disease_association__orphanet", # Orphanet
+                "disease_association__clingen", # ClinGen
+                "disease_association__cancer_gene_census", # Cancer Gene Census
+                "disease_association__intogen", # IntOGen
+                "disease_association__eva_somatic", # Clinvar (somatic)
+                "disease_association__cancer_biomarkers", # Cancer Biomarkers
+                "disease_association__chembl", # ChEMBL
+                "disease_association__crispr_screen", # CRISPR Screens
+                "disease_association__crispr", # Project Score
+                "disease_association__slapenrich", # SLAPenrich
+                "disease_association__reactome", # Reactome
+                "disease_association__sysbio", # Gene signatures
+                "disease_association__europepmc", # Europe PMC
+                "disease_association__expression_atlas", # Expression Atlas
+                "disease_association__impc" # IMPC
+            )
+
+            # Convert the table_data queryset to a list of dictionaries
+            table_data_list = list(table_data)
+
+            # Convert the list of dictionaries to a pandas DataFrame
+            df = pd.DataFrame(table_data_list)
+
+            # Rename the columns to your desired format
+            df.rename(columns={
+                'indication': 'Indication ID',
+                'indication__name': 'Indication name',
+                'ligand__id': 'Ligand ID',
+                'ligand__name': 'Drug name',
+                'indication_max_phase': 'Phase',
+                'drug_status': 'Status',
+                'ligand__ligand_type__name': 'Molecule_type',
+                'moa__name': 'Mode of action',
+                'target__entry_name': 'Gene name',
+                'target__name': 'Protein name',
+                'target__family__parent__name': 'Receptor family',
+                'target__family__parent__parent__name': 'Ligand type',
+                'target__family__parent__parent__parent__name': 'Class',
+                'disease_association__association_score' : 'Association score',
+                "disease_association__ot_genetics_portal": "OT Genetics",
+                "disease_association__gene_burden": "Gene Burden",
+                "disease_association__eva": "ClinVar",
+                "disease_association__genomics_england": "GEL PanelApp",
+                "disease_association__gene2phenotype": "Gene2phenotype",
+                "disease_association__uniprot_literature": "UniProt literature",
+                "disease_association__uniprot_variants": "UniProt curated variants",
+                "disease_association__orphanet": "Orphanet",
+                "disease_association__clingen": "ClinGen",
+                "disease_association__cancer_gene_census": "Cancer Gene Census",
+                "disease_association__intogen": "IntOGen",
+                "disease_association__eva_somatic": "Clinvar (somatic)",
+                "disease_association__cancer_biomarkers": "Cancer Biomarkers",
+                "disease_association__chembl":"ChEMBL",
+                "disease_association__crispr_screen": "CRISPR Screens",
+                "disease_association__crispr": "Project Score",
+                "disease_association__slapenrich": "SLAPenrich",
+                "disease_association__reactome": "Reactome",
+                "disease_association__sysbio": "Gene signatures",
+                "disease_association__europepmc": "Europe PMC",
+                "disease_association__expression_atlas": "Expression Atlas",
+                "disease_association__impc": "IMPC"
+            }, inplace=True)
+
+            # Define MOA categories
+            stim_moa = ['Partial agonist', 'Agonist', 'PAM']
+            inhib_moa = ['Antagonist', 'Inverse agonist', 'NAM']
+
+            # Split the DataFrame into two: one for targets and one for drugs
+            df_targets = df.copy()
+            df_drugs = df.copy()
+
+            # ###########################
+            # Data Aggregation for Targets
+            # ###########################
+            # Update group_cols to include 'Indication name'
+            group_cols = ['Indication ID', 'Gene name', 'Indication name', 'Protein name', 'Receptor family', 'Ligand type', 'Class']
+
+            # Define disease association columns to be added to the grouping
+            disease_cols = [
+                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp', 
+                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet', 
+                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers', 
+                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures', 
+                'Europe PMC', 'Expression Atlas', 'IMPC'
+            ]
+
+            # Add these to group_cols
+            group_cols += disease_cols
+
+            df_targets[disease_cols] = df[disease_cols].fillna("")
+
+            # Precompute classifications
+            df_targets['Classification'] = df_targets['Status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
+
+            # Pre-filter the DataFrame for stimulatory and inhibitory MOAs
+            stim_moa_df = df_targets[df_targets['Mode of action'].isin(stim_moa)]
+            inhib_moa_df = df_targets[df_targets['Mode of action'].isin(inhib_moa)]
+
+
+            # Create a function to get the max phase safely
+            def get_max_phase(df, group_cols):
+                if df.empty:
+                    return pd.Series(dtype='float64')  # Return an empty Series if DataFrame is empty
+                return df.groupby(group_cols)['Phase'].max()
+
+            # Group the targets DataFrame by the updated columns
+            grouped_targets = df_targets.groupby(group_cols)
+
+            # Aggregate data using efficient vectorized operations
+            agg_data_targets = grouped_targets.agg(
+                All_max_phase=('Phase', 'max'),
+                All_Drugs=('Classification', lambda x: (x == 'Drug').sum()),
+                All_Agents=('Classification', lambda x: (x == 'Agent').sum())
+            ).reset_index()
+
+            # Compute the stimulatory and inhibitory max phase and counts efficiently
+            stim_max_phase = get_max_phase(stim_moa_df, group_cols)
+            inhib_max_phase = get_max_phase(inhib_moa_df, group_cols)
+
+            # Add the precomputed data into the DataFrame
+            agg_data_targets = agg_data_targets.merge(stim_max_phase.rename('Stimulatory_max_phase'), on=group_cols, how='left')
+            agg_data_targets = agg_data_targets.merge(inhib_max_phase.rename('Inhibitory_max_phase'), on=group_cols, how='left')
+
+           # Compute Stimulatory and Inhibitory Drugs and Agents counts
+            # Reindex to ensure both 'Drug' and 'Agent' columns are present, even if they don't exist in the data
+            stim_counts = stim_moa_df.groupby(group_cols)['Classification'].value_counts().unstack(fill_value=0).reindex(
+                columns=['Drug', 'Agent'], fill_value=0).reset_index()
+
+            # Rename columns to make sure they have meaningful names
+            stim_counts.rename(columns={'Drug': 'Stimulatory_Drugs', 'Agent': 'Stimulatory_Agents'}, inplace=True)
+
+            # Reindex to ensure both 'Drug' and 'Agent' columns are present for inhibitory counts
+            inhib_counts = inhib_moa_df.groupby(group_cols)['Classification'].value_counts().unstack(fill_value=0).reindex(
+                columns=['Drug', 'Agent'], fill_value=0).reset_index()
+
+            # Rename columns for inhibitory MOAs
+            inhib_counts.rename(columns={'Drug': 'Inhibitory_Drugs', 'Agent': 'Inhibitory_Agents'}, inplace=True)
+
+            # Merge the counts back into the aggregated data
+            agg_data_targets = agg_data_targets.merge(stim_counts[group_cols + ['Stimulatory_Drugs', 'Stimulatory_Agents']], on=group_cols, how='left').fillna(0)
+            agg_data_targets = agg_data_targets.merge(inhib_counts[group_cols + ['Inhibitory_Drugs', 'Inhibitory_Agents']], on=group_cols, how='left').fillna(0)
+
+            # Convert DataFrame to JSON
+            json_records_targets = agg_data_targets.to_json(orient='records')
+            context['Full_data_targets'] = json_records_targets
+
+            # ###########################
+            # Data Aggregation for Drugs
+            # ###########################
+            group_cols_drugs = ['Indication ID', 'Gene name', 'Drug name', 'Indication name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'Molecule_type','Mode of action']
+
+            # Precompute relevant columns
+            df_drugs['Is_Approved'] = df_drugs['Status'].apply(lambda x: 1 if x == 'Approved' else 0)
+            df_drugs['Is_Phase_I'] = (df_drugs['Phase'] == 1).astype(int)
+            df_drugs['Is_Phase_II'] = (df_drugs['Phase'] == 2).astype(int)
+            df_drugs['Is_Phase_III'] = (df_drugs['Phase'] == 3).astype(int)
+
+            # Group the DataFrame only once
+            grouped_drugs = df_drugs.groupby(group_cols_drugs)
+
+            # Aggregate data using vectorized operations
+            agg_data_drugs = grouped_drugs.agg(
+                Highest_phase=('Phase', 'max'),
+                Phase_I_trials=('Is_Phase_I', 'sum'),
+                Phase_II_trials=('Is_Phase_II', 'sum'),
+                Phase_III_trials=('Is_Phase_III', 'sum'),
+                Approved=('Is_Approved', 'max')
+            ).reset_index()
+
+            # Convert 'Approved' from integer to 'Yes'/'No'
+            agg_data_drugs['Approved'] = agg_data_drugs['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
+            # Convert DataFrame to JSON
+            json_records_drugs = agg_data_drugs.to_json(orient='records')
+            context['Full_data_drugs'] = json_records_drugs
+
+
+        # Convert to JSON string and pass to context
+        context['search_data'] = json.dumps(search_dict)
+        context['page'] = page
+        context['title'] = title
+        context['description'] = description
+        # context['table_data'] = table_data
+
+        return context
 
 class DruggedGPCRome(TemplateView):
     """
@@ -533,7 +1014,7 @@ class DruggedGPCRome(TemplateView):
 
 class NewDrugsBrowser(TemplateView):
     # Template using this class #
-    template_name = 'NewDrugsBrowser.html'
+    template_name = 'Drugs_Indications_Targets.html'
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -544,16 +1025,10 @@ class NewDrugsBrowser(TemplateView):
         # Possible addons: 'target__family__parent','target__family__parent__parent','target__family__parent__parent__parent','indication','ligand','moa'
         # initialize context list for pushing data to html #
         context_data_browser = list()
-        i_breaker = 0
         #proteins = list(TissueExpression.objects.all().values_list('protein__entry_name').distinct())
         #drugs = Drugs.objects.all().prefetch_related('target', 'target__family__parent__parent__parent', 'publication', 'publication__web_link', 'publication__web_link__web_resource', 'publication__journal')
         #drugs_NHS_names = list(NHSPrescribings.objects.values_list('drugname__name', flat=True).distinct())
         for entry in Drug_browser_data:
-            # i_breaker += 1
-            # if i_breaker >= 10:
-            #     break
-            # else:
-            #     pass
             ## For the drug browser table ##
             # Protein id, uniprot, and receptor name
             Protein_id = str(entry.target.id)
@@ -562,6 +1037,7 @@ class NewDrugsBrowser(TemplateView):
             Protein_receptor_name = str(entry.target.name)
             Protein_family = str(entry.target.family.parent)
             Protein_class = str(entry.target.family.parent.parent.parent)
+            Drug_id = str(entry.ligand.id)
             Drug_name = str(entry.ligand.name)
             Indication = str(entry.indication.name)
             Indication_ID = str(entry.indication.code.index)
@@ -575,6 +1051,7 @@ class NewDrugsBrowser(TemplateView):
             jsondata_browser = {
                 'Index_number': Protein_id,
                 'Drug': Drug_name,
+                'DrugID': Drug_id,
                 'Indication': Indication,
                 'Indication_ID': Indication_ID,
                 'Protein_uniprot': Protein_uniprot,
@@ -591,6 +1068,164 @@ class NewDrugsBrowser(TemplateView):
             context_data_browser.append(jsondata_browser)
         context['drug_data'] = context_data_browser
         return context
+
+
+#################################
+####          Drugs          ####
+#################################
+
+class Drugs(TemplateView):
+    # Template using this class #
+    template_name = 'Drugs.html'
+    # Get context for hmtl usage #
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get data - server side - Queries #
+        Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','ligand')
+
+        # initialize context list for pushing data to html #
+        context_data_browser = list()
+
+        # Drugs and drugs target (#number)
+        Data_drugs_dict = {}
+        for entry in Drug_browser_data:
+            Drug_id = str(entry.ligand.id)
+            Protein_id = str(entry.target.id)
+            Drug_name = str(entry.ligand.name)
+            if Drug_id not in Data_drugs_dict:
+                Data_drugs_dict[Drug_id] = {}
+                Data_drugs_dict[Drug_id]['Name'] = Drug_name
+                Data_drugs_dict[Drug_id]['Targets'] = []
+                Data_drugs_dict[Drug_id]['Targets'].append(Protein_id)
+            else:
+                if Protein_id not in Data_drugs_dict[Drug_id]['Targets']:
+                    Data_drugs_dict[Drug_id]['Targets'].append(Protein_id)
+                else:
+                    pass
+
+        for drug_id in Data_drugs_dict:
+            ## For the drug browser table ##
+            Drug_name = Data_drugs_dict[drug_id]['Name']
+            target_number = len(Data_drugs_dict[drug_id]['Targets'])
+
+            # create and append to context data
+            jsondata_browser = {
+                'Drug_id': drug_id,
+                'Drugs': Drug_name,
+                'Targets': target_number
+            }
+            context_data_browser.append(jsondata_browser)
+        context['Data_Drugs'] = context_data_browser
+        return context
+
+#################################
+####      Indications        ####
+#################################
+
+class Indications(TemplateView):
+    # Template using this class #
+    template_name = 'Indications.html'
+    # Get context for hmtl usage #
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get data - server side - Queries #
+        Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','indication','indication__code','ligand')
+        # initialize context list for pushing data to html #
+        context_data_browser = list()
+
+        Indications_dict = {}
+        for entry in Drug_browser_data:
+            ## For the drug browser table ##
+            Protein_id = str(entry.target.id)
+            Drug_id = str(entry.ligand.id)
+            Indication_id = str(entry.indication.id)
+            Indication_name = str(entry.indication.name)
+            Indication_code = str(entry.indication.code.index)
+
+            if Indication_id not in Indications_dict:
+                Indications_dict[Indication_id] = {}
+                Indications_dict[Indication_id]['Name'] = Indication_name
+                Indications_dict[Indication_id]['Code'] = Indication_code
+                Indications_dict[Indication_id]['Drugs'] = []
+                Indications_dict[Indication_id]['Targets'] = []
+                # append drugs and targets to indications dict #
+                Indications_dict[Indication_id]['Drugs'].append(Drug_id)
+                Indications_dict[Indication_id]['Targets'].append(Protein_id)
+            else:
+                if Drug_id not in Indications_dict[Indication_id]['Drugs']:
+                    Indications_dict[Indication_id]['Drugs'].append(Drug_id)
+                else:
+                    pass
+                if Protein_id not in Indications_dict[Indication_id]['Targets']:
+                    Indications_dict[Indication_id]['Targets'].append(Protein_id)
+                else:
+                    pass
+        for indication in Indications_dict:
+            
+            Indication_name = str(Indications_dict[indication]['Name'])
+            Indication_code = str(Indications_dict[indication]['Code'])
+            Number_of_drugs = len(Indications_dict[indication]['Drugs'])
+            Number_of_targets = len(Indications_dict[indication]['Targets'])
+
+            # create and append to context data
+            jsondata_browser = {
+                'Indication_id': indication,
+                'Indication_name': Indication_name,
+                'Indication_code': Indication_code,
+                'Drugs_number': Number_of_drugs,
+                'Target_number': Number_of_targets
+            }
+            context_data_browser.append(jsondata_browser)
+        context['Data_Indications'] = context_data_browser
+        return context
+    
+
+#################################
+####        Targets          ####
+#################################
+
+class Targets(TemplateView):
+    # Template using this class #
+    template_name = 'Targets.html'
+    # Get context for hmtl usage #
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get data - server side - Queries #
+        Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','target__family__parent__parent','target__family__parent__parent__parent')
+
+        # initialize context list for pushing data to html #
+        context_data_browser = list()
+
+        for entry in Drug_browser_data:
+            ## For the drug browser table ##
+            # Protein id, uniprot, and receptor name
+            Protein_id = str(entry.target.id)
+            Protein_uniprot = str(entry.target.accession)
+            Protein_name = str(entry.target.entry_name).split("_")[0].upper()
+            Protein_receptor_name = str(entry.target.name)
+            Protein_family = str(entry.target.family.parent)
+            Protein_class = str(entry.target.family.parent.parent.parent)
+
+            # create and append to context data
+            jsondata_browser = {
+                'Index_number': Protein_id,
+                'Protein_uniprot': Protein_uniprot,
+                'Protein_name': Protein_name,
+                'Protein_receptor': Protein_receptor_name,
+                'Protein_class': Protein_class,
+                'Protein_family': Protein_family,
+            }
+            context_data_browser.append(jsondata_browser)
+        context['Data_Targets'] = context_data_browser
+        return context
+
+
+
+
+
 
 class TargetSelectionTool(TemplateView):
     # Template using this class #
@@ -621,6 +1256,7 @@ class TargetSelectionTool(TemplateView):
         target_indication_dict = {}
         Tissue_expression_dict = {}
         index_dict = {}
+        Drugs_target_ids = []
         # Create dict for structure total and state (active, inactive and intermediate)
         for entry in Structure_data:
             protein_id = str(entry['protein_conformation__protein__parent__id'])
@@ -668,19 +1304,19 @@ class TargetSelectionTool(TemplateView):
                 target_indication_dict[Target_indication_pair]['Drug__status']['Discontinued'] = 0
                 target_indication_dict[Target_indication_pair]['Drug__status'][Drug_status] += 1
                 # Handle structures #
-                if Protein_id in structure_dict:
-                    target_indication_dict[Target_indication_pair]['Structures'] = {}
-                    target_indication_dict[Target_indication_pair]['Structures']['Total'] = structure_dict[Protein_id]['Total']
-                    target_indication_dict[Target_indication_pair]['Structures']['Active'] = structure_dict[Protein_id]['Active']
-                    target_indication_dict[Target_indication_pair]['Structures']['Inactive'] = structure_dict[Protein_id]['Inactive']
-                    target_indication_dict[Target_indication_pair]['Structures']['Intermediate'] = structure_dict[Protein_id]['Intermediate']
-                else:
-                    print("Something fishy")
-                    target_indication_dict[Target_indication_pair]['Structures'] = {}
-                    target_indication_dict[Target_indication_pair]['Structures']['Total'] = 0
-                    target_indication_dict[Target_indication_pair]['Structures']['Active'] = 0
-                    target_indication_dict[Target_indication_pair]['Structures']['Inactive'] = 0
-                    target_indication_dict[Target_indication_pair]['Structures']['Intermediate'] = 0
+                # if Protein_id in structure_dict:
+                #     target_indication_dict[Target_indication_pair]['Structures'] = {}
+                #     target_indication_dict[Target_indication_pair]['Structures']['Total'] = structure_dict[Protein_id]['Total']
+                #     target_indication_dict[Target_indication_pair]['Structures']['Active'] = structure_dict[Protein_id]['Active']
+                #     target_indication_dict[Target_indication_pair]['Structures']['Inactive'] = structure_dict[Protein_id]['Inactive']
+                #     target_indication_dict[Target_indication_pair]['Structures']['Intermediate'] = structure_dict[Protein_id]['Intermediate']
+                # else:
+                #     print("Something fishy")
+                #     target_indication_dict[Target_indication_pair]['Structures'] = {}
+                #     target_indication_dict[Target_indication_pair]['Structures']['Total'] = 0
+                #     target_indication_dict[Target_indication_pair]['Structures']['Active'] = 0
+                #     target_indication_dict[Target_indication_pair]['Structures']['Inactive'] = 0
+                #     target_indication_dict[Target_indication_pair]['Structures']['Intermediate'] = 0
             else:
                 # Drugs #
                 target_indication_dict[Target_indication_pair]['Drugs'].append(Drug_name)
@@ -690,47 +1326,55 @@ class TargetSelectionTool(TemplateView):
                 target_selection_dict[Protein_id] = [Protein_uniprot,Protein_name]
         for key in target_indication_dict:
             key_id = str(target_indication_dict[key]['information'][0])
+            Drugs_target_ids.append(key_id)
             jsondata_TargetSelectionTool = {
                     'Index_number': key_id,
                     'Target_name': target_selection_dict[key_id][1],
                     'Target_uniprot': target_selection_dict[key_id][0],
                     'Indication_name': target_indication_dict[key]['information'][2],
                     'Indication_id': target_indication_dict[key]['information'][1],
-                    'Novelty_score': target_indication_dict[key]['Novelty_score'],
+                    'Novelty_score': str(target_indication_dict[key]['Novelty_score']),
                     'IDG': "Coming soon",
                     'Drugs_approved_names': target_indication_dict[key]['Drugs'],
                     'Drugs_total': int(len(target_indication_dict[key]['Drugs'])),
                     'Drugs_approved': int(target_indication_dict[key]['Drug__status']['Approved']),
                     'Drugs_in_trial': int(target_indication_dict[key]['Drug__status']['Active']),
-                    'Drugs_discontinued': int(target_indication_dict[key]['Drug__status']['Discontinued']),
-                    'Structures_total': int(target_indication_dict[key]['Structures']['Total']),
-                    'Structures_active' : int(target_indication_dict[key]['Structures']['Active']),
-                    'Structures_inactive' : int(target_indication_dict[key]['Structures']['Inactive']),
-                    'Structures_intermediate' : int(target_indication_dict[key]['Structures']['Intermediate'])
+                    'Drugs_discontinued': int(target_indication_dict[key]['Drug__status']['Discontinued'])
+                    # 'Structures_total': int(target_indication_dict[key]['Structures']['Total']),
+                    # 'Structures_active' : int(target_indication_dict[key]['Structures']['Active']),
+                    # 'Structures_inactive' : int(target_indication_dict[key]['Structures']['Inactive']),
+                    # 'Structures_intermediate' : int(target_indication_dict[key]['Structures']['Intermediate'])
             }
             context_target_selection.append(jsondata_TargetSelectionTool)
-        context['Target_data'] = context_target_selection
+        context['Drug_Targets'] = context_target_selection
         # Go through server side data and modulate into a dict #
         for entry in TissueExp:
             # string values for Tissue expression table #
             protein_id = entry.protein.entry_name
             value = entry.value
+            ### Get rid of the nan values ### <--- should be removed through the build
+            if value != value:
+                value = None
             Tissue_id = entry.tissue.name
             # Index key #
-            index_key = entry.protein.id
-            if protein_id not in index_dict:
-                index_dict[str(protein_id)] = index_key
-            # Expression value linked to protein / target #
-            if protein_id not in Tissue_expression_dict:
-                Tissue_expression_dict[str(protein_id)] = {}
-                Tissue_expression_dict[str(protein_id)][str(Tissue_id)] = float(value)
+            index_key = str(entry.protein.id)
+            if index_key not in Drugs_target_ids:
+                pass
             else:
-                Tissue_expression_dict[str(protein_id)][str(Tissue_id)] = float(value)
+                if protein_id not in index_dict:
+                    index_dict[str(protein_id)] = index_key
+                # Expression value linked to protein / target #
+                if protein_id not in Tissue_expression_dict:
+                    Tissue_expression_dict[str(protein_id)] = {}
+                    Tissue_expression_dict[str(protein_id)][str(Tissue_id)] = float(value) if value else '-'
+                else:
+                    Tissue_expression_dict[str(protein_id)][str(Tissue_id)] = float(value) if value else '-'
         # Run through dict and assign the correct values into the context data #
         for key in Tissue_expression_dict:
             jsondata_tissue = {
                     'Index_number': index_dict[key],
                     'ProteinID': key,
+                    'ProteinName': str(key).split("_")[0].upper(),
                     'adipose_tissue': Tissue_expression_dict[key]['adipose_tissue'],
                     'adrenal_gland': Tissue_expression_dict[key]['adrenal_gland'],
                     'amygdala': Tissue_expression_dict[key]['amygdala'],
@@ -786,6 +1430,57 @@ class TargetSelectionTool(TemplateView):
             context_data_tissue.append(jsondata_tissue)
         # Create context data for tissue expression data #
         context['Tissue_data'] = context_data_tissue
+        context['Tissue_header_list'] = ['Adipose tissue',
+                                       'Adrenal gland',
+                                       'Amygdala',
+                                       'Appendix',
+                                       'Basal ganglia',
+                                       'Bone marrow',
+                                       'Breast',
+                                       'Cerebellum',
+                                       'Cerebral cortex',
+                                       'Cervix',
+                                       'Choroid plexus',
+                                       'Colon',
+                                       'Duodenum',
+                                       'Endometrium',
+                                       'Epididymis',
+                                       'Esophagus',
+                                       'Fallopian tube',
+                                       'Gallbladder',
+                                       'Heart muscle',
+                                       'Hippocampal formation',
+                                       'Hypothalamus',
+                                       'Kidney',
+                                       'Liver',
+                                       'Lung',
+                                       'Lymph node',
+                                       'Midbrain',
+                                       'Ovary',
+                                       'Pancreas',
+                                       'Parathyroid gland',
+                                       'Pituitary gland',
+                                       'Placenta',
+                                       'Prostate',
+                                       'Rectum',
+                                       'Retina',
+                                       'Salivary gland',
+                                       'Seminal vesicle',
+                                       'Skeletal muscle',
+                                       'Skin',
+                                       'Small intestine',
+                                       'Smooth muscle',
+                                       'Spinal cord',
+                                       'Spleen',
+                                       'Stomach',
+                                       'Testis',
+                                       'Thymus',
+                                       'Thyroid gland',
+                                       'Tongue',
+                                       'Tonsil',
+                                       'Urinary bladder',
+                                       'Vagina']
+        context['Tissue_header_list'] = [x.replace(' ', '<br>') for x in context['Tissue_header_list']]
         # Lastly return context for html usage #
         return context
 
