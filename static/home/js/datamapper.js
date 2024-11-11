@@ -383,7 +383,12 @@ function DrawCircles(location, data, starter, dict, clean = true, gradient = tru
 
                     // Create color scale based on min and max values
                     var colorScale;
-                    if (styling === "Three") {
+                    if (styling === "Drugged_tree") {
+                        // Discrete color scale for "Drugged_tree"
+                        colorScale = d3.scale.ordinal()
+                        .domain([1, 2, 3, 4])
+                        .range(["#f5bcbf", "#f17270", "#dd2628", "#2c87c8"]);
+                    } else if (styling === "Three") {
                         // Three-color gradient with white in the middle
                         colorScale = d3.scale.linear()
                             .domain([minValue, (minValue + maxValue) / 2, maxValue])
@@ -2998,7 +3003,6 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                                 .style("font-size",family_fontsize);
 
 
-
                             // Append the second part of the text (using currentPos)
                             svg.append("text")
                                 .attr("x", currentPos.x)
@@ -3162,6 +3166,15 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     if (value === 5) return "#D3D3D3";
                     if (value === 6) return "#A3D9C8";
                     if (value === 7) return "White";
+                    return "none";  // Make the slice invisible if the value is ""
+                } else if (datatype === "Druggome") {
+                    // Handle discrete data or default case
+                    if (value === 1) return "#F5BCBF";
+                    if (value === 2) return "#F17270";
+                    if (value === 3) return "#DD2628";
+                    if (value === 4) return "#2C87C8";
+                    if (value === 5) return "#D3D3D3";
+                    if (value === 6) return "#A3D9C8";
                     return "none";  // Make the slice invisible if the value is ""
                 }
             })
