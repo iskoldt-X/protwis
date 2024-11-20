@@ -43,7 +43,7 @@
         font-size: 12px; /* Adjust to match your standard font size */
     }
     #targetsTable th {
-        width: 250px !important; /* Force width on <th> elements */
+        width: 250px; /* Force width on <th> elements */
         max-width: 250px;        /* Set a maximum width */
         overflow: hidden;
         white-space: nowrap;     /* Prevent line wrapping */
@@ -65,6 +65,26 @@
         padding-left: 0 !important;
     }
 
+/* Adjust header text to wrap only at spaces */
+.rotate-text .dt-column-title {
+    display: inline-block;
+    white-space: pre-wrap; /* Preserve spaces and allow wrapping at spaces */
+    word-break: keep-all; /* Prevent breaking words */
+    text-align: center; /* Center-align text within the header cell */
+    line-height: 1.2; /* Adjust line height for multi-line text */
+    padding-top: 10px; /* Optional: Add spacing to top if needed */
+    vertical-align: middle; /* Align text to the middle of the cell */
+}
+
+.search-info {
+    display: inline-block;
+    margin-left: 10px;
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap; /* Prevent text wrapping */
+    text-align: left; /* Align text to the right */
+    font-size: 16px; /* A specific size in pixels */
+}
 
 </style>
 
@@ -101,9 +121,9 @@
               <!-- Dummy Header Row for Complex Header Fix -->
               <tr>
                   {% if page == 'Drugs' %}
-                      <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+                      <td colspan="11" style="text-align: center" data-dt-order="disable"></td>
                   {% elif page == 'Targets' %}
-                      <td colspan="12" style="text-align: center" data-dt-order="disable"></td>
+                      <td colspan="9" style="text-align: center" data-dt-order="disable"></td>
                   {% endif %}
               </tr>
 
@@ -111,12 +131,12 @@
               <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
                   {% if page == 'Drugs' %}
                       <th colspan="5" style="text-align:center">Target</th>
-                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
-                      <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                      <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
                   {% elif page == 'Targets' %}
                       <th colspan="3" style="text-align:center">Molecule</th>
-                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
-                      <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                      <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
                   {% endif %}
               </tr>
 
@@ -128,14 +148,11 @@
                       <th style="text-align: center;">Receptor family</th>
                       <th style="text-align: center;">Ligand type</th>
                       <th style="text-align: center;">Class</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc">Indication name</th>
                       <th style="text-align: center;">ICD11</th>
                       <th style="text-align: center;">ATC</th>
                       <th style="text-align: center;">Association score</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
-                      <th style="text-align: center;">I</th>
-                      <th style="text-align: center;">II</th>
-                      <th style="text-align: center;">III</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
                       <th style="text-align: center;">Approved</th>
                   {% elif page == 'Targets' %}
                       <th style="text-align: center;">Name</th>
@@ -145,10 +162,7 @@
                       <th style="text-align: center;">ICD11</th>
                       <th style="text-align: center;">ATC</th>
                       <th style="text-align: center;">Association score</th>
-                      <th style="text-align: center;border-left: 1px solid #cccccc;">Highest</th>
-                      <th style="text-align: center;">I</th>
-                      <th style="text-align: center;">II</th>
-                      <th style="text-align: center;">III</th>
+                      <th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
                       <th style="text-align: center;">Approved</th>
                   {% endif %}
               </tr>
@@ -166,9 +180,6 @@
                       <td style="text-align: center;" data-dt-order="disable"></td>
                       <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                       <td style="text-align: center;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
                   {% elif page == 'Targets' %}
                       <td style="text-align: center;" data-dt-order="disable"></td>
                       <td style="text-align: center;" data-dt-order="disable"></td>
@@ -178,9 +189,6 @@
                       <td style="text-align: center;" data-dt-order="disable"></td>
                       <td style="text-align: center;" data-dt-order="disable"></td>
                       <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
-                      <td style="text-align: center;" data-dt-order="disable"></td>
                       <td style="text-align: center;" data-dt-order="disable"></td>
                   {% endif %}
               </tr>
@@ -243,32 +251,32 @@
                             <!-- Disease association -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">Association score</th>
                             <!-- Genetic association -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">OT Genetics</th>
-                            <th style="text-align: center">Gene Burden</th>
-                            <th style="text-align: center">ClinVar</th>
-                            <th style="text-align: center">GEL PanelApp</th>
-                            <th style="text-align: center">Gene2phenotype</th>
-                            <th style="text-align: center">UniProt literature</th>
-                            <th style="text-align: center">UniProt curated variants</th>
-                            <th style="text-align: center">Orphanet</th>
-                            <th style="text-align: center">ClinGen</th>
+                            <th class="rotate-text" style="text-align: center;border-left: 1px solid #cccccc;">OT Genetics</th>
+                            <th class="rotate-text" style="text-align: center">Gene Burden</th>
+                            <th class="rotate-text" style="text-align: center">ClinVar</th>
+                            <th class="rotate-text" style="text-align: center">GEL PanelApp</th>
+                            <th class="rotate-text" style="text-align: center">Gene2phenotype</th>
+                            <th class="rotate-text" style="text-align: center">UniProt literature</th>
+                            <th class="rotate-text" style="text-align: center">UniProt curated variants</th>
+                            <th class="rotate-text" style="text-align: center">Orphanet</th>
+                            <th class="rotate-text" style="text-align: center">ClinGen</th>
                             <!-- Somatic mutations -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Cancer Gene Census</th>
-                            <th style="text-align: center">IntOGen</th>
-                            <th style="text-align: center">Clinvar (somatic)</th>
-                            <th style="text-align: center">Cancer Biomarkers</th>
+                            <th class="rotate-text" style="text-align: center;border-left: 1px solid #cccccc;">Cancer Gene Census</th>
+                            <th class="rotate-text" style="text-align: center">IntOGen</th>
+                            <th class="rotate-text" style="text-align: center">Clinvar (somatic)</th>
+                            <th class="rotate-text" style="text-align: center">Cancer Biomarkers</th>
                             <!-- Known drug -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">ChEMBL</th>
                             <!-- Affected pathway -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">CRISPR Screens</th>
-                            <th style="text-align: center">Project Score</th>
-                            <th style="text-align: center">SLAPenrich</th>
-                            <th style="text-align: center">Reactome</th>
-                            <th style="text-align: center">Gene signatures</th>
+                            <th class="rotate-text" style="text-align: center;border-left: 1px solid #cccccc;">CRISPR Screens</th>
+                            <th class="rotate-text" style="text-align: center">Project Score</th>
+                            <th class="rotate-text" style="text-align: center">SLAPenrich</th>
+                            <th class="rotate-text" style="text-align: center">Reactome</th>
+                            <th class="rotate-text" style="text-align: center">Gene signatures</th>
                             <!-- Literature -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Europe PMC</th>
+                            <th class="rotate-text" style="text-align: center;border-left: 1px solid #cccccc;">Europe PMC</th>
                             <!-- RNA Expression -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Expression Atlas</th>
+                            <th class="rotate-text" style="text-align: center;border-left: 1px solid #cccccc;">Expression Atlas</th>
                             <!-- Animal model -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">IMPC</th>
                             <!-- Agent/Drugs -->
@@ -473,14 +481,25 @@
         // Filter Full_table_data based on the selected ID depending on the page type
         if (page === 'Drugs') {
             Selected_table_data = Full_table_data.filter(function(row) {
-                return row['Ligand ID'] == selected_id;
+                return row['LigandID'] == selected_id;
             });
+
+            if (Selected_table_data.length > 0) {
+                var ligandName = Selected_table_data[0]['Ligand name']; // Assuming one match
+                var ligandID = Selected_table_data[0]['LigandID'];
+                searchedText = 'Drug/Agent: <a href="/ligand/' + ligandID + '/info" target="_blank">' + ligandName + '</a>';
+            }
         } else if (page === 'Targets') {
             Selected_table_data = Full_table_data.filter(function(row) {
                 return row['Target ID'] == selected_id;
             });
+
+            if (Selected_table_data.length > 0) {
+                var Linkdata = Selected_table_data[0]['Gene name']; // Assuming one match
+                var displayData = Selected_table_data[0]['Target name']; // Assuming one match
+                searchedText = 'Target: <a href="/protein/' + Linkdata + '/" target="_blank">' + displayData + '</a>';
+            }
         } else if (page === 'Indications') {
-            // Handle both tables (Targets and Agents/Drugs)
             var targets_selected_data = Full_data_targets.filter(function(row) {
                 return row['Indication ID'] == selected_id;
             });
@@ -489,12 +508,27 @@
                 return row['Indication ID'] == selected_id;
             });
 
+            if (targets_selected_data.length > 0 || drugs_selected_data.length > 0) {
+                var indicationName = (targets_selected_data.length > 0 
+                    ? targets_selected_data[0]['Indication name'] 
+                    : drugs_selected_data[0]['Indication name']);
+                var icd11 = (targets_selected_data.length > 0 
+                    ? targets_selected_data[0]['ICD11'] 
+                    : drugs_selected_data[0]['ICD11']);
+                
+                searchedText = 'Indication: <a href="/drugs/indication/' + icd11 + '/" target="_blank">' + indicationName + '</a>';
+            }
+
             // Show the tab content only after the search is clicked
             $('#indications-container').show();
+            
+            // Reset filters
+            reset_all();
 
             // Initialize or update the DataTables for Indications
             initializeDataTable('#targetsTable', targets_selected_data, 'Targets for Indications');
             initializeDataTable('#agentsDrugsSuperTable', drugs_selected_data, 'Agents/Drugs');
+            
             // Initially trigger the button to show the default set of columns
             $('.btn-group button[data-column="0"]').trigger('click');
             return; // Exit early for Indications, as we handle two tables separately
@@ -502,9 +536,13 @@
 
         // Show the table only after the search is clicked
         $('#table-container').show();
-        
+
+        // Reset filters
+        reset_all();
+
         // Initialize or reinitialize the DataTable with the filtered data for Drugs or Targets
         initializeDataTable('#Table1', Selected_table_data, page);
+        
     });
 
 
@@ -540,48 +578,103 @@
         } else {
             var columnDefs = [{ className: "dt-head-center dt-center dt-body-center expand", "targets": "_all" }].concat(pageSpecificDefs);
         }
+
         // Define columns dynamically based on the type
         var columns = [];
         if (type === 'Drugs') {
             columns = [
-                {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+                {data: "Gene name", name: "Gene name",width: "5%", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      const originalData = data; // Raw data
+                      const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+                      return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+                  } else if (type === 'filter') {
+                      // Return transformed data for the filter dropdown
+                      return data.replace('_human', '').toUpperCase();
+                  }
+                  return data; // Raw data for sorting
+                }},
                 {data: "Protein name", name: "Protein name",width: "7%"},
                 {data: "Receptor family", name: "Receptor family",width: "9%"},
                 {data: "Ligand type", name: "Ligand type",width: "8%"},
                 {data: "Class", name: "Class",width: "7%", render: function (data) { return data.split(' (')[0]; }},
-                {data: "Indication name", name: "Indication",width: "10%"},
+                {data: "Indication name", name: "Indication",width: "15%",render: function (data, type, row, meta) {
+                    if (type === 'display') {
+                        if (row && row.ICD11) {
+                            const transformedData = data || 'Unknown'; // Fallback if Indication name is missing
+                            const link = '/drugs/indication/' + row.ICD11 + '/'; // Create the link using row.ICD11
+                            return '<a href="' + link + '" target="_blank">' + transformedData + '</a>';
+                        } else {
+                            return data || ''; // Fallback to plain text if ICD11 is missing
+                        }
+                    } else if (type === 'filter') {
+                        // Provide the raw data for filtering
+                        return data || 'Unknown'; // Ensure it aligns with the displayed text
+                    }
+                    return data; // Use raw data for sorting
+                }},
                 {data: "ICD11", name: "ICD11",width: "7%"},
                 {data: 'ATC', name: "ATC",width: "7%"},
                 {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
                 {data: "Highest_phase", name: "Highest phase",width: "3%"},
-                {data: "Phase_I_trials", name: "Phase I trials",width: "3%"},
-                {data: "Phase_II_trials", name: "Phase II trials",width: "3%"},
-                {data: "Phase_III_trials", name: "Phase III trials",width: "3%"},
                 {data: "Approved", name: "Approved",width: "8%"}
             ];
         } else if (type === 'Targets') {
             columns = [
-                {data: "Ligand name", name: "Name",width: "7%"},
+                {data: "Ligand name", name: "Name",width: "7%", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      // Ensure row.Variable exists
+                      if (row && row.LigandID) {
+                          data = '<a href="/ligand/' + row.LigandID + '/info" target="_blank">' + data + '</a>';
+                      } else {
+                          data = data || ''; // Fallback to plain text if Variable is missing
+                      }
+                  }
+                  return data; // Ensure raw data is returned for filtering
+              }},
                 {data: "Modality", name: "Type",width: "7%"}, 
                 {data: "Mode of action", name: "Modality",width: "10%"},
-                {data: "Indication name", name: "Indication"},
+                {data: "Indication name", name: "Indication",render: function (data, type, row, meta) {
+                    if (type === 'display') {
+                        if (row && row.ICD11) {
+                            const transformedData = data || 'Unknown'; // Fallback if Indication name is missing
+                            const link = '/drugs/indication/' + row.ICD11 + '/'; // Create the link using row.ICD11
+                            return '<a href="' + link + '" target="_blank">' + transformedData + '</a>';
+                        } else {
+                            return data || ''; // Fallback to plain text if ICD11 is missing
+                        }
+                    } else if (type === 'filter') {
+                        // Provide the raw data for filtering
+                        return data || 'Unknown'; // Ensure it aligns with the displayed text
+                    }
+                    return data; // Use raw data for sorting
+                }},
                 {data: "ICD11", name: "ICD11",width: "5%"},
                 {data: 'ATC', name: "ATC",width: "5%"},
                 {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
                 {data: "Highest_phase", name: "Highest",width: "5%"},
-                {data: "Phase_I_trials", name: "I",width: "3%"},
-                {data: "Phase_II_trials", name: "II",width: "3%"},
-                {data: "Phase_III_trials", name: "III",width: "3%"},
                 {data: "Approved", name: "Approved",width: "8%"}
             ];
         } else if (type === 'Targets for Indications') {
             columns = [
-                {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+                {data: "Gene name", name: "Gene name", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      const originalData = data; // Raw data
+                      const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+                      return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+                  } else if (type === 'filter') {
+                      // Return transformed data for the filter dropdown
+                      return data.replace('_human', '').toUpperCase();
+                  }
+                  return data; // Raw data for sorting
+                }},
                 {data: "Protein name", name: "Protein name"},
                 {data: "Receptor family", name: "Receptor family"},
                 {data: "Ligand type", name: "Ligand type"},
                 {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
-                {data: 'Association score', name: "Association score",width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
+                {data: 'Association score', name: "Association score",width: "5%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}}, // Format to 4 decimal places
                 {data: "OT Genetics", name: "OT Genetics",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
                 {data: "Gene Burden", name: "Gene Burden",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
                 {data: "ClinVar", name: "ClinVar",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
@@ -616,7 +709,17 @@
             ];
         } else if (type === 'Agents/Drugs') {
             columns = [
-                {data: "Drug name", name: "Drug name",width: "10%"},
+                {data: "Drug name", name: "Drug name",width: "10%", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      // Ensure row.Variable exists
+                      if (row && row.LigandID) {
+                          data = '<a href="/ligand/' + row.LigandID + '/info" target="_blank">' + data + '</a>';
+                      } else {
+                          data = data || ''; // Fallback to plain text if Variable is missing
+                      }
+                  }
+                  return data; // Ensure raw data is returned for filtering
+              }},
                 {data: "Highest_phase", name: "Max",width: "6%"},
                 {data: "Phase_I_trials", name: "Phase I trials",width: "2%"},
                 {data: "Phase_II_trials", name: "Phase II trials",width: "2%"},
@@ -624,7 +727,18 @@
                 {data: "Approved", name: "Approved",width: "9%"},
                 {data: "Molecule_type", name: "Type",width: "7%"},
                 {data: "Mode of action", name: "Modality",width: "7%"},
-                {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+                {data: "Gene name", name: "Gene name",width: "5%", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      const originalData = data; // Raw data
+                      const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+                      return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+                  } else if (type === 'filter') {
+                      // Return transformed data for the filter dropdown
+                      return data.replace('_human', '').toUpperCase();
+                  }
+                  return data; // Raw data for sorting
+                }},
                 {data: "Protein name", name: "Protein name",width: "10%"},
                 {data: "Receptor family", name: "Receptor family",width: "10%"},
                 {data: "Ligand type", name: "Ligand type",width: "10%"},
@@ -638,9 +752,13 @@
             table.clear();
             table.rows.add(data);
             table.draw();
+            // Add the searchedText next to the search bar
+            if (searchedText) {
+                $('.search-info').html(searchedText); // Update the placeholder dynamically
+            }
         } else {
             $(tableId).DataTable({
-                dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+                dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-7 text-end search-info'>>" +  // Buttons and search bar in the same row
                 "<'row'<'col-sm-12'tr>>" +                    // Table rows
                 "<'row'<'col-sm-12'ip>>", // Pagination and info
 
@@ -659,9 +777,18 @@
                 // scrollX: false,
                 buttons: [
                     { text: 'Reset filters', action: function () { reset_all(); } }
-                ]
+                ],
+                initComplete: function() {
+                    // Add the searchedText dynamically after initialization
+                    if (searchedText) {
+                        $('.search-info').html(searchedText);
+                    }
+                }
             });
+
         }
+
+
         // #############################
         // ###    Create Filters     ###
         // #############################
@@ -672,8 +799,8 @@
         // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
         if (type === 'Drugs') {
             column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,8,"Multi-select-exact"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,5,"Range-float-vertical"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,13,1,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,2,"Range-float-vertical"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,10,1,"Multi-select-exact"));
 
         } else if (type === 'Targets') {
             column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,6,"Multi-select-exact"));

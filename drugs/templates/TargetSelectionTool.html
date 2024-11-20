@@ -7,6 +7,60 @@
 <link rel="stylesheet" href="{% static 'home/css/BusyLoad.css' %}" type="text/css">
 
 <style type="text/css">
+ /* Target the select2 dropdown and ensure it applies */
+ .custom-dropdown {
+        max-height: 500px !important; /* Set the maximum height of the dropdown */
+        overflow-y: auto !important; /* Enable scrolling */
+    }
+
+    /* Adjust the inner results container */
+    .custom-dropdown .select2-results__options {
+        max-height: 450px !important; /* Adjust the height inside the dropdown */
+        overflow-y: auto !important; /* Ensure results can scroll */
+    }
+    .border-left {
+        border-left: 1px solid #cccccc !important; /* Adjust the width and color as needed */
+    }
+    /* Centered */
+    th .dt-column-order {
+        margin-right: -12px; /* Shift the sort arrow to the right */
+    }
+    th .dt-column-title {
+        /* padding-left: 24px; */
+        margin-left: 24px;
+    }
+
+    #targetsTable {
+    table-layout: auto;  /* Ensure columns can adjust width */
+    width: 100%;         /* Set table width to 100% of container */
+    }
+
+    /* Add this CSS rule to keep font size consistent in tables with scrollX */
+    table.dataTable {
+        font-size: 12px; /* Adjust to match your standard font size */
+    }
+    #targetsTable th {
+        width: 250px; /* Force width on <th> elements */
+        max-width: 250px;        /* Set a maximum width */
+        overflow: hidden;
+        white-space: nowrap;     /* Prevent line wrapping */
+        text-overflow: ellipsis; /* Add ellipsis if text overflows */
+    }
+
+    .select2-search__field::placeholder{
+        text-align:center;
+    }
+    .select2-container--default .select2-selection--multiple{
+        overflow: hidden !important;
+    }
+
+    .custom-col-right {
+        padding-right: 0 !important;
+    }
+
+    .custom-col-left {
+        padding-left: 0 !important;
+    }
 
 </style>
 {% endblock %}
@@ -14,10 +68,224 @@
 
 
 {% block content %}
-<h2>Target Selection Tools – Coming Soon</h2>
-<p><em>To be implemented in the upcoming <strong>Drugs Resource</strong> publication.</em></p>
+
+<div class="container" id="Target_selection_tool_container" style="margin-top: 30px;">
+    <div class="col-md-7">
+        <!-- Button Group for Column Visibility Control -->
+        <div class="btn-group" role="group" aria-label="Column visibility controls" style="margin-top: 15px;margin-bottom: 15px;">
+            <button type="button" class="btn btn-primary" data-column="0">Characterization</button>
+            <button type="button" class="btn btn-secondary" data-column="1">Drugs/Agents/Ligands</button>
+            <button type="button" class="btn btn-secondary" data-column="2">Indications (Open Targets)</button>
+            <button type="button" class="btn btn-secondary" data-column="3">Indications (Clinical trials)</button>
+            <button type="button" class="btn btn-secondary" data-column="4">Indications (drugs, ICD11)</button>
+            <button type="button" class="btn btn-secondary" data-column="5">Indications (drugs, ATC)</button>
+            <button type="button" class="btn btn-secondary" data-column="6">Tissue expression (HPA)</button>
+            <button type="button" class="btn btn-secondary" data-column="7">Cancer expression (HPA)</button>
+            <button type="button" class="btn btn-secondary" data-column="8">Cancer expression 2 (HPA)</button>
+        </div>
+
+        <!-- Single DataTable for All Sub-Tabs -->
+        <table width="100%" class="display compact" id="TargetSelectionToolTable">
+            <thead>
+                <!-- Dummy Header Row for Complex Header Fix -->
+                <tr>
+                    <td colspan="24" style="text-align: center" data-dt-order="disable"></td>
+                </tr>
+                <!-- Super Header Row -->
+                <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+                    <th colspan="5" style="text-align:center;">Classification</th>
+                    <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Literature</th>
+                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Novelty</th>
+                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Structures</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs/Ligands</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
+                </tr>
+                <!-- Header Row -->
+                <tr>
+                    <!-- ALL -->
+                    <!-- Classification -->
+                    <th style="text-align: center;">Gene</th>
+                    <th style="text-align: center;">Protein</th>
+                    <th style="text-align: center;">Receptor family</th>
+                    <th style="text-align: center;">Ligand type</th>
+                    <th style="text-align: center;">Class</th>
+                    <!-- Characterization -->
+                    <!-- Literature -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">No. Publications</th>
+                    <!-- Novelty -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">Novelty (Pharos)</th>
+                    <th style="text-align: center;">IDG target level</th>
+                    <th style="text-align: center;">Novelty (OpenTargets)</th>
+                    <!-- Structures -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">Total</th>
+                    <th style="text-align: center;">Active</th>
+                    <th style="text-align: center;">Inactive</th>
+                    <!-- Drugs/Ligands -->
+                    <!-- All -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">A Max Phase</th>
+                    <th style="text-align: center;">A No. Drugs</th>
+                    <th style="text-align: center;">A No. Agents</th>
+                    <th style="text-align: center;">A No. Ligands</th>
+                    <!-- Stimulatory -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">B Max Phase</th>
+                    <th style="text-align: center;">B No. Drugs</th>
+                    <th style="text-align: center;">B No. Agents</th>
+                    <th style="text-align: center;">B No. Ligands</th>
+                    <!-- Inhibitory -->
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">C Max Phase</th>
+                    <th style="text-align: center;">C No. Drugs</th>
+                    <th style="text-align: center;">C No. Agents</th>
+                    <th style="text-align: center;">C No. Ligands</th>
+                </tr>
+                <!-- Filter Row for header -->
+                <tr>
+                    <!-- Classification -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <!-- Literature -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <!-- Novelty -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <!-- Structures -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <!-- Drugs/Ligands -->
+                    <!-- All -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <!-- Stimulatory -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <!-- Inhibitory -->
+                    <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+
+    </div>
+</div>
+
+
 {% endblock %}
 <!-- ### Java scripts ### -->
 
 {% block addon_js %}
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+<script src="{% static 'home/js/DataTables_v2.0.5.js' %}"></script>
+<script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
+<script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
+<script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
+<script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
+
+<script type="text/javascript">
+
+var Full_table_data;
+Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
+console.log(Full_table_data)
+
+function initializeDataTable(tableId, data) {
+
+        // digit fixed value
+        const digit_fixed = 3
+
+        // Define columns
+        var columnDefs = [{ className: "dt-head-center dt-center dt-body-center", "targets": "_all" }, { targets: [5, 6,9,12,16,20], className: 'border-left' }]
+
+        // Define columns dynamically based on the type
+        var columns = [];
+        columns = [
+            {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+            {data: "Protein name", name: "Protein name",width: "7%"},
+            {data: "Receptor family", name: "Receptor family",width: "9%"},
+            {data: "Ligand type", name: "Ligand type",width: "8%"},
+            {data: "Class", name: "Class",width: "7%", render: function (data) { return data.split(' (')[0]; }},
+            {data: "No. Publications", name: "No. Publications",width: "7%", render: function (data) { return data || "Coming soon"; }},  // Coming soon}, // No data yet
+            {data: "Novelty (Pharos)", name: "Novelty (Pharos)",width: "7%"},
+            {data: "IDG target level", name: "IDG target level",width: "7%", render: function (data) { return data || "Coming soon"; }},  // Coming soon}, // No data yet
+            {data: "Novelty (OpenTargets)", name: "Novelty (OpenTargets)",width: "7%", render: function (data) { return data || "Coming soon"; }},  // Coming soon}, // No data yet
+            {data: "Total", name: "Total",width: "7%"},
+            {data: "Active", name: "Active",width: "7%"},
+            {data: "Inactive", name: "Inactive",width: "7%"},
+            
+            {data: "All_Max_Phase", name: "Stimulatory_max_phase",width: "7%"},
+            {data: "All_Drugs", name: "All_Drugs",width: "7%"},
+            {data: "All_Agents", name: "All_Agents",width: "7%"},
+            {data: "No. Ligands", name: "No. Ligands",width: "7%", render: function (data) { return data || "Coming soon"; }},
+
+            {data: "Stimulatory_max_phase", name: "All_Max_Phase",width: "7%"},
+            {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs",width: "7%"},
+            {data: "Stimulatory_Agents", name: "Stimulatory_Agents",width: "7%"},
+            {data: "No. Ligands", name: "No. Ligands",width: "7%", render: function (data) { return data || "Coming soon"; }},
+
+            {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase",width: "7%"},
+            {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs",width: "7%"},
+            {data: "Inhibitory_Agents", name: "Inhibitory_Agents",width: "7%"},
+            {data: "No. Ligands", name: "No. Ligands",width: "7%", render: function (data) { return data || "Coming soon"; }}
+        ];
+        
+
+        // Initialize DataTable
+        $(tableId).DataTable({
+            dom: "<'row'<'col-sm-2 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+            "<'row'<'col-sm-12'tr>>" +                    // Table rows
+            "<'row'<'col-sm-12'ip>>", // Pagination and info
+
+            order: [0, "asc"],
+            pageLength: -1,
+            // lengthMenu: [10, 20, { label: 'All', value: -1 }],
+            data: data,
+            columns: columns,
+            columnDefs: columnDefs,
+            autoWidth: false,  // Disable automatic column width calculation
+            processing: false,
+            deferRender: true,
+            paging: false,
+            scrollX: false,
+            autoWidth: false, // Prevent automatic column width adjustment
+            // scrollX: false,
+            buttons: [
+                { text: 'Reset filters', action: function () { reset_all(); } }
+            ]
+        });
+
+
+
+        // #############################
+        // ###    Create Filters     ###
+        // #############################
+
+
+        var column_filters = [];
+        const Table_selector = $(tableId).DataTable();
+        // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,6,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,6,1,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,7,2,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,9,3,"Range-float-vertical"));
+        
+        // Create the filteres
+        createDropdownFilters(Table_selector,column_filters);
+
+    }
+    // Initialize table
+    initializeDataTable("#TargetSelectionToolTable",Full_table_data)
+</script>
+
 {% endblock %}
