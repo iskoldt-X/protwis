@@ -55,8 +55,12 @@ class Drugs2024(models.Model):
 
 #Do we need to fix this model structure?
 class Indication(models.Model):
-    name =  models.CharField(max_length=150)
-    code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    title =  models.CharField(max_length=255)
+    code =  models.CharField(max_length=8, null=True)
+    slug = models.CharField(max_length=255, unique=True, null=True)
+    uri =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
+    level = models.IntegerField(null=True)
 
     def __str__(self):
         return self.name

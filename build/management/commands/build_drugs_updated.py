@@ -73,10 +73,10 @@ class Command(BaseCommand):
         print("\n\nWelcome to the Drugs2024 build process. Build steps will be printed.")
         print("##### STEP 0 START #####")
         print("\n\nStarted parsing data and setting up different dataframes")
-        indication_df, tissue_df, cancer_df, drug_df, association_data, atc_df = Command.setup_data()
+        tissue_df, cancer_df, drug_df, association_data, atc_df = Command.setup_data()
         print("##### STEP 1 START #####")
         print("\n\nStarted parsing Indication data and building Indication Model")
-        Command.generate_indications(indication_df)    #DONE
+        Command.generate_indications()    #DONE
         print("\n\nIndication Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 2 START #####")
@@ -119,8 +119,6 @@ class Command(BaseCommand):
         tissues_data = target_data[tissues_cols]
         #Clean the tissues data from NaN data columns
         tissues_data = tissues_data.dropna(subset=[col for col in tissues_data.columns if col.startswith('Tissue')], how='all').drop_duplicates()
-        #getting the indications data from the all_data file
-        indication_data = all_data[['ICD_Title', 'ICD_Code']].drop_duplicates()
         #remove cancer and tissue columns from data
         columns_to_keep = ['entry_name', 'ICD_Code', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score']
         #define a filtered version of the target_data dataframe
@@ -135,7 +133,6 @@ class Command(BaseCommand):
         opentarget_scores = opentarget_scores.where(pd.notnull(opentarget_scores), None)
         #Somehow, opentargets has new indications that we need to add to the database
         opentarget_ICD = opentarget_scores[['ICD_Title', 'ICD_Code']].drop_duplicates()
-        indication_data = pd.concat([indication_data, opentarget_ICD]).drop_duplicates()
         return indication_data, tissues_data, cancer_data, drug_data, opentarget_scores, atc_codes
 
     @staticmethod
@@ -191,32 +188,99 @@ class Command(BaseCommand):
                                                                         expression_atlas = row['expression_atlas'],
                                                                         impc = row['impc'])
 
-    def generate_indications(indication_data):
-        #Create the reference for the Ontology web resource
-        EMBL = {
-            'name': 'EMBL Ontology',
-            'url': 'https://www.ebi.ac.uk/ols4/ontologies/efo/classes?short_form=$index'
-        }
-        #Create the reference for the ICD Ontology web resource
+    def parse_hierarchy(df):
+        items = []
+        parents = {}
+        slug_counts = {}
+
+        for index, row in df.iterrows():
+            title = str(row['Title']).rstrip()
+            code = row.get('Code', None)
+            uri = row.get('Linearization URI', None)
+
+            if pd.isna(code):
+                code = None
+            if pd.isna(uri):
+                uri = None
+
+            # Determine the level
+            level = 0
+            while title.startswith('-'):
+                level += 1
+                title = title[1:].lstrip()
+
+            # Generate the slug
+            parent_item = parents.get(level - 1)
+            parent_slug = parent_item['slug'] if parent_item else None
+
+            if parent_slug is None:
+                # Root level
+                count = slug_counts.get(level, 0) + 1
+                slug_counts[level] = count
+                slug = f"{count:04d}"
+            else:
+                # Child level
+                count = slug_counts.get(level, 0) + 1
+                slug_counts[level] = count
+                slug = f"{parent_slug}_{count:04d}"
+
+            item = {
+                'title': title,
+                'code': code,
+                'uri': uri.split('mms/')[1],
+                'slug': slug,
+                'parent_slug': parent_slug,  # Store parent slug instead of parent item
+                'level': level
+            }
+
+            # Update parents and items
+            parents[level] = item
+            items.append(item)
+
+        return items
+
+    def generate_indications():
+        data_dir = os.sep.join([settings.DATA_DIR, 'drug_data'])
+        filename = 'ICD11_tabulation.xlsx'
+        filepath = os.sep.join([data_dir, filename])
+        df = pd.read_excel(filepath)
+        items = Command.parse_hierarchy(df)
+        # Create the reference for the ICD Ontology web resource
         ICD = {
             'name': 'ICD-11 Ontology',
             'url': 'https://icd.who.int/browse/2024-01/mms/en#$index'
         }
-        #Create the reference for the ATC Ontology web resource
-        ATC = {
-            'name': 'ATC Ontology',
-            'url': 'https://atcddd.fhi.no/atc_ddd_index/?code=$index'
-        }
-        wr_embl, created = WebResource.objects.get_or_create(slug='indication_embl', defaults=EMBL)
         wr_icd, created = WebResource.objects.get_or_create(slug='indication_icd', defaults=ICD)
-        wr_atc, created = WebResource.objects.get_or_create(slug='indication_atc', defaults=ATC)
-        #Define the Web Resource
-        web_resource = WebResource.objects.get(slug='indication_icd')
-        for i, row in indication_data.iterrows():
-            indication = Indication()
-            indication.name = row['ICD_Title']
-            indication.code, created = WebLink.objects.get_or_create(index=row['ICD_Code'], web_resource=web_resource)
+        web_resource = wr_icd  # Use the returned WebResource instance
+
+        slug_to_instance = {}  # Initialize the mapping of slug to Indication instance
+
+        for item in items:
+            parent_slug = item['parent_slug']
+            parent_instance = None
+            if parent_slug:
+                parent_instance = slug_to_instance.get(parent_slug)
+                if parent_instance is None:
+                    raise ValueError(f"Parent with slug {parent_slug} not found for item {item['title']}")
+
+            # Handle the 'uri' field
+            uri = None
+            if item['uri']:
+                uri, created = WebLink.objects.get_or_create(index=item['uri'], web_resource=web_resource)
+
+            # Create the Indication instance
+            indication = Indication(
+                title = item['title'],
+                code = item['code'],
+                slug = item['slug'],
+                uri = uri,
+                parent = parent_instance,
+                level = item['level']
+            )
             indication.save()
+
+            # Store the instance in the slug_to_instance mapping
+            slug_to_instance[item['slug']] = indication
 
     def generate_cancer_prog(cancer_data):
         #parse che cancer data and collate type and expression.
@@ -425,7 +489,7 @@ class Command(BaseCommand):
         requires: indication name
         """
         try:
-            indication = Indication.objects.filter(name=name)[0]
+            indication = Indication.objects.filter(title=name)[0]
             return indication
         except:
             print('No indication found for this entry name')
