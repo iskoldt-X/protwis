@@ -120,10 +120,10 @@ class Command(BaseCommand):
         #Clean the tissues data from NaN data columns
         tissues_data = tissues_data.dropna(subset=[col for col in tissues_data.columns if col.startswith('Tissue')], how='all').drop_duplicates()
         #remove cancer and tissue columns from data
-        columns_to_keep = ['entry_name', 'ICD_Code', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score']
+        columns_to_keep = ['entry_name', 'ICD_Code', 'genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score', 'publication_count', 'target_level']
         #define a filtered version of the target_data dataframe
         shaved_data = target_data[columns_to_keep]
-        shaved_data = shaved_data.dropna(subset=['genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score'], how='all').drop_duplicates()
+        shaved_data = shaved_data.dropna(subset=['genetic_association', 'affected_pathway', 'somatic_mutation', 'animal_model', 'novelty_score', 'publication_count', 'target_level'], how='all').drop_duplicates()
         #merge dataframes to have everything connected for Drugs model
         drug_data = pd.merge(all_data, shaved_data, on=['entry_name', 'ICD_Code'], how='inner')
         # drug_data = pd.merge(drug_data, atc_codes, on=['ligand_name'], how='inner')
@@ -133,7 +133,7 @@ class Command(BaseCommand):
         opentarget_scores = opentarget_scores.where(pd.notnull(opentarget_scores), None)
         #Somehow, opentargets has new indications that we need to add to the database
         opentarget_ICD = opentarget_scores[['ICD_Title', 'ICD_Code']].drop_duplicates()
-        return indication_data, tissues_data, cancer_data, drug_data, opentarget_scores, atc_codes
+        return tissues_data, cancer_data, drug_data, opentarget_scores, atc_codes
 
     @staticmethod
     def transform_column_name(col_name):
@@ -161,7 +161,7 @@ class Command(BaseCommand):
         #need to fetch protein and also indication
         for i, row in association_data.iterrows():
             protein = Command.fetch_protein(row['entry_name'])
-            indication = Command.fetch_indication(row['ICD_Title'])
+            indication = Command.fetch_indication(row['ICD_Code'])
             association, _ = IndicationAssociation.objects.get_or_create(target = protein,
                                                                         indication = indication,
                                                                         association_score = row['Score'],
@@ -319,38 +319,42 @@ class Command(BaseCommand):
     def create_drug_data(drug_data):
         #Parse the drug dataframe
         for i, row in drug_data.iterrows():
+            if row['ICD_Code'][0] != 'X':
             #fetch the ligand or generate a new ligand record if there is no match
-            ligand = Command.fetch_ligand(row)
-            #Then add the different references (PubChem, DrugBank and ChEMBL)
-            #TODO: add also UNII and CAS as values in the ManyToMany
-            Command.add_drug_references(ligand, row)
-            #Fetch the reference protein
-            protein = Command.fetch_protein(row['entry_name'])
-            #fetch the indication
-            indication = Command.fetch_indication(row['ICD_Title'])
-            #Fetch the ligand action (role)
-            moa = Command.fetch_role(row['Action'])
-            #Fetch the inidcation association
-            association = Command.fetch_association(row['entry_name'], row['ICD_Title'])
-            #to be human readable instead of numerical values (ask David)
-            drug, _ = Drugs2024.objects.get_or_create(charge=row['Charge'],
-                                                      complexity=row['Complexity'],
-                                                      tpsa=row['TPSA'],
-                                                      drug_status=row['Drug_Status'],
-                                                      approval_year=row['Approval_Year'] if pd.notna(row['Approval_Year']) else None,
-                                                      indication_max_phase=row['IndicationMaxPhase'],
-                                                      affected_pathway=row['affected_pathway'] if pd.notna(row['affected_pathway']) else None,
-                                                      somatic_mutation=row['somatic_mutation'] if pd.notna(row['somatic_mutation']) else None,
-                                                      similarity_to_model=row['animal_model'] if pd.notna(row['animal_model']) else None,
-                                                      novelty_score=row['novelty_score'],
-                                                      genetic_association=row['genetic_association'] if pd.notna(row['genetic_association']) else None,
-                                                      indication_status=row['IndicationStatus'],
-                                                      moa=moa,
-                                                      indication=indication,
-                                                      ligand=ligand,
-                                                      disease_association=association,
-                                                      target=protein)
-
+                ligand = Command.fetch_ligand(row)
+                #Then add the different references (PubChem, DrugBank and ChEMBL)
+                #TODO: add also UNII and CAS as values in the ManyToMany
+                Command.add_drug_references(ligand, row)
+                #Fetch the reference protein
+                protein = Command.fetch_protein(row['entry_name'])
+                #fetch the indication
+                indication = Command.fetch_indication(row['ICD_Code'])
+                #Fetch the ligand action (role)
+                moa = Command.fetch_role(row['Action'])
+                #Fetch the inidcation association
+                association = Command.fetch_association(row['entry_name'], row['ICD_Code'])
+                #to be human readable instead of numerical values (ask David)
+                drug, _ = Drugs2024.objects.get_or_create(charge=row['Charge'],
+                                                          complexity=row['Complexity'],
+                                                          tpsa=row['TPSA'],
+                                                          drug_status=row['Drug_Status'],
+                                                          approval_year=row['Approval_Year'] if pd.notna(row['Approval_Year']) else None,
+                                                          indication_max_phase=row['IndicationMaxPhase'],
+                                                          affected_pathway=row['affected_pathway'] if pd.notna(row['affected_pathway']) else None,
+                                                          somatic_mutation=row['somatic_mutation'] if pd.notna(row['somatic_mutation']) else None,
+                                                          similarity_to_model=row['animal_model'] if pd.notna(row['animal_model']) else None,
+                                                          novelty_score=row['novelty_score'],
+                                                          genetic_association=row['genetic_association'] if pd.notna(row['genetic_association']) else None,
+                                                          indication_status=row['IndicationStatus'],
+                                                          publication_count=row['publication_count'],
+                                                          target_level=row['target_level'],
+                                                          moa=moa,
+                                                          indication=indication,
+                                                          ligand=ligand,
+                                                          disease_association=association,
+                                                          target=protein)
+            else:
+                continue
             #Commented for the sake of testing
             #since it's calculated to have more than 300k unique pubs to be added
 
@@ -422,7 +426,7 @@ class Command(BaseCommand):
         requires: indication title and target entry name
         """
         try:
-            association = IndicationAssociation.objects.get(target_id__entry_name=target, indication_id__name=indication)
+            association = IndicationAssociation.objects.get(target_id__entry_name=target, indication_id__code=indication)
             return association
         except:
             print('No association found for this pair or target-indication')
@@ -483,16 +487,16 @@ class Command(BaseCommand):
         return lr
 
     @staticmethod
-    def fetch_indication(name):
+    def fetch_indication(code):
         """
-        fetch indication with indication name
-        requires: indication name
+        fetch indication with indication code
+        requires: indication code
         """
         try:
-            indication = Indication.objects.filter(title=name)[0]
+            indication = Indication.objects.get(code=code)
             return indication
         except:
-            print('No indication found for this entry name')
+            print(f'No indication found for {code}')
             return None
 
     @staticmethod
