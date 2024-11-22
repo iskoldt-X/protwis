@@ -43,6 +43,8 @@ class Drugs2024(models.Model):
     somatic_mutation = models.CharField(max_length=30, null=True)
     similarity_to_model = models.FloatField(max_length=4, null=True)
     novelty_score = models.FloatField(max_length=4, null=True)
+    publication_count = models.IntegerField(max_length=4, null=True)
+    target_level = models.CharField(max_length=30, null=True)
     disease_association = models.ForeignKey('IndicationAssociation', on_delete=models.CASCADE, null=True)
     reference = models.ManyToManyField('common.Publication')
 
@@ -55,8 +57,12 @@ class Drugs2024(models.Model):
 
 #Do we need to fix this model structure?
 class Indication(models.Model):
-    name =  models.CharField(max_length=150)
-    code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    title =  models.CharField(max_length=255)
+    code =  models.CharField(max_length=8, null=True)
+    slug = models.CharField(max_length=255, unique=True, null=True)
+    uri =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
+    level = models.IntegerField(null=True)
 
     def __str__(self):
         return self.name
