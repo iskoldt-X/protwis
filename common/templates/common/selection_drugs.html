@@ -344,11 +344,11 @@
                 <table width="100%" class="display compact mt-4" id="agentsDrugsSuperTable">
                     <thead>
                         <tr>
-                            <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+                            <td colspan="10" style="text-align: center" data-dt-order="disable"></td>
                         </tr>
                         <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
                             <th colspan="1" style="text-align:center">Drug</th>
-                            <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+                            <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
                             <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Molecule</th>
                             <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
                         </tr>
@@ -357,9 +357,6 @@
                             <th style="text-align: center">Drug name</th>
                             <!-- Phase -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
-                            <th style="text-align: center">I</th>
-                            <th style="text-align: center">II</th>
-                            <th style="text-align: center">III</th>
                             <th style="text-align: center">Approved</th>
                             <!-- Molecule -->
                             <th style="text-align: center;border-left: 1px solid #cccccc;">Type</th>
@@ -375,9 +372,6 @@
                         <tr>
                             <td style="text-align: center" data-dt-order="disable"></td>
                             <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
                             <td style="text-align: center" data-dt-order="disable"></td>
                             <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                             <td style="text-align: center" data-dt-order="disable"></td>
@@ -442,7 +436,12 @@
         };
     });
 
-    // Initialize Select2 with the data
+    // Sort the select2_data array naturally by the 'text' property
+    select2_data.sort(function(a, b) {
+        return a.text.localeCompare(b.text, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    // Initialize Select2 with the sorted data
     $('#entity-select').select2({
         data: select2_data,
         placeholder: search_placeholder,
@@ -560,7 +559,7 @@
             ];
         } else if (type === 'Agents/Drugs') {
             pageSpecificDefs = [
-                { targets: [1, 6,8], className: 'border-left' }
+                { targets: [1, 3,5], className: 'border-left' }
             ];
         } else if (type === 'Targets for Indications') {
             pageSpecificDefs = [
@@ -721,9 +720,6 @@
                   return data; // Ensure raw data is returned for filtering
               }},
                 {data: "Highest_phase", name: "Max",width: "6%"},
-                {data: "Phase_I_trials", name: "Phase I trials",width: "2%"},
-                {data: "Phase_II_trials", name: "Phase II trials",width: "2%"},
-                {data: "Phase_III_trials", name: "Phase III trials",width: "2%"},
                 {data: "Approved", name: "Approved",width: "9%"},
                 {data: "Molecule_type", name: "Type",width: "7%"},
                 {data: "Mode of action", name: "Modality",width: "7%"},
@@ -812,8 +808,8 @@
             // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,11,1,"Multi-select-exact"));
         } else if (type === 'Agents/Drugs') {
             column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,1,"Multi-select-exact"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,1,4,"Range-float-vertical"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,5,8,"Multi-select-exact"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,1,1,"Range-float-vertical"));
+            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,2,8,"Multi-select-exact"));
         }
         
         // Create the filteres
@@ -822,7 +818,7 @@
     }
 
     $('.btn-group button').on('click', function() {
-        var table = $('#targetsTable').DataTable(); // Link to the specific table '#targetsTable'
+        var table = $('#targetsTable').DataTable();
         var columnType = $(this).data('column');
 
         // Remove 'active' class from all buttons and then add it to the clicked button
@@ -830,7 +826,7 @@
         $(this).removeClass('btn-secondary').addClass('btn-primary');
         
         if (columnType == 0) {
-            // 'All' button: Show only classification columns
+            // Show only classification columns
             table.columns().visible(false);
             table.column(0).visible(true); // Gene name
             table.column(1).visible(true); // Protein name
@@ -838,24 +834,33 @@
             table.column(3).visible(true); // Ligand type
             table.column(4).visible(true); // Class
             table.column(5).visible(true); // Association score
-             // Loop through columns 9 to 17
-             for (let i = 6; i <= 27; i++) {
-                table.column(i).visible(true);
+            
+            // Loop through columns 6 to 27 and hide if empty
+            for (let i = 6; i <= 27; i++) {
+                var column = table.column(i);
+                var columnData = column.data().toArray();
+
+                // Check if column data is entirely empty or null
+                var isColumnEmpty = columnData.every(value => value === "" || value === null);
+                column.visible(!isColumnEmpty); // Hide column if it's empty
+                // column.visible(true);
             }
         } else if (columnType == 1) {
-            // 'Agents/Drugs' button: Show only agents/drugs columns
+            // Show only agents/drugs columns
             table.columns().visible(false);
             table.column(0).visible(true); // Gene name
             table.column(1).visible(true); // Protein name
             table.column(2).visible(true); // Receptor family
             table.column(3).visible(true); // Ligand type
             table.column(4).visible(true); // Class
-            // Loop through columns 9 to 17 (All_max_phase, All_Drugs, All_Agents, Stimulatory_max_phase, Stimulatory_Drugs,Stimulatory_Agents, Inhibitory_max_phase, Inhibitory_Drugs,Inhibitory_Agents)
+            
+            // Show only agents/drugs specific columns 28 to 36
             for (let i = 28; i <= 36; i++) {
                 table.column(i).visible(true);
             }
         }
     });
+
 
     $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function (e) {
         $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();

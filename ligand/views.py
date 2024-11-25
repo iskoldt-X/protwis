@@ -1917,8 +1917,7 @@ class LigandInformationView(TemplateView):
 
         indication_data = Drugs2024.objects.filter(ligand=ligand_id).prefetch_related('ligand',
                                                                                       'target',
-                                                                                      'indication',
-                                                                                      'indication__code')
+                                                                                      'indication')
         context.update({'plot_existence': 'no'})
 
         if indication_data.exists():
@@ -1933,8 +1932,8 @@ class LigandInformationView(TemplateView):
             node_counter = 0
             for record in indication_data:
                 #assess the values for indication/ligand/protein
-                indication_name = record.indication.name.capitalize()
-                indication_code = record.indication.code.index
+                indication_name = record.indication.title.capitalize()
+                indication_code = record.indication.code
                 ligand_name = record.ligand.name.capitalize()
                 ligand_id = record.ligand.id
                 protein_name = record.target.name

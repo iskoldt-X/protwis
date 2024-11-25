@@ -397,8 +397,8 @@ def Venn(request, origin="both"):
             'ligand__name',  # Agent/Drug
             'ligand__ligand_type__name',  # Modality
             'moa__name',  # Mode of action
-            'indication__name',  # Disease name
-            'indication__code__index',  # Disease ICD11 code
+            'indication__title',  # Disease name
+            'indication__code',  # Disease ICD11 code
             'indication_max_phase',  # Max phase
             'disease_association__association_score', # Disease association score
             'drug_status',  # Approval
@@ -422,8 +422,8 @@ def Venn(request, origin="both"):
             'ligand__name': 'Ligand name',
             'ligand__ligand_type__name': 'Drug type',
             'moa__name': 'Modality',
-            'indication__name': 'Indication name',
-            'indication__code__index': 'ICD11',
+            'indication__title': 'Indication name',
+            'indication__code': 'ICD11',
             'indication_max_phase': 'Phase',
             'disease_association__association_score' : 'Association score',
             'drug_status': 'Approved'
@@ -514,8 +514,8 @@ class DrugSectionSelection(TemplateView):
                 'target__family__parent__name',  # Receptor family
                 'target__family__parent__parent__name',  # Ligand type
                 'target__family__parent__parent__parent__name',  # Class
-                'indication__name', # Disease name
-                'indication__code__index', # Disease ICD11 code
+                'indication__title', # Disease name
+                'indication__code', # Disease ICD11 code
                 'indication_max_phase', # Max phase
                 'drug_status', # Approval
                 'disease_association__association_score' # Disease association score
@@ -536,8 +536,8 @@ class DrugSectionSelection(TemplateView):
                 'target__family__parent__name': 'Receptor family',
                 'target__family__parent__parent__name': 'Ligand type',
                 'target__family__parent__parent__parent__name': 'Class',
-                'indication__name': 'Indication name',
-                'indication__code__index': 'ICD11',
+                'indication__title': 'Indication name',
+                'indication__code': 'ICD11',
                 'indication_max_phase': 'Phase',
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'}, inplace=True)
@@ -611,8 +611,8 @@ class DrugSectionSelection(TemplateView):
                 'ligand__name',  # Agent/Drug
                 'ligand__ligand_type__name',  # Modality
                 'moa__name',  # Mode of action
-                'indication__name',  # Disease name
-                'indication__code__index',  # Disease ICD11 code
+                'indication__title',  # Disease name
+                'indication__code',  # Disease ICD11 code
                 'indication_max_phase',  # Max phase
                 'ligand', # ligand ID
                 'disease_association__association_score', # Disease association score
@@ -633,8 +633,8 @@ class DrugSectionSelection(TemplateView):
                 'ligand__name': 'Ligand name',
                 'ligand__ligand_type__name': 'Modality',
                 'moa__name': 'Mode of action',
-                'indication__name': 'Indication name',
-                'indication__code__index': 'ICD11',
+                'indication__title': 'Indication name',
+                'indication__code': 'ICD11',
                 'indication_max_phase': 'Phase',
                 'ligand': 'LigandID',
                 'disease_association__association_score' : 'Association score',
@@ -674,7 +674,7 @@ class DrugSectionSelection(TemplateView):
             description = 'Search by indication name'
             # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
             search_data = Drugs2024.objects.all().prefetch_related('indication').distinct('indication')
-            search_dict = {drug.indication.name: drug.indication.id for drug in search_data}
+            search_dict = {drug.indication.title: drug.indication.id for drug in search_data}
 
             # ###########################
             # Single Data Query
@@ -688,8 +688,8 @@ class DrugSectionSelection(TemplateView):
                 'disease_association'
             ).values(
                 'indication',  # Indication ID
-                'indication__name',  # Indication name
-                'indication__code__index',  # Disease ICD11 code
+                'indication__title',  # Indication name
+                'indication__code',  # Disease ICD11 code
                 'ligand__id',  # Ligand ID
                 'ligand__name',  # Ligand name
                 'indication_max_phase',  # Max phase
@@ -735,8 +735,8 @@ class DrugSectionSelection(TemplateView):
             # Rename the columns to your desired format
             df.rename(columns={
                 'indication': 'Indication ID',
-                'indication__name': 'Indication name',
-                'indication__code__index': 'ICD11',
+                'indication__title': 'Indication name',
+                'indication__code': 'ICD11',
                 'ligand__id': 'LigandID',
                 'ligand__name': 'Drug name',
                 'indication_max_phase': 'Phase',
@@ -1616,12 +1616,12 @@ def indication_detail(request, code):
     code = code.upper()
     context = dict()
     #code = 'EFO_0003843'
-    indication_data = Drugs2024.objects.filter(indication__code__index=code).prefetch_related('ligand',
-                                                                                              'target',
-                                                                                              'indication',
-                                                                                              'indication__code')
+    indication_data = Drugs2024.objects.filter(indication__code=code).prefetch_related('ligand',
+                                                                                        'target',
+                                                                                        'indication',
+                                                                                        'indication__uri')
 
-    indication_name = Indication.objects.filter(code__index=code).values_list('name', flat=True).distinct()[0]
+    indication_name = Indication.objects.filter(code=code).values_list('title', flat=True).distinct()[0]
 
     sankey = {"nodes": [],
               "links": []}
@@ -1633,14 +1633,15 @@ def indication_detail(request, code):
     node_counter = 0
     for record in indication_data:
         #assess the values for indication/ligand/protein
-        indication_code = record.indication.name.capitalize()
+        indication_code = record.indication.title.capitalize()
+        indication_uri = record.indication.uri.index
         ligand_name = record.ligand.name.capitalize()
         ligand_id = record.ligand.id
         protein_name = record.target.name
         target_name = record.target.entry_name
         #check for each value if it exists and retrieve the source node value
         if indication_code not in caches['indication']:
-            sankey['nodes'].append({"node": node_counter, "name": indication_code, "url":'https://www.ebi.ac.uk/ols4/ontologies/efo/classes?short_form='+code})
+            sankey['nodes'].append({"node": node_counter, "name": indication_code, "url":'https://icd.who.int/browse/2024-01/mms/en#'+indication_uri})
             node_counter += 1
             caches['indication'].append(indication_code)
         indi_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_code), None)
@@ -1682,6 +1683,7 @@ def indication_detail(request, code):
     else:
         context['nodes_nr'] = len(caches['targets'])
     context['indication_code'] = code
+    context['indication_uri'] = indication_uri
     context['indication'] = indication_name.capitalize()
     context['sankey'] = json.dumps(sankey)
     context['points'] = total_points
