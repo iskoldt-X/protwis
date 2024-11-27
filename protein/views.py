@@ -141,8 +141,7 @@ def detail(request, slug):
     #slug = '5ht1a_human'
     indication_data = Drugs2024.objects.filter(target__entry_name=slug).prefetch_related('ligand',
                                                                                          'target',
-                                                                                         'indication',
-                                                                                         'indication__code')
+                                                                                         'indication')
 
     sankey = {"nodes": [],
               "links": []}
@@ -154,8 +153,8 @@ def detail(request, slug):
     node_counter = 0
     for record in indication_data:
         #assess the values for indication/ligand/protein
-        indication_name = record.indication.name.capitalize()
-        indication_code = record.indication.code.index
+        indication_name = record.indication.title.capitalize()
+        indication_code = record.indication.code
         ligand_name = record.ligand.name.capitalize()
         ligand_id = record.ligand.id
         protein_name = record.target.name

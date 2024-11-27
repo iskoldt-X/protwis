@@ -343,7 +343,7 @@ def Venn(request, origin="both"):
     # context = None
     if context == None:
         context = OrderedDict()
-    # Here we need to generate fata for three different Venn diagrams plus associated tables:
+    # Here we need to generate data for three different Venn diagrams plus associated tables:
     # if origin is drugs, we need a Venn diagram showing drugs across different clinical phases
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
     # if origin is targets, we need a single Venn diagram showing targets across different clinical phases
@@ -383,7 +383,7 @@ def Venn(request, origin="both"):
         table_data = Drugs2024.objects.select_related(
             'target__family__parent__parent__parent',  # All target info
             'ligand__ligand_type',
-            'indication__code',
+            'indication',
             'moa',
             'disease_association'
         ).values(
@@ -395,8 +395,8 @@ def Venn(request, origin="both"):
             'ligand__name',  # Agent/Drug
             'ligand__ligand_type__name',  # Modality
             'moa__name',  # Mode of action
-            'indication__name',  # Disease name
-            'indication__code__index',  # Disease ICD11 code
+            'indication__title',  # Disease name
+            'indication__code',  # Disease ICD11 code
             'indication_max_phase',  # Max phase
             'disease_association__association_score', # Disease association score
             'drug_status',  # Approval
@@ -418,17 +418,16 @@ def Venn(request, origin="both"):
             'ligand__name': 'Ligand name',
             'ligand__ligand_type__name': 'Drug type',
             'moa__name': 'Modality',
-            'indication__name': 'Indication name',
-            'indication__code__index': 'ICD11',
+            'indication__title': 'Indication name',
+            'indication__code': 'ICD11',
             'indication_max_phase': 'Phase',
             'disease_association__association_score' : 'Association score',
             'drug_status': 'Approved'
         }, inplace=True)
-            
+
 
         # Convert 'Approved' from integer to 'Yes'/'No'
         df['Approved'] = df['Approved'].apply(lambda x: 'Yes' if x == "Approved" else 'No')
-
 
         # Convert DataFrame to JSON
         json_records = df.to_json(orient='records')
@@ -524,9 +523,9 @@ class DrugSectionSelection(TemplateView):
 
             # Fetch table data with all related information
             table_data = Drugs2024.objects.select_related(
-                'ligand', 
+                'ligand',
                 'target__family__parent__parent__parent', # All target info
-                'indication__code'
+                'indication'
                 'disease_association'
             ).values(
                 'ligand', # Agent/Drug id
@@ -536,8 +535,8 @@ class DrugSectionSelection(TemplateView):
                 'target__family__parent__name',  # Receptor family
                 'target__family__parent__parent__name',  # Ligand type
                 'target__family__parent__parent__parent__name',  # Class
-                'indication__name', # Disease name
-                'indication__code__index', # Disease ICD11 code
+                'indication__title', # Disease name
+                'indication__code', # Disease ICD11 code
                 'indication_max_phase', # Max phase
                 'drug_status', # Approval
                 'disease_association__association_score' # Disease association score
@@ -558,8 +557,8 @@ class DrugSectionSelection(TemplateView):
                 'target__family__parent__name': 'Receptor family',
                 'target__family__parent__parent__name': 'Ligand type',
                 'target__family__parent__parent__parent__name': 'Class',
-                'indication__name': 'Indication name',
-                'indication__code__index': 'ICD11',
+                'indication__title': 'Indication name',
+                'indication__code': 'ICD11',
                 'indication_max_phase': 'Phase',
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'}, inplace=True)
@@ -568,7 +567,7 @@ class DrugSectionSelection(TemplateView):
             df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
             # Fill NaN values in the 'ATC' column with None
             df['ATC'] = df['ATC'].fillna("")
-            
+
             # Precompute Phase and Status Information
             df['Is_Phase_I'] = (df['Phase'] == 1).astype(int)
             df['Is_Phase_II'] = (df['Phase'] == 2).astype(int)
@@ -626,7 +625,7 @@ class DrugSectionSelection(TemplateView):
             table_data = Drugs2024.objects.select_related(
                 'target',
                 'ligand__ligand_type',
-                'indication__code',
+                'indication',
                 'moa',
                 'disease_association'
             ).values(
@@ -635,8 +634,8 @@ class DrugSectionSelection(TemplateView):
                 'ligand__name',  # Agent/Drug
                 'ligand__ligand_type__name',  # Modality
                 'moa__name',  # Mode of action
-                'indication__name',  # Disease name
-                'indication__code__index',  # Disease ICD11 code
+                'indication__title',  # Disease name
+                'indication__code',  # Disease ICD11 code
                 'indication_max_phase',  # Max phase
                 'ligand', # ligand ID
                 'disease_association__association_score', # Disease association score
@@ -656,14 +655,14 @@ class DrugSectionSelection(TemplateView):
                 'ligand__name': 'Ligand name',
                 'ligand__ligand_type__name': 'Modality',
                 'moa__name': 'Mode of action',
-                'indication__name': 'Indication name',
-                'indication__code__index': 'ICD11',
+                'indication__title': 'Indication name',
+                'indication__code': 'ICD11',
                 'indication_max_phase': 'Phase',
                 'ligand': 'Ligand ID',
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'
             }, inplace=True)
-            
+
             # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
             df = df.merge(atc_df_grouped, on='Ligand ID', how='left')
             # Fill NaN values in the 'ATC' column with None
@@ -697,13 +696,11 @@ class DrugSectionSelection(TemplateView):
 
             # Pass the JSON data to the template context
             context['Full_data'] = json_records
-
-
         elif page == 'Indications':
             description = 'Search by indication name'
             # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
             search_data = Drugs2024.objects.all().prefetch_related('indication').distinct('indication')
-            search_dict = {drug.indication.name: drug.indication.id for drug in search_data}
+            search_dict = {drug.indication.title: drug.indication.id for drug in search_data}
 
             # ###########################
             # Single Data Query
@@ -717,7 +714,7 @@ class DrugSectionSelection(TemplateView):
                 'disease_association'
             ).values(
                 'indication',  # Indication ID
-                'indication__name',  # Indication name
+                'indication__title',  # Indication name
                 'ligand__id',  # Ligand ID
                 'ligand__name',  # Ligand name
                 'indication_max_phase',  # Max phase
@@ -763,7 +760,7 @@ class DrugSectionSelection(TemplateView):
             # Rename the columns to your desired format
             df.rename(columns={
                 'indication': 'Indication ID',
-                'indication__name': 'Indication name',
+                'indication__title': 'Indication name',
                 'ligand__id': 'Ligand ID',
                 'ligand__name': 'Drug name',
                 'indication_max_phase': 'Phase',
@@ -816,10 +813,10 @@ class DrugSectionSelection(TemplateView):
 
             # Define disease association columns to be added to the grouping
             disease_cols = [
-                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp', 
-                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet', 
-                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers', 
-                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures', 
+                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp',
+                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet',
+                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers',
+                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures',
                 'Europe PMC', 'Expression Atlas', 'IMPC'
             ]
 
@@ -913,6 +910,59 @@ class DrugSectionSelection(TemplateView):
             json_records_drugs = agg_data_drugs.to_json(orient='records')
             context['Full_data_drugs'] = json_records_drugs
 
+            #### GPCRome Indication Stuff START ####
+            data_dir = os.sep.join([settings.DATA_DIR, 'drug_data'])
+            filepath = os.sep.join([data_dir, 'short_titles_ICD.csv'])
+            titles = pd.read_csv(filepath, sep=';', low_memory=False)
+            title_conversion = {key: value for key, value in zip(titles['title'], titles['title_short'])}
+
+            indication_levels_01 = Indication.objects.filter(level__in=[0,1])
+            indication_tree = {}
+            conversion = {}
+            wheel_data = {}
+            wheel_slugs = {}
+
+            for item in indication_levels_01:
+                if item.title == 'Symptoms, signs or clinical findings, not elsewhere classified':
+                    item.title = 'Symptoms, signs or clinical findings'
+                elif item.title == 'Certain conditions originating in the perinatal period':
+                    item.title = 'Certain conditions originating in perinatal period'
+                elif item.title == 'Injury, poisoning or certain other consequences of external causes':
+                    item.title = 'Injury, poisoning or other external causes'
+                elif item.title == 'Pregnancy, childbirth or the puerperium':
+                    item.title = 'Pregnancy, childbirth or puerperium'
+                elif item.title == 'Diseases of the blood or blood-forming organs':
+                    item.title = 'Diseases of the blood or related organs'
+
+                if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    indication_tree[item.slug] = []
+                    conversion[item.slug] = item.title
+                if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    root = item.slug[:4]
+                    indication_tree[root].append(item.title)
+                    conversion[item.slug] = item.title
+                    wheel_data[item.title] = {'Value1': 0}
+                    wheel_slugs[item.slug] = {'Value1': 0}
+
+            indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
+
+            #Now get the drug data
+            indication_drug_data = Drugs2024.objects.all().prefetch_related('indication')
+
+            for item in indication_drug_data:
+                try:
+                    title = item.indication.get_level_1().title
+                    slug = item.indication.get_level_1().slug
+                    wheel_data[title]['Value1'] +=1
+                    wheel_slugs[slug]['Value1'] +=1
+                except:
+                    continue
+
+            indication_full = {"NameList": indication_tree2, "DataPoints": wheel_data}
+            context['GPCRome_data'] = json.dumps(indication_full["NameList"])
+            context['GPCRome_data_variables'] = json.dumps(indication_full['DataPoints'])
+            context['Title_conversion'] = json.dumps(title_conversion)
+            #### GPCRome Indication Stuff END   ####
 
         # Convert to JSON string and pass to context
         context['search_data'] = json.dumps(search_dict)
@@ -1010,8 +1060,6 @@ class DruggedGPCRome(TemplateView):
 
         return context
 
-
-
 class NewDrugsBrowser(TemplateView):
     # Template using this class #
     template_name = 'Drugs_Indications_Targets.html'
@@ -1080,7 +1128,7 @@ class Drugs(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get data - server side - Queries #
         Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','ligand')
 
@@ -1129,7 +1177,7 @@ class Indications(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get data - server side - Queries #
         Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','indication','indication__code','ligand')
         # initialize context list for pushing data to html #
@@ -1163,7 +1211,7 @@ class Indications(TemplateView):
                 else:
                     pass
         for indication in Indications_dict:
-            
+
             Indication_name = str(Indications_dict[indication]['Name'])
             Indication_code = str(Indications_dict[indication]['Code'])
             Number_of_drugs = len(Indications_dict[indication]['Drugs'])
@@ -1180,7 +1228,7 @@ class Indications(TemplateView):
             context_data_browser.append(jsondata_browser)
         context['Data_Indications'] = context_data_browser
         return context
-    
+
 
 #################################
 ####        Targets          ####
@@ -1192,7 +1240,7 @@ class Targets(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Get data - server side - Queries #
         Drug_browser_data = Drugs2024.objects.all().prefetch_related('target','target__family__parent__parent','target__family__parent__parent__parent')
 
@@ -1221,11 +1269,6 @@ class Targets(TemplateView):
             context_data_browser.append(jsondata_browser)
         context['Data_Targets'] = context_data_browser
         return context
-
-
-
-
-
 
 class TargetSelectionTool(TemplateView):
     # Template using this class #
@@ -1655,12 +1698,11 @@ def indication_detail(request, code):
     code = code.upper()
     context = dict()
     #code = 'EFO_0003843'
-    indication_data = Drugs2024.objects.filter(indication__code__index=code).prefetch_related('ligand',
-                                                                                              'target',
-                                                                                              'indication',
-                                                                                              'indication__code')
+    indication_data = Drugs2024.objects.filter(indication__code=code).prefetch_related('ligand',
+                                                                                       'target',
+                                                                                       'indication')
 
-    indication_name = Indication.objects.filter(code__index=code).values_list('name', flat=True).distinct()[0]
+    indication_name = Indication.objects.filter(code=code).values_list('title', flat=True).distinct()[0]
 
     sankey = {"nodes": [],
               "links": []}
@@ -1672,7 +1714,7 @@ def indication_detail(request, code):
     node_counter = 0
     for record in indication_data:
         #assess the values for indication/ligand/protein
-        indication_code = record.indication.name.capitalize()
+        indication_code = record.indication.title.capitalize()
         ligand_name = record.ligand.name.capitalize()
         ligand_id = record.ligand.id
         protein_name = record.target.name

@@ -13,7 +13,7 @@ urlpatterns = [
     path('targets_compact', views.CachedTargetDetailsCompact, name='ligand_target_detail_compact'),
     url(r'^targets_purchasable', views.TargetPurchasabilityDetails, name='ligand_target_detail_purchasable'),
     url(r'^(?P<ligand_id>[-\w]+)/details$', views.LigandDetails, name='ligand_detail'),
-    url(r'^coverage', cache_page(3600*24*7)(views.LigandStatistics.as_view()), name='ligand_statistics'),
+    url(r'^coverage', views.LigandStatistics.as_view(), name='ligand_statistics'),
     # url(r'^statistics', views.LigandStatistics.as_view(), name='ligand_statistics'),
 
     # BIASED LIGANDS
