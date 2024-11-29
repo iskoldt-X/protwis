@@ -64,8 +64,20 @@ class Indication(models.Model):
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
     level = models.IntegerField(null=True)
 
+    def get_level_0(self):
+        current = self
+        while current.parent is not None:
+            current = current.parent
+        return current
+
+    def get_level_1(self):
+        current = self
+        while current.parent.parent is not None:
+            current = current.parent
+        return current
+
     def __str__(self):
-        return self.name
+        return self.title
 
     class Meta():
         db_table = 'indication'

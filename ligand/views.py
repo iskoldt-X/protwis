@@ -1546,7 +1546,7 @@ class LigandStatistics(TemplateView):
         if self.page == 'ligands':
             # Generate the master dict of protein families
 
-            names_dict = Protein.objects.filter(species_id=1, parent_id__isnull=True, accession__isnull=False, family_id__slug__startswith='00').values('entry_name', 'name').order_by('entry_name')
+            names_dict = Protein.objects.filter(species_id=1, parent_id__isnull=True, accession__isnull=False, family_id__slug__startswith='0').values('entry_name', 'name').order_by('entry_name')
             names_conversion_dict = {item['entry_name']: item['name'] for item in names_dict}
             data = list(names_conversion_dict.keys())
             names = list(Protein.objects.filter(entry_name__in=data).values_list('name', flat=True))
@@ -2589,7 +2589,7 @@ class PhysiologicalLigands(TemplateView):
                             "receptor",                                       #20 Receptor ID
                             "receptor__accession",                            #21 Accession (UniProt link)
                             'pdb_code',                                       #22 pdb_code (UniProt link)
-                            'structure_type').distinct()                      #23           
+                            'structure_type').distinct()                      #23
 
         gtpidlinks = dict(list(LigandID.objects.filter(web_resource__slug='gtoplig').values_list(
                             "ligand",

@@ -344,7 +344,7 @@ def Venn(request, origin="both"):
     # context = None
     if context == None:
         context = OrderedDict()
-    # Here we need to generate fata for three different Venn diagrams plus associated tables:
+    # Here we need to generate data for three different Venn diagrams plus associated tables:
     # if origin is drugs, we need a Venn diagram showing drugs across different clinical phases
     # plus one comparing drugs that are in phase 1-3 and those in phase 4, and potential overlap
     # if origin is targets, we need a single Venn diagram showing targets across different clinical phases
@@ -384,7 +384,7 @@ def Venn(request, origin="both"):
         table_data = Drugs2024.objects.select_related(
             'target__family__parent__parent__parent',  # All target info
             'ligand__ligand_type',
-            'indication__code',
+            'indication',
             'moa',
             'disease_association'
         ).values(
@@ -429,7 +429,7 @@ def Venn(request, origin="both"):
             'disease_association__association_score' : 'Association score',
             'drug_status': 'Approved'
         }, inplace=True)
-            
+
 
         # Convert 'Approved' from integer to 'Yes'/'No'
         df['Approved'] = df['Approved'].apply(lambda x: 'Yes' if x == "Approved" else 'No')
@@ -503,9 +503,9 @@ class DrugSectionSelection(TemplateView):
 
             # Fetch table data with all related information
             table_data = Drugs2024.objects.select_related(
-                'ligand', 
+                'ligand',
                 'target__family__parent__parent__parent', # All target info
-                'indication__code'
+                'indication'
                 'disease_association'
             ).values(
                 'ligand', # Agent/Drug id
@@ -547,7 +547,7 @@ class DrugSectionSelection(TemplateView):
             df = df.merge(atc_df_grouped, on='LigandID', how='left')
             # Fill NaN values in the 'ATC' column with None
             df['ATC'] = df['ATC'].fillna("")
-            
+
             # Precompute Phase and Status Information
             df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
 
@@ -602,7 +602,7 @@ class DrugSectionSelection(TemplateView):
             table_data = Drugs2024.objects.select_related(
                 'target',
                 'ligand__ligand_type',
-                'indication__code',
+                'indication',
                 'moa',
                 'disease_association'
             ).values(
@@ -641,7 +641,7 @@ class DrugSectionSelection(TemplateView):
                 'disease_association__association_score' : 'Association score',
                 'drug_status': 'Status'
             }, inplace=True)
-            
+
             # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
             df = df.merge(atc_df_grouped, on='LigandID', how='left')
             # Fill NaN values in the 'ATC' column with None
@@ -669,8 +669,6 @@ class DrugSectionSelection(TemplateView):
 
             # Pass the JSON data to the template context
             context['Full_data'] = json_records
-
-
         elif page == 'Indications':
             description = 'Search by indication name'
             # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
@@ -790,10 +788,10 @@ class DrugSectionSelection(TemplateView):
 
             # Define disease association columns to be added to the grouping
             disease_cols = [
-                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp', 
-                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet', 
-                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers', 
-                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures', 
+                'Association score', 'OT Genetics', 'Gene Burden', 'ClinVar', 'GEL PanelApp',
+                'Gene2phenotype', 'UniProt literature', 'UniProt curated variants', 'Orphanet',
+                'ClinGen', 'Cancer Gene Census', 'IntOGen', 'Clinvar (somatic)', 'Cancer Biomarkers',
+                'ChEMBL', 'CRISPR Screens', 'Project Score', 'SLAPenrich', 'Reactome', 'Gene signatures',
                 'Europe PMC', 'Expression Atlas', 'IMPC'
             ]
 
@@ -887,6 +885,59 @@ class DrugSectionSelection(TemplateView):
             json_records_drugs = agg_data_drugs.to_json(orient='records')
             context['Full_data_drugs'] = json_records_drugs
 
+            #### GPCRome Indication Stuff START ####
+            data_dir = os.sep.join([settings.DATA_DIR, 'drug_data'])
+            filepath = os.sep.join([data_dir, 'short_titles_ICD.csv'])
+            titles = pd.read_csv(filepath, sep=';', low_memory=False)
+            title_conversion = {key: value for key, value in zip(titles['title'], titles['title_short'])}
+
+            indication_levels_01 = Indication.objects.filter(level__in=[0,1])
+            indication_tree = {}
+            conversion = {}
+            wheel_data = {}
+            wheel_slugs = {}
+
+            for item in indication_levels_01:
+                if item.title == 'Symptoms, signs or clinical findings, not elsewhere classified':
+                    item.title = 'Symptoms, signs or clinical findings'
+                elif item.title == 'Certain conditions originating in the perinatal period':
+                    item.title = 'Certain conditions originating in perinatal period'
+                elif item.title == 'Injury, poisoning or certain other consequences of external causes':
+                    item.title = 'Injury, poisoning or other external causes'
+                elif item.title == 'Pregnancy, childbirth or the puerperium':
+                    item.title = 'Pregnancy, childbirth or puerperium'
+                elif item.title == 'Diseases of the blood or blood-forming organs':
+                    item.title = 'Diseases of the blood or related organs'
+
+                if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    indication_tree[item.slug] = []
+                    conversion[item.slug] = item.title
+                if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    root = item.slug[:4]
+                    indication_tree[root].append(item.title)
+                    conversion[item.slug] = item.title
+                    wheel_data[item.title] = {'Value1': 0}
+                    wheel_slugs[item.slug] = {'Value1': 0}
+
+            indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
+
+            #Now get the drug data
+            indication_drug_data = Drugs2024.objects.all().prefetch_related('indication')
+
+            for item in indication_drug_data:
+                try:
+                    title = item.indication.get_level_1().title
+                    slug = item.indication.get_level_1().slug
+                    wheel_data[title]['Value1'] +=1
+                    wheel_slugs[slug]['Value1'] +=1
+                except:
+                    continue
+
+            indication_full = {"NameList": indication_tree2, "DataPoints": wheel_data}
+            context['GPCRome_data'] = json.dumps(indication_full["NameList"])
+            context['GPCRome_data_variables'] = json.dumps(indication_full['DataPoints'])
+            context['Title_conversion'] = json.dumps(title_conversion)
+            #### GPCRome Indication Stuff END   ####
 
         # Convert to JSON string and pass to context
         context['search_data'] = json.dumps(search_dict)

@@ -2369,6 +2369,56 @@ function Heatmap(data, location, heatmap_DataStyling,label_x_converter) {
 // #################
 // ###  GPCRome  ###
 // #################
+function startsWithAnyWord(str, words) {
+  const lowerStr = str.toLowerCase();
+  return words.some(word => lowerStr.startsWith(word.toLowerCase()));
+}
+
+function GPCRome_initializeIndicationData(data) {
+    // Initialize the GPCRomes
+    let GPCRomes = {
+        GPCRome_layer1: {},
+        GPCRome_layer2: {},
+        GPCRome_layer3: {},
+    };
+
+    // Helper function to add items to the GPCRome using receptor family as key
+    function addItemsToCircle(GPCRome, items, family) {
+        if (!GPCRome[family]) {
+            GPCRome[family] = [];
+        }
+        if (Array.isArray(items)) {
+            GPCRome[family].push(...items);
+        }
+    }
+
+    // Process the data
+    const layer1 = ['Diseases', 'Neoplasms'];
+    const layer2 = ['Endocrine', 'Mental', 'Certain', 'Symptomps', 'Injury'];
+    Object.keys(data).forEach(className => {
+        const classData = data[className];
+        // Handle cases where classData is not an object
+        if (typeof classData !== 'object' || classData === null) {
+            console.warn(`Expected object but got ${typeof classData} for class ${className}`);
+            return;
+        }
+        // Circle 1 : "Class O2 (tetrapod specific odorant) EXT"
+        if (startsWithAnyWord(className, layer1)) {
+            addItemsToCircle(GPCRomes.GPCRome_layer1, classData, className);
+        } else if (startsWithAnyWord(className, layer2)) {
+            addItemsToCircle(GPCRomes.GPCRome_layer2, classData, className);
+        } else {
+            addItemsToCircle(GPCRomes.GPCRome_layer3, classData, className);
+        }
+    });
+    // Convert the arrays to unique values
+    Object.keys(GPCRomes).forEach(GPCRomeKey => {
+        Object.keys(GPCRomes[GPCRomeKey]).forEach(familyKey => {
+            GPCRomes[GPCRomeKey][familyKey] = Array.from(new Set(GPCRomes[GPCRomeKey][familyKey]));
+        });
+    });
+    return GPCRomes;
+}
 
 function GPCRome_initializeOdorantData(data) {
     // Initialize the GPCRomes
@@ -2385,8 +2435,6 @@ function GPCRome_initializeOdorantData(data) {
             const receptorFamilies = items[ligandType];
 
             // Debugging - log the receptorFamilies structure
-            // console.log(`Processing ligandType: ${ligandType}`);
-            // console.log(`Receptor families:`, receptorFamilies);
             // Ensure receptorFamilies is an object
             if (typeof receptorFamilies === 'object' && receptorFamilies !== null) {
                 Object.keys(receptorFamilies).forEach(family => {
@@ -2605,9 +2653,13 @@ function GPCRome_formatTextWithHTML(text, Family_list) {
 
 
 // Draw / generate the GPCRome plot
-function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odorant = false) {
+function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odorant = false, indication = false) {
 
     dimensions = { height: 1000, width: 1000 };
+    if (indication) {
+        dimensions = { height: 2000, width: 2000 };
+    }
+
 
     const Spacing = GPCRome_styling.Spacing;
     const datatype = GPCRome_styling.datatype;
@@ -2615,7 +2667,8 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
     const showIcon = GPCRome_styling.showIcon;  // Get the icon visibility state
     const Font_family = "Arial"
     const Class_fontsize = "20px"
-    const Receptor_and_family_fontsize = "11px"
+    let Receptor_and_family_fontsize = "11px"
+    const titles =  GPCRome_styling.titles;
 
     const svg = d3v4.select("#" + location)
     .append("svg")
@@ -2683,10 +2736,16 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
 
     if (odorant) {
 
-        Draw_a_GPCRome(layout_data.GPCRome_O2_ext, fill_data, 0, dimensions, Spacing, odorant);
-        Draw_a_GPCRome(layout_data.GPCRome_O2_mid, fill_data, 1, dimensions, Spacing, odorant);
-        Draw_a_GPCRome(layout_data.GPCRome_O2_int, fill_data, 2, dimensions, Spacing, odorant);
-        Draw_a_GPCRome(layout_data.GPCRome_O1, fill_data, 3, dimensions, Spacing, odorant);
+        Draw_a_GPCRome(layout_data.GPCRome_O2_ext, fill_data, 0, dimensions, Spacing, true);
+        Draw_a_GPCRome(layout_data.GPCRome_O2_mid, fill_data, 1, dimensions, Spacing, true);
+        Draw_a_GPCRome(layout_data.GPCRome_O2_int, fill_data, 2, dimensions, Spacing, true);
+        Draw_a_GPCRome(layout_data.GPCRome_O1, fill_data, 3, dimensions, Spacing, true);
+
+    } else if (indication) {
+        Receptor_and_family_fontsize = '10px';
+        Draw_a_GPCRome(layout_data.GPCRome_layer1, fill_data, 0, dimensions, Spacing, false, true);
+        Draw_a_GPCRome(layout_data.GPCRome_layer2, fill_data, 1, dimensions, Spacing, false, true);
+        Draw_a_GPCRome(layout_data.GPCRome_layer3, fill_data, 2, dimensions, Spacing, false, true);
 
     } else {
 
@@ -2723,12 +2782,12 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
       // Second Draw_a_GPCRome with GPCRome_AO, now with the two receptors added
       Draw_a_GPCRome(updatedGPCRome_AO, fill_data, 1, dimensions, Spacing);
 
-      Draw_a_GPCRome({...layout_data.GPCRome_B1, ...layout_data.GPCRome_B2}, fill_data, 2, dimensions,Spacing);
-      Draw_a_GPCRome({...layout_data.GPCRome_C, ...layout_data.GPCRome_F}, fill_data, 3, dimensions,Spacing);
-      Draw_a_GPCRome({...layout_data.GPCRome_T,...layout_data.GPCRome_CL}, fill_data, 4, dimensions,Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_B1, ...layout_data.GPCRome_B2}, fill_data, 2, dimensions, Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_C, ...layout_data.GPCRome_F}, fill_data, 3, dimensions, Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_T,...layout_data.GPCRome_CL}, fill_data, 4, dimensions, Spacing);
 
     }
-    function Draw_a_GPCRome(label_data, fill_data, level, dimensions, Spacing, odorant = false) {
+    function Draw_a_GPCRome(label_data, fill_data, level, dimensions, Spacing, odorant = false, indication = false) {
 
         // Define SVG dimensions
         const width = dimensions.width;
@@ -2738,6 +2797,16 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
 
         if (odorant) {
           GPCRome_radius = Math.min(width, height) / 2 - 60 - ((level === 3) ? (100 * level) : (95 * level)); // Radius for each GPCRome
+        } else if (indication) {
+          if (level === 0) {
+            adjustedWidth = 1000;
+            adjustedHeight = 1000;
+            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 85; // Base radius
+          } else if (level === 1) {
+            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 85 - 150; // Adjusted for more spacing
+          } else if (level === 2) {
+            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 75 - 300; // Further adjusted
+          }
         } else {
           GPCRome_radius = Math.min(width, height) / 2 - 60 - ((level === 4) ? (90 * level) : (85 * level)); // Radius for each GPCRome
         }
@@ -2802,7 +2871,11 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                 values.unshift("O1");
                 values.push("");
             }
-
+        } else if (indication) {
+            Header_list = [];
+            if (level === 0) {
+            } else if (level === 1) {
+            }
         } else {
             Header_list = ["A","B1","B2","C","F","T2","Classless"];
             if (level === 0) {
@@ -2874,65 +2947,122 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
             return { x, y, rotation };
         }
 
-       // Bind data and append text elements for the specific GPCRome
-        svg.selectAll(`.GPCRome-text-${level}`)
-        .data(values)
-        .enter()
-        .append("text")
-        .attr("class", (d) => {
-            let baseClass = `GPCRome-text-${level}`;
-            // Add highlight class if the label is in the Header_list
-            if (Header_list.includes(d)) {
-                baseClass += ` GPCRome-text-${level}-highlight`;
-            }
-            // Add a family-specific class if the label is in the Family_list
-            if (Family_list.includes(d)) {
-                baseClass += " GPCRome-family-label";  // Add this class for family labels
-            }
-            return baseClass;
-        })
-        .attr("x", (d, i) => {
-            const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
-            return pos.x;
-        })
-        .attr("y", (d, i) => {
-            const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
-            return pos.y;
-        })
-        .attr("text-anchor", (d, i) => {
-            // Center the text for headers, and handle normal text alignment for others
-            if (Header_list.includes(d) && d !== "Classless" && d !== "A cont.") {
-                return "middle";  // Horizontally center the headers
-            }
-            const angle = (i / values.length) * 360 - 90;
-            return (angle >= -90 && angle < 90) ? "start" : "end";
-        })
-        .attr("dominant-baseline", "middle")
-        .attr("dy", (d) => Header_list.includes(d) ? "0.1em" : "0.05em")  // Adjust 'dy' as needed
-        .attr("transform", (d, i) => {
-            const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
-
-            // Calculate the angle and determine the text's side (right or left)
-            const angle = (i / values.length) * 360 - 90;
-
-            // Rotation logic
-            let rotation;
-            if (Header_list.includes(d)) {
-                // Headers have no rotation (0 degrees)
-                rotation = 0;
+        function getLabelText(d) {
+            if (typeof d === 'object' && d !== null) {
+                return d.name || d.label || '';
             } else {
-                // For non-headers, flip the text on the left-hand side by 180 degrees
-                rotation = angle >= -90 && angle < 90 ? 0 : 180;
+                return d;
             }
+        }
 
-            // Apply the rotation and positioning
-            return `rotate(${pos.rotation + rotation}, ${pos.x}, ${pos.y})`;
-        })
-        .html(d => GPCRome_formatTextWithHTML(d, Family_list, level))
-        .style("font-size", d => Header_list.includes(d) ? Class_fontsize : Receptor_and_family_fontsize)
-        .style("font-family", Font_family)
-        .attr("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal")
-        .style("fill", d => Header_list.includes(d) ? "Black" : "black");
+        function getInitialDisplayText(labelText) {
+            if (indication) {
+                // Fetch the short version from the titles dictionary
+                const shortText = titles[labelText] || labelText;  // Use labelText if not found
+                return GPCRome_formatTextWithHTML(shortText, Family_list, level);
+            } else {
+                return GPCRome_formatTextWithHTML(labelText, Family_list, level);
+            }
+        }
+
+
+       // Bind data and append text elements for the specific GPCRome
+       svg.selectAll(`.GPCRome-text-${level}`)
+           .data(values)
+           .enter()
+           .append("text")
+           .attr("class", (d) => {
+               let baseClass = `GPCRome-text GPCRome-text-${level}`;  // Add 'GPCRome-text' as a common class
+               // Add highlight class if the label is in the Header_list
+               if (Header_list.includes(d)) {
+                   baseClass += ` GPCRome-text-${level}-highlight`;
+               }
+               // Add a family-specific class if the label is in the Family_list
+               if (Family_list.includes(d)) {
+                   baseClass += " GPCRome-family-label";  // Add this class for family labels
+               }
+               return baseClass;
+           })
+           .attr("x", (d, i) => {
+               const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
+               return pos.x;
+           })
+           .attr("y", (d, i) => {
+               const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
+               return pos.y;
+           })
+           .attr("text-anchor", (d, i) => {
+               // Center the text for headers, and handle normal text alignment for others
+               if (Header_list.includes(d) && d !== "Classless" && d !== "A cont.") {
+                   return "middle";  // Horizontally center the headers
+               }
+               const angle = (i / values.length) * 360 - 90;
+               return (angle >= -90 && angle < 90) ? "start" : "end";
+           })
+           .attr("dominant-baseline", "middle")
+           .attr("dy", (d) => Header_list.includes(d) ? "0.1em" : "0.05em")  // Adjust 'dy' as needed
+           .attr("transform", (d, i) => {
+               const pos = calculatePositionAndAngle(i, values.length, values, Header_list, Family_list, false);
+
+               // Calculate the angle and determine the text's side (right or left)
+               const angle = (i / values.length) * 360 - 90;
+
+               // Rotation logic
+               let rotation;
+               if (Header_list.includes(d)) {
+                   // Headers have no rotation (0 degrees)
+                   rotation = 0;
+               } else {
+                   // For non-headers, flip the text on the left-hand side by 180 degrees
+                   rotation = angle >= -90 && angle < 90 ? 0 : 180;
+               }
+
+               // Apply the rotation and positioning
+               return `rotate(${pos.rotation + rotation}, ${pos.x}, ${pos.y})`;
+           })
+           .html(d => {
+               const labelText = getLabelText(d);
+               return getInitialDisplayText(labelText);
+           })
+           .style("font-size", d => Header_list.includes(d) ? Class_fontsize : Receptor_and_family_fontsize)
+           .style("font-family", Font_family)
+           .style("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal")
+           .style("fill", d => Header_list.includes(d) ? "Black" : "black")
+           // Add hover event listeners to change the text and styles
+           .on("mouseover", function(d, i) {
+               if (indication) {
+                   const labelText = getLabelText(d);
+
+                   // Display the long version (key in 'titles') on hover
+                   const longText = labelText;  // The long label is the key
+                   d3.select(this)
+                       .html(() => GPCRome_formatTextWithHTML(longText, Family_list, level))
+                       .style("font-weight", "bold")
+                       .style("fill", "black");
+
+                   // Grey out all other text elements across all levels
+                   svg.selectAll('.GPCRome-text')
+                       .filter(function() { return this !== d3.select(event.currentTarget).node(); })
+                       .style("fill", "#D8D8D8")
+                       .style("font-weight", "normal");
+               }
+           })
+           .on("mouseout", function(d, i) {
+               if (indication) {
+                   const labelText = getLabelText(d);
+
+                   // Revert to displaying the short version
+                   d3.select(this)
+                       .html(() => getInitialDisplayText(labelText))
+                       .style("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal")
+                       .style("fill", d => Header_list.includes(d) ? "Black" : "black");
+
+                   // Reset all other text elements to their initial styles
+                   svg.selectAll('.GPCRome-text')
+                       .style("fill", d => Header_list.includes(d) ? "Black" : "black")
+                       .style("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal");
+               }
+           });
 
         // Function to process the formattedText
         function formatText(text) {
@@ -2945,6 +3075,30 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
             }
             return text;  // Return the text unchanged if it doesn't contain "Odorant"
         }
+
+        function splitTextIntoLines(text, maxLineLength) {
+            const words = text.trim().split(/\s+/);
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach(word => {
+                if ((currentLine + ' ' + word).trim().length <= maxLineLength) {
+                    currentLine = (currentLine + ' ' + word).trim();
+                } else {
+                    if (currentLine) {
+                        lines.push(currentLine);
+                    }
+                    currentLine = word;
+                }
+            });
+
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+
+            return lines;
+        }
+
 
         // After drawing all the elements, adjust the y-position for all family labels
         // Adjust the y-position for all family labels based on the midpoint between current and previous positions
@@ -2972,109 +3126,221 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     // fontsize
                     let family_fontsize = Receptor_and_family_fontsize;
 
-                    // Check if the formatted text is longer than 10 characters (or any desired length)
-                    if (formattedText.length > 18) {
-                        let splitIndex;
-                        if (formattedText.includes("-")) {
-                            // If the text contains a "-", split after the "-"
-                            splitIndex = formattedText.indexOf("-",3) + 1;
-                        } else {
-                            // Otherwise, split at the nearest space
-                            splitIndex = formattedText.lastIndexOf(" ", formattedText.length-1);
-                        }
-                        const firstPart = formattedText.substring(0, splitIndex);  // First part
-                        const secondPart = formattedText.substring(splitIndex);  // Second part
+                    if (indication) {
+                      // Check if the formatted text is longer than 10 characters (or any desired length)
+                      if (formattedText.length > 23) {
+                          // Split the text into words
+                          let words = formattedText.split(' ');
+                          // Find the midpoint to split the words evenly
+                          let mid = Math.ceil(words.length / 2);
+                          // Create the first and second parts
+                          let firstPart = words.slice(0, mid).join(' ');
+                          let secondPart = words.slice(mid).join(' ');
 
-                        // Get the current and previous positions using calculatePositionAndAngle with the isSplit flag
-                        const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, true);
-                        const prevPos = calculatePositionAndAngle(index - 1, totalItems, values, Header_list, Family_list, true);
+                          // Get the current and previous positions using calculatePositionAndAngle with the isSplit flag
+                          const prevIndex = (index - 1 + totalItems) % totalItems; // Ensure index wraps around
+                          const extraIndex = (index - 2 + totalItems) % totalItems; // Ensure index wraps around
+                          const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, true);
+                          const prevPos = calculatePositionAndAngle(prevIndex, totalItems, values, Header_list, Family_list, true);
+                          const extraPos = calculatePositionAndAngle(extraIndex, totalItems, values, Header_list, Family_list, true);
 
-                        off_set = level+1
+                          const off_set = level + 1;
 
-                        if (angle >= -90 && angle < 90) {
-                            // Right-hand side: use prevPos for the first part and currentPos for the second part
+                          if (angle >= -90 && angle < 90) {
+                              // Right-hand side: use prevPos for the first part and currentPos for the second part
 
-                            // Append the first part of the text (using prevPos)
-                            svg.append("text")
-                                .attr("x", prevPos.x)
-                                .attr("y", prevPos.y+off_set)
-                                .attr("text-anchor", "start")
-                                .attr("dominant-baseline", "middle")
-                                .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
-                                .attr("class", "GPCRome-family-label-split")
-                                .text(firstPart)
-                                // .style("font-weight", "bold")
-                                .style("font-family", Font_family)
-                                .style("font-size",family_fontsize);
+                              // Append the first part of the text (using prevPos)
+                              svg.append("text")
+                                  .attr("x", prevPos.x)
+                                  .attr("y", prevPos.y + off_set)
+                                  .attr("text-anchor", "start")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(firstPart)
+                                  .style("font-family", Font_family)
+                                  .style("font-size", family_fontsize)
+                                  // Conditionally set font-weight based on 'indication'
+                                  .style("font-weight", indication ? "bold" : "normal");
 
+                              // Append the second part of the text (using currentPos)
+                              svg.append("text")
+                                  .attr("x", currentPos.x)
+                                  .attr("y", currentPos.y - off_set)
+                                  .attr("text-anchor", "start")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(secondPart)
+                                  .style("font-family", Font_family)
+                                  .style("font-size", family_fontsize)
+                                  // Conditionally set font-weight based on 'indication'
+                                  .style("font-weight", indication ? "bold" : "normal");
 
-                            // Append the second part of the text (using currentPos)
-                            svg.append("text")
-                                .attr("x", currentPos.x)
-                                .attr("y", currentPos.y-off_set)
-                                .attr("text-anchor", "start")
-                                .attr("dominant-baseline", "middle")
-                                .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
-                                .attr("class", "GPCRome-family-label-split")
-                                .text(secondPart)
-                                // .style("font-weight", "bold")
-                                .style("font-family", Font_family)
-                                .style("font-size", family_fontsize);
+                          } else {
+                              // Left-hand side: use currentPos for the first part and prevPos for the second part
 
-                        } else {
-                            // Left-hand side: use currentPos for the first part and prevPos for the second part
+                              // Append the first part of the text (using currentPos)
+                              svg.append("text")
+                                  .attr("x", currentPos.x)
+                                  .attr("y", currentPos.y + off_set)
+                                  .attr("text-anchor", "end")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(firstPart)
+                                  .style("font-family", Font_family)
+                                  .style("font-size", family_fontsize)
+                                  // Conditionally set font-weight based on 'indication'
+                                  .style("font-weight", indication ? "bold" : "normal");
 
-                            // Append the first part of the text (using currentPos)
-                            svg.append("text")
-                                .attr("x", currentPos.x)
-                                .attr("y", currentPos.y+off_set)
-                                .attr("text-anchor", "end")
-                                .attr("dominant-baseline", "middle")
-                                .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
-                                .attr("class", "GPCRome-family-label-split")
-                                .text(firstPart)
-                                // .style("font-weight", "bold")
-                                .style("font-family", Font_family)
-                                .style("font-size",family_fontsize);
+                              // Append the second part of the text (using prevPos)
+                              svg.append("text")
+                                  .attr("x", prevPos.x)
+                                  .attr("y", prevPos.y - off_set)
+                                  .attr("text-anchor", "end")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(secondPart)
+                                  .style("font-family", Font_family)
+                                  .style("font-size", family_fontsize)
+                                  // Conditionally set font-weight based on 'indication'
+                                  .style("font-weight", indication ? "bold" : "normal");
+                          }
 
-                            // Append the second part of the text (using prevPos)
-                            svg.append("text")
-                                .attr("x", prevPos.x)
-                                .attr("y", prevPos.y-off_set)
-                                .attr("text-anchor", "end")
-                                .attr("dominant-baseline", "middle")
-                                .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
-                                .attr("class", "GPCRome-family-label-split")
-                                .text(secondPart)
-                                // .style("font-weight", "bold")
-                                .style("font-family", Font_family)
-                                .style("font-size",family_fontsize);
-                        }
+                      } else {
+                          // If the formatted text is shorter than 10 characters, handle it normally
 
+                          // Get the current and previous positions without splitting (isSplit = false)
+                          const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, false);
+                          const prevPos = calculatePositionAndAngle(index - 1, totalItems, values, Header_list, Family_list, false);
+
+                          const midX = (currentPos.x + prevPos.x) / 2;
+                          const midY = (currentPos.y + prevPos.y) / 2;
+                          const midRotation = (currentPos.rotation + prevPos.rotation) / 2;
+
+                          // Append the formatted text in the middle position
+                          svg.append("text")
+                              .attr("x", midX)
+                              .attr("y", midY)
+                              .attr("dominant-baseline", "middle")
+                              .attr("text-anchor", (angle >= -90 && angle < 90) ? "start" : "end")
+                              .attr("transform", `rotate(${midRotation + additionalRotation}, ${midX}, ${midY})`)
+                              .attr("class", "GPCRome-family-label")
+                              .text(formatText(formattedText))
+                              // .style("font-weight", "bold")
+                              .style("font-family", Font_family)
+                              .style("font-size",family_fontsize)
+                              .style("font-weight", indication ? "bold" : "normal");
+                      }
                     } else {
-                        // If the formatted text is shorter than 10 characters, handle it normally
+                      // Check if the formatted text is longer than 10 characters (or any desired length)
+                      if (formattedText.length > 18) {
+                          let splitIndex;
+                          if (formattedText.includes("-")) {
+                              // If the text contains a "-", split after the "-"
+                              splitIndex = formattedText.indexOf("-",3) + 1;
+                          } else {
+                              // Otherwise, split at the nearest space
+                              splitIndex = formattedText.lastIndexOf(" ", formattedText.length-1);
+                          }
+                          const firstPart = formattedText.substring(0, splitIndex);  // First part
+                          const secondPart = formattedText.substring(splitIndex);  // Second part
 
-                        // Get the current and previous positions without splitting (isSplit = false)
-                        const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, false);
-                        const prevPos = calculatePositionAndAngle(index - 1, totalItems, values, Header_list, Family_list, false);
+                          // Get the current and previous positions using calculatePositionAndAngle with the isSplit flag
+                          const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, true);
+                          const prevPos = calculatePositionAndAngle(index - 1, totalItems, values, Header_list, Family_list, true);
 
-                        const midX = (currentPos.x + prevPos.x) / 2;
-                        const midY = (currentPos.y + prevPos.y) / 2;
-                        const midRotation = (currentPos.rotation + prevPos.rotation) / 2;
+                          off_set = level+1
 
-                        // Append the formatted text in the middle position
-                        svg.append("text")
-                            .attr("x", midX)
-                            .attr("y", midY)
-                            .attr("dominant-baseline", "middle")
-                            .attr("text-anchor", (angle >= -90 && angle < 90) ? "start" : "end")
-                            .attr("transform", `rotate(${midRotation + additionalRotation}, ${midX}, ${midY})`)
-                            .attr("class", "GPCRome-family-label")
-                            .text(formatText(formattedText))
-                            // .style("font-weight", "bold")
-                            .style("font-family", Font_family)
-                            .style("font-size",family_fontsize);
+                          if (angle >= -90 && angle < 90) {
+                              // Right-hand side: use prevPos for the first part and currentPos for the second part
+
+                              // Append the first part of the text (using prevPos)
+                              svg.append("text")
+                                  .attr("x", prevPos.x)
+                                  .attr("y", prevPos.y+off_set)
+                                  .attr("text-anchor", "start")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(firstPart)
+                                  // .style("font-weight", "bold")
+                                  .style("font-family", Font_family)
+                                  .style("font-size",family_fontsize);
+
+
+
+                              // Append the second part of the text (using currentPos)
+                              svg.append("text")
+                                  .attr("x", currentPos.x)
+                                  .attr("y", currentPos.y-off_set)
+                                  .attr("text-anchor", "start")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(secondPart)
+                                  // .style("font-weight", "bold")
+                                  .style("font-family", Font_family)
+                                  .style("font-size", family_fontsize);
+
+                          } else {
+                              // Left-hand side: use currentPos for the first part and prevPos for the second part
+
+                              // Append the first part of the text (using currentPos)
+                              svg.append("text")
+                                  .attr("x", currentPos.x)
+                                  .attr("y", currentPos.y+off_set)
+                                  .attr("text-anchor", "end")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${currentPos.rotation + additionalRotation}, ${currentPos.x}, ${currentPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(firstPart)
+                                  // .style("font-weight", "bold")
+                                  .style("font-family", Font_family)
+                                  .style("font-size",family_fontsize);
+
+                              // Append the second part of the text (using prevPos)
+                              svg.append("text")
+                                  .attr("x", prevPos.x)
+                                  .attr("y", prevPos.y-off_set)
+                                  .attr("text-anchor", "end")
+                                  .attr("dominant-baseline", "middle")
+                                  .attr("transform", `rotate(${prevPos.rotation + additionalRotation}, ${prevPos.x}, ${prevPos.y})`)
+                                  .attr("class", "GPCRome-family-label-split")
+                                  .text(secondPart)
+                                  // .style("font-weight", "bold")
+                                  .style("font-family", Font_family)
+                                  .style("font-size",family_fontsize);
+                          }
+
+                      } else {
+                          // If the formatted text is shorter than 10 characters, handle it normally
+
+                          // Get the current and previous positions without splitting (isSplit = false)
+                          const currentPos = calculatePositionAndAngle(index, totalItems, values, Header_list, Family_list, false);
+                          const prevPos = calculatePositionAndAngle(index - 1, totalItems, values, Header_list, Family_list, false);
+
+                          const midX = (currentPos.x + prevPos.x) / 2;
+                          const midY = (currentPos.y + prevPos.y) / 2;
+                          const midRotation = (currentPos.rotation + prevPos.rotation) / 2;
+
+                          // Append the formatted text in the middle position
+                          svg.append("text")
+                              .attr("x", midX)
+                              .attr("y", midY)
+                              .attr("dominant-baseline", "middle")
+                              .attr("text-anchor", (angle >= -90 && angle < 90) ? "start" : "end")
+                              .attr("transform", `rotate(${midRotation + additionalRotation}, ${midX}, ${midY})`)
+                              .attr("class", "GPCRome-family-label")
+                              .text(formatText(formattedText))
+                              // .style("font-weight", "bold")
+                              .style("font-family", Font_family)
+                              .style("font-size",family_fontsize);
+                      }
                     }
+
                 }
             });
 
@@ -3181,6 +3447,15 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                     if (value === 5) return "#D3D3D3";
                     if (value === 6) return "#A3D9C8";
                     return "none";  // Make the slice invisible if the value is ""
+                } else if (datatype === 'Indication'){
+                  // Use color scale for continuous data
+                  const numericValue = parseFloat(value);
+
+                  if (numericValue === 0) {
+                      return "white";  // Return "white" if the value is 0
+                  }
+
+                  return !isNaN(numericValue) ? colorScale(numericValue) : "none";
                 }
             })
             .style("stroke", (d) => {
