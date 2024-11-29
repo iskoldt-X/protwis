@@ -8,7 +8,7 @@ from django.db import connection, reset_queries
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Drugs2024, Indication, IndicationAssociation
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
 from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
@@ -23,6 +23,7 @@ from collections import OrderedDict
 from copy import deepcopy
 import pandas as pd
 import os
+from collections import defaultdict
 
 
 
@@ -1020,7 +1021,9 @@ class TargetSelectionTool(TemplateView):
                 'novelty_score', # Novelty score
                 'drug_status',  # Approval
                 'moa__name',  # Mode of action
-                'indication_max_phase' # Max pahse
+                'indication_max_phase', # Max pahse
+                'publication_count', # publication count
+                'target_level' # IDG target level
             )
         
 
@@ -1041,11 +1044,14 @@ class TargetSelectionTool(TemplateView):
             'target__family__parent__name': 'Receptor family', # Receptor family
             'target__family__parent__parent__name': 'Ligand type', # Ligand type
             'target__family__parent__parent__parent__name': 'Class', # Class
-            'ligand': "Ligand ID",
+            'ligand': "Ligand ID", # Ligand ID
             'novelty_score': 'Novelty (Pharos)', #Only novelty we have
             'drug_status': 'Status', #Approval
             'moa__name': 'Mode of action', #Modality
-            'indication_max_phase': 'Phase'
+            'indication_max_phase': 'Phase', # phase
+            'publication_count': 'Literature', # Pub count
+            'target_level': 'IDG'
+
         }, inplace=True)
 
         # Assuming `target_ids` is a list of IDs from the Drugs data
@@ -1070,7 +1076,6 @@ class TargetSelectionTool(TemplateView):
         structure_df.rename(columns={
             'protein_conformation__protein__parent__id': 'Target ID'
         }, inplace=True)
-
         # Merge structure counts into the drugs DataFrame on `Target ID`
         df = df.merge(structure_df, on='Target ID', how='left')
 
@@ -1156,24 +1161,14 @@ class TargetSelectionTool(TemplateView):
 
         # Merge `agg_data_targets` back into the original DataFrame on `Target ID`
         df_final = df.merge(agg_data_targets, on=group_cols, how='left')
-        
-        # Define the columns to add with "Coming soon" as the default value
-        coming_soon_columns = [
-            "No. Publications", "IDG target level", "Novelty (OpenTargets)",
-            "A No. Ligands", "B No. Ligands", "C No. Ligands"
-        ]
-
-        # Add each column to df_final with "Coming soon" as the value for all rows
-        for column in coming_soon_columns:
-            df_final[column] = "Coming soon"
 
         # Keep only the specified columns in df_final
         keep_col_names = [
             'Target ID', 'Gene name', 'Protein name', 'Receptor family', 'Ligand type',
-            'Class', 'No. Publications', 'Novelty (Pharos)', 'IDG target level', 'Novelty (OpenTargets)',
-            'Total', 'Active', 'Inactive', 'All_Max_Phase', 'All_Drugs', 'All_Agents', 'A No. Ligands',
-            'Stimulatory_max_phase', 'Stimulatory_Drugs', 'Stimulatory_Agents', 'B No. Ligands',
-            'Inhibitory_max_phase', 'Inhibitory_Drugs', 'Inhibitory_Agents', 'C No. Ligands'
+            'Class', 'Literature', 'Novelty (Pharos)', 'IDG',
+            'Total', 'Active', 'Inactive', 'All_Max_Phase', 'All_Drugs', 'All_Agents',
+            'Stimulatory_max_phase', 'Stimulatory_Drugs', 'Stimulatory_Agents',
+            'Inhibitory_max_phase', 'Inhibitory_Drugs', 'Inhibitory_Agents',
         ]
 
         # Keep only the specified columns in df_final
@@ -1182,9 +1177,146 @@ class TargetSelectionTool(TemplateView):
         # Drop duplicates based on the reduced set of columns
         df_final.drop_duplicates(inplace=True)
 
+        # Fetch all Indications and create a hierarchical mapping
+        indications = Indication.objects.values("id", "title", "slug", "level")
+
+        indication_hierarchy = {
+            indication["id"]: {
+                "title": indication["title"],
+                "slug": indication["slug"],
+                "level": indication["level"],
+                "master": indication["slug"].split("_")[0],  # Extract level 0 from slug
+            }
+            for indication in indications
+        }
+
+        # Create a dictionary to map master slugs (level 0) to their titles
+        conversion_dict = {
+            indication["slug"]: indication["title"]
+            for indication in indications
+            if indication["level"] == 0  # Only include level 0 masters
+        }
+
+        # Fetch all Indication Associations (omit select_related since we no longer need target__entry_name)
+        associations = IndicationAssociation.objects.values(
+            "target", "indication", "association_score"
+        )
+
+        # Precompute target-ID-to-master mapping
+        indication_to_master = {
+            indication["id"]: indication["slug"].split("_")[0] for indication in indications
+        }
+
+        # Deduplicate associations (ensure unique target-indication pairs)
+        unique_associations = {
+            (assoc["target"], assoc["indication"]): assoc for assoc in associations
+        }.values()
+
+        # Group associations efficiently into a dictionary
+        grouped_data = defaultdict(lambda: defaultdict(list))
+        for assoc in unique_associations:
+            target_id = assoc["target"]  # Use Target ID directly
+            indication_id = assoc["indication"]
+            association_score = assoc["association_score"]
+            master = indication_to_master[indication_id]
+            
+            grouped_data[target_id][master].append({
+                "indication": indication_hierarchy[indication_id]["title"],
+                "association_score": association_score,
+            })
+
+        # Prepare a structured DataFrame in a single step
+        rows = []
+        columns_hierarchy = defaultdict(set)  # Use sets to prevent duplicate columns
+
+        for target_id, masters in grouped_data.items():
+            row = {"Target ID": target_id}  # Replace entry_name with Target ID
+
+            for master, indications in masters.items():
+                # Compute max score for the master
+                max_score = max(indication["association_score"] for indication in indications)
+                row[master] = max_score
+
+                # Add child indications
+                for indication in indications:
+                    col = (master, indication["indication"])
+                    row[col] = indication["association_score"]
+                    columns_hierarchy[master].add(col)  # Use set to prevent duplicates
+
+            rows.append(row)
+
+        # Flatten column hierarchy into ordered columns
+        ordered_columns = ["Target ID"] + list(columns_hierarchy.keys()) + [
+            col for master in columns_hierarchy for col in sorted(columns_hierarchy[master])
+        ]
+
+        # Create the DataFrame directly
+        df = pd.DataFrame(rows)
+        df = df.reindex(columns=ordered_columns).set_index("Target ID")
+        df = df.fillna("")  # Fill missing values with 0
+
+        # Create IDC_hierarchy with master titles and their trimmed children
+        IDC_hierarchy = {}
+
+        for master, child_columns in columns_hierarchy.items():
+            # Get the title of the master from conversion_dict
+            master_title = conversion_dict.get(master, master)  # Default to master if not found
+            
+            # Extract and trim child titles
+            children = [child[1] for child in sorted(child_columns)]  # Extract only the child titles
+            
+            # Add to the hierarchy
+            IDC_hierarchy[master] = {
+                "title": master_title,
+                "children": children
+            }
+
+        # Rename columns to remove the master in their names
+        new_columns = {}
+        for column in df.columns:
+            if isinstance(column, tuple):
+                # Child columns: Take only the child name (2nd part of the tuple)
+                new_columns[column] = column[1]
+            else:
+                # Master columns: Keep them as they are
+                new_columns[column] = column
+
+        # Apply the renaming to the DataFrame
+        df = df.rename(columns=new_columns)
+        
+        # print(df)
+        # reset index
+        df.reset_index(inplace=True)
+        # Perform the merge
+        merged_df = pd.merge(df_final, df, on='Target ID', how='left')
+        
+        # Add a new column for "Max disease association score"
+        merged_df["Max_disease_association_score"] = merged_df[
+            IDC_hierarchy.keys()  # Keys of the IDC_hierarchy dict correspond to master columns
+        ].apply(pd.to_numeric, errors="coerce").max(axis=1)  # Convert to numeric and compute the max
+
+        # Add a new column for "Disease associated"
+        merged_df["Disease_associated"] = merged_df["Max_disease_association_score"].apply(
+            lambda x: "Yes" if x >= 0.5 else "No"
+        )
+
         # Convert the final DataFrame to JSON
-        json_records_targets = df_final.to_json(orient='records')
+        json_records_targets = merged_df.to_json(orient='records')
         context['Full_data'] = json_records_targets
+        # Prepare sorted keys for IDC_hierarchy
+        # sorted_keys = sorted(IDC_hierarchy.keys())
+        # context['sorted_keys'] = sorted_keys
+        # context['IDC_hierarchy'] = IDC_hierarchy
+        limit = 1  # Adjust this number as needed for your subset
+        subset_keys = sorted(IDC_hierarchy.keys())[:limit]  # Limit to first `limit` keys
+        context['subset_keys'] = subset_keys
+        # Create a reduced version of IDC_hierarchy with only the subset keys
+        # reduced_hierarchy = {key: IDC_hierarchy[key] for key in subset_keys}
+        context['IDC_hierarchy'] = json.dumps(IDC_hierarchy)
+
+        # for key in sorted(IDC_hierarchy):
+        #     print(key, IDC_hierarchy[key]['title'],len(IDC_hierarchy[key]['children']))
+
         return context
 
         # # Get data - server side - Queries #
