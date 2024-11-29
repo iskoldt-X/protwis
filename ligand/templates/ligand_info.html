@@ -101,9 +101,42 @@
                     </table>
                 </div>
                 
-                <!-- Column 3: Optional (1/3 width) -->
+                <!--Column 3: Database connections (1/3 width)-->
                 <div class="col-md-4">
-                    <!-- Leave this empty or add additional content if needed -->
+                    <!-- Database connections -->
+                    <h3>Database connections</h3>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <td>
+                                <ul style="padding: 0; list-style-type:none">
+                                    {% for ex in ligand.wl %}
+                                    <li><a href="{{ ex.link }}" target="_blank">{{ ex.name }}</a></li>
+                                    {% endfor %}
+                                    <li><a href="https://gpcrdb.org/ligand/{{ ligand.ligand_id }}/info" target="_blank">GPCRdb</a></li>
+                                </ul>
+                            </td>
+                        </tr>
+                        {% if structure %}
+                        <tr>
+                            <td>Structure pdb</td>
+                            <td>
+                                {% for data in structure %}
+                                <a href="https://gpcrdb.org/interaction/{{ data.structure_pdb }}" target="_blank">{{ data.structure_pdb }}</a>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if mutations %}
+                        <tr>
+                            <td>Ligand site mutations</td>
+                            <td>
+                                {% for data in mutations %}
+                                <a href="#" onclick="populate_selection('{{ data.id }}')">{{ data.name }}</a>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
                 </div>
             </div>
             <br/>
@@ -222,9 +255,55 @@
         
         <!-- Agent/Drug -->
         <div class="tab-pane container" id="agent_drug">
-            <!--Database connections and Drug properties-->
+            <!--Drug properties and Database connections-->
             <div class="row">
-                <!--Column 1: Database connections (1/3 width)-->
+                <!-- Column 1: Ligand Information (1/3 width) -->
+                <div class="col-md-4">
+                    <h3>{{ ligand.ligand_name }}</h3>
+                    {% if ligand.picture is not None %}
+                        {{ ligand.picture|safe }}
+                    {% else %}
+                        <h3>Image not available</h3>
+                    {% endif %}
+                    <br/>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <td>SMILES</td>
+                            <td class="name" style="max-width: 350px">{{ ligand.ligand_smiles }}</td>
+                        </tr>
+                        <tr>
+                            <td>InChIKey</td>
+                            <td>{{ ligand.ligand_inchikey }}</td>
+                        </tr>
+                        {% if ligand.type == 'Peptide' %}
+                        <tr>
+                            <td>Sequence</td>
+                            <td class="name" style="max-width: 350px">{{ ligand.sequence }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                
+                <!--Column 2: Drug properties (1/3 width)-->
+                <div class="col-md-4">
+                    <!-- Drug properties -->
+                    <h3>Drug properties</h3>
+                    <table class="table table-striped table-bordered" style="margin-right:10px">
+                        <tr>
+                            <td>Molecular type</td>
+                            <td>{{ ligand.type }}</td>
+                        </tr>
+                        <tr>
+                            <td>Physiological/Surrogate</td>
+                            <td>{{ ligand.labels.endogenous }}</td>
+                        </tr>
+                        <tr>
+                            <td>Approved drug</td>
+                            <td>{{ ligand.labels.approved }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <!--Column 3: Database connections (1/3 width)-->
                 <div class="col-md-4">
                     <!-- Database connections -->
                     <h3>Database connections</h3>
@@ -261,27 +340,8 @@
                         {% endif %}
                     </table>
                 </div>
-                
-                <!--Column 2: Drug properties (1/3 width)-->
-                <div class="col-md-4">
-                    <!-- Drug properties -->
-                    <h3>Drug properties</h3>
-                    <table class="table table-striped table-bordered" style="margin-right:10px">
-                        <tr>
-                            <td>Molecular type</td>
-                            <td>{{ ligand.type }}</td>
-                        </tr>
-                        <tr>
-                            <td>Physiological/Surrogate</td>
-                            <td>{{ ligand.labels.endogenous }}</td>
-                        </tr>
-                        <tr>
-                            <td>Approved drug</td>
-                            <td>{{ ligand.labels.approved }}</td>
-                        </tr>
-                    </table>
-                </div>
-
+			</div>
+			<div class="row">
 				<!-- Column 3: Clinical trials (1/3 width) -->
 				<div class="col-md-4">
 					{% comment %} <!-- Clinical trials -->
@@ -291,28 +351,28 @@
 							<tr>
 								<td><strong>Phase I Trials</strong></td>
 								<td>
-									<span class="badge badge-primary">{{ Phase_I_trials }}</span>
+									<span class="badge badge-i">{{ Phase_I_trials }}</span>
 								</td>
 							</tr>
 							<tr>
 								<td><strong>Phase II Trials</strong></td>
 								<td>
-									<span class="badge badge-warning">{{ Phase_II_trials }}</span>
+									<span class="badge badge-ii">{{ Phase_II_trials }}</span>
 								</td>
 							</tr>
 							<tr>
 								<td><strong>Phase III Trials</strong></td>
 								<td>
-									<span class="badge badge-success">{{ Phase_III_trials }}</span>
+									<span class="badge badge-iii">{{ Phase_III_trials }}</span>
 								</td>
 							</tr>
 							<tr>
 								<td><strong>Approved</strong></td>
 								<td>
 									{% if Approved == 'Yes' %}
-										<span class="badge badge-success">Yes</span>
+										<span class="badge badge-iii">Yes</span>
 									{% else %}
-										<span class="badge badge-danger">No</span>
+										<span class="badge badge-notyet">No</span>
 									{% endif %}
 								</td>
 							</tr>
@@ -326,22 +386,22 @@
 						<div class="trial-stages">
 							<div class="stage">
 								<span>Phase I</span>
-								<span class="badge badge-primary">{{ Phase_I_trials }}</span>
+								<span class="badge badge-i">{{ Phase_I_trials }}</span>
 							</div>
 							<div class="stage">
 								<span>Phase II</span>
-								<span class="badge badge-warning">{{ Phase_II_trials }}</span>
+								<span class="badge badge-ii">{{ Phase_II_trials }}</span>
 							</div>
 							<div class="stage">
 								<span>Phase III</span>
-								<span class="badge badge-success">{{ Phase_III_trials }}</span>
+								<span class="badge badge-iii">{{ Phase_III_trials }}</span>
 							</div>
 							<div class="stage">
 								<span>Approved</span>
 								{% if Approved == 'Yes' %}
-									<span class="badge badge-success">Yes</span>
+									<span class="badge badge-iii">Yes</span>
 								{% else %}
-									<span class="badge badge-danger">No</span>
+									<span class="badge badge-notyet">No</span>
 								{% endif %}
 							</div>
 						</div>
@@ -781,23 +841,23 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 		border-radius: 20px;
 	}
 	
-	.badge-primary {
-		background-color: #007bff;
+	.badge-i {
+		background-color: #f5bcbf;
 		color: #fff;
 	}
 	
-	.badge-warning {
-		background-color: #ffc107;
+	.badge-ii {
+		background-color: #f17270;
 		color: #212529;
 	}
 	
-	.badge-success {
-		background-color: #28a745;
+	.badge-iii {
+		background-color: #dd2628;
 		color: #fff;
 	}
 	
-	.badge-danger {
-		background-color: #dc3545;
+	.badge-notyet {
+		background-color: #D3D3D3;
 		color: #fff;
 	}
 </style>
