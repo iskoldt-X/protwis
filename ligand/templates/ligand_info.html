@@ -14,249 +14,383 @@
 }
 </style>
 <div class="container body-content">
-	<div class="row align-items-start justify-content-center">
-		<div class="col-md-4 ml-auto">
-			<h3>{{ligand.ligand_name}}</h3>
-			{% if ligand.picture is not None %}
-				{{ligand.picture}}
-			{%else%}
-			<h3>Image not available</h3>
-			{%endif%}
-			<br \>
-			<table class="table table-striped table-bordered" style="margin-right:10px">
-				<tr>
-					<td>SMILES</td>
-					<td class="name" style="max-width: 350px">{{ligand.ligand_smiles}}</td>
-				</tr>
-				<tr>
-					<td>InChIKey</td>
-					<td>
-						{{ligand.ligand_inchikey}}</td>
-				</tr>
-				{% if ligand.type == 'Peptide' %}
-				<tr>
-					<td>Sequence</td>
-					<td class="name" style="max-width: 350px">
-						{{ligand.sequence}}</td>
-				</tr>
-				{% endif %}
-			</table>
-		</div>
+    {% comment %} <!-- Displaying the ligand name with empty col-md-8 -->
+    <div class="row">
+        <div class="col-md-4">
+            <h2>{{ ligand.ligand_name }}</h2>
+        </div>
+        <div class="col-md-8">
+            <!-- This column is intentionally left empty to occupy the remaining space -->
+        </div>
+    </div> {% endcomment %}
 
-		<div class="col-md-4 ml-auto">
-			<h3>Chemical properties</h3>
-			<table class="table table-striped table-bordered" style="margin-right:10px">
-				<tr>
-					<td>Hydrogen bond acceptors</td>
-					<td>{{ligand.hacc}}</td>
-				</tr>
-				<tr>
-					<td>Hydrogen bond donors</td>
-					<td>{{ligand.hdon}}</td>
-				</tr>
-				<tr>
-					<td>Rotatable bonds</td>
-					<td>{{ligand.rotatable}}</td>
-				</tr>
-				<tr>
-					<td>Molecular weight (Da)</td>
-					<td>{{ligand.mw|floatformat:1}}</td>
-				</tr>
-			</table>
-			<br \>
-			<h3>Drug properties</h3>
-			<table class="table table-striped table-bordered" style="margin-right:10px">
-				<tr>
-					<td>Molecular type</td>
-					<td>
-						{{ligand.type}}</td>
-				</tr>
-				<tr>
-					<td>Physiological/Surrogate</td>
-					<td>
-							{{ligand.labels.endogenous}}
-					</td>
-				<tr>
-				<tr>
-					<td>Approved drug</td>
-					<td>
-							{{ligand.labels.approved}}
-					</td>
-			</table>
-		</div>
-
-		<div class="col-md-4 ml-auto">
-			<h3>Database connections</h3>
-			<table class="table table-striped table-bordered">
-				<tr>
-					<td>
-						<ul style="padding: 0; list-style-type:none">
-							{% for ex in ligand.wl %}
-							<li><a href="{{ex.link}}" target="_blank">{{ex.name}}</a></li>
-							{%endfor%}
-							<li><a href="https://gpcrdb.org/ligand/{{ligand.ligand_id}}/info" target="_blank">GPCRdb</a></li>
-						</ul>
-					</td>
-				</tr>
-								{% if structure %}
-								<tr>
-										<td>Structure pdb</td>
-										<td>
-								{% for data in structure %}
-							<a href="https://gpcrdb.org/interaction/{{data.structure_pdb}}" target="_blank">{{data.structure_pdb}}</a>
-						{%endfor%}
-										</td>
-							</tr>
-								{%endif%}
-								{% if mutations %}
-								<tr>
-										<td>Ligand site mutations</td>
-										<td>
-								{% for data in mutations %}
-							<a href="#" onclick="populate_selection('{{data.id}}')">{{data.name}}</a>
-						{%endfor%}
-										</td>
-							</tr>
-								{%endif%}
-			</table>
-		</div>
-	</div>
-	<hr>
-	<h3>Sankey plot</h3>
-	{% if plot_existence == 'yes' %}
-		<div id="sankey_plot"></div>
-		<p>
-			<div class="btn-group">
-				<button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown"
-				aria-haspopup="true" aria-expanded="false">
-				<span class="glyphicon glyphicon-download"></span> Download <span class="caret"></span>
-				</button>
-				<ul class="dropdown-menu">
-				<li>
-						<a href="javascript:saveSvgAsPng(document.getElementById('sankey'), 'sankey_{{indication}}.png');">PNG</a>
-				</li>
-				<li>
-						<a href="javascript:saveSvgAsJpg(document.getElementById('sankey'), 'sankey_{{indication}}.jpg');">JPG</a>
-				</li>
-				<li>
-						<a href="javascript:saveSvgAsTiff(document.getElementById('sankey'), 'sankey_{{indication}}.tiff');">TIFF</a>
-				</li>
-				</ul>
-			</div></p>
-	{% else %}
-	<h4>Compound is not listed as a drug.</h4>
-	{% endif %}
-	<hr>
-	<h3>Bioactivities</h3>
-	<ul class="nav nav-tabs">
-		<li class="nav-item active">
-			<a class="nav-link" data-toggle="tab" href="#affinity">Affinity</a>
-		</li>
+    <!-- Displaying the ligand name -->
+    <div class="row">
+        <div class="col-md-4">
+            <h2>{{ ligand.ligand_name }}</h2>
+        </div>
+    </div>
+    
+    <!-- Tabs for Agent/Drug and Bioactivity -->
+    <ul class="nav nav-tabs">
+        <li class="nav-item active">
+            <a class="nav-link active" data-toggle="tab" href="#bioactivity" id="bioactivity_tab">Bioactivity</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/Drug</a>
+        </li>
 		<li class="nav-item">
-			<a class="nav-link" data-toggle="tab" href="#potency">Potency</a>
+			<a class="nav-link" data-toggle="tab" href="#endogenous" id="endogenous_tab">Endogenous</a>
 		</li>
-	</ul>
-	<div class="tab-content">
-		<div class="tab-pane container active" id="affinity">
-			<table class="display" id='affinity_table' style="width: 100%">
-				<thead>
-					<tr rowspan="2">
-						<th style="text-align:center" colspan="5">
-							Receptor</th>
-						<th style=" text-align:center" colspan="4">
-							Activity</th>
-						<th style=" text-align:center" colspan="1">
-							Source</th>
-					</tr>
-					<tr>
-						<th style="text-align:left">GTP</th>
-						<th style="text-align:left">Uniprot</th>
-						<th style="text-align:left">Species</th>
-						<th style="text-align:left">Family</th>
-						<th style="border-right: 1px solid black; text-align:left">Class</th>
+    </ul>
+    <br/>
+    <br/>
+    
+    <div class="tab-content">
+        <!-- Bioactivity Tab Pane -->
+        <div class="tab-pane container active" id="bioactivity">
+            <!-- Ligand Information and Chemical Properties -->
+            <div class="row">
+                <!-- Column 1: Ligand Information (1/3 width) -->
+                <div class="col-md-4">
+                    <h3>{{ ligand.ligand_name }}</h3>
+                    {% if ligand.picture is not None %}
+                        {{ ligand.picture|safe }}
+                    {% else %}
+                        <h3>Image not available</h3>
+                    {% endif %}
+                    <br/>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <td>SMILES</td>
+                            <td class="name" style="max-width: 350px">{{ ligand.ligand_smiles }}</td>
+                        </tr>
+                        <tr>
+                            <td>InChIKey</td>
+                            <td>{{ ligand.ligand_inchikey }}</td>
+                        </tr>
+                        {% if ligand.type == 'Peptide' %}
+                        <tr>
+                            <td>Sequence</td>
+                            <td class="name" style="max-width: 350px">{{ ligand.sequence }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                
+                <!-- Column 2: Chemical Properties (1/3 width) -->
+                <div class="col-md-4">
+                    <h3>Chemical Properties</h3>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <td>Hydrogen bond acceptors</td>
+                            <td>{{ ligand.hacc }}</td>
+                        </tr>
+                        <tr>
+                            <td>Hydrogen bond donors</td>
+                            <td>{{ ligand.hdon }}</td>
+                        </tr>
+                        <tr>
+                            <td>Rotatable bonds</td>
+                            <td>{{ ligand.rotatable }}</td>
+                        </tr>
+                        <tr>
+                            <td>Molecular weight (Da)</td>
+                            <td>{{ ligand.mw|floatformat:1 }}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <!-- Column 3: Optional (1/3 width) -->
+                <div class="col-md-4">
+                    <!-- Leave this empty or add additional content if needed -->
+                </div>
+            </div>
+            <br/>
+            
+            <!-- Bioactivities -->
+            <hr>
+            <h3>Bioactivities</h3>
+            <ul class="nav nav-tabs">
+                <li class="nav-item active">
+                    <a class="nav-link active" data-toggle="tab" href="#affinity">Affinity</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#potency">Potency</a>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <!-- Affinity table -->
+                <div class="tab-pane container active" id="affinity">
+                    <table class="display" id='affinity_table' style="width: 100%">
+                        <thead>
+                            <tr rowspan="2">
+                                <th style="text-align:center" colspan="5">
+                                    Receptor</th>
+                                <th style=" text-align:center" colspan="4">
+                                    Activity</th>
+                                <th style=" text-align:center" colspan="1">
+                                    Source</th>
+                            </tr>
+                            <tr>
+                                <th style="text-align:left">GTP</th>
+                                <th style="text-align:left">Uniprot</th>
+                                <th style="text-align:left">Species</th>
+                                <th style="text-align:left">Family</th>
+                                <th style="border-right: 1px solid black; text-align:left">Class</th>
 
-						<th>Type</th>
-						<th>Min</th>
-						<th>Avg</th>
-						<th style="border-right: 1px solid black;">Max</th>
+                                <th>Type</th>
+                                <th>Min</th>
+                                <th>Avg</th>
+                                <th style="border-right: 1px solid black;">Max</th>
 
-						<th style="border-right: 1px solid black;">Database</th>
-					</tr>
-				</thead>
-				<tbody>
-					{%for data in assay_affinity%}
-					<tr>
-						<td>{{data.receptor_gtp}}</td>
-						<td>{{data.receptor_uniprot}}</td>
-						<td>{{data.receptor_species}}</td>
-						<td>{{data.receptor_family}}</td>
-						<td>{{data.receptor_class}}</td>
+                                <th style="border-right: 1px solid black;">Database</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in assay_affinity %}
+                            <tr>
+                                <td>{{ data.receptor_gtp }}</td>
+                                <td>{{ data.receptor_uniprot }}</td>
+                                <td>{{ data.receptor_species }}</td>
+                                <td>{{ data.receptor_family }}</td>
+                                <td>{{ data.receptor_class }}</td>
 
-						<td>{{data.type}}</td>
+                                <td>{{ data.type }}</td>
 
-						<td>{{data.min}}</td>
-						<td>{{data.avg}}</td>
-						<td>{{data.max}}</td>
+                                <td>{{ data.min }}</td>
+                                <td>{{ data.avg }}</td>
+                                <td>{{ data.max }}</td>
 
-						<td>{{data.source}}</td>
-					</tr>
-					{%endfor%}
-				</tbody>
-			</table>
+                                <td>{{ data.source }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Potency table -->
+                <div class="tab-pane container" id="potency">
+                    <table class="display" id='potency_table' style="width: 100%">
+                        <thead>
+                            <tr rowspan="2">
+                                <th style="text-align:center" colspan="5">
+                                    Receptor</th>
+                                <th style=" text-align:center" colspan="4">
+                                    Activity</th>
+                                <th style=" text-align:center" colspan="1">
+                                    Source</th>
+                            </tr>
+                            <tr>
+                                <th style="text-align:left">GTP</th>
+                                <th style="text-align:left">Uniprot</th>
+                                <th style="text-align:left">Species</th>
+                                <th style="text-align:left">Family</th>
+                                <th style="border-right: 1px solid black; text-align:left">Class</th>
+
+                                <th>Type</th>
+                                <th>Min</th>
+                                <th>Avg</th>
+                                <th style="border-right: 1px solid black;">Max</th>
+
+                                <th style="border-right: 1px solid black;">Database</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in assay_potency %}
+                            <tr>
+                                <td>{{ data.receptor_gtp }}</td>
+                                <td>{{ data.receptor_uniprot }}</td>
+                                <td>{{ data.receptor_species }}</td>
+                                <td>{{ data.receptor_family }}</td>
+                                <td>{{ data.receptor_class }}</td>
+
+                                <td>{{ data.type }}</td>
+
+                                <td>{{ data.min }}</td>
+                                <td>{{ data.avg }}</td>
+                                <td>{{ data.max }}</td>
+
+                                <td>{{ data.source }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Agent/Drug -->
+        <div class="tab-pane container" id="agent_drug">
+            <!--Database connections and Drug properties-->
+            <div class="row">
+                <!--Column 1: Database connections (1/3 width)-->
+                <div class="col-md-4">
+                    <!-- Database connections -->
+                    <h3>Database connections</h3>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <td>
+                                <ul style="padding: 0; list-style-type:none">
+                                    {% for ex in ligand.wl %}
+                                    <li><a href="{{ ex.link }}" target="_blank">{{ ex.name }}</a></li>
+                                    {% endfor %}
+                                    <li><a href="https://gpcrdb.org/ligand/{{ ligand.ligand_id }}/info" target="_blank">GPCRdb</a></li>
+                                </ul>
+                            </td>
+                        </tr>
+                        {% if structure %}
+                        <tr>
+                            <td>Structure pdb</td>
+                            <td>
+                                {% for data in structure %}
+                                <a href="https://gpcrdb.org/interaction/{{ data.structure_pdb }}" target="_blank">{{ data.structure_pdb }}</a>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if mutations %}
+                        <tr>
+                            <td>Ligand site mutations</td>
+                            <td>
+                                {% for data in mutations %}
+                                <a href="#" onclick="populate_selection('{{ data.id }}')">{{ data.name }}</a>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+                
+                <!--Column 2: Drug properties (1/3 width)-->
+                <div class="col-md-4">
+                    <!-- Drug properties -->
+                    <h3>Drug properties</h3>
+                    <table class="table table-striped table-bordered" style="margin-right:10px">
+                        <tr>
+                            <td>Molecular type</td>
+                            <td>{{ ligand.type }}</td>
+                        </tr>
+                        <tr>
+                            <td>Physiological/Surrogate</td>
+                            <td>{{ ligand.labels.endogenous }}</td>
+                        </tr>
+                        <tr>
+                            <td>Approved drug</td>
+                            <td>{{ ligand.labels.approved }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+				<!-- Column 3: Clinical trials (1/3 width) -->
+				<div class="col-md-4">
+					{% comment %} <!-- Clinical trials -->
+					<h3>Clinical trials</h3>
+					<table class="table table-bordered">
+						<tbody>
+							<tr>
+								<td><strong>Phase I Trials</strong></td>
+								<td>
+									<span class="badge badge-primary">{{ Phase_I_trials }}</span>
+								</td>
+							</tr>
+							<tr>
+								<td><strong>Phase II Trials</strong></td>
+								<td>
+									<span class="badge badge-warning">{{ Phase_II_trials }}</span>
+								</td>
+							</tr>
+							<tr>
+								<td><strong>Phase III Trials</strong></td>
+								<td>
+									<span class="badge badge-success">{{ Phase_III_trials }}</span>
+								</td>
+							</tr>
+							<tr>
+								<td><strong>Approved</strong></td>
+								<td>
+									{% if Approved == 'Yes' %}
+										<span class="badge badge-success">Yes</span>
+									{% else %}
+										<span class="badge badge-danger">No</span>
+									{% endif %}
+								</td>
+							</tr>
+						</tbody>
+					</table> {% endcomment %}
+				
+					<!-- Clinical Trials Section -->
+					<h3>Clinical Trials</h3>
+					<div class="clinical-trials">
+						
+						<div class="trial-stages">
+							<div class="stage">
+								<span>Phase I</span>
+								<span class="badge badge-primary">{{ Phase_I_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Phase II</span>
+								<span class="badge badge-warning">{{ Phase_II_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Phase III</span>
+								<span class="badge badge-success">{{ Phase_III_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Approved</span>
+								{% if Approved == 'Yes' %}
+									<span class="badge badge-success">Yes</span>
+								{% else %}
+									<span class="badge badge-danger">No</span>
+								{% endif %}
+							</div>
+						</div>
+					</div>
+				</div>
+            </div>
+            <br/>
+            
+            <!-- Sankey plot -->
+             <hr>
+            <h3>Sankey plot</h3>
+            {% if plot_existence == 'yes' %}
+                <div id="sankey_plot"></div>
+                <p>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown"
+                        aria-haspopup="true" aria-expanded="false">
+                        <span class="glyphicon glyphicon-download"></span> Download <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu">
+                        <li>
+                                <a href="javascript:saveSvgAsPng(document.getElementById('sankey'), 'sankey_{{ indication }}.png');">PNG</a>
+                        </li>
+                        <li>
+                                <a href="javascript:saveSvgAsJpg(document.getElementById('sankey'), 'sankey_{{ indication }}.jpg');">JPG</a>
+                        </li>
+                        <li>
+                                <a href="javascript:saveSvgAsTiff(document.getElementById('sankey'), 'sankey_{{ indication }}.tiff');">TIFF</a>
+                        </li>
+                        </ul>
+                    </div></p>
+            {% else %}
+                <h4>Compound is not listed as a drug.</h4>
+            {% endif %}
+        </div>
+        <!-- Endogenous -->
+        <div class="tab-pane container" id="endogenous">
+			{% if ligand.labels.endogenous == 'Endogenous' %}
+				<p>This ligand is endogenous.</p>
+			{% else %}
+				<p>This ligand is not endogenous.</p>
+			{% endif %}
 		</div>
-		<div class="tab-pane container" id="potency">
-			<table class="display" id='potency_table' style="width: 100%">
-				<thead>
-					<tr rowspan="2">
-						<th style="text-align:center" colspan="5">
-							Receptor</th>
-						<th style=" text-align:center" colspan="4">
-							Activity</th>
-						<th style=" text-align:center" colspan="1">
-							Source</th>
-					</tr>
-					<tr>
-						<th style="text-align:left">GTP</th>
-						<th style="text-align:left">Uniprot</th>
-						<th style="text-align:left">Species</th>
-						<th style="text-align:left">Family</th>
-						<th style="border-right: 1px solid black; text-align:left">Class</th>
-
-						<th>Type</th>
-						<th>Min</th>
-						<th>Avg</th>
-						<th style="border-right: 1px solid black;">Max</th>
-
-						<th style="border-right: 1px solid black;">Database</th>
-					</tr>
-				</thead>
-				<tbody>
-					{%for data in assay_potency%}
-					<tr>
-						<td>{{data.receptor_gtp}}</td>
-						<td>{{data.receptor_uniprot}}</td>
-						<td>{{data.receptor_species}}</td>
-						<td>{{data.receptor_family}}</td>
-						<td>{{data.receptor_class}}</td>
-
-						<td>{{data.type}}</td>
-
-						<td>{{data.min}}</td>
-						<td>{{data.avg}}</td>
-						<td>{{data.max}}</td>
-
-						<td>{{data.source}}</td>
-					</tr>
-					{%endfor%}
-				</tbody>
-			</table>
-		</div>
-	</div>
-  <hr>
-  <br>
-	{% endautoescape %}
+    </div>
+    
+    <br>
 </div>
 <br>
+{% endautoescape %}
 {% endblock %}
 
 {% block addon_js %}
@@ -606,6 +740,65 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 
 	div.align-items-start img {
 		max-width: 100%;
+	}
+</style>
+
+<style type="text/css">
+	/* Clinical Trials Section */
+	.clinical-trials {
+		text-align: center;
+		margin: 5px;
+		padding: 5px;
+		border: 1px solid #ddd;
+		border-radius:8px;
+		background-color: #f9f9f9;
+	}
+	
+	
+	.trial-stages {
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		gap: 15px; /* Add spacing between stages */
+	}
+	
+	.stage {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		font-size: 1rem;
+	}
+	
+	.stage span {
+		margin: 5px;
+	}
+	
+	.badge {
+		display: inline-block;
+		padding: 10px 15px;
+		font-size: 0.9rem;
+		font-weight: bold;
+		border-radius: 20px;
+	}
+	
+	.badge-primary {
+		background-color: #007bff;
+		color: #fff;
+	}
+	
+	.badge-warning {
+		background-color: #ffc107;
+		color: #212529;
+	}
+	
+	.badge-success {
+		background-color: #28a745;
+		color: #fff;
+	}
+	
+	.badge-danger {
+		background-color: #dc3545;
+		color: #fff;
 	}
 </style>
 {% endblock %}

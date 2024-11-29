@@ -1982,10 +1982,45 @@ class LigandInformationView(TemplateView):
             else:
                 nodes_nr = len(caches['targets'])
 
+            # calculate the number of Phases
+            df = pd.DataFrame(list(indication_data.values(
+                'indication_max_phase',
+                'drug_status'
+                )))
+
+            df['Is_Phase_I'] = (df['indication_max_phase'] == 1).astype(int)
+            df['Is_Phase_II'] = (df['indication_max_phase'] == 2).astype(int)
+            df['Is_Phase_III'] = (df['indication_max_phase'] == 3).astype(int)
+            df['Is_Approved'] = (df['drug_status'] == 'Approved').astype(int)
+
+            phase_counts = df.agg({
+                'Is_Phase_I': 'sum',
+                'Is_Phase_II': 'sum',
+                'Is_Phase_III': 'sum',
+                'Is_Approved': 'max'
+                }).to_dict()
+            
+            phase_counts['Is_Approved'] = 'Yes' if phase_counts['Is_Approved'] == 1 else 'No'
+
+            context.update({
+                'Phase_I_trials': phase_counts.get('Is_Phase_I', 0),
+                'Phase_II_trials': phase_counts.get('Is_Phase_II', 0),
+                'Phase_III_trials': phase_counts.get('Is_Phase_III', 0),
+                'Approved': phase_counts.get('Is_Approved', 'No')
+                })
+
             context.update({'sankey': json.dumps(sankey)})
             context.update({'points': total_points})
             context.update({'nodes_nr': nodes_nr})
             context.update({'plot_existence': 'yes'})
+
+        else:
+            context.update({
+                'Phase_I_trials': 0,
+                'Phase_II_trials': 0,
+                'Phase_III_trials': 0,
+                'Approved': 'No'
+                })
 
         #####################################
 
