@@ -31,7 +31,7 @@ from ligand.functions import OnTheFly, AddPathwayData
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from interaction.models import StructureLigandInteraction
 from mutation.models import MutationExperiment
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Indication
 
 
 class LigandNameSelection(AbsTargetSelection):
@@ -1915,7 +1915,7 @@ class LigandInformationView(TemplateView):
 
         ##### ADDING SECTION FOR SANKEY #####
 
-        indication_data = Drugs2024.objects.filter(ligand=ligand_id).prefetch_related('ligand',
+        indication_data = Drugs.objects.filter(ligand=ligand_id).prefetch_related('ligand',
                                                                                       'target',
                                                                                       'indication')
         context.update({'plot_existence': 'no'})

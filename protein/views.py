@@ -15,7 +15,7 @@ from mutation.models import MutationExperiment
 from common.selection import Selection
 from common.views import AbsBrowseSelection
 from ligand.models import Ligand, LigandID
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Indication
 
 import json
 from copy import deepcopy
@@ -139,7 +139,7 @@ def detail(request, slug):
     #ADDING SECTION FOR SANKEY
 
     #slug = '5ht1a_human'
-    indication_data = Drugs2024.objects.filter(target__entry_name=slug).prefetch_related('ligand',
+    indication_data = Drugs.objects.filter(target__entry_name=slug).prefetch_related('ligand',
                                                                                          'target',
                                                                                          'indication')
 

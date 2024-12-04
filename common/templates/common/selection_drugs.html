@@ -65,17 +65,18 @@
         padding-left: 0 !important;
     }
 
-    .tooltip {
-        position: absolute;
-        text-align: center;
-        padding: 6px;
-        font-size: 12px;
-        background: lightgrey;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        pointer-events: none; /* Prevents the tooltip from capturing mouse events */
-        z-index: 10;
+    .d3-tip {
+      font-family: Arial;
+      background: #eef8ff;
+      padding: 9px;
+      border: 1px;
+      border-radius: 10px;
+      color: black;
+      z-index: 5070;
+      position: absolute;
+      pointer-events: none;
     }
+
     .text-greyed-out {
         fill: grey;
     }
@@ -84,11 +85,11 @@
         font-weight: bold;
     }
 
-    .graydiv {
+    <!-- .graydiv {
         height: 20px;
         width: 275px;
         background: linear-gradient(to right, white 0%, blue 100%)
-    }
+    } -->
 
 </style>
 
@@ -237,13 +238,20 @@
             <br>
           </div>
           <br>
+          <!-- <div class="col-md-3">
+            <div style="float: right;" class="text-center">
+              <b>Drugs count (from low to high)</b>
+              <div class="graydiv"></div>
+            </div>
+          </div> -->
+          <br />
 
-          <div class="col-md-2" style="padding-top: 5px;">
-            Icon toggle:
-            <button id="ToggleIcon" class="btn btn-info active">On</button>
+          <div id="image-container" data-image-url="{% static 'home/images/DataMapper_GPCRome_icon_legend.png' %}"></div>
+          <!-- GPCRome -->
+          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+              <div id="GPCRome_plot" class="text-center"></div>
           </div>
-
-          <div class="col-md-4">
+          <div class="col-md-12">
             <div class="text-center">
               <div class="dropdown">
                 <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -258,22 +266,6 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div style="float: right;" class="text-center">
-              <b>Drugs count (from low to high)</b>
-              <div class="graydiv"></div>
-            </div>
-          </div>
-        <br />
-        <br />
-        <br />
-
-          <div id="image-container" data-image-url="{% static 'home/images/DataMapper_GPCRome_icon_legend.png' %}"></div>
-          <!-- GPCRome -->
-          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
-              <div id="GPCRome_plot" class="text-center"></div>
-          </div>
-
         </div>
       </div>
     </div>
@@ -862,6 +854,7 @@
 <script src="{% static 'home/js/popper.min.js' %}"></script>
 <script src="{% static 'home/js/spectrum_v1_8_1.js' %}"></script>
 <script src="{% static 'home/js/ml.js' %}"></script>
+<script src="{% static 'home/js/d3.tip.js' %}"></script>
 <script>
 
 var GPCRome_categories_data = {{ GPCRome_data|safe }};

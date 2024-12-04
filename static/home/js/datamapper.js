@@ -2656,10 +2656,6 @@ function GPCRome_formatTextWithHTML(text, Family_list) {
 function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odorant = false, indication = false) {
 
     dimensions = { height: 1000, width: 1000 };
-    if (indication) {
-        dimensions = { height: 2000, width: 2000 };
-    }
-
 
     const Spacing = GPCRome_styling.Spacing;
     const datatype = GPCRome_styling.datatype;
@@ -2799,13 +2795,11 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
           GPCRome_radius = Math.min(width, height) / 2 - 60 - ((level === 3) ? (100 * level) : (95 * level)); // Radius for each GPCRome
         } else if (indication) {
           if (level === 0) {
-            adjustedWidth = 1000;
-            adjustedHeight = 1000;
-            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 85; // Base radius
+            GPCRome_radius = Math.min(width, height) / 2 - 85; // Base radius
           } else if (level === 1) {
-            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 85 - 150; // Adjusted for more spacing
+            GPCRome_radius = Math.min(width, height) / 2 - 85 - 150; // Adjusted for more spacing
           } else if (level === 2) {
-            GPCRome_radius = Math.min(adjustedWidth, adjustedHeight) / 2 - 75 - 300; // Further adjusted
+            GPCRome_radius = Math.min(width, height) / 2 - 75 - 300; // Further adjusted
           }
         } else {
           GPCRome_radius = Math.min(width, height) / 2 - 60 - ((level === 4) ? (90 * level) : (85 * level)); // Radius for each GPCRome
@@ -2850,7 +2844,6 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
                 values = Object.values(label_data).flat(); // Flatten the data without placeholders
             }
         }
-
         // Add in Class
         if (odorant) {
             Header_list = ["O2","O1"];
@@ -2959,12 +2952,23 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
             if (indication) {
                 // Fetch the short version from the titles dictionary
                 const shortText = titles[labelText] || labelText;  // Use labelText if not found
-                return GPCRome_formatTextWithHTML(shortText, Family_list, level);
+                if (shortText instanceof Array){
+                  return GPCRome_formatTextWithHTML(shortText[0], Family_list, level);
+                } else {
+                  return GPCRome_formatTextWithHTML(shortText, Family_list, level);
+                }
             } else {
                 return GPCRome_formatTextWithHTML(labelText, Family_list, level);
             }
         }
 
+        // Initialize the tooltip
+        var tip = d3.tip()
+          .attr('class', 'd3-tip')
+          .offset([0, 0]);
+
+        // Attach the tooltip to the SVG
+        svg.call(tip);
 
        // Bind data and append text elements for the specific GPCRome
        svg.selectAll(`.GPCRome-text-${level}`)
@@ -3030,38 +3034,30 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
            .style("fill", d => Header_list.includes(d) ? "Black" : "black")
            // Add hover event listeners to change the text and styles
            .on("mouseover", function(d, i) {
-               if (indication) {
-                   const labelText = getLabelText(d);
+             if (indication) {
+               const labelText = getLabelText(d);
+               // Set the tooltip content dynamically
+               tip.html(function() {
+                 var content = '';
+                 var count = titles[labelText][1];
+                 content = "<b>" + labelText + "</b><br>" +
+                   "Total count: " + count + ", Unique count: " + titles[labelText][6] + "<br>" +
+                   "<span style='color:#f5bcbf'>Phase I</span>: " + titles[labelText][2] + "<br>" +
+                   "<span style='color:#f17270'>Phase II</span>: " + titles[labelText][3] + "<br>" +
+                   "<span style='color:#dd2628'>Phase III</span>: " + titles[labelText][4] + "<br>" +
+                   "<span style='color:#2c87c8'>Phase IV</span>: " + titles[labelText][5] + "<br>";
+                 return content;
+               });
 
-                   // Display the long version (key in 'titles') on hover
-                   const longText = labelText;  // The long label is the key
-                   d3.select(this)
-                       .html(() => GPCRome_formatTextWithHTML(longText, Family_list, level))
-                       .style("font-weight", "bold")
-                       .style("fill", "black");
-
-                   // Grey out all other text elements across all levels
-                   svg.selectAll('.GPCRome-text')
-                       .filter(function() { return this !== d3.select(event.currentTarget).node(); })
-                       .style("fill", "#D8D8D8")
-                       .style("font-weight", "normal");
-               }
+               // Show the tooltip
+               tip.show(d, this);
+             }
            })
            .on("mouseout", function(d, i) {
-               if (indication) {
-                   const labelText = getLabelText(d);
-
-                   // Revert to displaying the short version
-                   d3.select(this)
-                       .html(() => getInitialDisplayText(labelText))
-                       .style("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal")
-                       .style("fill", d => Header_list.includes(d) ? "Black" : "black");
-
-                   // Reset all other text elements to their initial styles
-                   svg.selectAll('.GPCRome-text')
-                       .style("fill", d => Header_list.includes(d) ? "Black" : "black")
-                       .style("font-weight", d => Header_list.includes(d) || Family_list.includes(d) ? "950" : "normal");
-               }
+             if (indication) {
+               // Hide the tooltip
+               tip.hide(d, this);
+             }
            });
 
         // Function to process the formattedText

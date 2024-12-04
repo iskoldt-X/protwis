@@ -1143,23 +1143,24 @@ class DrugList(views.APIView):
     """
     def get(self, request, entry_name=None):
 
-        drugs = Drugs.objects.filter(target__entry_name=entry_name).distinct()
+        drugs = Drugs.objects.filter(target_id__entry_name=entry_name).prefetch_related("ligand", "indication", "disease_association").distinct()
 
         druglist = []
         for drug in drugs:
-            drugname = drug.name
-            drugtype = drug.drugtype
-            clinical = drug.clinicalstatus
-            phasedate = drug.phasedate
-            if clinical != '-':
-                status = drug.status + ' (' + drug.clinicalstatus + ', ' + phasedate + ')'
-            else:
-                status = drug.status
-            approval = drug.approval
-            indication = drug.indication
-            moa = drug.moa
-            novelty = drug.novelty
-            druglist.append({'name':drugname, 'approval': approval, 'indication': indication, 'status':status, 'drugtype':drugtype, 'moa':moa, 'novelty': novelty})
+            drugname = druga.ligand.name
+            drugtype = drug.ligand.ligand_type.name
+            clinical = drug.indication_max_phase
+            indication = drug.indication.title
+            status = drug.indication_status
+            moa = drug.moa.slug
+            novelty = drug.novelty_score
+            druglist.append({'name':drugname,
+                             'clinical': approval,
+                             'indication': indication,
+                             'status':status,
+                             'drugtype':drugtype,
+                             'moa':moa,
+                             'novelty': novelty})
 
         return Response(druglist)
 

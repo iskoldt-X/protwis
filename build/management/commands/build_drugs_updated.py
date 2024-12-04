@@ -5,7 +5,7 @@ from django.utils.text import slugify
 
 from common.models import WebResource, WebLink, Publication
 from protein.models import Protein, TissueExpression, CancerType, CancerExpression, Tissues, ExpressionValue
-from drugs.models import Drugs2024, Indication, IndicationAssociation, ATCCodes
+from drugs.models import Drugs, Indication, IndicationAssociation, ATCCodes
 from ligand.models import Ligand, LigandID, LigandType, LigandRole
 from common.tools import test_model_updates
 
@@ -44,7 +44,7 @@ class Command(BaseCommand):
 
     def purge_data(self):
         try:
-            Drugs2024.objects.all().delete()
+            Drugs.objects.all().delete()
             Indication.objects.all().delete()
             TissueExpression.objects.all().delete()
             Tissues.objects.all().delete()
@@ -52,7 +52,6 @@ class Command(BaseCommand):
             CancerExpression.objects.all().delete()
             ExpressionValue.objects.all().delete()
             IndicationAssociation.objects.all().delete()
-            # NHSPrescribings.objects.all().delete()
         except Exception as msg:
             print(msg)
             self.logger.warning('Existing data cannot be deleted')
@@ -70,7 +69,7 @@ class Command(BaseCommand):
             test_model_updates(self.all_models, self.tracker, initialize=True)
             print("Ended purging data")
 
-        print("\n\nWelcome to the Drugs2024 build process. Build steps will be printed.")
+        print("\n\nWelcome to the Drugs build process. Build steps will be printed.")
         print("##### STEP 0 START #####")
         print("\n\nStarted parsing data and setting up different dataframes")
         tissue_df, cancer_df, drug_df, association_data, atc_df = Command.setup_data()
@@ -334,7 +333,7 @@ class Command(BaseCommand):
                 #Fetch the inidcation association
                 association = Command.fetch_association(row['entry_name'], row['ICD_Code'])
                 #to be human readable instead of numerical values (ask David)
-                drug, _ = Drugs2024.objects.get_or_create(charge=row['Charge'],
+                drug, _ = Drugs.objects.get_or_create(charge=row['Charge'],
                                                           complexity=row['Complexity'],
                                                           tpsa=row['TPSA'],
                                                           drug_status=row['Drug_Status'],
