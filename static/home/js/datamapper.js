@@ -2496,6 +2496,84 @@ function GPCRome_initializeOdorantData(data) {
     return GPCRomes;
 }
 
+function GPCRome_initializeOdorantData(data) {
+    // Initialize the GPCRomes
+    let GPCRomes = {
+        GPCRome_O1: {},
+        GPCRome_O2_ext: {},
+        GPCRome_O2_mid: {},
+        GPCRome_O2_int: {},
+    };
+
+    // Helper function to add items to the GPCRome using receptor family as key
+    function addItemsToCircle(GPCRome, items) {
+        Object.keys(items).forEach(ligandType => {
+            const receptorFamilies = items[ligandType];
+
+            // Debugging - log the receptorFamilies structure
+            // console.log(`Processing ligandType: ${ligandType}`);
+            // console.log(`Receptor families:`, receptorFamilies);
+            // Ensure receptorFamilies is an object
+            if (typeof receptorFamilies === 'object' && receptorFamilies !== null) {
+                Object.keys(receptorFamilies).forEach(family => {
+                    if (!GPCRome[family]) {
+                        GPCRome[family] = [];
+                    }
+
+                    const receptors = receptorFamilies[family];
+                    if (Array.isArray(receptors)) {
+                        GPCRome[family].push(...receptors);
+                    } else {
+                        console.warn(`Unexpected data format for family ${family}`);
+                    }
+                });
+            } else {
+                console.warn(`Unexpected data format for ligand type ${ligandType}`);
+            }
+        });
+    }
+
+    // Process the data
+    Object.keys(data).forEach(className => {
+        const classData = data[className];
+        // Handle cases where classData is not an object
+        if (typeof classData !== 'object' || classData === null) {
+            console.warn(`Expected object but got ${typeof classData} for class ${className}`);
+            return;
+        }
+
+        // Circle 1 : "Class O2 (tetrapod specific odorant) EXT"
+        if (className === "Class O2 (tetrapod specific odorant) EXT") {
+            addItemsToCircle(GPCRomes.GPCRome_O2_ext, classData);
+        }
+
+        // Circle 2 : "Class O2 (tetrapod specific odorant) MID"
+        if (className === "Class O2 (tetrapod specific odorant) MID") {
+            addItemsToCircle(GPCRomes.GPCRome_O2_mid, classData);
+        }
+
+        // Circle 3 : "Class O2 (tetrapod specific odorant) INT"
+        if (className === "Class O2 (tetrapod specific odorant) INT") {
+            addItemsToCircle(GPCRomes.GPCRome_O2_int, classData);
+        }
+
+        // Circle 4: "Class O1 (fish-like odorant)"
+        if (className === "Class O1 (fish-like odorant)") {
+            addItemsToCircle(GPCRomes.GPCRome_O1, classData);
+        }
+
+    });
+
+    // Convert the arrays to unique values
+    Object.keys(GPCRomes).forEach(GPCRomeKey => {
+        Object.keys(GPCRomes[GPCRomeKey]).forEach(familyKey => {
+            GPCRomes[GPCRomeKey][familyKey] = Array.from(new Set(GPCRomes[GPCRomeKey][familyKey]));
+        });
+    });
+
+    return GPCRomes;
+}
+
 // Initialize the data for the handle of the GPCRome from the view
 function GPCRome_initializeData(data) {
     // Initialize the GPCRomes
@@ -2778,9 +2856,9 @@ function Draw_GPCRomes(layout_data, fill_data, location, GPCRome_styling, odoran
       // Second Draw_a_GPCRome with GPCRome_AO, now with the two receptors added
       Draw_a_GPCRome(updatedGPCRome_AO, fill_data, 1, dimensions, Spacing);
 
-      Draw_a_GPCRome({...layout_data.GPCRome_B1, ...layout_data.GPCRome_B2}, fill_data, 2, dimensions, Spacing);
-      Draw_a_GPCRome({...layout_data.GPCRome_C, ...layout_data.GPCRome_F}, fill_data, 3, dimensions, Spacing);
-      Draw_a_GPCRome({...layout_data.GPCRome_T,...layout_data.GPCRome_CL}, fill_data, 4, dimensions, Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_B1, ...layout_data.GPCRome_B2}, fill_data, 2, dimensions,Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_C, ...layout_data.GPCRome_F}, fill_data, 3, dimensions,Spacing);
+      Draw_a_GPCRome({...layout_data.GPCRome_T,...layout_data.GPCRome_CL}, fill_data, 4, dimensions,Spacing);
 
     }
     function Draw_a_GPCRome(label_data, fill_data, level, dimensions, Spacing, odorant = false, indication = false) {
