@@ -157,7 +157,11 @@ class Migration(migrations.Migration):
             name='tpsa',
             field=models.CharField(max_length=10, null=True),
         ),
-        migrations.AlterField(
+        migrations.RemoveField(
+            model_name='drugs',
+            name='moa',
+        ),
+        migrations.AddField(
             model_name='drugs',
             name='moa',
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='ligand.ligandrole'),
@@ -221,7 +225,11 @@ class Migration(migrations.Migration):
             name='disease_association',
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='drugs.indicationassociation'),
         ),
-        migrations.AlterField(
+        migrations.RemoveField(
+            model_name='drugs',
+            name='indication',
+        ),
+        migrations.AddField(
             model_name='drugs',
             name='indication',
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='drugs.indication'),
