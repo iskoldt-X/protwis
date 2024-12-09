@@ -52,6 +52,7 @@ class Command(BaseCommand):
             CancerExpression.objects.all().delete()
             ExpressionValue.objects.all().delete()
             IndicationAssociation.objects.all().delete()
+            ATCCodes.objects.all().delete()
         except Exception as msg:
             print(msg)
             self.logger.warning('Existing data cannot be deleted')
@@ -107,7 +108,7 @@ class Command(BaseCommand):
         #Loading the two csv files
         all_data = Command.read_csv_data('03_FinalData.csv') #old one:03_FINAL_DATA_UPDATED.csv new one:03_FinalData.csv
         target_data = Command.read_csv_data('08_TargetPrioritazion_AllData.csv')
-        atc_codes = Command.read_csv_data('03_ligand_ATCCodes.csv')
+        atc_codes = Command.read_csv_data('06_ATC_ligand_and_names.csv')
         opentarget_scores = Command.read_csv_data('08_TargetPrioritazion_Data_DiseaseAssociations.csv')
         #getting the cancer data for each protein
         cancer_data = target_data[['entry_name','Cancer','MaxExpression']]
@@ -311,6 +312,10 @@ class Command(BaseCommand):
                 atc_record = ATCCodes()
                 atc_record.ligand = ligand
                 atc_record.code, created = WebLink.objects.get_or_create(index=row['ATC_Code'], web_resource=web_resource)
+                atc_record.level_0 = row['Level 0']
+                atc_record.level_1 = row['Level 1']
+                atc_record.name_0 = row['Name Level 0']
+                atc_record.name_1 = row['Name Level 1']
                 atc_record.save()
             except:
                 continue

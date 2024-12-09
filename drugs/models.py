@@ -92,6 +92,10 @@ class IndicationAssociation(models.Model):
 class ATCCodes(models.Model):
     ligand =  models.ForeignKey('ligand.Ligand', on_delete=models.CASCADE, null=True)
     code =  models.ForeignKey('common.WebLink', on_delete=models.CASCADE, null=True)
+    level_0 = models.CharField(max_length=1, null=True)
+    level_1 = models.CharField(max_length=3, null=True)
+    name_0 = models.CharField(max_length=100, null=True)
+    name_1 = models.CharField(max_length=100, null=True)
 
     def __str__(self):
         return self.name
