@@ -9,6 +9,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
 from drugs.models import Drugs, Drugs2024, Indication
+from protein.views import get_sankey_data
 from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
 from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
@@ -600,6 +601,15 @@ class DrugSectionSelection(TemplateView):
             search_data = Drugs2024.objects.all().prefetch_related('target').distinct('target')
             search_dict = {drug.target.name: drug.target.id for drug in search_data}
 
+            # Create sankey_dict_serialized using a dictionary comprehension
+            sankey_dict_serialized = {
+                drug.target.id: get_sankey_data(self.get_entry_name_by_target_id(drug.target.id))
+                for drug in search_data
+            }
+
+            # Pass the serialized sankey_dict to the context
+            context['sankey_dict'] = json.dumps(sankey_dict_serialized)
+
             # Fetch ATC codes for the table
             ATC_data = ATCCodes.objects.select_related(
                 'code'
@@ -972,6 +982,22 @@ class DrugSectionSelection(TemplateView):
         # context['table_data'] = table_data
 
         return context
+
+    def get_entry_name_by_target_id(self, target_id):
+        """
+        Retrieves the protein.entry_name based on the given drug.target.id.
+
+        Args:
+            target_id (int): The ID of the target (Protein).
+
+        Returns:
+            str or None: The entry_name of the associated Protein, or None if not found.
+        """
+        try:
+            protein = Protein.objects.get(id=target_id)
+            return protein.entry_name
+        except Protein.DoesNotExist:
+            return None
 
 class DruggedGPCRome(TemplateView):
     """
