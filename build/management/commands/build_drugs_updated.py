@@ -95,7 +95,7 @@ class Command(BaseCommand):
         print("\n\IndicationAssociation Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 5 START #####")
-        print("\n\nStarted parsing Drug data and building Drug2024 Model")
+        print("\n\nStarted parsing Drug data and building Drug Model")
         Command.create_drug_data(drug_df)
         print("\n\Drug Model built. Performing checks")
         print("##### STEP 6 START #####")

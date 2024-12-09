@@ -633,6 +633,8 @@ class DrugSectionSelection(TemplateView):
                     conversion[item.slug] = item.title
                 if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
                     root = item.slug[:4]
+                    if root not in indication_tree.keys():
+                        indication_tree[root] = []
                     indication_tree[root].append(item.title)
                     conversion[item.slug] = item.title
                     wheel_data[item.title] = {'Value1': 0}
@@ -825,7 +827,7 @@ class NewDrugsBrowser(TemplateView):
 ####          Drugs          ####
 #################################
 
-class Drugs(TemplateView):
+class DrugsTable(TemplateView):
     # Template using this class #
     template_name = 'Drugs.html'
     # Get context for hmtl usage #
@@ -1235,16 +1237,17 @@ def indication_detail(request, code):
 
     code = code.upper()
     context = dict()
-    #code = 'EFO_0003843'
+    #code = '4A8Z'
     indication_data = Drugs.objects.filter(indication__code=code).prefetch_related('ligand',
-                                                                                       'target',
-                                                                                       'indication')
+                                                                                   'target',
+                                                                                   'indication')
 
     indication_name = Indication.objects.filter(code=code).values_list('title', flat=True).distinct()[0]
 
     sankey = {"nodes": [],
               "links": []}
     caches = {'indication':[],
+              'level_0': [],
               'ligands': [],
               'targets': [],
               'entries': []}
@@ -1252,30 +1255,43 @@ def indication_detail(request, code):
     node_counter = 0
     for record in indication_data:
         #assess the values for indication/ligand/protein
-        indication_code = record.indication.title.capitalize()
+        indication_code = record.indication.title
+        indication_0 = record.indication.get_level_0().title
         ligand_name = record.ligand.name.capitalize()
+        uri = record.indication.uri.index
         ligand_id = record.ligand.id
         protein_name = record.target.name
         target_name = record.target.entry_name
         #check for each value if it exists and retrieve the source node value
         if indication_code not in caches['indication']:
-            sankey['nodes'].append({"node": node_counter, "name": indication_code, "url":'https://www.ebi.ac.uk/ols4/ontologies/efo/classes?short_form='+code})
+            sankey['nodes'].append({"node": node_counter, "name": indication_code, "url":'https://icd.who.int/browse/2024-01/mms/en#'+uri})
             node_counter += 1
             caches['indication'].append(indication_code)
         indi_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_code), None)
+
+        if indication_0 not in caches['level_0']:
+            sankey['nodes'].append({"node": node_counter, "name": indication_0, "url":'https://icd.who.int/browse/2024-01/mms/en#'+uri})
+            node_counter += 1
+            caches['level_0'].append(indication_0)
+        level_0_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_0), None)
+
         if [ligand_name, ligand_id] not in caches['ligands']:
             sankey['nodes'].append({"node": node_counter, "name": ligand_name, "url":'/ligand/'+str(ligand_id)+'/info'})
             node_counter += 1
             caches['ligands'].append([ligand_name, ligand_id])
         lig_node = next((item['node'] for item in sankey['nodes'] if item['name'] == ligand_name), None)
+
         if protein_name not in caches['targets']:
             sankey['nodes'].append({"node": node_counter, "name": protein_name, "url":'/protein/'+str(target_name)})
             node_counter += 1
             caches['targets'].append(protein_name)
             caches['entries'].append(target_name)
         prot_node = next((item['node'] for item in sankey['nodes'] if item['name'] == protein_name), None)
-        #append connection between indication and ligand
-        sankey['links'].append({"source":indi_node, "target":lig_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
+
+        #append connection between indication and level 0
+        sankey['links'].append({"source":indi_node, "target":level_0_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
+        #append connection between level 0 and ligand
+        sankey['links'].append({"source":level_0_node, "target":lig_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
         #append connection between ligand and target
         sankey['links'].append({"source":lig_node, "target":prot_node, "value":1, "ligtrace": ligand_name, "prottrace": protein_name})
 
@@ -1295,7 +1311,7 @@ def indication_detail(request, code):
 
     # Convert the unique_combinations back to a list of dictionaries
     sankey['links'] = list(unique_combinations.values())
-    total_points = len(caches['targets']) + len(caches['targets']) + 1;
+    total_points = len(caches['targets']) + len(caches['targets']) + 1
     if len(caches['ligands']) > len(caches['targets']):
         context['nodes_nr'] = len(caches['ligands'])
     else:
