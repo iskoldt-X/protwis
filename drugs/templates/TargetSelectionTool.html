@@ -36,11 +36,6 @@
         white-space: normal;   /* Allow line breaks in the titles */
     }
 
-    #targetsTable {
-    table-layout: auto;  /* Ensure columns can adjust width */
-    width: 100%;         /* Set table width to 100% of container */
-    }
-
     /* Add this CSS rule to keep font size consistent in tables with scrollX */
     table.dataTable {
         font-size: 12px; /* Adjust to match your standard font size */
@@ -68,34 +63,164 @@
         padding-left: 0 !important;
     }
 
-    .dt-head-nowrap {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .dt-toggle-button {
-    background: white; /* Black background for emphasis */
-    border: 1px solid black; /* Blue border for distinction */
-    color: black; /* White text for contrast */
     cursor: pointer;
-    padding: 5px 10px; /* Increase padding for a larger clickable area */
-    margin-left: 8px; /* Space from the title */
-    font-size: 14px; /* Slightly larger font size */
-    line-height: 1.2; /* Improve readability */
-    border-radius: 4px; /* Add slight rounding for aesthetics */
+    border: 1px solid #cccccc;
+    background: white;
+    font-size: 1rem;
+    padding: 10px 0px;
+    border-radius: 5px;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap; /* Prevent wrapping */
+    min-width: 65px; /* Ensure enough space for text and arrow */
+    max-width: 65px; /* Ensure enough space for text and arrow */
+    text-align: center; /* Center the text and arrow */
 }
 
 .dt-toggle-button:hover {
-    background: #007bff; /* Blue background on hover */
-    border-color: #0056b3; /* Darker blue border on hover */
+    background-color: rgba(23, 53, 151, 0.3) !important; /* Light blue with 10% opacity */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.15); /* Soft shadow */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease; /* Smooth transition */
 }
 
-.dt-toggle-button:focus {
-    outline: none; /* Remove default focus outline */
-    box-shadow: 0 0 5px #007bff; /* Add a focus shadow for accessibility */
+#Init_loader {
+    margin-left: 35%;
+    top: 40%;
+    position: absolute;
+    display: none;
 }
 
+/* Apply fixed layout to prevent overflow issues */
+table.dataTable {
+    table-layout: auto; /* Fixes the layout */
+    width: 100%; /* Ensures the table takes up full width */
+}
+
+
+/* Small width for master headers and cells */
+table.dataTable th.small-width,
+table.dataTable td.small-width {
+    min-width: 125px;
+    max-width: 125px;
+    width: 125px;
+    text-align: center;
+}
+
+/* Medium width for child headers and cells */
+table.dataTable th.medium-width,
+table.dataTable td.medium-width {
+    min-width: 150px;
+    max-width: 150px;
+    width: 150px;
+    text-align: center;
+}
+
+
+/* Custom width for "Receptor family" */
+table.dataTable th.large-width,
+table.dataTable td.large-width {
+    min-width: 200px;
+    max-width: 200px;
+    width: 200px;
+    text-align: center;
+}
+
+/* Sticky column for the table body */
+.sticky-column {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: white;
+    border-right: 1px solid #cccccc; /* Optional for visual separation */
+}
+
+/* Sticky column for the 'Gene' header cell in the <thead> */
+table thead tr:nth-child(3) th:first-child {
+    position: sticky;
+    top: 0;
+    left: 0; /* Align with the body sticky column */
+    z-index: 2; /* Higher than body cells */
+    background: white; /* Match the header background */
+    border-right: 1px solid #cccccc; /* Optional for visual clarity */
+}
+
+.colvis-dropdown {
+    max-height: 200px; /* Limit height if there are many columns */
+    overflow-y: auto; /* Enable scrolling if needed */
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+}
+/* General button styling for .dt-colvis-button */
+.dt-colvis-button {
+    cursor: pointer;
+    padding: 10px 0px;
+    font-size: 1rem;
+    background: white;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    margin-right: 5px; /* Add spacing between buttons */
+    margin-left: -20px; /* Add spacing between buttons */
+    float: left; /* Align to the left */
+    min-width: 50px; /* Ensure enough space for text and arrow */
+    max-width: 50px; /* Ensure enough space for text and arrow */
+}
+.dt-colvis-button:hover {
+    background-color: rgba(23, 53, 151, 0.1);
+}
+
+.modal-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* #hierarchyTree {
+    padding: 10px;
+} */
+
+/* Style for toggle buttons */
+.toggle-children {
+    cursor: pointer;
+    font-weight: bold;
+    color: #007bff;
+    text-decoration: none;
+    border: none;
+    background: none;
+}
+
+.toggle-children:focus {
+    outline: none;
+}
+
+/* Style for toggle arrows */
+.toggle-arrow {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #007bff; /* Blue color for better visibility */
+}
+
+/* Indent child elements for hierarchy look */
+#hierarchyTree > div > div {
+    margin-left: 10px;
+}
+
+/* Add space between checkbox and text */
+.form-check-input + .form-check-label {
+    margin-left: 8px; /* Space between checkbox and text */
+}
+
+/* Ensure text wraps properly without breaking entirely */
+.form-check-label {
+    display: inline-block;
+    max-width: calc(100% - 30px); /* Adjust to reserve space for checkbox and margin */
+    vertical-align: middle; /* Align label text with checkbox */
+    white-space: normal; /* Allow wrapping */
+    word-break: break-word; /* Break long words */
+    line-height: 1.2; /* Adjust line height for readability */
+}
+
+.d-none {
+    display: none !important;
+}
 
 </style>
 {% endblock %}
@@ -104,16 +229,17 @@
 
 {% block content %}
 
-<div class="container" id="Target_selection_tool_container" style="margin-top: 30px;">
+<div id="Init_loader"></div>
+<div class="container" id="Target_selection_tool_container" style="margin-top: 30px;display: none;">
     <div class="col-md-12">
         <!-- Buttons for Column Visibility Control -->
         <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
             <button type="button" class="btn btn-primary" data-column="0" onclick="handleButtonClick(0)">Characterization</button>
-            <button type="button" class="btn btn-secondary" data-column="1" onclick="handleButtonClick(1)">Drugs/Agents/Ligands</button>
-            <button type="button" class="btn btn-secondary" data-column="2" onclick="handleButtonClick(2)">Indications (Open Targets)</button>
-            <button type="button" class="btn btn-secondary" data-column="3" onclick="handleButtonClick(3)">Indications (Clinical trials)</button>
-            <button type="button" class="btn btn-secondary" data-column="4" onclick="handleButtonClick(4)">Indications (drugs, ICD11)</button>
-            <button type="button" class="btn btn-secondary" data-column="5" onclick="handleButtonClick(5)">Indications (drugs, ATC)</button>
+            <button type="button" class="btn btn-secondary" data-column="1" onclick="handleButtonClick(1)">#Compounds</button>
+            <button type="button" class="btn btn-secondary" data-column="2" onclick="handleButtonClick(2)">Disease associations<br>(Open Targets, ICD11)</button>
+            <button type="button" class="btn btn-secondary" data-column="3" onclick="handleButtonClick(3)">Disease indications<br>(Clinical trials, ICD11)</button>
+            <button type="button" class="btn btn-secondary" data-column="4" onclick="handleButtonClick(4)">Disease indications<br>(Drugs, ICD11)</button>
+            <button type="button" class="btn btn-secondary" data-column="5" onclick="handleButtonClick(5)">Disease indications<br>(Approved drugs, ATC)</button>
             <button type="button" class="btn btn-secondary" data-column="6" onclick="handleButtonClick(6)">Tissue expression (HPA)</button>
             <button type="button" class="btn btn-secondary" data-column="7" onclick="handleButtonClick(7)">Cancer expression (HPA)</button>
         </div>
@@ -121,7 +247,7 @@
             <thead>
                 <!-- Dummy Header Row for Complex Header Fix -->
                 <tr>
-                    <td colspan="706" style="text-align: center" data-dt-order="disable"></td>
+                    <td colspan="1539" style="text-align: center" data-dt-order="disable"></td>
                 </tr>
                 <!-- Super Header Row -->
                 <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
@@ -129,16 +255,19 @@
                     <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Literature</th>
                     <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Novelty</th>
                     <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Structures</th>
-                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs/Ligands</th>
+                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs & Agents</th>
                     <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
                     <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
-                    <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Indications overview</th>
+                    <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Disease association score</th>
                     <!-- Placeholder for Indications -->
                     <th colspan="1" id="indications-placeholder" style="text-align:center;border-left: 1px solid #cccccc;">Indications</th>
+                    <th colspan="1" id='indications-drugs-placeholder' style="text-align:center;border-left: 1px solid #cccccc;">Indications drugs</th>
+                    <th colspan="1" id='indications-agents-placeholder' style="text-align:center;border-left: 1px solid #cccccc;">Indications Agents</th>
                 </tr>
+                
                 <!-- Header Row -->
                 <tr>
-                    <th style="text-align: center;">Gene</th>
+                    <th class="sticky-column" style="text-align: center;">Gene</th>
                     <th style="text-align: center;">Protein</th>
                     <th style="text-align: center;">Receptor family</th>
                     <th style="text-align: center;">Ligand type</th>
@@ -158,13 +287,15 @@
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Max Phase</th>
                     <th style="text-align: center;">No. Drugs</th>
                     <th style="text-align: center;">No. Agents</th>
-                    <th style="text-align: center;border-left: 1px solid #cccccc;">Max disease association score</th>
-                    <th style="text-align: center;">Disease associated (&ge; 0.5)</th>
+                    <th style="text-align: center;border-left: 1px solid #cccccc;">Max score</th>
+                    <th style="text-align: center;">Score &ge; 0.5</th>
                     <!-- Placeholder for Indications -->
-                    <th id="indications-header-placeholder" style="text-align: center;border-left: 1px solid #cccccc;"></th>
+                    <th id="indications-placeholder-header" style="text-align: center;border-left: 1px solid #cccccc;"></th>
+                    <th id="indications-drugs-placeholder-header" style="text-align: center;border-left: 1px solid #cccccc;"></th>
+                    <th id="indications-agents-placeholder-header" style="text-align: center;border-left: 1px solid #cccccc;"></th>
                 </tr>
                 <tr>
-                    <td style="text-align: center;" data-dt-order="disable"></td>
+                    <td class="sticky-column" style="text-align: center;" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
@@ -188,6 +319,8 @@
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <!-- Placeholder for Indications -->
                     <td id="indications-placeholder-cells" style="text-align: center" data-dt-order="disable"></td>
+                    <td id="indications-drugs-placeholder-cells" style="text-align: center" data-dt-order="disable"></td>
+                    <td id="indications-agents-placeholder-cells" style="text-align: center" data-dt-order="disable"></td>
                 </tr>
             </thead>
             <tbody>
@@ -197,135 +330,219 @@
 </div>
 
 
+<!-- Modal Structure -->
+<div id="hierarchyModal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Columns</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="hierarchyTree"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveColumnVisibility">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endblock %}
 <!-- ### Java scripts ### -->
 
 {% block addon_js %}
 <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
-<script src="{% static 'home/js/DataTables_v2.0.5.js' %}"></script>
-<script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
-<script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
-<script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
+<script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
 <script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
+<script src="{% static 'home/js/BusyLoad.js' %}"></script>
+
+
 
 <script type="text/javascript">
 
 var Full_table_data;
 Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
 const IDC_HIERARCHY = {{ IDC_hierarchy|safe }};
+const IDC_HIERARCHY_Drugs = {{ IDC_hierarchy_drugs|safe }};
+const IDC_HIERARCHY_Agents = {{ IDC_hierarchy_agents|safe }};
+
+// console.log(Full_table_data);
+// console.log("Full_table_data sample:", Full_table_data[0]); // Inspect one entry from the original data
 
 const ICD_masterPositions = [
-        22, 43, 132, 145, 169, 220, 274, 283, 340, 369, 372, 420, 
-        449, 498, 522, 541, 570, 574, 583, 590, 617, 682, 699, 702, 704
+        22, 43, 132, 145, 169, 220, 274, 283, 340, 369, 372, 420, 449, 498,
+         523, 541, 570, 574, 583, 590, 617, 682, 699, 702, 704
     ];
 
+    
 
-// console.log(Full_table_data)
+const ICD_masterPositions_Drugs = [
+        706, 726, 810, 823, 846, 892, 944, 953, 1006, 1033, 1036, 1084, 1112,
+        1159, 1182, 1200, 1229, 1233, 1242, 1249, 1276, 1341, 1358, 1361
+];
 
-function initializeDataTable(tableId, data,hierarchy) {
+const ICD_masterPositions_Agents = [
+    1363, 1367, 1401, 1404, 1409, 1423, 1447, 1452, 1467, 1471, 1481, 1489, 1498, 
+    1508, 1511, 1518, 1521, 1534, 1537
+];
+
+let adjustTimeout; // Move this outside to make it global
+
+// ###############################
+// ### Initialization loader   ###
+// ###############################
+$("#Init_loader").show();
+$("#Init_loader").busyLoad("show", { spinner: "accordion", text: "Loading",fontSize: "3rem",textPosition: "top",textMargin: "-6rem",color: "black",background: "white",});
+
+
+// ###############################
+// ### Document ready function ###
+// ###############################
+$(document).ready(function() {
+
+function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_agents) {
 
         // digit fixed value
         const digit_fixed = 3
 
         // Define columns
-        // Define columns
         var columnDefs = [
-            { className: "dt-head-nowrap dt-head-center dt-center dt-body-center", targets: "_all" }, 
-            { targets: Array.from({ length: 705 - 11 + 1 }, (_, i) => i + 11), visible: false },
+            { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
+            // { targets: Array.from({ length: 1538 - 11 + 1 }, (_, i) => i + 11), visible: false },
             { targets: [5, 6, 8], className: 'border-left' },
-            { targets: ICD_masterPositions, className: 'border-left' } // Apply border-left to ICD_masterPositions
+            { targets: ICD_masterPositions, className: 'border-left' }, // Apply border-left to ICD_masterPositions
+            { targets: ICD_masterPositions_Drugs, className: 'border-left' },
+            { targets: ICD_masterPositions_Agents, className: 'border-left' },
         ];
 
         // Define columns dynamically based on the type
-        var columns = [];
-        columns = [
-            {data: "Gene name", name: "Gene name",width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
-            {data: "Protein name", name: "Protein name",width: "7%"},
-            {data: "Receptor family", name: "Receptor family",width: "12%"},
-            {data: "Ligand type", name: "Ligand type",width: "8%"},
-            {data: "Class", name: "Class",width: "7%", render: function (data) { return data.split(' (')[0]; }},
-            {data: "Literature", name: "No. Publications",width: "10%"}, 
-            {data: "Novelty (Pharos)", name: "Novelty (Pharos)",width: "10%",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
-            {data: "IDG", name: "IDG target level",width: "10%"}, 
-            {data: "Total", name: "Total",width: "7%"},
-            {data: "Active", name: "Active",width: "7%"},
-            {data: "Inactive", name: "Inactive",width: "7%"},
-            
-            {data: "All_Max_Phase", name: "Stimulatory_max_phase",width: "7%"},
-            {data: "All_Drugs", name: "All_Drugs",width: "7%"},
-            {data: "All_Agents", name: "All_Agents",width: "7%"},
-
-            {data: "Stimulatory_max_phase", name: "All_Max_Phase",width: "7%"},
-            {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs",width: "7%"},
-            {data: "Stimulatory_Agents", name: "Stimulatory_Agents",width: "7%"},
-
-            {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase",width: "7%"},
-            {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs",width: "7%"},
-            {data: "Inhibitory_Agents", name: "Inhibitory_Agents",width: "7%"},
-
-            {data: "Max_disease_association_score", name: "Max_disease_association_score",width: "7%",render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
-            {data: "Disease_associated", name: "Disease_associated",width: "7%"}
-
+        var columns = [
+            {data: "Gene name", name: "Gene name", width: "125px", className: "small-width sticky-column", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+            {data: "Protein name", name: "Protein name", width: "125px", className: "small-width"},
+            {data: "Receptor family", name: "Receptor family", width: "150px", className: "medium-width"},
+            {data: "Ligand type", name: "Ligand type", width: "150px", className: "medium-width"},
+            {data: "Class", name: "Class", width: "125px", className: "small-width", render: function (data) { return data.split(' (')[0]; }},
+            {data: "Literature", name: "No. Publications", width: "125px", className: "small-width"}, 
+            {data: "Novelty (Pharos)", name: "Novelty (Pharos)", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed); }},
+            {data: "IDG", name: "IDG target level", width: "125px", className: "small-width"},
+            {data: "Total", name: "Total", width: "125px", className: "small-width"},
+            {data: "Active", name: "Active", width: "125px", className: "small-width"},
+            {data: "Inactive", name: "Inactive", width: "125px", className: "small-width"},
+            {data: "All_Max_Phase", name: "Stimulatory_max_phase", width: "125px", className: "small-width"},
+            {data: "All_Drugs", name: "All_Drugs", width: "125px", className: "small-width"},
+            {data: "All_Agents", name: "All_Agents", width: "125px", className: "small-width"},
+            {data: "Stimulatory_max_phase", name: "All_Max_Phase", width: "125px", className: "small-width"},
+            {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs", width: "125px", className: "small-width"},
+            {data: "Stimulatory_Agents", name: "Stimulatory_Agents", width: "125px", className: "small-width"},
+            {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase", width: "125px", className: "small-width"},
+            {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs", width: "125px", className: "small-width"},
+            {data: "Inhibitory_Agents", name: "Inhibitory_Agents", width: "125px", className: "small-width"},
+            {data: "Max_disease_association_score", name: "Max_disease_association_score", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed); }},
+            {data: "Disease_associated", name: "Disease_associated", width: "125px", className: "small-width"}
         ];
 
-        // Add IDC_hierarchy columns
-        Object.keys(hierarchy)
-            .sort((a, b) => parseInt(a) - parseInt(b)) // Sort master keys numerically
-            .forEach(masterKey => {
-                // Master column
-                columns.push({
-                    data: masterKey, // The master key becomes the data field
-                    name: hierarchy[masterKey].title, // Use the master title
-                    width: "7%", // Set uniform width
-                    render: function (data) {
-                        // Render function for master column
-                        return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
-                    }
-                });
+        function addHierarchyColumns(hierarchy, suffix = "") {
+            Object.keys(hierarchy)
+                .sort((a, b) => parseInt(a) - parseInt(b)) // Sort master keys numerically
+                .forEach(masterKey => {
+                    // Master column
+                    const masterColumn = {
+                        data: masterKey + suffix, // Append suffix for correct data field
+                        name: hierarchy[masterKey].title, // Use the master title
+                        className: "medium-width",
+                        width: "150px"
+                    };
 
-                // Child columns
-                hierarchy[masterKey].children.forEach(child => {
-                    columns.push({
-                        data: child, // The child name becomes the data field
-                        name: child, // Use the child name
-                        width: "7%", // Set uniform width
-                        render: function (data) {
-                            // Render function for child columns
+                    // Add render function only for non-integer columns
+                    if (suffix === "") {
+                        masterColumn.render = function (data) {
                             return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
+                        };
+                    }
+
+                    columns.push(masterColumn);
+
+                    // Child columns
+                    hierarchy[masterKey].children.forEach(child => {
+                        const childColumn = {
+                            data: child + suffix, // Append suffix for correct data field
+                            name: child, // Use the child name
+                            className: "medium-width",
+                            width: "150px"
+                        };
+
+                        // Add render function only for non-integer columns
+                        if (suffix === "") {
+                            childColumn.render = function (data) {
+                                return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
+                            };
                         }
+
+                        columns.push(childColumn);
                     });
                 });
-            });
+        }
 
-        
+        // Add IDC_hierarchy columns for all three hierarchies
+        addHierarchyColumns(hierarchy, "");          // For main hierarchy (float values)
+        addHierarchyColumns(hierarchy_drugs, "_Drug"); // For drugs (int values, no render)
+        addHierarchyColumns(hierarchy_agents, "_Agent"); // For agents (int values, no render)
 
         // Initialize DataTable
         $(tableId).DataTable({
-            dom: "<'row'<'col-sm-2 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
-                "<'row'<'col-sm-12'tr>>" +                               // Table rows
-                "<'row'<'col-sm-12'ip>>",                                // Pagination and info
+                    dom: "<'row'<'col-sm-2 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+                        "<'row'<'col-sm-12'tr>>" +                               // Table rows
+                        "<'row'<'col-sm-12'ip>>",                                // Pagination and info
 
-            order: [0, "asc"],              // Initial sort order
-            pageLength: -1,                 // Show all rows by default
-            data: data,                     // Data source
-            columns: columns,               // Column definitions
-            columnDefs: columnDefs,         // Column-specific settings
-            autoWidth: false,               // Disable automatic column width calculation
-            processing: false,              // Disable processing indicator
-            deferRender: true,              // Optimize rendering for large data sets
-            paging: false,                  // Disable pagination
-            scrollX: true,                  // Enable horizontal scrolling
-            scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
-            scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
-            "sScrollX": "200%", 
-            "sScrollXInner": "200%",
-            buttons: [
-                { 
-                    text: 'Reset filters', 
-                    action: function () { reset_all(); } 
-                }
-            ]
-        });
+                    order: [0, "asc"],              // Initial sort order
+                    pageLength: 20,                 // Show all rows by default
+                    data: data,                     // Data source
+                    columns: columns,               // Column definitions
+                    columnDefs: columnDefs,         // Column-specific settings
+                    autoWidth: true,               // Disable automatic column width calculation
+                    processing: false,              // Disable processing indicator
+                    deferRender: true,              // Optimize rendering for large data sets
+                    paging: true,                  // Disable pagination
+                    scrollX: true,                  // Enable horizontal scrolling
+                    scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
+                    scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
+                    fixedHeader: false, // Disable FixedHeader
+                    // fixedColumns: true,
+                    buttons: [
+                        { 
+                            text: 'Reset filters', 
+                            action: function () { reset_all(); } 
+                        },
+                        {
+                            text: 'Reselect ICD11',
+                            className: 'btn btn-warning d-none', // Initially hidden
+                            action: function () {
+                                // Reset steady state
+                                SteadyState_Disease_indication = 0;
+
+                                // Show the modal to reselect ICD11
+                                $('#hierarchyModal').modal('show');
+                            }
+                        }
+                    ],
+                    initComplete : function () {
+                        // Hide the loading spinner
+                        $("#Init_loader").busyLoad("hide");
+                        $("#Init_loader").hide();
+
+                        // Trigger the Characterization button click
+                        document.querySelector('button[data-column="0"]').click();
+
+                        // Show the container for the Target Selection Tool
+                        $("#Target_selection_tool_container").show();
+                    }
+                });
+
 
 
 
@@ -350,156 +567,430 @@ function initializeDataTable(tableId, data,hierarchy) {
         // createDropdownFilters(Table_selector,column_filters);
 
     }
+    function addIndicationsToTable(hierarchy, masterPositions, placeholderId , suffix = "") {
+        // Fetch dynamic placeholders
+        const indicationsPlaceholder = document.getElementById(`${placeholderId}`);
+        const indicationsHeaderPlaceholder = document.getElementById(`${placeholderId}-header`);
+        const indicationsPlaceholderCells = document.getElementById(`${placeholderId}-cells`);
 
-    function addIndicationsToTable(hierarchy, masterPositions) {
-    const indicationsPlaceholder = document.getElementById('indications-placeholder');
-    const indicationsHeaderPlaceholder = document.getElementById('indications-header-placeholder');
-    const indicationsPlaceholderCells = document.getElementById('indications-placeholder-cells');
+        // Sort master keys numerically to align with masterPositions
+        const sortedMasterKeys = Object.keys(hierarchy).sort((a, b) => parseInt(a) - parseInt(b));
 
-    // Sort master keys numerically to align with masterPositions
-    const sortedMasterKeys = Object.keys(hierarchy).sort((a, b) => parseInt(a) - parseInt(b));
+        sortedMasterKeys.forEach((masterKey, index) => {
+            const master = hierarchy[masterKey];
+            const masterTitle = master.title;
+            const children = master.children;
 
-    sortedMasterKeys.forEach((masterKey, index) => {
+            // Get master column index and determine range for children
+            const masterStart = masterPositions[index] + 1; // Include the master column itself
+            const masterEnd = masterPositions[index + 1] || masterPositions[index] + 2; // Fallback for the last master group
+
+            // Generate the ID for the master column using the suffix
+            const masterColumnId = `${masterKey}${suffix}`;
+
+            // Add a master header to the super header row
+            const masterSuperHeader = document.createElement('th');
+            masterSuperHeader.setAttribute('colspan', children.length + 1); // Master + children
+            masterSuperHeader.className = 'medium-width'; // Consistent styling for small-width
+            masterSuperHeader.style.borderLeft = '1px solid #cccccc';
+            masterSuperHeader.style.width = '150px'; // Explicit width for consistency
+            masterSuperHeader.textContent = masterTitle;
+            indicationsPlaceholder.insertAdjacentElement('beforebegin', masterSuperHeader);
+
+            // Add master column header with a toggle button
+            const masterHeader = document.createElement('th');
+            masterHeader.className = 'medium-width'; // Consistent styling
+            masterHeader.style.borderLeft = '1px solid #cccccc';
+            masterHeader.style.width = '150px'; // Explicit width for consistency
+            masterHeader.setAttribute('data-dt-order', 'disable'); // Disable ordering
+
+            // Create the expand/collapse button
+            const toggleButton = document.createElement('button');
+            toggleButton.textContent = 'Collapse ◀'; // Initial state is collapsed
+            toggleButton.className = 'dt-toggle-button';
+            toggleButton.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent sorting on button click
+
+                const table = $('#TargetSelectionToolTable').DataTable();
+                const columnRange = [...Array(masterEnd - masterStart).keys()].map(i => i + masterStart);
+
+                // Toggle column visibility based on the button text
+                if (toggleButton.textContent === 'Expand ▶') {
+                    // Make all columns in columnRange visible
+                    table.columns(columnRange).visible(true, false); // Batch update, no redraw
+                    toggleButton.textContent = 'Collapse ◀'; // Update button text
+                } else {
+                    // Hide all columns in columnRange
+                    table.columns(columnRange).visible(false, false); // Batch update, no redraw
+                    toggleButton.textContent = 'Expand ▶'; // Update button text
+                }
+
+                // Adjust the table layout after toggling
+                table.columns.adjust(); 
+            });
+
+            // Append the button to the header
+            masterHeader.appendChild(toggleButton);
+
+            indicationsHeaderPlaceholder.insertAdjacentElement('beforebegin', masterHeader);
+
+            // Add child column headers
+            children.forEach(child => {
+                const childHeader = document.createElement('th');
+                childHeader.className = 'medium-width'; // Consistent styling
+                childHeader.style.width = '150px'; // Explicit width for child columns
+                childHeader.textContent = child;
+                indicationsHeaderPlaceholder.insertAdjacentElement('beforebegin', childHeader);
+            });
+
+            // Add placeholders for the filter row
+            const masterFilter = document.createElement('td');
+            masterFilter.className = 'medium-width'; // Consistent styling
+            masterFilter.style.width = '150px'; // Explicit width for consistency
+            masterFilter.setAttribute('data-dt-order', 'disable'); // Disable ordering
+            indicationsPlaceholderCells.insertAdjacentElement('beforebegin', masterFilter);
+
+            children.forEach(() => {
+                const childFilter = document.createElement('td');
+                childFilter.className = 'medium-width'; // Consistent styling
+                childFilter.style.width = '150px'; // Explicit width for child columns
+                childFilter.setAttribute('data-dt-order', 'disable'); // Disable ordering
+                indicationsPlaceholderCells.insertAdjacentElement('beforebegin', childFilter);
+            });
+        });
+
+        // Remove placeholders after adding all columns
+        indicationsPlaceholder?.remove();
+        indicationsHeaderPlaceholder?.remove();
+        indicationsPlaceholderCells?.remove();
+    }
+
+    // Run the function for each hierarchy type
+    addIndicationsToTable(IDC_HIERARCHY, ICD_masterPositions, 'indications-placeholder', ""); // Main hierarchy
+    addIndicationsToTable(IDC_HIERARCHY_Drugs, ICD_masterPositions_Drugs, 'indications-drugs-placeholder', "_drugs"); // Drugs hierarchy
+    addIndicationsToTable(IDC_HIERARCHY_Agents, ICD_masterPositions_Agents, 'indications-agents-placeholder', "_agents"); // Agents hierarchy
+
+
+    // Initialize table
+    initializeDataTable("#TargetSelectionToolTable",Full_table_data,IDC_HIERARCHY,IDC_HIERARCHY_Drugs,IDC_HIERARCHY_Agents)
+
+    const table = $("#TargetSelectionToolTable").DataTable();
+    table.columns.adjust();
+
+
+}); // End document ready function
+
+
+function populateHierarchyTree(hierarchy, containerId, masterPositions) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = ''; // Clear any existing content
+
+    // Ensure sorted keys for consistent order
+    const sortedKeys = Object.keys(hierarchy).sort((a, b) => parseInt(a) - parseInt(b));
+
+    sortedKeys.forEach((masterKey, index) => {
         const master = hierarchy[masterKey];
         const masterTitle = master.title;
         const children = master.children;
 
-        // Get master column index and determine range for children
-        const masterStart = masterPositions[index] + 1; // Include the master column itself
-        const masterEnd = masterPositions[index + 1] || 704; // Default end of range at 704
+        // Create master div with expand/collapse toggle
+        const masterDiv = document.createElement('div');
+        masterDiv.classList.add('form-check');
 
-        // Add a master header to the super header row
-        const masterSuperHeader = document.createElement('th');
-        masterSuperHeader.setAttribute('colspan', children.length + 1); // Master + children
-        masterSuperHeader.style.textAlign = 'center';
-        masterSuperHeader.style.borderLeft = '1px solid #cccccc';
-        masterSuperHeader.textContent = masterTitle;
-        indicationsPlaceholder.insertAdjacentElement('beforebegin', masterSuperHeader);
+        // Create the arrow toggle
+        const toggleArrow = document.createElement('span');
+        toggleArrow.textContent = '→'; // Default collapsed state
+        toggleArrow.className = 'toggle-arrow';
+        toggleArrow.style.cursor = 'pointer'; // Hand cursor for better UX
+        toggleArrow.style.marginRight = '8px'; // Space between arrow and title
 
-        // Add master column header (with toggle button)
-        const masterHeader = document.createElement('th');
-        masterHeader.style.textAlign = 'center';
-        masterHeader.style.borderLeft = '1px solid #cccccc';
+        // Create master label
+        const masterLabel = document.createElement('label');
+        masterLabel.className = 'form-check-label';
+        masterLabel.textContent = masterTitle;
+        masterLabel.style.cursor = 'pointer'; // Hand cursor for better UX
 
-        // Add text and toggle button to the master column header
-        const headerText = document.createElement('span');
-        headerText.textContent = masterKey;
-        masterHeader.appendChild(headerText);
+        // Append arrow and label to the master div
+        masterDiv.appendChild(toggleArrow);
+        masterDiv.appendChild(masterLabel);
 
-        const toggleButton = document.createElement('button');
-        toggleButton.textContent = "+";
-        toggleButton.style.marginLeft = "8px";
-        toggleButton.style.cursor = "pointer";
-        toggleButton.className = 'dt-toggle-button'; // Assign the CSS class here
+        // Create children checkboxes container
+        const childrenDiv = document.createElement('div');
+        childrenDiv.style.marginLeft = '20px';
+        childrenDiv.style.display = 'none'; // Initially collapsed
 
-        // Toggle visibility for master and children columns in bulk
-        toggleButton.addEventListener('click', () => {
+        const startIndex = masterPositions[index] + 1; // Start after the master position
+        const endIndex = masterPositions[index + 1] || masterPositions[index] + children.length; // Fallback for last master key
 
-            event.stopPropagation(); // Prevent sorting on button click
-            const table = $('#TargetSelectionToolTable').DataTable();
+        children.forEach((childKey, childIndex) => {
+            const childDiv = document.createElement('div');
+            childDiv.classList.add('form-check');
 
-            // Calculate the range of columns to toggle
-            const columnRange = [...Array(masterEnd - masterStart).keys()].map(i => i + masterStart);
+            const childCheckbox = document.createElement('input');
+            childCheckbox.type = 'checkbox';
+            childCheckbox.className = 'form-check-input child-checkbox';
+            childCheckbox.id = `child-${childKey}`;
+            childCheckbox.dataset.columnIndex = startIndex + childIndex; // Calculate column index dynamically
+            childCheckbox.dataset.masterColumnIndex = masterPositions[index]; // Link to master column index
 
-            // Determine current visibility for all columns in range
-            const allVisible = columnRange.every(index => table.column(index).visible());
+            const childLabel = document.createElement('label');
+            childLabel.className = 'form-check-label';
+            childLabel.textContent = childKey;
+            childLabel.htmlFor = `child-${childKey}`;
 
-            // Update visibility for all columns in the range in bulk
-            table.columns(columnRange).visible(!allVisible, false); // Batch update, no redraw
+            childCheckbox.addEventListener('change', () => {
+                // If any child is checked, include the master in visibility
+                const masterCheckbox = document.querySelector(`input[data-master-column-index="${masterPositions[index]}"]`);
+                if (childCheckbox.checked) {
+                    masterCheckbox.checked = true;
+                } else {
+                    // Check if all children are unchecked, then uncheck master
+                    const siblingsChecked = childrenDiv.querySelectorAll('input.child-checkbox:checked').length;
+                    if (siblingsChecked === 0) {
+                        masterCheckbox.checked = false;
+                    }
+                }
+            });
 
-            // Adjust and redraw the table once after all updates
-            table.columns.adjust().draw(false); // Redraw without resetting sort
+            childDiv.appendChild(childCheckbox);
+            childDiv.appendChild(childLabel);
 
-            // Update button text
-            toggleButton.textContent = allVisible ? "+" : "-";
+            childrenDiv.appendChild(childDiv);
         });
 
-        masterHeader.appendChild(toggleButton);
-        indicationsHeaderPlaceholder.insertAdjacentElement('beforebegin', masterHeader);
+        // Toggle functionality for both the arrow and master label
+        const toggleChildren = () => {
+            if (childrenDiv.style.display === 'none') {
+                childrenDiv.style.display = 'block';
+                toggleArrow.textContent = '↓'; // Expanded state
+            } else {
+                childrenDiv.style.display = 'none';
+                toggleArrow.textContent = '→'; // Collapsed state
+            }
+        };
 
-        // Add child column headers
-        children.forEach(child => {
-            const childHeader = document.createElement('th');
-            childHeader.style.textAlign = 'center';
-            childHeader.textContent = child;
-            indicationsHeaderPlaceholder.insertAdjacentElement('beforebegin', childHeader);
-        });
+        toggleArrow.addEventListener('click', toggleChildren);
+        masterLabel.addEventListener('click', toggleChildren);
 
-        // Add placeholders for the filter row
-        const masterFilter = document.createElement('td');
-        masterFilter.style.textAlign = 'center';
-        masterFilter.setAttribute('data-dt-order', 'disable');
-        indicationsPlaceholderCells.insertAdjacentElement('beforebegin', masterFilter);
-
-        children.forEach(() => {
-            const childFilter = document.createElement('td');
-            childFilter.style.textAlign = 'center';
-            childFilter.setAttribute('data-dt-order', 'disable');
-            indicationsPlaceholderCells.insertAdjacentElement('beforebegin', childFilter);
-        });
+        masterDiv.appendChild(childrenDiv);
+        container.appendChild(masterDiv);
     });
-
-    // Remove placeholders after adding all columns
-    if (indicationsPlaceholder) indicationsPlaceholder.remove();
-    if (indicationsHeaderPlaceholder) indicationsHeaderPlaceholder.remove();
-    if (indicationsPlaceholderCells) indicationsPlaceholderCells.remove();
 }
 
-    // range function -> mostly for the column visibility config
-    function range(start, end) {
+
+
+// range function -> mostly for the column visibility config
+function range(start, end) {
         return Array.from({ length: end - start + 1 }, (_, i) => i + start);
     }
 
-    // column visibility configuration for the master button clicks
-    const columnVisibilityConfig = {
-        0: [...range(0, 4), ...range(5, 10)], // Characterization
-        1: [...range(0, 4), ...range(11, 19)], // Drugs/Agents/Ligands
-        2: [...range(0, 4),...range(20, 21), ...ICD_masterPositions], // Indications (Open Targets)
-        3: [...range(0, 1), 8], // Indications (Clinical Trials)
-        4: [...range(0, 1), 9], // Indications (Drugs, ICD11)
-        5: [...range(0, 1), 10], // Indications (Drugs, ATC)
-        6: [...range(0, 1), 11], // Tissue Expression (HPA)
-        7: [...range(0, 1), 12], // Cancer Expression (HPA)
-    };
+// column visibility configuration for the master button clicks
+const columnVisibilityConfig = {
+    0: [...range(0, 4), ...range(5, 10)], // Characterization
+    1: [...range(0, 4), ...range(11, 19)], // Drugs/Agents/Ligands
+    2: [...range(0, 4), ...range(20, 21), ...ICD_masterPositions], // Indications (Disease association)
+    3: [...range(0, 4), ...ICD_masterPositions_Drugs], // Indications (Drugs, ICD11)
+    4: [...range(0, 4), ...ICD_masterPositions_Agents], // Ensure valid columns
+    5: [...range(0, 1), 10], // Indications (Drugs, ATC)
+    6: [...range(0, 1), 11], // Tissue Expression (HPA)
+    7: [...range(0, 1), 12], // Cancer Expression (HPA)
+};
 
+// steady state 
+SteadyState_Disease_indication = 0;
 
-    function handleButtonClick(columnType) {
-        const table = $('#TargetSelectionToolTable').DataTable();
+function handleButtonClick(columnType, Disease_indication_steadyState) {
+    // Update button classes
+    document.querySelectorAll('button[data-column]').forEach(button => {
+        if (parseInt(button.getAttribute('data-column')) === columnType) {
+            button.classList.remove('btn-secondary');
+            button.classList.add('btn-primary');
+        } else {
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-secondary');
+        }
+    });
 
-        // Update button styles
-        $('.btn').removeClass('btn-primary').addClass('btn-secondary');
-        $(`.btn[data-column="${columnType}"]`).removeClass('btn-secondary').addClass('btn-primary');
+    // Check if ColumnType is 2 and SteadyState is 0
+    if (columnType === 2 && SteadyState_Disease_indication === 0) {
+        // Populate hierarchy tree for the modal with master positions
+        populateHierarchyTree(IDC_HIERARCHY, 'hierarchyTree', ICD_masterPositions);
 
-        // Apply column visibility based on configuration
-        table.columns().visible(false); // Hide all
-        setVisibilityForColumns(columnVisibilityConfig[columnType]);
+        // Show modal
+        $('#hierarchyModal').modal('show');
+
+        return; // Skip the rest of the function for this columnType
     }
 
-    function setVisibilityForColumns(indices) {
-        const table = $('#TargetSelectionToolTable').DataTable();
-        indices.forEach(index => table.column(index).visible(true));
+    // Check if SteadyState is 1 and ColumnType is not 2
+    if (SteadyState_Disease_indication === 1 && columnType === 2) {
+        // show the Reselect button
+        toggleReselectButton(true);
+    } else if (SteadyState_Disease_indication === 1 && columnType !== 2) {
+        // Hide the Reselect button
+        toggleReselectButton(false);
     }
 
-    // Column visability helper function
-    function setVisibilityForColumns(indices) {
-        const table = $('#TargetSelectionToolTable').DataTable();
-        indices.forEach(index => table.column(index).visible(true));
-    }
+    // Handle DataTables column visibility
+    const table = $('#TargetSelectionToolTable').DataTable();
+    const indices = columnVisibilityConfig[columnType];
 
-    // Run the functions
+    // Hide all columns
+    table.columns().visible(false, false);
 
-    // Add columns to the table
+    // Show relevant columns
+    indices.forEach(index => {
+        table.column(index).visible(true, false);
+    });
 
-    addIndicationsToTable(IDC_HIERARCHY, ICD_masterPositions);
-
-    // Initialize table
-    initializeDataTable("#TargetSelectionToolTable",Full_table_data,IDC_HIERARCHY)
-
-    // Programmatically click the button for "Indications (Open Targets)"
-    // document.querySelector('.btn[data-column="2"]').click();
-
-    const table = $("#TargetSelectionToolTable").DataTable();
+    // Adjust the table layout
     table.columns.adjust();
+}
+
+
+
+document.getElementById('saveColumnVisibility').addEventListener('click', () => {
+    const selectedColumns = new Set(); // Use a Set to avoid duplicates
+    const masterMaxValues = {}; // Store max values for each master column
+
+    // Add default ranges (columns always visible)
+    const alwaysVisibleColumns = [...range(0, 4), ...range(20, 21)];
+    alwaysVisibleColumns.forEach(col => selectedColumns.add(col));
+
+    // Track visible child columns and map them to their master columns
+    const checkboxes = document.querySelectorAll('#hierarchyTree input.child-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+        const columnIndex = parseInt(checkbox.dataset.columnIndex, 10);
+        const masterColumnIndex = parseInt(checkbox.dataset.masterColumnIndex, 10);
+
+        if (!isNaN(columnIndex)) {
+            selectedColumns.add(columnIndex); // Include child column
+        }
+
+        if (!isNaN(masterColumnIndex)) {
+            // Group child indices under the corresponding master column
+            if (!masterMaxValues[masterColumnIndex]) {
+                masterMaxValues[masterColumnIndex] = [];
+            }
+            masterMaxValues[masterColumnIndex].push(columnIndex);
+        }
+    });
+
+    // Calculate row-wise max values for each master column
+    const table = $('#TargetSelectionToolTable').DataTable();
+    const tableData = table.data().toArray(); // Fetch all row data at once for better performance
+
+    Object.keys(masterMaxValues).forEach(masterColumnIndex => {
+        const childIndices = masterMaxValues[masterColumnIndex]; // Get associated child indices
+
+        // Convert masterColumnIndex to an integer if it's coming as a string
+        const masterColumnIndexInt = parseInt(masterColumnIndex, 10);
+
+        // Get the dataSrc for the master column
+        const masterColumnKey = table.column(masterColumnIndexInt).dataSrc();
+
+        // Calculate max values for the current master column
+        const maxValues = calculateRowWiseMaxValuesForMaster(childIndices, tableData, table);
+
+        // Batch update only cells for the master column
+        table.rows({ order: 'index' }).every(function () {
+            const originalRowIdx = this.index(); // Get the original index of the row
+            const rowData = this.data();
+
+            // Ensure master column key exists in the rowData
+            if (!(masterColumnKey in rowData)) {
+                rowData[masterColumnKey] = ""; // Initialize with empty value
+            }
+
+            const currentMasterValue = parseFloat(rowData[masterColumnKey]) || ""; // Normalize to float or empty
+            const newMasterValue = parseFloat(maxValues[originalRowIdx]) || ""; // Use original row index for maxValues
+
+            // Update only if the value changes
+            if (currentMasterValue !== newMasterValue) {
+                rowData[masterColumnKey] = newMasterValue; // Assign calculated max value
+                table.cell(originalRowIdx, masterColumnIndexInt).invalidate(); // Invalidate only the specific cell
+            }
+        });
+
+        selectedColumns.add(masterColumnIndexInt); // Ensure master column is visible
+    });
+
+    // Convert selectedColumns to an array
+    const SteadyState_Disease_indication_positions = [...selectedColumns];
+
+    // Update columnVisibilityConfig for Indications (Disease association)
+    columnVisibilityConfig[2] = SteadyState_Disease_indication_positions;
+
+    // Apply column visibility for selected columns only
+    applyColumnVisibility(SteadyState_Disease_indication_positions);
+
+    // Adjust only updated cells without a full redraw
+    table.columns.adjust();
+
+    // Set steady state to 1
+    SteadyState_Disease_indication = 1;
+
+    // Show the Reselect button
+    toggleReselectButton(true);
+
+    // Close the modal
+    $('#hierarchyModal').modal('hide');
+});
+
+
+function calculateRowWiseMaxValuesForMaster(childIndices, tableData, table) {
+    const maxValues = [];
+
+    // Iterate over each row to calculate the max value
+    tableData.forEach(rowData => {
+        let rowMax = null;
+
+        // Iterate over the relevant child indices only
+        childIndices.forEach(childIndex => {
+            const childColumnKey = table.column(childIndex).dataSrc(); // Get the column key (e.g., "0023", "0024")
+            const cellValue = rowData[childColumnKey];
+            const parsedValue = parseFloat(cellValue);
+
+            if (!isNaN(parsedValue)) {
+                rowMax = rowMax === null ? parsedValue : Math.max(rowMax, parsedValue);
+            }
+        });
+
+        maxValues.push(rowMax === null ? "" : rowMax); // Default to empty string if no value found
+    });
+
+    return maxValues;
+}
+
+// Optimized function to set visibility only for specific columns
+function applyColumnVisibility(columnIndices) {
+    const table = $('#TargetSelectionToolTable').DataTable();
+    const allColumns = table.columns();
+
+    // Hide all columns
+    allColumns.visible(false, false); // Disable redraw during visibility update
+
+    // Make only the selected columns visible
+    columnIndices.forEach(index => {
+        table.column(index).visible(true, false);
+    });
+
+    table.columns.adjust(); // Adjust table layout
+}
+
+// Toggle the visibility of the reselect ICD11
+function toggleReselectButton(show) {
+    const table = $('#TargetSelectionToolTable').DataTable();
+    const reselectButton = table.buttons().container().find('.btn-warning');
+    
+    if (show) {
+        reselectButton.removeClass('d-none');
+    } else {
+        reselectButton.addClass('d-none');
+    }
+}
+
+
 </script>
 
 {% endblock %}

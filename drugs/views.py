@@ -1211,9 +1211,9 @@ class TargetSelectionTool(TemplateView):
         }, inplace=True)
 
         # Merge `agg_data_targets` back into the original DataFrame on `Target ID`
-        df_final = df.merge(agg_data_targets, on=group_cols, how='left')
+        df_first = df.merge(agg_data_targets, on=group_cols, how='left')
 
-        # Keep only the specified columns in df_final
+        # Keep only the specified columns in df_first
         keep_col_names = [
             'Target ID', 'Gene name', 'Protein name', 'Receptor family', 'Ligand type',
             'Class', 'Literature', 'Novelty (Pharos)', 'IDG',
@@ -1222,11 +1222,11 @@ class TargetSelectionTool(TemplateView):
             'Inhibitory_max_phase', 'Inhibitory_Drugs', 'Inhibitory_Agents',
         ]
 
-        # Keep only the specified columns in df_final
-        df_final = df_final[keep_col_names]
+        # Keep only the specified columns in df_first
+        df_first = df_first[keep_col_names]
 
         # Drop duplicates based on the reduced set of columns
-        df_final.drop_duplicates(inplace=True)
+        df_first.drop_duplicates(inplace=True)
 
         # Fetch all Indications and create a hierarchical mapping
         indications = Indication.objects.values("id", "title", "slug", "level")
@@ -1335,39 +1335,131 @@ class TargetSelectionTool(TemplateView):
         # Apply the renaming to the DataFrame
         df = df.rename(columns=new_columns)
         
-        # print(df)
         # reset index
         df.reset_index(inplace=True)
         # Perform the merge
-        merged_df = pd.merge(df_final, df, on='Target ID', how='left')
+        df_second = pd.merge(df_first, df, on='Target ID', how='left')
         
         # Add a new column for "Max disease association score"
-        merged_df["Max_disease_association_score"] = merged_df[
+        df_second["Max_disease_association_score"] = df_second[
             IDC_hierarchy.keys()  # Keys of the IDC_hierarchy dict correspond to master columns
         ].apply(pd.to_numeric, errors="coerce").max(axis=1)  # Convert to numeric and compute the max
 
         # Add a new column for "Disease associated"
-        merged_df["Disease_associated"] = merged_df["Max_disease_association_score"].apply(
+        df_second["Disease_associated"] = df_second["Max_disease_association_score"].apply(
             lambda x: "Yes" if x >= 0.5 else "No"
         )
 
+
+        # Step 1: Query data
+        table_data = Drugs2024.objects.select_related('indication').values(
+            'target',               # Target ID
+            'ligand',               # Ligand ID
+            'indication__title',    # Indication title
+            'drug_status'           # Drug status
+        )
+
+        # Step 2: Convert to DataFrame and classify
+        df = pd.DataFrame(list(table_data))
+        df['Classification'] = df['drug_status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
+
+        # Step 3: Pivot data for counts of drugs and agents
+        pivoted = df.groupby(['target', 'indication__title', 'Classification'])['ligand'].count().reset_index()
+        pivoted = pivoted.pivot_table(
+            index='target',
+            columns=['indication__title', 'Classification'],
+            values='ligand',
+            fill_value=0
+        )
+
+        # Flatten multi-index columns (indication, Classification) into single column names
+        pivoted.columns = [f"{ind}_{cls}" for ind, cls in pivoted.columns]
+        pivoted.reset_index(inplace=True)
+
+        # Step 4: Calculate master columns by summing children for each indication master
+        # Using IDC_hierarchy to identify master-child relationships
+        for master, details in IDC_hierarchy.items():
+            children = details['children']
+            # Sum columns corresponding to children for Drugs
+            drug_columns = [f"{child}_Drug" for child in children if f"{child}_Drug" in pivoted.columns]
+            pivoted[f"{master}_Drug"] = pivoted[drug_columns].sum(axis=1) if drug_columns else 0
+            
+            # Sum columns corresponding to children for Agents
+            agent_columns = [f"{child}_Agent" for child in children if f"{child}_Agent" in pivoted.columns]
+            pivoted[f"{master}_Agent"] = pivoted[agent_columns].sum(axis=1) if agent_columns else 0
+
+        # Step 5: Remove empty columns (entirely zero)
+        pivoted = pivoted.loc[:, (pivoted != 0).any(axis=0)]
+
+        # Step 6: Rebuild dictionaries
+        IDC_hierarchy_drugs = {}
+        IDC_hierarchy_agents = {}
+
+        for master, details in IDC_hierarchy.items():
+            children = details['children']
+            # Filter children that still exist in the DataFrame
+            valid_children_drugs = [child for child in children if f"{child}_Drug" in pivoted.columns]
+            valid_children_agents = [child for child in children if f"{child}_Agent" in pivoted.columns]
+            
+            # Add master and filtered children to hierarchy
+            if valid_children_drugs:
+                IDC_hierarchy_drugs[master] = {
+                    'title': details['title'],
+                    'children': valid_children_drugs
+                }
+            if valid_children_agents:
+                IDC_hierarchy_agents[master] = {
+                    'title': details['title'],
+                    'children': valid_children_agents
+                }
+
+        # Step 7: Ensure the pivoted DataFrame has 'Target ID' as the key for merging
+        pivoted.rename(columns={'target': 'Target ID'}, inplace=True)
+
+        # Step 8: Merge the new columns into df_second to create df_third
+        df_third = pd.merge(df_second, pivoted, on='Target ID', how='left')
+
         # Convert the final DataFrame to JSON
-        json_records_targets = merged_df.to_json(orient='records')
+        json_records_targets = df_third.to_json(orient='records')
         context['Full_data'] = json_records_targets
-        # Prepare sorted keys for IDC_hierarchy
-        # sorted_keys = sorted(IDC_hierarchy.keys())
-        # context['sorted_keys'] = sorted_keys
-        # context['IDC_hierarchy'] = IDC_hierarchy
-        limit = 1  # Adjust this number as needed for your subset
-        subset_keys = sorted(IDC_hierarchy.keys())[:limit]  # Limit to first `limit` keys
-        context['subset_keys'] = subset_keys
-        # Create a reduced version of IDC_hierarchy with only the subset keys
-        # reduced_hierarchy = {key: IDC_hierarchy[key] for key in subset_keys}
         context['IDC_hierarchy'] = json.dumps(IDC_hierarchy)
+        context['IDC_hierarchy_drugs'] = json.dumps(IDC_hierarchy_drugs)
+        context['IDC_hierarchy_agents'] = json.dumps(IDC_hierarchy_agents)
 
+
+        # for key in sorted(IDC_hierarchy_drugs):
+        #     print(key, IDC_hierarchy_drugs[key]['title'],len(IDC_hierarchy_drugs[key]['children']))
+        
+        # start=22
+        # list_of_drugs = [start]
         # for key in sorted(IDC_hierarchy):
-        #     print(key, IDC_hierarchy[key]['title'],len(IDC_hierarchy[key]['children']))
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy[key]['title'],current,next)
+        # print(list_of_drugs)
 
+
+        # start=706
+        # list_of_drugs = [start]
+        # for key in sorted(IDC_hierarchy_drugs):
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy_drugs[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy_drugs[key]['title'],current,next)
+        # print(list_of_drugs)
+
+        # start=1363
+        # list_of_drugs = [start]
+        # for key in sorted(IDC_hierarchy_agents):
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy_agents[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy_agents[key]['title'],current,next)
+        # print(list_of_drugs)
         return context
 
         # # Get data - server side - Queries #
