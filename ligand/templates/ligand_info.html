@@ -39,9 +39,11 @@
         <li class="nav-item">
             <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/Drug</a>
         </li>
-		<li class="nav-item">
-			<a class="nav-link" data-toggle="tab" href="#endogenous" id="endogenous_tab">Endogenous</a>
-		</li>
+		{% if ligand.labels.endogenous == 'Endogenous' %}
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#endogenous" id="endogenous_tab">Endogenous</a>
+			</li>
+		{% endif %}
     </ul>
     <br/>
     <br/>
@@ -140,119 +142,123 @@
                 </div>
             </div>
             <br/>
+
             
             <!-- Bioactivities -->
             <hr>
-            <h3>Bioactivities</h3>
-            <ul class="nav nav-tabs">
-                <li class="nav-item active">
-                    <a class="nav-link active" data-toggle="tab" href="#affinity">Affinity</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-toggle="tab" href="#potency">Potency</a>
-                </li>
-            </ul>
-            <div class="tab-content">
-                <!-- Affinity table -->
-                <div class="tab-pane container active" id="affinity">
-                    <table class="display" id='affinity_table' style="width: 100%">
-                        <thead>
-                            <tr rowspan="2">
-                                <th style="text-align:center" colspan="5">
-                                    Receptor</th>
-                                <th style=" text-align:center" colspan="4">
-                                    Activity</th>
-                                <th style=" text-align:center" colspan="1">
-                                    Source</th>
-                            </tr>
-                            <tr>
-                                <th style="text-align:left">GTP</th>
-                                <th style="text-align:left">Uniprot</th>
-                                <th style="text-align:left">Species</th>
-                                <th style="text-align:left">Family</th>
-                                <th style="border-right: 1px solid black; text-align:left">Class</th>
+			<h3>Bioactivities</h3>
+			<ul class="nav nav-tabs">
+				<li class="nav-item active">
+					<a class="nav-link active" data-toggle="tab" href="#affinity">Affinity</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" data-toggle="tab" href="#potency">Potency</a>
+				</li>
+			</ul>
+			<div class="tab-content">
+				<!-- Affinity table -->
+				<div class="tab-pane container active" id="affinity">
+					<table width="100%" class="display compact" id="AssayAffinityTable">
+						<thead>
+							<!-- Dummy Header Row for Complex Header Fix -->
+							<tr>
+								<td colspan="10" style="text-align: center" data-dt-order="disable"></td>
+							</tr>
 
-                                <th>Type</th>
-                                <th>Min</th>
-                                <th>Avg</th>
-                                <th style="border-right: 1px solid black;">Max</th>
+							<!-- Super Header Row -->
 
-                                <th style="border-right: 1px solid black;">Database</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for data in assay_affinity %}
-                            <tr>
-                                <td>{{ data.receptor_gtp }}</td>
-                                <td>{{ data.receptor_uniprot }}</td>
-                                <td>{{ data.receptor_species }}</td>
-                                <td>{{ data.receptor_family }}</td>
-                                <td>{{ data.receptor_class }}</td>
+							<tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+								<th colspan="5" style="text-align:center">Receptor</th>
+								<th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Activity</th>
+								<th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Source</th>
+							</tr>
 
-                                <td>{{ data.type }}</td>
+							<!-- Header Row -->
+							<tr>
+								<th style="text-align: center;">GTP</th>
+								<th style="text-align: center;">Uniprot</th>
+								<th style="text-align: center;">Species</th>
+								<th style="text-align: center;">Family</th>
+								<th style="text-align: center;">Class</th>
+								<th style="border-left: 1px solid black; text-align: center;">Type</th>
+								<th style="text-align: center;">Min</th>
+								<th style="text-align: center;">Avg</th>
+								<th style="text-align: center;">Max</th>
+								<th style="border-left: 1px solid black; text-align: center;">Database</th>
+							</tr>
+							<!-- Filter Row for header -->
+							<tr>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- Data will be populated via DataTables -->
+						</tbody>
+					</table>
+				</div>
+				
+				<!-- Potency table -->
+				<div class="tab-pane container" id="potency">
+					<table width="100%" class="display compact" id="AssayPotencyTable">
+						<thead>
+							<!-- Dummy Header Row for Complex Header Fix -->
+							<tr>
+								<td colspan="10" style="text-align: center" data-dt-order="disable"></td>
+							</tr>
 
-                                <td>{{ data.min }}</td>
-                                <td>{{ data.avg }}</td>
-                                <td>{{ data.max }}</td>
+							<!-- Super Header Row -->
 
-                                <td>{{ data.source }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Potency table -->
-                <div class="tab-pane container" id="potency">
-                    <table class="display" id='potency_table' style="width: 100%">
-                        <thead>
-                            <tr rowspan="2">
-                                <th style="text-align:center" colspan="5">
-                                    Receptor</th>
-                                <th style=" text-align:center" colspan="4">
-                                    Activity</th>
-                                <th style=" text-align:center" colspan="1">
-                                    Source</th>
-                            </tr>
-                            <tr>
-                                <th style="text-align:left">GTP</th>
-                                <th style="text-align:left">Uniprot</th>
-                                <th style="text-align:left">Species</th>
-                                <th style="text-align:left">Family</th>
-                                <th style="border-right: 1px solid black; text-align:left">Class</th>
+							<tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+								<th colspan="5" style="text-align:center">Receptor</th>
+								<th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Activity</th>
+								<th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Source</th>
+							</tr>
 
-                                <th>Type</th>
-                                <th>Min</th>
-                                <th>Avg</th>
-                                <th style="border-right: 1px solid black;">Max</th>
-
-                                <th style="border-right: 1px solid black;">Database</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for data in assay_potency %}
-                            <tr>
-                                <td>{{ data.receptor_gtp }}</td>
-                                <td>{{ data.receptor_uniprot }}</td>
-                                <td>{{ data.receptor_species }}</td>
-                                <td>{{ data.receptor_family }}</td>
-                                <td>{{ data.receptor_class }}</td>
-
-                                <td>{{ data.type }}</td>
-
-                                <td>{{ data.min }}</td>
-                                <td>{{ data.avg }}</td>
-                                <td>{{ data.max }}</td>
-
-                                <td>{{ data.source }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+							<!-- Header Row -->
+							<tr>
+								<th style="text-align: center;">GTP</th>
+								<th style="text-align: center;">Uniprot</th>
+								<th style="text-align: center;">Species</th>
+								<th style="text-align: center;">Family</th>
+								<th style="text-align: center;">Class</th>
+								<th style="border-left: 1px solid black; text-align: center;">Type</th>
+								<th style="text-align: center;">Min</th>
+								<th style="text-align: center;">Avg</th>
+								<th style="text-align: center;">Max</th>
+								<th style="border-left: 1px solid black; text-align: center;">Database</th>
+							</tr>
+							<!-- Filter Row for header -->
+							<tr>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- Data will be populated via DataTables -->
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
         
+
         <!-- Agent/Drug -->
         <div class="tab-pane container" id="agent_drug">
             <!--Drug properties and Database connections-->
@@ -266,22 +272,6 @@
                         <h3>Image not available</h3>
                     {% endif %}
                     <br/>
-                    <table class="table table-striped table-bordered">
-                        <tr>
-                            <td>SMILES</td>
-                            <td class="name" style="max-width: 350px">{{ ligand.ligand_smiles }}</td>
-                        </tr>
-                        <tr>
-                            <td>InChIKey</td>
-                            <td>{{ ligand.ligand_inchikey }}</td>
-                        </tr>
-                        {% if ligand.type == 'Peptide' %}
-                        <tr>
-                            <td>Sequence</td>
-                            <td class="name" style="max-width: 350px">{{ ligand.sequence }}</td>
-                        </tr>
-                        {% endif %}
-                    </table>
                 </div>
                 
                 <!--Column 2: Drug properties (1/3 width)-->
@@ -302,6 +292,33 @@
                             <td>{{ ligand.labels.approved }}</td>
                         </tr>
                     </table>
+					<!-- Clinical Trials Section -->
+					<h3>Clinical Trials</h3>
+					<div class="clinical-trials">
+						
+						<div class="trial-stages">
+							<div class="stage">
+								<span>Phase I</span>
+								<span class="badge badge-i">{{ Phase_I_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Phase II</span>
+								<span class="badge badge-ii">{{ Phase_II_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Phase III</span>
+								<span class="badge badge-iii">{{ Phase_III_trials }}</span>
+							</div>
+							<div class="stage">
+								<span>Approved</span>
+								{% if Approved == 'Yes' %}
+									<span class="badge badge-approved">Yes</span>
+								{% else %}
+									<span class="badge badge-notyet">No</span>
+								{% endif %}
+							</div>
+						</div>
+					</div>
                 </div>
                 <!--Column 3: Database connections (1/3 width)-->
                 <div class="col-md-4">
@@ -341,73 +358,6 @@
                     </table>
                 </div>
 			</div>
-			<div class="row">
-				<!-- Column 3: Clinical trials (1/3 width) -->
-				<div class="col-md-4">
-					{% comment %} <!-- Clinical trials -->
-					<h3>Clinical trials</h3>
-					<table class="table table-bordered">
-						<tbody>
-							<tr>
-								<td><strong>Phase I Trials</strong></td>
-								<td>
-									<span class="badge badge-i">{{ Phase_I_trials }}</span>
-								</td>
-							</tr>
-							<tr>
-								<td><strong>Phase II Trials</strong></td>
-								<td>
-									<span class="badge badge-ii">{{ Phase_II_trials }}</span>
-								</td>
-							</tr>
-							<tr>
-								<td><strong>Phase III Trials</strong></td>
-								<td>
-									<span class="badge badge-iii">{{ Phase_III_trials }}</span>
-								</td>
-							</tr>
-							<tr>
-								<td><strong>Approved</strong></td>
-								<td>
-									{% if Approved == 'Yes' %}
-										<span class="badge badge-iii">Yes</span>
-									{% else %}
-										<span class="badge badge-notyet">No</span>
-									{% endif %}
-								</td>
-							</tr>
-						</tbody>
-					</table> {% endcomment %}
-				
-					<!-- Clinical Trials Section -->
-					<h3>Clinical Trials</h3>
-					<div class="clinical-trials">
-						
-						<div class="trial-stages">
-							<div class="stage">
-								<span>Phase I</span>
-								<span class="badge badge-i">{{ Phase_I_trials }}</span>
-							</div>
-							<div class="stage">
-								<span>Phase II</span>
-								<span class="badge badge-ii">{{ Phase_II_trials }}</span>
-							</div>
-							<div class="stage">
-								<span>Phase III</span>
-								<span class="badge badge-iii">{{ Phase_III_trials }}</span>
-							</div>
-							<div class="stage">
-								<span>Approved</span>
-								{% if Approved == 'Yes' %}
-									<span class="badge badge-iii">Yes</span>
-								{% else %}
-									<span class="badge badge-notyet">No</span>
-								{% endif %}
-							</div>
-						</div>
-					</div>
-				</div>
-            </div>
             <br/>
             
             <!-- Sankey plot -->
@@ -436,15 +386,77 @@
             {% else %}
                 <h4>Compound is not listed as a drug.</h4>
             {% endif %}
+			<!--Drug table-->
+			{% if Full_data_drug_table %}
+				<hr>
+				<h3>Drug Information</h3>
+				<div style="font-size: 11px; white-space: nowrap;" id="table-container">
+					<table width="100%" class="display compact" id="Table_drugs">
+						<thead>
+							<!-- Dummy Header Row for Complex Header Fix -->
+							<tr>
+								<td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+							</tr>
+			  
+							<!-- Super Header Row -->
+							<tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+								<th colspan="5" style="text-align:center">Target</th>
+								<th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
+								<th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+							</tr>
+			  
+							<!-- Header Row -->
+							<tr>
+								<th style="text-align: center;">Gene</th>
+								<th style="text-align: center;">Protein</th>
+								<th style="text-align: center;">Receptor family</th>
+								<th style="text-align: center;">Ligand type</th>
+								<th style="text-align: center;">Class</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+								<th style="text-align: center;">ICD11</th>
+								<th style="text-align: center;">ATC</th>
+								<th style="text-align: center;">Association score</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
+								<th style="text-align: center;">I</th>
+								<th style="text-align: center;">II</th>
+								<th style="text-align: center;">III</th>
+								<th style="text-align: center;">Approved</th>
+							</tr>
+							<!-- Filter Row for header -->
+							<tr>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+								<td style="text-align: center;" data-dt-order="disable"></td>
+							</tr>
+						</thead>
+						<tbody>
+						</tbody>
+					</table>
+				</div>
+            {% endif %}
+
         </div>
-        <!-- Endogenous -->
-        <div class="tab-pane container" id="endogenous">
-			{% if ligand.labels.endogenous == 'Endogenous' %}
-				<p>This ligand is endogenous.</p>
-			{% else %}
-				<p>This ligand is not endogenous.</p>
-			{% endif %}
-		</div>
+		{% if ligand.labels.endogenous == 'Endogenous' %}
+			<!-- Endogenous -->
+			<div class="tab-pane container" id="endogenous">
+				{% if ligand.labels.endogenous == 'Endogenous' %}
+					<p>This ligand is endogenous.</p>
+				{% else %}
+					<p>This ligand is not endogenous.</p>
+				{% endif %}
+			</div>
+		{% endif %}
     </div>
     
     <br>
@@ -454,23 +466,188 @@
 {% endblock %}
 
 {% block addon_js %}
-<script src="{% static 'home/js/datatables.min.js' %}"> </script>
-<script src="{% static 'home/js/jquery.dataTables.yadcf.js' %}"></script>
+<!-- Make sure the Select2 JS file is included -->
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+<script src="{% static 'home/js/DataTables_v2.0.5.js' %}"></script>
+<script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
+<script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
+<script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
+<script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
 <script src="{% static 'home/js/dataTables.buttons.min.js' %}"></script>
-<script src="{% static 'home/js/select2.js' %}"> </script>
-<script src="{% static 'home/js/selection.js' %}"> </script>
+<script src="{% static 'home/js/selection.js' %}"></script>
 <script src="{% static 'home/js/gpcrdb.js' %}"></script>
 <script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script src="{% static 'home/js/sankey.js' %}"></script>
+
+
+
+<script type="text/javascript">
+    var page = '{{ page }}';
+
+
+	// Parse the drug table data
+	var Full_table_data = JSON.parse('{{ Full_data_drug_table|escapejs }}');
+	var assayAffinityData = JSON.parse('{{ assay_affinity_json|escapejs }}');
+	var assayPotencyData = JSON.parse('{{ assay_potency_json|escapejs }}');
+
+	initializeDataTableBioactivity("#AssayAffinityTable", assayAffinityData);
+	initializeDataTableBioactivity("#AssayPotencyTable", assayPotencyData);
+
+
+	function initializeDataTableBioactivity(tableId, data) {
+		// Define page-specific column definitions based on the type
+		var pageSpecificDefs = [];
+
+		pageSpecificDefs = [
+			{ targets: [5, 9], className: 'border-left' }
+		];
+
+		// digit fixed value
+		const digit_fixed = 3
+
+		// Add common column definitions
+		var columnDefs = [{ className: "dt-head-center dt-center dt-body-center expand", "targets": "_all" }].concat(pageSpecificDefs);
+
+
+		// Define columns
+		var columns = [
+			{data: "receptor_gtp", name: "receptor_gtp", width: "5%"},
+			{data: "receptor_uniprot", name: "receptor_uniprot", width: "5%"},
+			{data: "receptor_species", name: "receptor_species", width: "5%"},
+			{data: "receptor_family", name: "receptor_family", width: "5%"},
+			{data: "receptor_class", name: "receptor_class", width: "5%"},
+			{data: "type", name: "type", width: "5%"},
+			{data: "min", name: "min", width: "5%"},
+			{data: "avg", name: "avg", width: "5%"},
+			{ 
+                data: "max", 
+                name: "max", 
+                width: "5%", 
+                render: function (data) { 
+                    return (data === "" || data === null) ? data : parseFloat(data).toFixed(digit_fixed); 
+                }, 
+                defaultContent: "" 
+            },
+			{data: "source", name: "source", width: "5%"}
+		];
+
+		// Initialize the DataTable
+		var table = $(tableId).DataTable({
+			data: data,
+			columns: columns,
+			columnDefs: columnDefs,
+			dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
+			"<'row'<'col-sm-11'tr>>" +                    // Table rows
+			"<'row'<'col-sm-11'ip>>", // Pagination and info
+			paging: false,
+			scrollCollapse: true,
+			autoWidth: true,
+			buttons: [
+				{
+					extend: 'csv',
+					text: 'Export to CSV',
+					className: 'btn btn-primary'
+				},
+				{
+					text: 'Reset All Filters',
+					className: 'btn btn-primary',
+					action: function () { reset_all(); }
+				}
+			]
+		});
+
+		// Create and apply the filters
+		var column_filters = [];
+		column_filters = column_filters.concat(CreateColumnFilters(table, 0, 6, "Multi-select-exact"));
+		column_filters = column_filters.concat(CreateColumnFilters(table, 6, 3, "Range-float-vertical"));
+		column_filters = column_filters.concat(CreateColumnFilters(table, 9, 1, "Multi-select-exact"));
+		createDropdownFilters(table, column_filters);
+		return table;
+	}
+
+
+
+	initializeDataTable("#Table_drugs", Full_table_data);
+	function initializeDataTable(tableId, data) {
+		// Define page-specific column definitions based on the type
+		var pageSpecificDefs = [];
+
+		pageSpecificDefs = [
+			{ targets: [5, 9], className: 'border-left' }
+		];
+
+		// digit fixed value
+		const digit_fixed = 3
+
+		// Add common column definitions
+		var columnDefs = [{ className: "dt-head-center dt-center dt-body-center expand", "targets": "_all" }].concat(pageSpecificDefs);
+
+		// Define columns
+		var columns = [
+			{data: "Gene name", name: "Gene name", width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+			{data: "Protein name", name: "Protein name", width: "7%"},
+			{data: "Receptor family", name: "Receptor family", width: "9%"},
+			{data: "Ligand type", name: "Ligand type", width: "8%"},
+			{data: "Class", name: "Class", width: "7%", render: function (data) { return data.split(' (')[0]; }},
+			{data: "Indication name", name: "Indication", width: "10%"},
+			{data: "ICD11", name: "ICD11", width: "7%"},
+			{data: 'ATC', name: "ATC", width: "7%"},
+			{data: 'Association score', name: "Association score", width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
+			{data: "Highest_phase", name: "Highest phase", width: "3%"},
+			{data: "Phase_I_trials", name: "Phase I trials", width: "3%"},
+			{data: "Phase_II_trials", name: "Phase II trials", width: "3%"},
+			{data: "Phase_III_trials", name: "Phase III trials", width: "3%"},
+			{data: "Approved", name: "Approved", width: "8%"}
+		];
+
+		// Initialize the DataTable
+		var table = $(tableId).DataTable({
+			data: data,
+			columns: columns,
+			columnDefs: columnDefs,
+			dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+			"<'row'<'col-sm-12'tr>>" +                    // Table rows
+			"<'row'<'col-sm-12'ip>>", // Pagination and info
+			paging: false,
+			scrollCollapse: true,
+			autoWidth: true,
+			buttons: [
+				{
+					extend: 'csv',
+					text: 'Export to CSV',
+					className: 'btn btn-primary'
+				},
+				{
+					text: 'Reset All Filters',
+					className: 'btn btn-primary',
+					action: function () { reset_all(); }
+				}
+			]
+		});
+
+		// Create and apply the filters
+		var column_filters = [];
+		column_filters = column_filters.concat(CreateColumnFilters(table, 0, 8, "Multi-select-exact"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 8, 5, "Range-float-vertical"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 13, 1, "Multi-select-exact"));
+
+		createDropdownFilters(table, column_filters);
+
+		return table;
+	}
+
+
+</script>
 
 <script>
 var sankey_data = JSON.parse('{{ sankey|safe }}');
 var top_nodes = '{{ nodes_nr|safe }}';
 var totalPoints = '{{ points }}';
+var custom_width = 1300;
 
 // set the dimensions and margins of the graph
 // set height iteratively based on highest number of nodes
-SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
+SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints, custom_width);
 </script>
 
 <script type="text/javascript">
@@ -520,160 +697,8 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 			return cookieValue;
 		}
 		const csrftoken = getCookie('csrftoken');
-
-		var table_potency = $('#potency_table').DataTable({
-			dom: 'B<>ftrip',
-			paging: true,
-			scrollCollapse: true,
-			paging: false,
-			AutoWidth: true,
-			// pageLength: 15,
-			buttons: [
-                {
-                    extend: 'csv',
-                    text: 'Export to CSV',
-                    className: 'btn btn-primary',
-                    init: function(api, node, config) {
-                        $(node).removeClass('dt-button buttons-excel buttons-html5');
-                    },
-                    exportOptions: {
-                        modifier: {
-                            order: 'current',
-                            page: 'all',
-                            search: 'none'
-                        }
-                    }
-                },
-				{
-					text: 'Reset All Filters',
-					className: 'btn btn-primary',
-					titleAttr: 'Reset All Filters',
-					init: function(api, node, config) {
-						$(node).removeClass('dt-button buttons-excel buttons-html5');
-					},
-					action: function(e, dt, node, config) {
-						reset_filters()
-					},
-				},
-                {
-					text: 'Get Vendors',
-					className: 'btn btn-primary',
-					titleAttr: 'Vendors info for top 20 ligands',
-					init: function(api, node, config) {
-						$(node).removeClass('dt-button buttons-excel buttons-html5');
-					},
-					action: function(e, dt, node, config) {
-						var id = {{ligand.ligand_id}}
-						var result
-						$.ajaxSetup({
-							headers: {
-								"X-CSRFToken": csrftoken
-							}
-						});
-						$.ajax({
-							type: 'POST',
-							url: '/ligand/vendors',
-							data: {
-								ids: id,
-								csrfmiddlewaretoken: '{{csrf_token }}',
-								action: 'post',
-							},
-							success: function() {
-
-								openPopup('/ligand/browservendors', 'Detail View', window, 850, 1000)
-							}
-						});
-					},
-				},
-			],
-		});
-		var table_affinity = $('#affinity_table').DataTable({
-			dom: 'B<>ftrip',
-			paging: true,
-			scrollCollapse: true,
-			paging: false,
-			AutoWidth: true,
-			// pageLength: 15,
-			buttons: [
-								{
-										extend: 'csv',
-										text: 'Export to CSV',
-										className: 'btn btn-primary',
-										init: function(api, node, config) {
-												$(node).removeClass('dt-button buttons-excel buttons-html5');
-										},
-										exportOptions: {
-												modifier: {
-														order: 'current',
-														page: 'all',
-														search: 'none'
-												}
-										}
-								},
-				{
-					text: 'Reset All Filters',
-					className: 'btn btn-primary',
-					titleAttr: 'Reset All Filters',
-					init: function(api, node, config) {
-						$(node).removeClass('dt-button buttons-excel buttons-html5');
-					},
-					action: function(e, dt, node, config) {
-						reset_filters()
-					},
-				},
-								{
-					text: 'Get Vendors',
-					className: 'btn btn-primary',
-					titleAttr: 'Vendors info for top 20 ligands',
-					init: function(api, node, config) {
-						$(node).removeClass('dt-button buttons-excel buttons-html5');
-					},
-					action: function(e, dt, node, config) {
-						var id = {{ligand.ligand_id}}
-						var result
-						$.ajaxSetup({
-							headers: {
-								"X-CSRFToken": csrftoken
-							}
-						});
-						$.ajax({
-							type: 'POST',
-							url: '/ligand/vendors',
-							data: {
-								ids: id,
-								csrfmiddlewaretoken: '{{csrf_token }}',
-								action: 'post',
-							},
-							success: function() {
-
-								openPopup('/ligand/browservendors', 'Detail View', window, 850, 1000)
-							}
-						});
-					},
-				},
-			],
-		});
-
-		let column_filters = [];
-		column_filters = column_filters.concat(createYADCFfilters(0, 6, "multi_select", "select2", "Select", false, null, null, "80px"));
-		column_filters = column_filters.concat(createYADCFfilters(6, 3, "range_number", null, ["Min", "Max"], false, null, null, "30px"))
-		column_filters = column_filters.concat(createYADCFfilters(9, 1, "multi_select", "select2", "Select", false, null, null, "50px"));
-
-		yadcf.init(table_potency.draw(), column_filters, {
-			cumulative_filtering: false
-		});
-
-		yadcf.init(table_affinity.draw(), column_filters, {
-			cumulative_filtering: false
-		});
-
-		function reset_filters() {
-			location.reload()
-		}
-		table_potency.columns.adjust();
-		table_affinity.columns.adjust();
-
 	});
+
 </script>
 <script type="text/javascript">
 	function read_ids() {
@@ -686,13 +711,15 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 {% endblock %}
 
 {% block addon_css %}
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="{% static 'home/css/button_spinner.css' %}" type="text/css" />
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
 <link rel="stylesheet" href="{% static 'home/css/jquery.dataTables.min.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/construct_browser.css' %}" type="text/css" />
-<link rel="stylesheet" href="{% static 'home/css/yadcf_bootstrap_version.css' %}" type="text/css" />
-<link rel="stylesheet" href="{% static 'home/css/select2.css' %}" type="text/css" />
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
 <link href="{% static 'home/css/construct_alignment.css' %}" rel="stylesheet">
 <link href="{% static 'home/css/sequenceviewer.css' %}" rel="stylesheet">
-<link href="{% static 'home/css/modal.css' %}" rel="stylesheet">
 <link rel="stylesheet" type="text/css" href="{% static 'home/css/jquery.powertip.css' %}" />
 <link rel="stylesheet" href="{% static 'home/css/bootstrap2-toggle.min.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/modal.css' %}" type="text/css" />
@@ -741,25 +768,6 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 		padding: 4px 16px 4px 2px;
 	}
 
-	.yadcf-filter-wrapper {
-		margin-top: 0px;
-	}
-
-	input.yadcf-filter {
-		width: 100px;
-		font-family: sans-serif;
-		font-size: 100%;
-		font-weight: bold;
-	}
-
-	.yadcf-filter-range-date,
-	.yadcf-filter-range-number {
-		width: 30px;
-		font-family: sans-serif;
-		font-size: 100%;
-		font-weight: bold;
-	}
-
 	.highlight {
 		background-color: rgb(204, 229, 255);
 	}
@@ -801,6 +809,99 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 	div.align-items-start img {
 		max-width: 100%;
 	}
+
+	/* From selection_drugs.html */
+	.link {
+	  fill: none;
+	  stroke: #969696;
+	  stroke-opacity: .1;
+	}
+	.link:hover {
+	  stroke-opacity: .3;
+	}
+	
+	.custom-dropdown {
+		max-height: 500px !important; /* Set the maximum height of the dropdown */
+		overflow-y: auto !important; /* Enable scrolling */
+	}
+	
+	.custom-dropdown .select2-results__options {
+		max-height: 450px !important; /* Adjust the height inside the dropdown */
+		overflow-y: auto !important; /* Ensure results can scroll */
+	}
+	
+	.border-left {
+		border-left: 1px solid #cccccc !important; /* Adjust the width and color as needed */
+	}
+	
+	/* Centered */
+	th .dt-column-order {
+		margin-right: -12px; /* Shift the sort arrow to the right */
+	}
+	th .dt-column-title {
+		/* padding-left: 24px; */
+		margin-left: 24px;
+	}
+	
+	/* Additional styles */
+	#targetsTable {
+		table-layout: auto;  /* Ensure columns can adjust width */
+		width: 100%;         /* Set table width to 100% of container */
+	}
+	
+	/* Font size consistency */
+	table.dataTable {
+		font-size: 12px; /* Adjust to match your standard font size */
+	}
+	
+	#targetsTable th {
+		width: 250px !important; /* Force width on <th> elements */
+		max-width: 250px;        /* Set a maximum width */
+		overflow: hidden;
+		white-space: nowrap;     /* Prevent line wrapping */
+		text-overflow: ellipsis; /* Add ellipsis if text overflows */
+	}
+	
+	.select2-search__field::placeholder{
+		text-align:center;
+	}
+	.select2-container--default .select2-selection--multiple{
+		overflow: hidden !important;
+	}
+	
+	.custom-col-right {
+		padding-right: 0 !important;
+	}
+	
+	.custom-col-left {
+		padding-left: 0 !important;
+	}
+	
+	.tooltip {
+		position: absolute;
+		text-align: center;
+		padding: 6px;
+		font-size: 12px;
+		background: lightgrey;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		pointer-events: none; /* Prevents the tooltip from capturing mouse events */
+		z-index: 10;
+	}
+	.text-greyed-out {
+		fill: grey;
+	}
+	
+	.text-bold {
+		font-weight: bold;
+	}
+	
+	.graydiv {
+		height: 20px;
+		width: 275px;
+		background: linear-gradient(to right, white 0%, blue 100%)
+	}
+	
 </style>
 
 <style type="text/css">
@@ -813,7 +914,6 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 		border-radius:8px;
 		background-color: #f9f9f9;
 	}
-	
 	
 	.trial-stages {
 		display: flex;
@@ -855,7 +955,12 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints);
 		background-color: #dd2628;
 		color: #fff;
 	}
-	
+
+	.badge-approved {
+		background-color: #007bff; /* #28a745 is green */
+		color: #fff;
+	}
+
 	.badge-notyet {
 		background-color: #D3D3D3;
 		color: #fff;

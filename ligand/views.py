@@ -31,7 +31,7 @@ from ligand.functions import OnTheFly, AddPathwayData
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from interaction.models import StructureLigandInteraction
 from mutation.models import MutationExperiment
-from drugs.models import Drugs, Drugs2024, Indication
+from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
 
 
 class LigandNameSelection(AbsTargetSelection):
@@ -1909,8 +1909,19 @@ class LigandInformationView(TemplateView):
         #     assay_data = assay_data + endo_values
         context.update({'structure': structures})
         context.update({'ligand': ligand_data})
-        context.update({'assay_affinity': assay_data_affinity})
-        context.update({'assay_potency': assay_data_potency})
+        # Convert assay data to JSON
+        if assay_data_affinity:
+            df_affinity = pd.DataFrame(assay_data_affinity)
+            context['assay_affinity_json'] = df_affinity.to_json(orient='records')
+        else:
+            context['assay_affinity_json'] = None
+        if assay_data_potency:
+            df_potency = pd.DataFrame(assay_data_potency)
+            context['assay_potency_json'] = df_potency.to_json(orient='records')
+        else:
+            context['assay_potency_json'] = None
+        # context.update({'assay_affinity': assay_data_affinity})
+        # context.update({'assay_potency': assay_data_potency})
         context.update({'mutations': mutations})
 
         ##### ADDING SECTION FOR SANKEY #####
@@ -2013,13 +2024,109 @@ class LigandInformationView(TemplateView):
             context.update({'points': total_points})
             context.update({'nodes_nr': nodes_nr})
             context.update({'plot_existence': 'yes'})
+        
+
+            ##### ADDING SECTION FOR DRUG TABLE #####
+            # The code was derived from drugs/views.py class DrugSectionSelection
+
+            # Fetch ATC codes for the table
+            ATC_data = ATCCodes.objects.select_related(
+                'code'
+            ).values(
+                'ligand', # Agent/Drug id
+                'code__index' # ATC codes
+            )
+
+            # Convert ATC_data queryset to a list of dictionaries
+            ATC_data_list = list(ATC_data)
+
+            # Create a DataFrame from the ATC data
+            atc_df = pd.DataFrame(ATC_data_list)
+
+            # Group ATC codes by 'Ligand ID' and concatenate them
+            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+
+            # Rename columns for the ATC DataFrame
+            atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
+
+            # Prepare the Full_data_drug_table
+            table_data = Drugs2024.objects.select_related(
+                'ligand',
+                'target__family__parent__parent__parent',
+                'indication',
+                'disease_association'
+            ).filter(ligand=ligand_id).values(
+                'ligand',
+                'ligand__name',
+                'target__entry_name',
+                'target__name',
+                'target__family__parent__name',
+                'target__family__parent__parent__name',
+                'target__family__parent__parent__parent__name',
+                'indication__title',
+                'indication__code',
+                'indication_max_phase',
+                'drug_status',
+                'disease_association__association_score'
+            )
+
+            # Convert to DataFrame
+            df_drug = pd.DataFrame(list(table_data))
+
+            if not df_drug.empty:
+                # Rename columns
+                df_drug.rename(columns={
+                    'ligand': 'Ligand ID',
+                    'ligand__name': 'Ligand name',
+                    'target__entry_name': 'Gene name',
+                    'target__name': 'Protein name',
+                    'target__family__parent__name': 'Receptor family',
+                    'target__family__parent__parent__name': 'Ligand type',
+                    'target__family__parent__parent__parent__name': 'Class',
+                    'indication__title': 'Indication name',
+                    'indication__code': 'ICD11',
+                    'indication_max_phase': 'Phase',
+                    'disease_association__association_score': 'Association score',
+                    'drug_status': 'Status'
+                }, inplace=True)
+
+                # Merge the ATC data into the main DataFrame on 'Ligand ID'
+                df_drug = df_drug.merge(atc_df_grouped, on='Ligand ID', how='left')
+                # Fill NaN values in the 'ATC' column with None
+                df_drug['ATC'] = df_drug['ATC'].fillna("")
+
+                # Precompute Phase and Status Information
+                df_drug['Is_Phase_I'] = (df_drug['Phase'] == 1).astype(int)
+                df_drug['Is_Phase_II'] = (df_drug['Phase'] == 2).astype(int)
+                df_drug['Is_Phase_III'] = (df_drug['Phase'] == 3).astype(int)
+                df_drug['Is_Approved'] = (df_drug['Status'] == 'Approved').astype(int)
+
+                # Perform GroupBy and Aggregate
+                Modified_df_drug = df_drug.groupby(
+                    ['Ligand ID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name',
+                     'Receptor family', 'Ligand type', 'Class', 'ICD11', 'ATC', 'Association score']
+                ).agg(
+                    Highest_phase=('Phase', 'max'),
+                    Phase_I_trials=('Is_Phase_I', 'sum'),
+                    Phase_II_trials=('Is_Phase_II', 'sum'),
+                    Phase_III_trials=('Is_Phase_III', 'sum'),
+                    Approved=('Is_Approved', 'max')
+                ).reset_index()
+
+                # Convert 'Approved' from integer to 'Yes'/'No'
+                Modified_df_drug['Approved'] = Modified_df_drug['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
+
+                # Convert DataFrame to JSON
+                context['Full_data_drug_table'] = Modified_df_drug.to_json(orient='records')
+
 
         else:
             context.update({
                 'Phase_I_trials': 0,
                 'Phase_II_trials': 0,
                 'Phase_III_trials': 0,
-                'Approved': 'No'
+                'Approved': 'No',
+                'Full_data_drug_table': None
                 })
 
         #####################################
@@ -2208,7 +2315,7 @@ class LigandInformationView(TemplateView):
             ld['picture'] = img_setup_smiles.format(urllib.parse.quote(ligand_data.smiles))
         else:
             # "No image available" SVG (source: https://commons.wikimedia.org/wiki/File:No_image_available.svg)
-            ld['picture'] = "<img style=\"max-height: 300px; max-width: 400px;\" src=\"data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgIGhlaWdodD0iMzAwcHgiIHdpZHRoPSIzMDBweCIKICAgICB2ZXJzaW9uPSIxLjEiCiAgICAgdmlld0JveD0iLTMwMCAtMzAwIDYwMCA2MDAiCiAgICAgZm9udC1mYW1pbHk9IkJpdHN0cmVhbSBWZXJhIFNhbnMsTGliZXJhdGlvbiBTYW5zLCBBcmlhbCwgc2Fucy1zZXJpZiIKICAgICBmb250LXNpemU9IjcyIgogICAgIHRleHQtYW5jaG9yPSJtaWRkbGUiID4KICAKICA8Y2lyY2xlIHN0cm9rZT0iI0FBQSIgc3Ryb2tlLXdpZHRoPSIxMCIgcj0iMjgwIiBmaWxsPSIjRkZGIi8+CiAgPHRleHQgc3R5bGU9ImZpbGw6IzQ0NDsiPgogICAgPHRzcGFuIHg9IjAiIHk9Ii04Ij5OTyBJTUFHRTwvdHNwYW4+PHRzcGFuIHg9IjAiIHk9IjgwIj5BVkFJTEFCTEU8L3RzcGFuPgogIDwvdGV4dD4KPC9zdmc+==\">"
+            ld['picture'] = None
         #Sorting links if ligand is endogenous
         if ligand_data.id in endogenous_ligands:
             sorted_list = ['Guide To Pharmacology', 'DrugBank', 'Drug Central', 'ChEMBL_compound_ids', 'PubChem']
