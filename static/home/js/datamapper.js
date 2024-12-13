@@ -211,7 +211,7 @@ function draw_tree(data, options,circle_size) {
     }
 
     function getBB(selection) {
-        selection.each(function (d) { d.bbox = this.getBBox(); })
+        selection.each(function (d) { d.bbox = this.getBBox(); });
     }
 
     function wrap(text, width) {

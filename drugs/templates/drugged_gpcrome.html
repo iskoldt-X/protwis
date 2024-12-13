@@ -29,7 +29,7 @@
 }
 
 .color_untapped {
-    color: #D3D3D3;
+    color: #C0C0C0;
     font-size: 15px;
 }
 
@@ -92,14 +92,15 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-6">
-              <div style="float: left; position: relative" class="text-center">
-                <b style="font-size: 15px;">Colors</b> <br/>
-                    <span class="color_phase1">&#9644; <b>Phase 1</b></span>
-                    <span class="color_phase2">&#9644; <b>Phase 2</b></span>
-                    <span class="color_phase3">&#9644; <b>Phase 3</b></span>
-                    <span class="color_phase4">&#9644; <b>Phase 4</b></span>
-                    <span class="color_untapped">&#9644; <b>Untapped targets</b></span>
+            <div class="col-md-3"></div>
+            <div class="col-md-1">
+              <div style="float: left; position: relative;margin-bottom: -150px;margin-top: 50px;" class="text-center">
+                <b style="font-size: 15px;">Color scheme</b> <br/>
+                    <span class="color_phase1">&#9644; <b>Phase 1</b></span><br/>
+                    <span class="color_phase2">&#9644; <b>Phase 2</b></span><br/>
+                    <span class="color_phase3">&#9644; <b>Phase 3</b></span><br/>
+                    <span class="color_phase4">&#9644; <b>Phase 4</b></span><br/>
+                    <span class="color_untapped">&#9644; <b>Untapped targets</b></span><br/>
                     <span class="color_sensory">&#9644; <b>Sensory</b></span>
 
               </div>
@@ -121,7 +122,7 @@
       <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
         <div class="col-md-12">
           <br>
-          <div class="col-md-3">
+          <div class="col-md-6">
             Receptor names:
               <div class="btn-group" role="group" id="gtp_plus">
                   <button id="TREE_UniProtNames" class="btn btn-info active">Gene</button>
@@ -143,19 +144,15 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div style="float: left; position: relative" class="text-center">
-              <b>Clinical phase</b> <br/>
-                  <span class="color_phase1">&#9644; <b>Phase 1</b></span>
-                  <span class="color_phase2">&#9644; <b>Phase 2</b></span>
-                  <span class="color_phase3">&#9644; <b>Phase 3</b></span>
-                  <span class="color_phase4">&#9644; <b>Phase 4</b></span>
-            </div>
           </div>
           <!-- ############# -->
           <!-- # TREE plot # -->
           <!-- ############# -->
-          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+          <!-- Legend bars -->
+          <div class="col-md-12" id="legend_bars" style="margin-top: 30px;">
+            <svg width="600" height="75"></svg>
+          </div>
+          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;position: absolute; z-index: -1; width: 100%;">
               <div id="tree_plot" class="text-center"></div>
           </div>
         </div>
@@ -375,33 +372,89 @@ function updateFillData(fill_data, conversionDict, labelType) {
     tree_options = {{ tree_options | safe }};
     Tree_circles = {{ circles|safe }};
     Tree_label_dict = {{ whole_dict|safe }};
-   
-    // normalizeOuterValues(Tree_circles);
-    // Function to normalize each object's outer values, even if some are missing
-    function normalizeOuterValues(obj) {
-        for (const key in obj) {
-            const entry = obj[key];
-            
-            // Collect available Outer values dynamically
-            const outerKeys = ["Outer1", "Outer2", "Outer3", "Outer4"];
-            const availableOuterValues = outerKeys
-                .filter(outerKey => entry[outerKey] !== undefined)
-                .map(outerKey => ({ key: outerKey, value: entry[outerKey] }));
 
-            // Calculate the sum of available Outer values
-            const sum = availableOuterValues.reduce((acc, item) => acc + item.value, 0);
+    function renameClasses(data) {
+      // Check if data has children
+      if (data.children && data.children.length > 0) {
+        data.children.forEach(child => {
+          // Remove text within parentheses in the name
+          child.name = child.name.replace(/\s*\(.*?\)$/, '');
+        });
+      }
+    }
+    renameClasses(tree_data);
 
-            // Normalize each available Outer value
-            if (sum > 0) { // Only normalize if there's a positive sum
-                availableOuterValues.forEach(item => {
-                    entry[item.key] = item.value / sum;
-                });
-            }
-        }
+    // First, calculate the min and max values for the Outer group (Outer1, Outer2, Outer3)
+    let minOuterValue = Infinity;
+    let maxOuterValue = -Infinity;
+
+    for (const x in Tree_circles) {
+      const outerValues = [
+        Tree_circles[x].Outer1,
+        Tree_circles[x].Outer2,
+        Tree_circles[x].Outer3
+      ];
+      const localMin = Math.min(...outerValues);
+      const localMax = Math.max(...outerValues);
+      
+      if (localMin < minOuterValue) minOuterValue = localMin;
+      if (localMax > maxOuterValue) maxOuterValue = localMax;
     }
 
-    tree_data = update_tree_data(tree_data,tree_options.depth);
+    // Add dummy_min and dummy_max entries to `Tree_circles` to hold these values
+    Tree_circles["dummy_min"] = { Outer1: minOuterValue, Outer2: minOuterValue, Outer3: minOuterValue };
+    Tree_circles["dummy_max"] = { Outer1: maxOuterValue, Outer2: maxOuterValue, Outer3: maxOuterValue };
+
     const depth = tree_options.depth;  // Set this value when the page loads
+
+    // Re calculate the values for the bar legends
+
+    function transformData(data) {
+    let min = Infinity;
+    let max = -Infinity;
+    let minKey = null;
+    let maxKey = null;
+
+    // First pass to find global min and max across Outer1, Outer2, Outer3
+    for (const key in data) {
+      const entry = data[key];
+      const outerValues = [entry.Outer1, entry.Outer2, entry.Outer3];
+
+      const entryMin = Math.min(...outerValues);
+      const entryMax = Math.max(...outerValues);
+
+      if (entryMin < min) {
+        min = entryMin;
+        minKey = key;
+      }
+      if (entryMax > max) {
+        max = entryMax;
+        maxKey = key;
+      }
+    }
+
+    // Second pass to transform data
+    const result = {};
+    for (const key in data) {
+      const entry = data[key];
+
+      result[key] = {
+        "PhaseI-III": key === minKey ? min : key === maxKey ? max : 1,
+        "PhaseIV": entry.Outer4
+      };
+    }
+
+    return result;
+  }
+
+  let Bar_Tree_circles = transformData(Tree_circles);
+
+    // setup the variables
+
+    tree_options.fontSize.class = "18px";
+    tree_options.fontSize.ligandtype = "18px";
+    tree_options.fontSize.receptorfamily = "18px";
+    tree_options.fontSize.receptor = "17px";
 
     // Handler for one class -> reduce the depth
     if (tree_options.depth == 4) {
@@ -411,7 +464,7 @@ function updateFillData(fill_data, conversionDict, labelType) {
     }
     circle_size = 6;
     circle_spacer = circle_size*2+1;
-    circle_spacer = circle_spacer+2
+    circle_spacer = circle_spacer+5
 
     var Tree_circle_styling_dict = {
       "Inner":'Drugged_tree',
@@ -422,18 +475,95 @@ function updateFillData(fill_data, conversionDict, labelType) {
       "Outer5":"Three",
     }
 
-    Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
-                  "Outer1":["#FFFFFF","#f5bcbf"],
-                  "Outer2":["#FFFFFF","#f17270"],
-                  "Outer3":["#FFFFFF","#dd2628"],
-                  "Outer4":["#FFFFFF","#2c87c8"],
+    Tree_colors = {"Outer1":["#FCE8E8","#dd2628"],
+                  "Outer2":["#FCE8E8","#dd2628"],
+                  "Outer3":["#FCE8E8","#dd2628"],
+                  "Outer4":["#E8F4FB","#2c87c8"],
                   "Outer5":["#FFFFFF","#FFA500"]};
 
+    Bar_colors = {"PhaseI-III": ["#FCE8E8","#dd2628"],
+                  "PhaseIV": ["#E8F4FB","#2c87c8"]};
+    Tree_bar_styling = {"PhaseI-III": "Two", "PhaseIV": "Two"};
 
-    tree_options.fontSize.class = "18px";
-    tree_options.fontSize.ligandtype = "18px";
-    tree_options.fontSize.receptorfamily = "18px";
-    tree_options.fontSize.receptor = "17px";
+    Tree_datatype = {"PhaseI-III": "Continuous", "PhaseIV": "Continuous"};
+
+   // Data for phases with specific labels
+    const phases = [
+      { label: "Phase IV" },
+      { label: "III" },
+      { label: "II" },
+      { label: "I" }
+    ];
+
+    // Function to draw labels to the left of a specific node
+    function DrawLabelsToLeftOfNode(location, data, nodeId, offsetX, offsetY) {
+      // Select the SVG element by ID
+      var svg = d3.select('#' + location);
+
+      // Find the specific node by its ID (e.g., X5HT1A)
+      const leaf = svg.select(`g[id='X${nodeId}']`);
+
+      // Check if the target node exists
+      if (!leaf.empty()) {
+        // Position the text labels relative to the target node
+        data.forEach((d, i) => {
+          leaf.append("text")
+            .attr("id", `phase-label-${i}`)              // Assign unique ID to each label
+            .attr("x", i * -offsetX)                     // Place text to the left of the node
+            .attr("y", offsetY - 167)                    // Stack labels vertically with offset
+            .text(d.label)                               // Add label text
+            .attr("font-size", "14px")
+            .attr("fill", "black")
+            .attr("text-anchor", "end")                  // Align text to the end
+            .attr("class", "phase-label")
+            .attr("transform", `rotate(87, ${i * -offsetX - 28}, ${offsetY})`) // Rotate around the text position
+            .style("dominant-baseline", "middle");       // Align text vertically
+        });
+      }
+    }
+
+    // stupid workaround changeLeavesLabels
+    function updatePhaseLabels(newLabels, labelType, maxLeafNodeLength) {
+      newLabels.forEach((label, i) => {
+        const labelElement = d3.select(`#phase-label-${i}`);
+
+        // Update label text
+        labelElement.text(label);
+
+        // Adjust x position if labelType is "IUPHAR"
+        if (labelType === "IUPHAR") {
+          const currentY = parseFloat(labelElement.attr("y"));
+          if (currentY !== -257){
+            labelElement.attr("y", currentY - 50);
+          }
+        } else {
+          const currentY = parseFloat(labelElement.attr("y"));
+          if (currentY !== -207){
+            labelElement.attr("y", currentY + 50);
+          }
+        }
+      });
+    }
+
+    function addBackgroundToText(svgId) {
+  // Select the SVG element by ID and target all node groups with text
+  const svg = d3.select(`#${svgId}`);
+  
+  // Select all text elements within node groups
+  svg.selectAll(".node text").each(function() {
+    const textElement = d3.select(this);
+    const bbox = this.getBBox(); // Get bounding box of the text element
+
+    // Insert a rectangle behind the text within the same group
+    d3.select(this.parentNode)
+      .insert("rect", "text")
+      .attr("x", bbox.x - 2)          // Position rect slightly to the left
+      .attr("y", bbox.y - 2)          // Position rect slightly above the text
+      .attr("width", bbox.width + 4)  // Slightly wider than text
+      .attr("height", bbox.height + 4) // Slightly taller than text
+      .attr("fill", "white");         // Background color
+  });
+}
 
     // # Change leaves buttons #
     $("#TREE_UniProtNames").click(function(){
@@ -441,19 +571,36 @@ function updateFillData(fill_data, conversionDict, labelType) {
         $("#TREE_IUPHARNames").removeClass("active");
         changeLeavesLabels("tree_plot", "UniProt", Tree_label_dict);
         DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+        // Finally, restore original labels
+        updatePhaseLabels(["Phase IV", "III", "II", "I"],"UniProt",maxLeafNodeLenght);
     });
     $("#TREE_IUPHARNames").click(function() {
-      $("#TREE_UniProtNames_bal").removeClass("active");
-      $("#TREE_IUPHARNames_bal").addClass("active");
+      $("#TREE_UniProtNames").removeClass("active");
+      $("#TREE_IUPHARNames").addClass("active");
       changeLeavesLabels("tree_plot","IUPHAR", Tree_label_dict);
       DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      // Finally, restore original labels
+      updatePhaseLabels(["Phase IV", "III", "II", "I"],"IUPHAR",maxLeafNodeLenght);
     });
     // # Initialize tree plot #
     document.addEventListener("DOMContentLoaded", function() {
       draw_tree(tree_data, tree_options, circle_size);
       DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      createLegendBars('legend_bars', Bar_Tree_circles, Bar_colors, Tree_bar_styling,Tree_datatype);
+      // Call the function with the ID of your SVG element and specific node ID
+      DrawLabelsToLeftOfNode("tree_plot", phases, "5HT1A", 18.5, -40); // Adjust offsets as needed
+      // addBackgroundToText("tree_plot");
+      // Find all elements and replace specific text content as needed
+      document.querySelectorAll('*').forEach(element => {
+        if (element.textContent.trim() === "PhaseI-III") {
+          element.textContent = "Phase I-III";
+        } else if (element.textContent.trim() === "PhaseIV") {
+          element.textContent = "Phase IV";
+        }
+      });
     });
 
+    
 
 </script>
 {% endblock %}

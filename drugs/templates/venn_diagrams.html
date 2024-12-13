@@ -56,6 +56,12 @@ th .dt-column-title {
 .select2-container--default .select2-selection--multiple{
     overflow: hidden !important;
 }
+.row-count-info {
+    display: inline-block;
+    margin-left: 10px;
+    font-weight: bold;
+    color: #333;
+}
 
 </style>
 
@@ -202,6 +208,8 @@ var gprotein_ID = {{ phases_dict_keys|safe }};
 // var dict = {{ drug_dictionary|safe }};
 var fullData = {{ Full_data|safe }};
 const layout = "{{ layout|escapejs }}";
+console.log(gprotein_ID)
+console.log(gdata)
 
 function getArrayFromData(gprotein) {
   var lines = gdata[gprotein].split("\n");
@@ -225,15 +233,59 @@ function initializeDataTable(tableId, data) {
 
   // Define columns
   var columns = [
-          {data: "Ligand name", name: "Ligand name"},
+            {data: "Ligand name", name: "Ligand name", render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      // Ensure row.Variable exists
+                      if (row && row.LigandID) {
+                          data = '<a href="/ligand/' + row.LigandID + '/info" target="_blank">' + data + '</a>';
+                      } else {
+                          data = data || ''; // Fallback to plain text if Variable is missing
+                      }
+                  }
+                  return data; // Ensure raw data is returned for filtering
+              }
+          },
           {data: "Drug type", name: "Drug type"},
           {data: "Modality", name: "Modality"},
-          {data: "Gene name", name: "Gene name", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+          {
+              data: "Gene name",
+              name: "Gene name",
+              render: function (data, type, row, meta) {
+                  if (type === 'display') {
+                      const originalData = data; // Raw data
+                      const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+                      return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+                  } else if (type === 'filter') {
+                      // Return transformed data for the filter dropdown
+                      return data.replace('_human', '').toUpperCase();
+                  }
+                  return data; // Raw data for sorting
+              }
+          },
           {data: "Protein name", name: "Protein name"},
           {data: "Receptor family", name: "Receptor family"},
           {data: "Ligand type", name: "Ligand type"},
           {data: "Class", name: "Class", render: function (data) { return data.split(' (')[0]; }},
-          {data: "Indication name", name: "Indication"},
+          {
+    data: "Indication name",
+    name: "Indication",
+    render: function (data, type, row, meta) {
+        if (type === 'display') {
+            if (row && row.ICD11) {
+                const transformedData = data || 'Unknown'; // Fallback if Indication name is missing
+                const link = '/drugs/indication/' + row.ICD11 + '/'; // Create the link using row.ICD11
+                return '<a href="' + link + '" target="_blank">' + transformedData + '</a>';
+            } else {
+                return data || ''; // Fallback to plain text if ICD11 is missing
+            }
+        } else if (type === 'filter') {
+            // Provide the raw data for filtering
+            return data || 'Unknown'; // Ensure it aligns with the displayed text
+        }
+        return data; // Use raw data for sorting
+    }
+},
           {data: "ICD11", name: "ICD11"},
           // {data: 'ATC', name: "ATC"},
           {data: 'Association score', name: "Association score",  render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(4);}}, // Format to 4 decimal places
@@ -248,9 +300,13 @@ function initializeDataTable(tableId, data) {
       table.clear();
       table.rows.add(data);
       table.draw();
+      // Update row count after redrawing
+      const totalRows = table.rows().count();
+      const rowCountText = `Target-Drug/Agent-Indication rows: ${totalRows}`;
+      $('.row-count-info').html(`<span class="row-count">${rowCountText}</span>`);
   } else {
       $(tableId).DataTable({
-          dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+          dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-7 text-end'<'row-count-info'>>>" +  // Buttons and search bar in the same row
           "<'row'<'col-sm-12'tr>>" +                    // Table rows
           "<'row'<'col-sm-12'ip>>", // Pagination and info
 
@@ -269,7 +325,14 @@ function initializeDataTable(tableId, data) {
           // scrollX: false,
           buttons: [
               { text: 'Reset filters', action: function () { reset_all(); } }
-          ]
+          ],
+          initComplete: function() {
+              // Use `this.api()` to get the table instance inside initComplete
+              const api = this.api(); // Access the DataTable API
+              const totalRows = api.rows().count(); // Use the API to get row count
+              const rowCountText = `Target-Drug/Agent-Indication rows: ${totalRows}`;
+              $('.row-count-info').html(`<span class="row-count">${rowCountText}</span>`);
+          }
       });
   }
   var column_filters = [];
@@ -333,9 +396,37 @@ function updateJvenn(gprotein_ID) {
         // Show the table only after the search is clicked
         $('#table-container').show();
 
+        // reset filters
+        reset_all();
+        
         // Pass selected data to initializeDataTable function
         initializeDataTable("#receptor_table", selectedData);
       }
+    });
+
+    // Handle clicks on phase labels
+    $("#label1, #label2, #label3, #label4").off("click").on("click", function () {
+      const phaseLabel = $(this).text().trim(); // Get the clicked label's text, e.g., "Phase I"
+
+      // Use gdata to get the newline-separated list for the phase
+      const filterValues = gdata[phaseLabel].split("\n").map((item) => item.trim());
+
+      // Define the column to filter by based on layout
+      const filterColumn = layout === "targets" ? "Gene name" : "Ligand name";
+
+      // Filter the fullData based on the selected phase's filter values
+      const selectedData = fullData.filter((row) =>
+        filterValues.includes(row[filterColumn])
+      );
+
+      // Show the filtered table
+      $("#table-container").show();
+
+      // Reset filters
+      reset_all();
+
+      // Pass the filtered data to initializeDataTable function
+      initializeDataTable("#receptor_table", selectedData);
     });
 
     // Helper function to convert HEX to RGB
@@ -427,15 +518,62 @@ function updateJvenn(gprotein_ID) {
       }
     }
 
+    // Apply base styles to the labels
     $("#label1, #label2, #label3, #label4").css({
+      "font-weight": "bold",
+      "color": "#007bff", /* Blue color for text */
+      "text-decoration": "underline", /* Underline the text */
+      "font-size": "18px",
+      "opacity": "1",
+      "cursor": "pointer", // Makes the labels look clickable
+      "transition": "color 0.3s, text-decoration 0.3s, background-color 0.3s" // Smooth transitions
+    });
+
+    // Add hover effects dynamically
+    $("#label1, #label2, #label3, #label4").off("mouseenter mouseleave") // Remove previous bindings
+      .on("mouseenter", function () {
+        $(this).css({
+          "color": "#0056b3", /* Darker blue on hover */
+          "text-decoration": "underline" // Keep underline
+        });
+      })
+      .on("mouseleave", function () {
+        $(this).css({
+          "color": "#007bff", /* Reset to original blue */
+          "text-decoration": "underline" // Keep underline
+        });
+      });
+
+      // Apply base styles to the labels
+      $(".number-black").css({
         "font-weight": "bold",
-        "font-size": "20px",
-        "opacity": "1"
-    });
+        "text-decoration": "underline", /* Underline the text */
+        "font-size": "19px",
+        "opacity": "1",
+        "cursor": "pointer", // Makes the labels look clickable
+        "transition": "color 0.3s, text-decoration 0.3s, background-color 0.3s" // Smooth transitions
+      });
+
+    // Add hover effects dynamically
+    $(".number-black").off("mouseenter mouseleave") // Remove previous bindings
+      .on("mouseenter", function () {
+        $(this).css({
+          "color": "#0056b3", /* Darker blue on hover */
+          "text-decoration": "underline", // Keep underline
+        });
+      })
+      .on("mouseleave", function () {
+        $(this).css({
+          "color": "Black", /* Reset to original blue */
+          "text-decoration": "underline", // Keep underline
+        });
+      });
+
     $("#label4").css({
-        "width": "auto",  // This ensures the div resizes automatically based on the text length
-        "white-space": "nowrap"  // Prevents the text from breaking into multiple lines
+      "width": "auto", // This ensures the div resizes automatically based on the text length
+      "white-space": "nowrap" // Prevents the text from breaking into multiple lines
     });
+
     $(".number-empty").html("-");
     // $("#frame").css({
     //   "left": "50%"
