@@ -11,6 +11,7 @@ urlpatterns = [
     url(r'^indication_selection', views.DrugSectionSelection.as_view(title='Disease search', page='Indications'), name='IndicationSearch'),
     #############################################
     url(r'^overview', views.DruggedGPCRome.as_view(), name='DruggedGPCRome'),
+    url(r'^disease_overview', views.DiseaseOverview.as_view(), name='DiseaseOverview'),
     ## Make a single view for the Venn diagrams, add a variable to define which page is shown ##
     url(r'^drugs_venn', views.DrugsVenn, name='DrugsVenn'),
     url(r'^targets_venn', views.TargetVenn, name='DrugsVenn'),

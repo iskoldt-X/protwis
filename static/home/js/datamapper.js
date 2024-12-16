@@ -1786,25 +1786,25 @@ function data_visualization(data, category_data, location, Layout_dict, data_sty
 
                 // ### Column 1 ###
                 if (Col1_data_checker && (Col1_shape || Col1_data)) {
-                    const shape_color = Col1_data ? getShapeColor('Col1', Col1_data) : 'black';
+                    const shape_color = (typeof Col1_data === 'number') ? getShapeColor('Col1', Col1_data) : 'black';
                     addShape(Shape_list.includes(Col1_shape) ? Col1_shape : 'circle', margin.left + xOffset + col1_XoffSet, yOffset - 10, 6, shape_color);
                 }
 
                 // ### Column 2 ###
                 if (Col2_data_checker && (Col2_shape || Col2_data)) {
-                    const shape_color = Col2_data ? getShapeColor('Col2', Col2_data) : 'black';
+                    const shape_color = (typeof Col2_data === 'number') ? getShapeColor('Col2', Col2_data) : 'black';
                     addShape(Shape_list.includes(Col2_shape) ? Col2_shape : 'circle', margin.left + xOffset + col2_XoffSet, yOffset - 10, 6, shape_color);
                 }
 
                 // ### Column 3 ###
                 if (Col3_data_checker && (Col3_shape || Col3_data)) {
-                    const shape_color = Col3_data ? getShapeColor('Col3', Col3_data) : 'black';
+                    const shape_color = (typeof Col3_data === 'number') ? getShapeColor('Col3', Col3_data) : 'black';
                     addShape(Shape_list.includes(Col3_shape) ? Col3_shape : 'circle', margin.left + xOffset + col3_XoffSet, yOffset - 10, 6, shape_color);
                 }
 
                 // ### Column 4 ###
                 if (Col4_data_checker && (Col4_shape || Col4_data)) {
-                    const shape_color = Col4_data ? getShapeColor('Col4', Col4_data) : 'black';
+                    const shape_color = (typeof Col4_data === 'number') ? getShapeColor('Col4', Col4_data) : 'black';
                     addShape(Shape_list.includes(Col4_shape) ? Col4_shape : 'circle', margin.left + xOffset + col4_XoffSet, yOffset - 10, 6, shape_color);
                 }
             }
@@ -1860,6 +1860,8 @@ function data_visualization(data, category_data, location, Layout_dict, data_sty
                 .style("font-size", `${data_fontsize}px`)
                 .style("font-family", "sans-serif")
                 .style("text-anchor", "middle") // Center the text horizontally
+                .style("font-weight", "bold")   // Make the text bold
+                .attr('id', `legend_${column.substr(3)}`)
                 .text(`Data column ${column.substr(3)}`); // Use the column name as the text
 
             // Gradient definition

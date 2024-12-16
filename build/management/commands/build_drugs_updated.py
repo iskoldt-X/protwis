@@ -95,7 +95,7 @@ class Command(BaseCommand):
         print("\n\IndicationAssociation Model built. Performing checks")
         test_model_updates(self.all_models, self.tracker, check=True)
         print("##### STEP 5 START #####")
-        print("\n\nStarted parsing Drug data and building Drug2024 Model")
+        print("\n\nStarted parsing Drug data and building Drug Model")
         Command.create_drug_data(drug_df)
         print("\n\Drug Model built. Performing checks")
         print("##### STEP 6 START #####")
@@ -388,13 +388,31 @@ class Command(BaseCommand):
         #if inchi is 'nan', apply a workaround
         if ';' in str(row['InChiKey']):
             inchi_list = str(row['InChiKey']).split(';')
-        elif pd.notna(row['InChiKey']):
+        elif not pd.notna(row['InChiKey']):
             inchi_list = ['NOT AVAILABLE']
         else:
             inchi_list = [str(row['InChiKey'])]
-        for inchi in inchi_list:
+
+        if len(inchi_list) > 1:
+            for inchi in inchi_list:
+                try:
+                    check = Ligand.objects.get(inchikey=inchi)
+                    return check
+                except Ligand.DoesNotExist:
+                    for key, values in mapper.items():
+                        for code in values:
+                            if code != 'nan':
+                                try:
+                                    check = LigandID.objects.filter(index=code, web_resource__slug=key)
+                                    if len(check) == 1:
+                                        return check[0].ligand
+                                    else:
+                                        check = None
+                                except LigandID.DoesNotExist:
+                                    continue
+        else:
             try:
-                check = Ligand.objects.get(inchikey=inchi)
+                check = Ligand.objects.get(inchikey=inchi_list[0])
                 return check
             except Ligand.DoesNotExist:
                 for key, values in mapper.items():
@@ -408,20 +426,21 @@ class Command(BaseCommand):
                                     check = None
                             except LigandID.DoesNotExist:
                                 continue
-            if check == None:
-                type = Command.fetch_type(row['Drug_Type'])
-                #TODO: adjust the length of float numbers
-                check, _ = Ligand.objects.get_or_create(name=row['ligand_name'],
-                                                        ambiguous_alias=False,
-                                                        hacc=row['HBondAceptorCount'] if pd.notna(row['HBondAceptorCount']) else None,
-                                                        hdon=row['HBondDonorCount'] if pd.notna(row['HBondDonorCount']) else None,
-                                                        inchikey=inchi if inchi !='NOT AVAILABLE' else None,
-                                                        ligand_type=type,
-                                                        logp=row['XLogP'] if pd.notna(row['XLogP']) else None,
-                                                        mw=row['MolecularWeight'] if pd.notna(row['MolecularWeight']) else None,
-                                                        rotatable_bonds=row['RotableBondCount'] if pd.notna(row['RotableBondCount']) else None,
-                                                        smiles=row['SMILES'])
-                return check
+
+        if check == None:
+            type = Command.fetch_type(row['Drug_Type'])
+            #TODO: adjust the length of float numbers
+            check, _ = Ligand.objects.get_or_create(name=row['ligand_name'],
+                                                    ambiguous_alias=False,
+                                                    hacc=row['HBondAceptorCount'] if pd.notna(row['HBondAceptorCount']) else None,
+                                                    hdon=row['HBondDonorCount'] if pd.notna(row['HBondDonorCount']) else None,
+                                                    inchikey=inchi_list[0] if inchi_list[0] !='NOT AVAILABLE' else None,
+                                                    ligand_type=type,
+                                                    logp=row['XLogP'] if pd.notna(row['XLogP']) else None,
+                                                    mw=row['MolecularWeight'] if pd.notna(row['MolecularWeight']) else None,
+                                                    rotatable_bonds=row['RotableBondCount'] if pd.notna(row['RotableBondCount']) else None,
+                                                    smiles=row['SMILES'])
+        return check
 
     @staticmethod
     def fetch_association(target, indication):
