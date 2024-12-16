@@ -1,4 +1,5 @@
 from django.conf.urls import url
+from django.urls import path
 from django.views.decorators.cache import cache_page
 
 from drugs import views
@@ -16,5 +17,6 @@ urlpatterns = [
     url(r'^drugs_venn', views.DrugsVenn, name='DrugsVenn'),
     url(r'^targets_venn', views.TargetVenn, name='DrugsVenn'),
     ############################################################################################
-    url(r'^TargetSelectionTool', views.TargetSelectionTool.as_view(), name='TargetSelectionTool')
+    url(r'^TargetSelectionTool', views.TargetSelectionTool.as_view(), name='TargetSelectionTool'),
+    path('get_sankey_data/', views.fetch_sankey_data_view, name='get_sankey_data'),
 ]

@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.conf import settings
 from django.db.models import Count, Max, Q, F, Value, CharField, Case, When, IntegerField
 from django.db.models import Count, Max
@@ -22,6 +22,7 @@ from collections import OrderedDict, defaultdict
 from copy import deepcopy
 import pandas as pd
 import os
+import logging
 
 def DrugsVenn(request):
     return Venn(request, "drugs")
@@ -270,14 +271,14 @@ class DrugSectionSelection(TemplateView):
             search_data = Drugs.objects.all().prefetch_related('target').distinct('target')
             search_dict = {drug.target.name: drug.target.id for drug in search_data}
 
-            # Create sankey_dict_serialized using a dictionary comprehension
-            sankey_dict_serialized = {
-                drug.target.id: get_sankey_data(self.get_entry_name_by_target_id(drug.target.id))
-                for drug in search_data
-            }
+            # # Create sankey_dict_serialized using a dictionary comprehension
+            # sankey_dict_serialized = {
+            #     drug.target.id: get_sankey_data(self.get_entry_name_by_target_id(drug.target.id))
+            #     for drug in search_data
+            # }
 
             # Pass the serialized sankey_dict to the context
-            context['sankey_dict'] = json.dumps(sankey_dict_serialized)
+            # context['sankey_dict'] = json.dumps(sankey_dict_serialized)
 
             # Fetch ATC codes for the table
             ATC_data = ATCCodes.objects.select_related(
@@ -681,6 +682,31 @@ class DrugSectionSelection(TemplateView):
             return protein.entry_name
         except Protein.DoesNotExist:
             return None
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+def fetch_sankey_data_view(request):
+    logger.info("fetch_sankey_data_view called")  # Log the function call
+    entry_name = request.GET.get('entry_name', None)  # Extract `entry_name` from the request
+    
+    if not entry_name:
+        logger.error("No entry_name provided in the request")
+        return JsonResponse({'error': 'Missing entry_name'}, status=400)
+
+    logger.info(f"Received entry_name: {entry_name}")  # Log the entry name
+
+    try:
+        sankey_data = get_sankey_data(entry_name)  # Call your helper function
+        if sankey_data:
+            logger.info(f"Sankey data successfully retrieved for entry_name: {entry_name}")
+            return JsonResponse({'sankey_data': sankey_data}, status=200)
+        else:
+            logger.warning(f"No data found for entry_name: {entry_name}")
+            return JsonResponse({'error': 'No data found for this entry'}, status=404)
+    except Exception as e:
+        logger.exception(f"An error occurred while fetching sankey data for entry_name: {entry_name}")
+        return JsonResponse({'error': 'An internal server error occurred'}, status=500)
 
 class DruggedGPCRome(TemplateView):
     """
@@ -1953,6 +1979,7 @@ def indication_detail(request, code):
         indication_code = record.indication.title.capitalize()
         indication_uri = record.indication.uri.index
         ligand_name = record.ligand.name.capitalize()
+        indication_0 = record.indication.get_level_0().title
         uri = record.indication.uri.index
         ligand_id = record.ligand.id
         protein_name = record.target.name

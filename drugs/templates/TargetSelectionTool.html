@@ -1376,6 +1376,9 @@ document.getElementById('clearAllDrugs').addEventListener('click', () => {
     clearAll('hierarchyTreeDrugs');
 });
 
+function reset_all() {
+        $('.select2').val(null).trigger('change');
+    }
 
 
 

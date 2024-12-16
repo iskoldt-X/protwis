@@ -305,7 +305,7 @@ d3v4.sankey = function() {
 
 function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
   var margin = {top: 10, right: 10, bottom: 10, left: 10},
-      width = (typeof fix_width !== 'undefined' && fix_width !== null) ? fix_width - margin.left - margin.right : 1550 - margin.left - margin.right,
+      width = (typeof fix_width !== 'undefined' && fix_width !== null) ? fix_width - margin.left - margin.right : 1750 - margin.left - margin.right,
       height = (top_nodes * 50) - margin.top - margin.bottom;
 
   // append the svg object to the specified location
@@ -313,7 +313,7 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
       .attr("id", "sankey")
-    .append("g")
+      .append("g")
       .attr("transform",
             "translate(" + margin.left + "," + margin.top + ")");
 
@@ -326,13 +326,13 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
       .nodeWidth(25)
       .nodePadding(10)
       .size([width, height]);
-
+  
   // Constructs a new Sankey generator with the default settings.
   sankey
       .nodes(sankey_data.nodes)
       .links(sankey_data.links)
       .layout(100);
-
+  
   // Add in the links
   var link = svg.append("g")
     .selectAll(".link")

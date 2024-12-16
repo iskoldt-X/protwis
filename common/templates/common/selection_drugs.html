@@ -672,9 +672,9 @@
     }
 
     // Parse the whole serialized sankey_dict for page 'Targets'
-    if (page === 'Targets') {
-        var sankey_dict = JSON.parse('{{ sankey_dict|escapejs }}');
-    }
+    // if (page === 'Targets') {
+    //     var sankey_dict = JSON.parse('{{ sankey_dict|escapejs }}');
+    // }
 
     // Properly parse search_data into a JavaScript object using escapejs
     var search_data = JSON.parse('{{ search_data|escapejs }}');
@@ -746,7 +746,11 @@
             });
             
             // Get Sankey data for the selected target
-            Selected_sankey_data = sankey_dict[selected_id];
+            const Entry_name_sankey = Selected_table_data[0]['Gene name']; // Assuming one match
+            
+            // Fetch Sankey data via AJAX and render it
+            fetchSankeyData(Entry_name_sankey);
+
             renderSankey(Selected_sankey_data);
 
             // Show the tab content only after the search is clicked
@@ -1157,6 +1161,27 @@
     function reset_all() {
         $('.select2').val(null).trigger('change');
     }
+
+function fetchSankeyData(entry_name) {
+    $.ajax({
+        url: '/drugs/get_sankey_data/',  // Must match the path in urls.py
+        type: 'GET',
+        data: {
+            entry_name: entry_name  // Send the entry_name
+        },
+        success: function(response) {
+            if (response.sankey_data) {
+                renderSankey(response.sankey_data);  // Pass the Sankey data for rendering
+            } else {
+                console.error("No Sankey data received.");
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error("Error fetching Sankey data:", xhr.responseText);
+        }
+    });
+}
+
 </script>
 
 <!-- {% if page == 'Indications' %} -->
