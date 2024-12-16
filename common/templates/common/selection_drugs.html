@@ -8,6 +8,18 @@
 <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
 <link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
 
+<!-- Custom CSS for Sankey Plot -->
+<style>
+    .link {
+      fill: none;
+      stroke: #969696;
+      stroke-opacity: .1;
+    }
+    .link:hover {
+      stroke-opacity: .3;
+    }
+</style>
+
 <!-- Custom CSS to adjust Select2 dropdown height -->
 <style>
     /* Target the select2 dropdown and ensure it applies */
@@ -107,54 +119,190 @@
 {% endblock %}
 {% block content %}
 
-  <!-- Table for Drugs and Targets Pages -->
-  {% if page == 'Drugs' or page == 'Targets' %}
-  <div class="row">
-      <div class="col-md-3"></div>
-      <!-- Search bar -->
-      <div class="col-md-5" style="margin-top: 30px">
-          <!-- main description -->
-          <div class="panel panel-primary">
-              <div class="panel-body">
-                  <div class="row">
-                      <div class="col-md-4 d-flex align-items-center pr-0 custom-col-right">
-                          <h4 class="mb-0">{{ title }}</h4>
-                      </div>
-                      <div class="col-md-5 d-flex align-items-center pl-0 custom-col-left">
-                          <select id="entity-select" class="form-control" style="width: 100%;"></select>
-                      </div>
-                      <div class="col-md-3 d-flex align-items-center">
-                          <button id="search-btn" class="btn btn-primary" style="width: 100%;" disabled>Search</button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-  </div>
-  <div style="font-size: 11px; white-space: nowrap; display: none;" id="table-container">
-      <table width="100%" class="display compact" id="Table1">
-          <thead>
-              <!-- Dummy Header Row for Complex Header Fix -->
-              <tr>
-                  {% if page == 'Drugs' %}
-                      <td colspan="11" style="text-align: center" data-dt-order="disable"></td>
-                  {% elif page == 'Targets' %}
-                      <td colspan="9" style="text-align: center" data-dt-order="disable"></td>
-                  {% endif %}
-              </tr>
+{% if page == 'Drugs' or page == 'Targets' %}
+    <div class="row">
+        <div class="col-md-3"></div>
+        <!-- Search bar -->
+        <div class="col-md-5" style="margin-top: 30px">
+            <!-- Main Description -->
+            <div class="panel panel-primary">
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-md-4 d-flex align-items-center pr-0 custom-col-right">
+                            <h4 class="mb-0">{{ title }}</h4>
+                        </div>
+                        <div class="col-md-5 d-flex align-items-center pl-0 custom-col-left">
+                            <select id="entity-select" class="form-control" style="width: 100%;"></select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-center">
+                            <button id="search-btn" class="btn btn-primary" style="width: 100%;" disabled>Search</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-              <!-- Super Header Row -->
-              <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
-                  {% if page == 'Drugs' %}
-                      <th colspan="5" style="text-align:center">Target</th>
-                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
-                      <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
-                  {% elif page == 'Targets' %}
-                      <th colspan="3" style="text-align:center">Molecule</th>
-                      <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
-                      <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
-                  {% endif %}
-              </tr>
+    {% if page == 'Targets' %}
+        <!-- Tabbed Interface for Targets Page -->
+        <div id="targets-container" style="display: none;">
+            <div class="row" style="margin-top: 20px;">
+                <div class="col-md-12">
+                    <!-- Primary Tabs -->
+                    <ul class="nav nav-tabs" id="targetsPrimaryTabs" role="tablist">
+                        <li class="active">
+                            <a  id="drugs-table-tab" data-toggle="tab" href="#drugs-table" role="tab" aria-controls="drugs-table" aria-selected="true">Drugs Table</a>
+                        </li>
+                        <li>
+                            <a id="sankey-plot-tab" data-toggle="tab" href="#sankey-plot" role="tab" aria-controls="sankey-plot" aria-selected="false">Sankey Plot</a>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content" id="targetsPrimaryTabsContent">
+                        <!-- Drugs Table Tab Pane -->
+                        <div class="tab-pane fade in active" id="drugs-table" role="tabpanel" aria-labelledby="drugs-table-tab">
+                            <!-- Table Container -->
+                            <div style="font-size: 11px; white-space: nowrap;" id="table-container">
+                                <table width="100%" class="display compact" id="Table1">
+                                    <thead>
+                                        <!-- Dummy Header Row for Complex Header Fix -->
+                                        <tr>
+                                            {% if page == 'Drugs' %}
+                                                <td colspan="11" style="text-align: center" data-dt-order="disable"></td>
+                                            {% elif page == 'Targets' %}
+                                                <td colspan="9" style="text-align: center" data-dt-order="disable"></td>
+                                            {% endif %}
+                                        </tr>
+
+                                        <!-- Super Header Row -->
+                                        <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+                                            {% if page == 'Drugs' %}
+                                                <th colspan="5" style="text-align:center">Target</th>
+                                                <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                                                <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
+                                            {% elif page == 'Targets' %}
+                                                <th colspan="3" style="text-align:center">Molecule</th>
+                                                <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                                                <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
+                                            {% endif %}
+                                        </tr>
+
+                                        <!-- Header Row -->
+                                        <tr>
+                                            {% if page == 'Drugs' %}
+                                                <th style="text-align: center;">Gene</th>
+                                                <th style="text-align: center;">Protein</th>
+                                                <th style="text-align: center;">Receptor family</th>
+                                                <th style="text-align: center;">Ligand type</th>
+                                                <th style="text-align: center;">Class</th>
+                                                <th style="text-align: center;border-left: 1px solid #cccccc">Indication name</th>
+                                                <th style="text-align: center;">ICD11</th>
+                                                <th style="text-align: center;">ATC</th>
+                                                <th style="text-align: center;">Association score</th>
+                                                <th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
+                                                <th style="text-align: center;">Approved</th>
+                                            {% elif page == 'Targets' %}
+                                                <th style="text-align: center;">Name</th>
+                                                <th style="text-align: center;">Type</th>
+                                                <th style="text-align: center;">Modality</th>
+                                                <th style="text-align: center;border-left: 1px solid #cccccc;">Indication name</th>
+                                                <th style="text-align: center;">ICD11</th>
+                                                <th style="text-align: center;">ATC</th>
+                                                <th style="text-align: center;">Association score</th>
+                                                <th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
+                                                <th style="text-align: center;">Approved</th>
+                                            {% endif %}
+                                        </tr>
+
+                                        <!-- Filter Row for Header -->
+                                        <tr>
+                                            {% if page == 'Drugs' %}
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                            {% elif page == 'Targets' %}
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                                <td style="text-align: center;" data-dt-order="disable"></td>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sankey Plot Tab Pane -->
+                        <div class="tab-pane fade" id="sankey-plot" role="tabpanel" aria-labelledby="sankey-plot-tab">
+                            <!-- Placeholder for Sankey Plot -->
+                            <div id="sankey_plot"></div>
+                            <p>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown"
+                                        aria-haspopup="true" aria-expanded="false">
+                                        <span class="glyphicon glyphicon-download"></span> Download <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a href="javascript:saveSvgAsPng(document.getElementById('sankey_plot'), 'sankey.png');">PNG</a>
+                                        </li>
+                                        <li>
+                                            <a href="javascript:saveSvgAsJpg(document.getElementById('sankey_plot'), 'sankey.jpg');">JPG</a>
+                                        </li>
+                                        <li>
+                                            <a href="javascript:saveSvgAsTiff(document.getElementById('sankey_plot'), 'sankey.tiff');">TIFF</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Table for Drugs Page (No Tabs) -->
+        <div style="font-size: 11px; white-space: nowrap; display: none;" id="table-container">
+            <table width="100%" class="display compact" id="Table1">
+                <thead>
+                    <!-- Dummy Header Row for Complex Header Fix -->
+                    <tr>
+                        {% if page == 'Drugs' %}
+                            <td colspan="11" style="text-align: center" data-dt-order="disable"></td>
+                        {% elif page == 'Targets' %}
+                            <td colspan="9" style="text-align: center" data-dt-order="disable"></td>
+                        {% endif %}
+                    </tr>
+
+                    <!-- Super Header Row -->
+                    <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+                        {% if page == 'Drugs' %}
+                            <th colspan="5" style="text-align:center">Target</th>
+                            <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                            <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
+                        {% elif page == 'Targets' %}
+                            <th colspan="3" style="text-align:center">Molecule</th>
+                            <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+                            <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Agent/Drug</th>
+                        {% endif %}
+                    </tr>
 
               <!-- Header Row -->
               <tr>
@@ -214,6 +362,8 @@
       </table>
   </div>
   {% endif %}
+{% endif %}
+
 
   {% if page == 'Indications' %}
   <!-- ### Create the panel tabs ### -->
@@ -431,52 +581,53 @@
                   </table>
               </div>
 
-            <!-- Agents/Drugs Tab Content -->
-            <div class="tab-pane fade" id="agents-drugs-indication" role="tabpanel" aria-labelledby="agents-drugs-indication-tab" style="margin-top:20px">
-                <table width="100%" class="display compact mt-4" id="agentsDrugsSuperTable">
-                    <thead>
-                        <tr>
-                            <td colspan="10" style="text-align: center" data-dt-order="disable"></td>
-                        </tr>
-                        <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
-                            <th colspan="1" style="text-align:center">Drug</th>
-                            <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
-                            <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Molecule</th>
-                            <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
-                        </tr>
-                        <tr>
-                            <!-- Drug -->
-                            <th style="text-align: center">Drug name</th>
-                            <!-- Phase -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
-                            <th style="text-align: center">Approved</th>
-                            <!-- Molecule -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Type</th>
-                            <th style="text-align: center">Modality</th>
-                            <!-- Target -->
-                            <th style="text-align: center;border-left: 1px solid #cccccc;">Gene</th>
-                            <th style="text-align: center">Protein</th>
-                            <th style="text-align: center">Receptor family</th>
-                            <th style="text-align: center">Ligand type</th>
-                            <th style="text-align: center">Class</th>
-                            
-                        </tr>
-                        <tr>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                            <td style="text-align: center" data-dt-order="disable"></td>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <!-- Agents/Drugs Tab Content -->
+                <div class="tab-pane fade" id="agents-drugs-indication" role="tabpanel" aria-labelledby="agents-drugs-indication-tab" style="margin-top:20px">
+                    <table width="100%" class="display compact mt-4" id="agentsDrugsSuperTable">
+                        <thead>
+                            <tr>
+                                <td colspan="10" style="text-align: center" data-dt-order="disable"></td>
+                            </tr>
+                            <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+                                <th colspan="1" style="text-align:center">Drug</th>
+                                <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+                                <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Molecule</th>
+                                <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
+                            </tr>
+                            <tr>
+                                <!-- Drug -->
+                                <th style="text-align: center">Drug name</th>
+                                <!-- Phase -->
+                                <th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
+                                <th style="text-align: center">Approved</th>
+                                <!-- Molecule -->
+                                <th style="text-align: center;border-left: 1px solid #cccccc;">Type</th>
+                                <th style="text-align: center">Modality</th>
+                                <!-- Target -->
+                                <th style="text-align: center;border-left: 1px solid #cccccc;">Gene</th>
+                                <th style="text-align: center">Protein</th>
+                                <th style="text-align: center">Receptor family</th>
+                                <th style="text-align: center">Ligand type</th>
+                                <th style="text-align: center">Class</th>
+                                
+                            </tr>
+                            <tr>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                                <td style="text-align: center" data-dt-order="disable"></td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -494,6 +645,9 @@
 <script src="{% static 'home/js/DataTables.Colvis.js' %}"></script>
 <script src="{% static 'home/js/dataTables.responsive.js' %}"></script>
 <script src="{% static 'home/js/NorgesDTFilterBuilder.js' %}"></script>
+<script src="{% static 'home/js/d3.v4.min.js' %}"></script>
+<script src="{% static 'home/js/sankey.js' %}"></script>
+
 
 <script type="text/javascript">
     var page = '{{ page }}';
@@ -515,6 +669,11 @@
         search_placeholder = 'Select a target';
     } else if (page === 'Indications') {
         search_placeholder = 'Select a disease';
+    }
+
+    // Parse the whole serialized sankey_dict for page 'Targets'
+    if (page === 'Targets') {
+        var sankey_dict = JSON.parse('{{ sankey_dict|escapejs }}');
     }
 
     // Properly parse search_data into a JavaScript object using escapejs
@@ -569,6 +728,7 @@
         var selected_id = $('#entity-select').val(); // Get selected ID
 
         var Selected_table_data;
+        var Selected_sankey_data;
         // Filter Full_table_data based on the selected ID depending on the page type
         if (page === 'Drugs') {
             Selected_table_data = Full_table_data.filter(function(row) {
@@ -584,6 +744,17 @@
             Selected_table_data = Full_table_data.filter(function(row) {
                 return row['Target ID'] == selected_id;
             });
+            
+            // Get Sankey data for the selected target
+            Selected_sankey_data = sankey_dict[selected_id];
+            renderSankey(Selected_sankey_data);
+
+            // Show the tab content only after the search is clicked
+            $('#targets-container').show();
+            
+            // Show the table only after the search is clicked
+//            $('#table-container').show();
+
 
             if (Selected_table_data.length > 0) {
                 var Linkdata = Selected_table_data[0]['Gene name']; // Assuming one match
@@ -636,6 +807,26 @@
         
     });
 
+
+    function renderSankey(sankeyData) {
+        // Clear any existing Sankey diagram
+        d3v4.select("#sankey_plot").selectAll("*").remove();
+
+        if (!sankeyData || !sankeyData.sankey) {
+            // Handle cases where there's no Sankey data
+            d3v4.select("#sankey_plot")
+                .append("p")
+                .text("No Sankey diagram available for the selected target.");
+            return;
+        }
+
+        var sankeyDataParsed = sankeyData.sankey;
+        var nodes_nr = sankeyData.nodes_nr;
+        var totalPoints = sankeyData.total_points;
+
+        // Call your existing SankeyPlot function
+        SankeyPlot(sankeyDataParsed, 'sankey_plot', nodes_nr, totalPoints);
+    }
 
     function initializeDataTable(tableId, data, type) {
         // Define page-specific column definitions based on the type

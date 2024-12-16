@@ -300,15 +300,16 @@ d3v4.sankey = function() {
  * @param {integer} top_nodes    - the number of nodes in the most populated section
  * @param {integer} totalPoints  - the number of total nodes in the plot
  * @param {string} location      - location where to draw the plot
+ * @param {integer} [fix_width]  - (Optional) Fixed width for the Sankey plot in pixels. Defaults to 1000 if not provided.
  */
 
-function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
+function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
   var margin = {top: 10, right: 10, bottom: 10, left: 10},
-      width = 1550 - margin.left - margin.right,
-      height = (top_nodes*50) - margin.top - margin.bottom;
+      width = (typeof fix_width !== 'undefined' && fix_width !== null) ? fix_width - margin.left - margin.right : 1550 - margin.left - margin.right,
+      height = (top_nodes * 50) - margin.top - margin.bottom;
 
-  // append the svg object to the body of the page
-  var svg = d3v4.select('#'+location).append("svg")
+  // append the svg object to the specified location
+  var svg = d3v4.select('#' + location).append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
       .attr("id", "sankey")
@@ -332,7 +333,7 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
       .links(sankey_data.links)
       .layout(100);
 
-  // add in the links
+  // Add in the links
   var link = svg.append("g")
     .selectAll(".link")
     .data(sankey_data.links)
@@ -345,20 +346,17 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
       .style("stroke-width", function(d) { return Math.max(1, d.dy); })
       .sort(function(a, b) { return b.dy - a.dy; });
 
-  // add in the nodes
+  // Add in the nodes
   var node = svg.append("g")
     .selectAll(".node")
     .data(sankey_data.nodes)
     .enter().append("g")
       .attr("class", "node")
-      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
-      // .call(d3v4.drag()
-      //   .subject(function(d) { return d; })
-      //   .on("start", function() { this.parentNode.appendChild(this); })
-      //   .on("drag", dragmove));
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
 
   var paths = svg.selectAll("path");
-  // add the rectangles for the nodes
+
+  // Add the rectangles for the nodes
   node
     .append("rect")
       .attr("height", function(d) { return d.dy; })
@@ -381,7 +379,6 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
                  return ligPathName === d.name || protPathName === d.name;
              })
              .style("stroke-opacity", 0.5)
-             // .style("stroke", currentFillColor);
              .style("stroke", "rgb(214, 230, 244)");
          }
          // Toggle the 'active' class on the clicked node
@@ -391,8 +388,7 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
     .append("title")
       .text(function(d) { return d.name + "\n" + "There is " + d.value + " stuff in this node"; });
 
-
-  // add in the title for the nodes
+  // Add in the title for the nodes
   node.append("text")
       .attr("x", -6)
       .attr("y", function(d) { return d.dy / 2; })
@@ -480,8 +476,7 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints){
           .attr("x", 6 + sankey.nodeWidth())
           .attr("text-anchor", "start");
 
-
-  // the function for moving the nodes
+  // The function for moving the nodes
   function dragmove(d) {
     d3v4.select(this)
       .attr("transform",

@@ -136,10 +136,31 @@ def detail(request, slug):
 
     homology_models = StructureModel.objects.filter(protein=p)
 
+    sankey_data = get_sankey_data(p.entry_name)
+
+    sankey, total_points, nodes_nr = sankey_data['sankey'], sankey_data['total_points'], sankey_data['nodes_nr']
+
+    context = {'p': p, 'families': families, 'r_chunks': r_chunks, 'chunk_size': chunk_size,
+               'aliases': aliases, 'gene': gene, 'alt_genes': alt_genes, 'structures': structures,
+               'mutations': mutations, 'protein_links': protein_links,'homology_models': homology_models,
+               'sankey': json.dumps(sankey), 'points': total_points, 'nodes_nr': nodes_nr}
+
+    # sb = StructureBrowser()
+    # sb_context = sb.get_context_data(protein=p)
+    # context['structures'] = sb_context['structures']
+    return render(request, 'protein/protein_detail.html', context)
+
+def get_sankey_data(entry_name):
+    """
+    Helper function to get the sankey data for a given protein.entry_name, to improve code reusability.
+    Based on protein/views.py detail() function.
+    """
+    if entry_name is None:
+        return (None, None, None)
     #ADDING SECTION FOR SANKEY
 
     #slug = '5ht1a_human'
-    indication_data = Drugs.objects.filter(target__entry_name=slug).prefetch_related('ligand',
+    indication_data = Drugs.objects.filter(target__entry_name=entry_name).prefetch_related('ligand',
                                                                                          'target',
                                                                                          'indication')
 
@@ -218,16 +239,14 @@ def detail(request, slug):
         nodes_nr = len(caches['indication'])
 
     ###########
+    sankey_data = {
+            'sankey': sankey,
+            'total_points': total_points,
+            'nodes_nr': nodes_nr
+        }
 
-    context = {'p': p, 'families': families, 'r_chunks': r_chunks, 'chunk_size': chunk_size,
-               'aliases': aliases, 'gene': gene, 'alt_genes': alt_genes, 'structures': structures,
-               'mutations': mutations, 'protein_links': protein_links,'homology_models': homology_models,
-               'sankey': json.dumps(sankey), 'points': total_points, 'nodes_nr': nodes_nr}
+    return sankey_data 
 
-    # sb = StructureBrowser()
-    # sb_context = sb.get_context_data(protein=p)
-    # context['structures'] = sb_context['structures']
-    return render(request, 'protein/protein_detail.html', context)
 
 def SelectionAutocomplete(request):
 

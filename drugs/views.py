@@ -10,6 +10,7 @@ from django.views.generic import TemplateView
 from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
 from structure.models import Structure
 from drugs.models import Drugs, Indication, ATCCodes, IndicationAssociation
+from protein.views import get_sankey_data
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mapper.views import LandingPage
 from ligand.models import AssayExperiment
@@ -268,6 +269,15 @@ class DrugSectionSelection(TemplateView):
             # Fetch distinct targets and create a dictionary of {target.name: target.id}
             search_data = Drugs.objects.all().prefetch_related('target').distinct('target')
             search_dict = {drug.target.name: drug.target.id for drug in search_data}
+
+            # Create sankey_dict_serialized using a dictionary comprehension
+            sankey_dict_serialized = {
+                drug.target.id: get_sankey_data(self.get_entry_name_by_target_id(drug.target.id))
+                for drug in search_data
+            }
+
+            # Pass the serialized sankey_dict to the context
+            context['sankey_dict'] = json.dumps(sankey_dict_serialized)
 
             # Fetch ATC codes for the table
             ATC_data = ATCCodes.objects.select_related(
@@ -655,6 +665,22 @@ class DrugSectionSelection(TemplateView):
         # context['table_data'] = table_data
 
         return context
+
+    def get_entry_name_by_target_id(self, target_id):
+        """
+        Retrieves the protein.entry_name based on the given drug.target.id.
+
+        Args:
+            target_id (int): The ID of the target (Protein).
+
+        Returns:
+            str or None: The entry_name of the associated Protein, or None if not found.
+        """
+        try:
+            protein = Protein.objects.get(id=target_id)
+            return protein.entry_name
+        except Protein.DoesNotExist:
+            return None
 
 class DruggedGPCRome(TemplateView):
     """
