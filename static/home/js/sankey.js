@@ -305,8 +305,8 @@ d3v4.sankey = function() {
 
 function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
   var margin = {top: 10, right: 10, bottom: 10, left: 10},
-      width = (typeof fix_width !== 'undefined' && fix_width !== null) ? fix_width - margin.left - margin.right : 1000 - margin.left - margin.right,
-      height = (top_nodes * 30) - margin.top - margin.bottom;
+      width = (typeof fix_width !== 'undefined' && fix_width !== null) ? fix_width - margin.left - margin.right : 1550 - margin.left - margin.right,
+      height = (top_nodes * 50) - margin.top - margin.bottom;
 
   // append the svg object to the specified location
   var svg = d3v4.select('#' + location).append("svg")
@@ -417,6 +417,7 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
 
           var text = d3v4.select(this);
           text.text(mainText); // Set the main text
+          var words = mainText.split(/\s+/);
 
           if(italicText) {
               text.append("tspan")
@@ -454,6 +455,22 @@ function SankeyPlot(sankey_data, location, top_nodes, totalPoints, fix_width){
                   .attr("dx", "0.0em") // Move forward past the subscript
                   .text(parts[1].split("</sub>")[1]);
           }
+
+          if(words.length > 3) {
+            text.text(null);
+            var lineNumber = 0;
+            var maxWordsPerLine = 3;
+            for (var i = 0; i < words.length; i += maxWordsPerLine) {
+                var line = words.slice(i, i + maxWordsPerLine).join(" ");
+                text.append("tspan")
+                    .attr("x", -6)
+                    .attr("dy", lineNumber === 0 ? "0em" : "1.1em")
+                    .text(line);
+
+                lineNumber++;
+            }
+          }
+
       })
       .filter(function(d) { return d.x < width / 2; })
           .attr("x", 6 + sankey.nodeWidth())

@@ -612,16 +612,18 @@ class DrugSectionSelection(TemplateView):
         #         elif item.title == 'Diseases of the blood or blood-forming organs':
         #             item.title = 'Diseases of the blood or related organs'
 
-        #         if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-        #             indication_tree[item.slug] = []
-        #             conversion[item.slug] = item.title
-        #         if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-        #             root = item.slug[:4]
-        #             indication_tree[root].append(item.title)
-        #             conversion[item.slug] = item.title
-        #             wheel_data[item.title] = {'Value1': 0}
-        #             wheel_slugs[item.slug] = {'Value1': 0}
-        #             crunch[item.title] = {1: 0, 2: 0, 3: 0, 4: 0, 'unique': []}
+                if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    indication_tree[item.slug] = []
+                    conversion[item.slug] = item.title
+                if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                    root = item.slug[:4]
+                    if root not in indication_tree.keys():
+                        indication_tree[root] = []
+                    indication_tree[root].append(item.title)
+                    conversion[item.slug] = item.title
+                    wheel_data[item.title] = {'Value1': 0}
+                    wheel_slugs[item.slug] = {'Value1': 0}
+                    crunch[item.title] = {1: 0, 2: 0, 3: 0, 4: 0, 'unique': []}
 
         #     indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
 
@@ -781,8 +783,210 @@ class DruggedGPCRome(TemplateView):
 
         return context
 
+class DiseaseOverview(TemplateView):
+    """
+    Per class statistics of known ligands.
+    """
 
-class TargetSelectionTool(TemplateView):
+    template_name = 'disease_overview.html'
+
+    def get_context_data(self, **kwargs):
+
+        context = super().get_context_data(**kwargs)
+
+        def gradient_color(value_fraction, start_color=(255,255,255), end_color=(0,0,0)):
+
+            r = int(start_color[0] + (end_color[0] - start_color[0]) * value_fraction)
+            g = int(start_color[1] + (end_color[1] - start_color[1]) * value_fraction)
+            b = int(start_color[2] + (end_color[2] - start_color[2]) * value_fraction)
+
+            return f"#{r:02x}{g:02x}{b:02x}"
+
+        def convert_dict_to_colors(data_dict):
+            # Define the target colors for each metric
+            color_targets = {
+                "red": (255,0,0),
+                "purple": (128,0,128),
+                "blue": (0,0,255)
+            }
+
+            # 1. Find global maxima for each color across all main_keys and subkeys
+            global_max_values = {"red": 0, "purple": 0, "blue": 0}
+
+            for main_key, keys in data_dict.items():
+                for k, color_dict in keys.items():
+                    for c in global_max_values:
+                        if color_dict[c] > global_max_values[c]:
+                            global_max_values[c] = color_dict[c]
+
+            # 2. Now generate gradient colors for each key using global maxima
+            result = {}
+            for main_key, keys in data_dict.items():
+                new_keys = {}
+                for k, color_dict in keys.items():
+                    red_val = color_dict['red']
+                    purple_val = color_dict['purple']
+                    blue_val = color_dict['blue']
+
+                    # Avoid division by zero by checking global maxima
+                    red_frac = red_val / global_max_values['red'] if global_max_values['red'] > 0 else 0
+                    purple_frac = purple_val / global_max_values['purple'] if global_max_values['purple'] > 0 else 0
+                    blue_frac = blue_val / global_max_values['blue'] if global_max_values['blue'] > 0 else 0
+
+                    red_color = gradient_color(red_frac, (255,255,255), color_targets['red'])
+                    purple_color = gradient_color(purple_frac, (255,255,255), color_targets['purple'])
+                    blue_color = gradient_color(blue_frac, (255,255,255), color_targets['blue'])
+
+                    new_keys[k] = {
+                        'red': red_color,
+                        'purple': purple_color,
+                        'blue': blue_color
+                    }
+
+                result[main_key] = new_keys
+
+            return result
+
+        lvl_0_1 = Indication.objects.filter(level__in=[0,1]).order_by('slug')
+        indication_data = {}
+        listdata = {}
+        listplot_data_variables = {}
+        Label_Conversion = {}
+        data_types_list = {'Col1': "Continuouos", 'Col2': "Continuouos", 'Col3': "Continuouos", 'Col4': "Continuouos",}
+        #Gather data and setup master dict
+
+        for indi in lvl_0_1:
+           if indi.level == 0 and indi.title not in indication_data.keys():
+               indication_data[indi.title] = {}
+               listdata[indi.title] = []
+           if indi.level == 1:
+               lvl0 = indi.get_level_0().title
+               if lvl0 not in indication_data.keys():
+                   indication_data[lvl0] = {}
+                   listdata[lvl0] = []
+               if indi.title not in indication_data[lvl0].keys():
+                   indication_data[lvl0][indi.title] = {'red': 0, 'purple': 0, 'blue': 0}
+                   listdata[lvl0].append(indi.title)
+                   listplot_data_variables[indi.title] = {'Value1': 'Circle', 'Value2': 0, 'Value3': 'Circle', 'Value4': 0, 'Value5': 'Circle','Value6': 0}
+                   Label_Conversion[indi.title] = indi.title
+        #with master dict set, now we add data from drugs
+        drug_data = Drugs.objects.all().prefetch_related('ligand', 'indication', 'indication__parent',
+                                                         'indication__parent__parent', 'indication__parent__parent__parent',
+                                                         'indication__parent__parent__parent__parent',
+                                                         'indication__parent__parent__parent__parent__parent')
+
+        drug_dict = {}
+        for item in drug_data:
+            if item.ligand.name not in drug_dict.keys():
+                drug_dict[item.ligand.name] = {'Max Phase': 0}
+            if item.indication.get_level_1().title not in drug_dict[item.ligand.name].keys():
+                drug_dict[item.ligand.name][item.indication.get_level_1().title] = [item.indication_max_phase, item.indication.get_level_0().title]
+            if item.indication_max_phase > drug_dict[item.ligand.name]['Max Phase']:
+                drug_dict[item.ligand.name]['Max Phase'] = item.indication_max_phase
+
+        # Red: IndicationMaxPhase < 4 and MaxPhase (compound) < 4 [New agents in trial (lack approval)]
+        # Purple: IndicationMaxPhase < 4 and MaxPhase = 4         [Drugs being repurposed in trials (have approval)]
+        # Blue: IndicationMaxPhase and MaxPhase = 4               [All drugs (both those being repurposed in trials and not)]
+
+        for drug in drug_dict.keys():
+            max_phase = drug_dict[drug]['Max Phase']
+            indications = list(drug_dict[drug].keys())[1:]
+            for ind in indications:
+                if max_phase < 4 and drug_dict[drug][ind][0] < 4:
+                    indication_data[drug_dict[drug][ind][1]][ind]['red'] += 1
+                    listplot_data_variables[ind]['Value2'] += 1
+                elif max_phase == 4 and drug_dict[drug][ind][0] < 4:
+                    indication_data[drug_dict[drug][ind][1]][ind]['purple'] += 1
+                    listplot_data_variables[ind]['Value4'] += 1
+                elif max_phase == 4 and drug_dict[drug][ind][0] == 4:
+                    indication_data[drug_dict[drug][ind][1]][ind]['blue'] += 1
+                    listplot_data_variables[ind]['Value6'] += 1
+
+        #Manually purging irrelevant classes
+        to_purge = ['External causes of morbidity or mortality',
+                    'Injury, poisoning or certain other consequences of external causes',
+                    'Supplementary Chapter Traditional Medicine Conditions',
+                    'Supplementary section for functioning assessment',
+                    'Factors influencing health status or contact with health services',
+                    'Extension Codes']
+
+        for item in to_purge:
+            del listdata[item]
+
+
+        List_Data_result = {"category_array": [], "final_array": []}
+        for key in listdata.keys():
+            List_Data_result['category_array'].append('ReceptorFamily')
+            List_Data_result['final_array'].append(key)
+            for value in listdata[key]:
+                List_Data_result['category_array'].append('Receptor')
+                List_Data_result['final_array'].append(value)
+
+
+        counter = 1
+        labeled_indication = {}
+        for key in indication_data.keys():
+            new_key = f"{counter:02d} {key}"
+            labeled_indication[new_key] = indication_data[key]
+            counter += 1
+
+        #Manually purging irrelevant classes
+        to_purge = ['23 External causes of morbidity or mortality',
+                    '22 Injury, poisoning or certain other consequences of external causes',
+                    '26 Supplementary Chapter Traditional Medicine Conditions',
+                    '27 Supplementary section for functioning assessment',
+                    '24 Factors influencing health status or contact with health services',
+                    '28 Extension Codes']
+
+        for item in to_purge:
+            del labeled_indication[item]
+
+        max_labels = {}
+        for key in labeled_indication.keys():
+            max_labels[key] = {'red':'#ffffff', 'purple':'#ffffff', 'blue':'#ffffff'}
+            red, purple, blue = 0,0,0
+            for indi in labeled_indication[key].keys():
+                if labeled_indication[key][indi]['red'] > red:
+                    red = labeled_indication[key][indi]['red']
+                    max_labels[key]['red'] = indi
+                if labeled_indication[key][indi]['purple'] > purple:
+                    purple = labeled_indication[key][indi]['purple']
+                    max_labels[key]['purple'] = indi
+                if labeled_indication[key][indi]['blue'] > blue:
+                    blue = labeled_indication[key][indi]['blue']
+                    max_labels[key]['blue'] = indi
+
+        colored = convert_dict_to_colors(labeled_indication)
+
+        for key in max_labels.keys():
+            max_labels[key]['red'] = colored[key][max_labels[key]['red']]['red'] if max_labels[key]['red'] != '#ffffff' else max_labels[key]['red']
+            max_labels[key]['purple'] = colored[key][max_labels[key]['purple']]['purple'] if max_labels[key]['purple'] != '#ffffff' else max_labels[key]['purple']
+            max_labels[key]['blue'] = colored[key][max_labels[key]['blue']]['blue'] if max_labels[key]['blue'] != '#ffffff' else max_labels[key]['blue']
+
+        # Combine data and labels into a single structure:
+        combined = []
+        for main_key, keys in colored.items():
+            # Retrieve the corresponding label dictionary for this main_key
+            main_label = max_labels.get(main_key, {"red": "#ffffff", "purple": "#ffffff", "blue": "#ffffff"})
+            combined.append({
+                "main_key": main_key,
+                "main_label": main_label,
+                "items": keys
+            })
+
+        context['data'] = json.dumps(indication_data)
+        context['listplot_data'] = json.dumps(listdata)
+        context['listplot_data_variables'] = json.dumps(listplot_data_variables)
+        context['listplot_datatypes'] = json.dumps(data_types_list)
+        context['Label_Conversion'] = json.dumps(Label_Conversion)
+        context['List_Data_result'] = json.dumps(List_Data_result)
+        context['combined'] = combined
+        context['data'] = colored
+        context['labels'] = max_labels
+
+        return context
+
+class NewDrugsBrowser(TemplateView):
     # Template using this class #
     template_name = 'TargetSelectionTool.html'
     # Get context for hmtl usage #
@@ -1727,7 +1931,7 @@ def indication_detail(request, code):
 
     code = code.upper()
     context = dict()
-    #code = 'EFO_0003843'
+    #code = '4A8Z'
     indication_data = Drugs.objects.filter(indication__code=code).prefetch_related('ligand',
                                                                                         'target',
                                                                                         'indication',
@@ -1738,6 +1942,7 @@ def indication_detail(request, code):
     sankey = {"nodes": [],
               "links": []}
     caches = {'indication':[],
+              'level_0': [],
               'ligands': [],
               'targets': [],
               'entries': []}
@@ -1748,6 +1953,7 @@ def indication_detail(request, code):
         indication_code = record.indication.title.capitalize()
         indication_uri = record.indication.uri.index
         ligand_name = record.ligand.name.capitalize()
+        uri = record.indication.uri.index
         ligand_id = record.ligand.id
         protein_name = record.target.name
         target_name = record.target.entry_name
@@ -1757,19 +1963,30 @@ def indication_detail(request, code):
             node_counter += 1
             caches['indication'].append(indication_code)
         indi_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_code), None)
+
+        if indication_0 not in caches['level_0']:
+            sankey['nodes'].append({"node": node_counter, "name": indication_0, "url":'https://icd.who.int/browse/2024-01/mms/en#'+uri})
+            node_counter += 1
+            caches['level_0'].append(indication_0)
+        level_0_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_0), None)
+
         if [ligand_name, ligand_id] not in caches['ligands']:
             sankey['nodes'].append({"node": node_counter, "name": ligand_name, "url":'/ligand/'+str(ligand_id)+'/info'})
             node_counter += 1
             caches['ligands'].append([ligand_name, ligand_id])
         lig_node = next((item['node'] for item in sankey['nodes'] if item['name'] == ligand_name), None)
+
         if protein_name not in caches['targets']:
             sankey['nodes'].append({"node": node_counter, "name": protein_name, "url":'/protein/'+str(target_name)})
             node_counter += 1
             caches['targets'].append(protein_name)
             caches['entries'].append(target_name)
         prot_node = next((item['node'] for item in sankey['nodes'] if item['name'] == protein_name), None)
-        #append connection between indication and ligand
-        sankey['links'].append({"source":indi_node, "target":lig_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
+
+        #append connection between indication and level 0
+        sankey['links'].append({"source":indi_node, "target":level_0_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
+        #append connection between level 0 and ligand
+        sankey['links'].append({"source":level_0_node, "target":lig_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
         #append connection between ligand and target
         sankey['links'].append({"source":lig_node, "target":prot_node, "value":1, "ligtrace": ligand_name, "prottrace": protein_name})
 
@@ -1789,7 +2006,7 @@ def indication_detail(request, code):
 
     # Convert the unique_combinations back to a list of dictionaries
     sankey['links'] = list(unique_combinations.values())
-    total_points = len(caches['targets']) + len(caches['targets']) + 1;
+    total_points = len(caches['targets']) + len(caches['targets']) + 1
     if len(caches['ligands']) > len(caches['targets']):
         context['nodes_nr'] = len(caches['ligands'])
     else:

@@ -167,6 +167,7 @@ def get_sankey_data(entry_name):
     sankey = {"nodes": [],
               "links": []}
     caches = {'indication':[],
+              'level_0': [],
               'ligands': [],
               'targets': [],
               'entries': []}
@@ -176,6 +177,8 @@ def get_sankey_data(entry_name):
         #assess the values for indication/ligand/protein
         indication_name = record.indication.title.capitalize()
         indication_code = record.indication.code
+        indication_0 = record.indication.get_level_0().title
+        uri = record.indication.uri.index
         ligand_name = record.ligand.name.capitalize()
         ligand_id = record.ligand.id
         protein_name = record.target.name
@@ -186,21 +189,32 @@ def get_sankey_data(entry_name):
             node_counter += 1
             caches['indication'].append(indication_name)
         indi_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_name), None)
+
+        if indication_0 not in caches['level_0']:
+            sankey['nodes'].append({"node": node_counter, "name": indication_0, "url":'https://icd.who.int/browse/2024-01/mms/en#'+uri})
+            node_counter += 1
+            caches['level_0'].append(indication_0)
+        level_0_node = next((item['node'] for item in sankey['nodes'] if item['name'] == indication_0), None)
+
         if [ligand_name, ligand_id] not in caches['ligands']:
             sankey['nodes'].append({"node": node_counter, "name": ligand_name, "url": '/ligand/'+str(ligand_id)+'/info'})
             node_counter += 1
             caches['ligands'].append([ligand_name, ligand_id])
         lig_node = next((item['node'] for item in sankey['nodes'] if item['name'] == ligand_name), None)
+
         if protein_name not in caches['targets']:
             sankey['nodes'].append({"node": node_counter, "name": protein_name, "url": '/protein/'+str(target_name)})
             node_counter += 1
             caches['targets'].append(protein_name)
             caches['entries'].append(target_name)
         prot_node = next((item['node'] for item in sankey['nodes'] if item['name'] == protein_name), None)
-        #append connection between indication and ligand
+
+        #append connection between level 0 and ligand
         sankey['links'].append({"source":prot_node, "target":lig_node, "value":1, "ligtrace": ligand_name, "prottrace": None})
         #append connection between ligand and target
-        sankey['links'].append({"source":lig_node, "target":indi_node, "value":1, "ligtrace": ligand_name, "prottrace": indication_name})
+        sankey['links'].append({"source":lig_node, "target":level_0_node, "value":1, "ligtrace": ligand_name, "prottrace": indication_name})
+        #append connection between indication and level 0
+        sankey['links'].append({"source":level_0_node, "target":indi_node, "value":1, "ligtrace": ligand_name, "prottrace": indication_name})
 
     #Fixing redundancy in sankey['links']
     unique_combinations = {}
