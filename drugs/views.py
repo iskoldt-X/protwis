@@ -8,328 +8,20 @@ from django.db import connection, reset_queries
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
-from drugs.models import Drugs, Drugs2024, Indication, IndicationAssociation
-from protein.views import get_sankey_data
-from protein.models import Protein, ProteinFamily, TissueExpression
 from structure.models import Structure
-from drugs.models import Drugs, Drugs2024, Indication, ATCCodes
+from drugs.models import Drugs, Indication, ATCCodes, IndicationAssociation
+from protein.views import get_sankey_data
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
-from mutational_landscape.models import NHSPrescribings
 from mapper.views import LandingPage
+from ligand.models import AssayExperiment
 
 import re
 import json
 import numpy as np
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
 import pandas as pd
 import os
-from collections import defaultdict
-
-
-
-def get_spaced_colors(n):
-    max_value = 16581375 #255**3
-    interval = int(max_value / n)
-    colors = [hex(I)[2:].zfill(6) for I in range(0, max_value, interval)]
-
-    return ['#'+i for i in colors] # HEX colors
-    # return [(int(i[:2], 16), int(i[2:4], 16), int(i[4:], 16)) for i in colors] # RGB colors
-
-def striphtml(data):
-    p = re.compile(r'<.*?>')
-    return p.sub('', data)
-
-@cache_page(60 * 60 * 24 * 28)
-def drugstatistics(request):
-
-    # ===== drugtargets =====
-    drugtargets_raw_approved = Protein.objects.filter(drugs__status='approved').values('entry_name').annotate(value=Count('drugs__name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugtargets_raw_approved))
-    drugtargets_approved = []
-    for i, drugtarget in enumerate(drugtargets_raw_approved):
-        drugtarget['label'] = drugtarget['entry_name'].replace("_human","").upper()
-        # drugtarget['color'] = str(list_of_hec_colors[i])
-        del drugtarget['entry_name']
-        drugtargets_approved.append(drugtarget)
-
-    drugtargets_raw_trials = Protein.objects.filter(drugs__status__in=['in trial'], drugs__clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).values('entry_name').annotate(value=Count('drugs__name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugtargets_raw_trials))
-    drugtargets_trials = []
-    for i, drugtarget in enumerate(drugtargets_raw_trials):
-        drugtarget['label'] = drugtarget['entry_name'].replace("_human","").upper()
-        # drugtarget['color'] = str(list_of_hec_colors[i])
-        del drugtarget['entry_name']
-        drugtargets_trials.append(drugtarget)
-
-
-    all_human_GPCRs = Protein.objects.filter(species_id=1, sequence_type_id=1, family__slug__startswith='0').distinct()
-
-    in_trial = Protein.objects.filter(drugs__status__in=['in trial'] ).exclude(drugs__status='approved').distinct() #drugs__clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']
-
-    not_targeted = len(all_human_GPCRs) - len(drugtargets_approved) - len(in_trial)
-
-    # ===== drugfamilies =====
-    drugfamilies_raw_approved = Protein.objects.filter(drugs__status='approved').values('family_id__parent__name').annotate(value=Count('drugs__name', distinct = True))
-
-    list_of_hec_colors = get_spaced_colors(len(drugfamilies_raw_approved))
-    drugfamilies_approved = []
-    for i, drugfamily in enumerate(drugfamilies_raw_approved):
-        drugfamily['label'] = striphtml(drugfamily['family_id__parent__name']).replace(" receptors","")
-        drugfamily['color'] = str(list_of_hec_colors[i])
-        del drugfamily['family_id__parent__name']
-        drugfamilies_approved.append(drugfamily)
-
-    drugfamilies_raw_trials = Protein.objects.exclude(drugs__status='approved').values('family_id__parent__name').annotate(value=Count('drugs__name', distinct = True))
-
-    list_of_hec_colors = get_spaced_colors(len(drugfamilies_raw_trials))
-    drugfamilies_trials = []
-    for i, drugfamily in enumerate(drugfamilies_raw_trials):
-        drugfamily['label'] = striphtml(drugfamily['family_id__parent__name']).replace(" receptors","")
-        drugfamily['color'] = str(list_of_hec_colors[i])
-        del drugfamily['family_id__parent__name']
-        drugfamilies_trials.append(drugfamily)
-
-    # ===== drugclas =====
-    drugclasses_raw_approved = Protein.objects.filter(drugs__status='approved').values('family_id__parent__parent__parent__name').annotate(value=Count('drugs__name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugclasses_raw_approved)+1)
-    drugClasses_approved = []
-    for i, drugclas in enumerate(drugclasses_raw_approved):
-        drugclas['label'] = drugclas['family_id__parent__parent__parent__name']
-        drugclas['color'] = str(list_of_hec_colors[i+1])
-        del drugclas['family_id__parent__parent__parent__name']
-        drugClasses_approved.append(drugclas)
-
-    drugclasses_raw_trials = Protein.objects.filter(drugs__status__in=['in trial'], drugs__clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).values('family_id__parent__parent__parent__name').annotate(value=Count('drugs__name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugclasses_raw_trials)+1)
-    drugClasses_trials = []
-    for i, drugclas in enumerate(drugclasses_raw_trials):
-        drugclas['label'] = drugclas['family_id__parent__parent__parent__name']
-        drugclas['color'] = str(list_of_hec_colors[i+1])
-        del drugclas['family_id__parent__parent__parent__name']
-        drugClasses_trials.append(drugclas)
-
-    # ===== drugtypes =====
-    drugtypes_raw_approved = Drugs.objects.values('drugtype').filter(status='approved').annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugtypes_raw_approved)+20)
-    drugtypes_approved = []
-    for i, drugtype in enumerate(drugtypes_raw_approved):
-        drugtype['label'] = drugtype['drugtype']
-        drugtype['color'] = str(list_of_hec_colors[i])
-        del drugtype['drugtype']
-        drugtypes_approved.append(drugtype)
-
-    drugtypes_raw_trials = Drugs.objects.values('drugtype').filter(status='in trial', clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    # list_of_hec_colors = get_spaced_colors(len(drugtypes_raw_trials)+5)
-    drugtypes_trials = []
-    for i, drugtype in enumerate(drugtypes_raw_trials):
-        drugtype['label'] = drugtype['drugtype']
-        drugtype['color'] = str(list_of_hec_colors[i])
-        del drugtype['drugtype']
-        drugtypes_trials.append(drugtype)
-
-    drugtypes_raw_not_estab = Drugs.objects.values('drugtype').filter(novelty='not established').annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    # list_of_hec_colors = get_spaced_colors(len(drugtypes_raw_not_estab)+5)
-    drugtypes_not_estab = []
-    for i, drugtype in enumerate(drugtypes_raw_not_estab):
-        drugtype['label'] = drugtype['drugtype']
-        drugtype['color'] = str(list_of_hec_colors[i])
-        del drugtype['drugtype']
-        drugtypes_not_estab.append(drugtype)
-
-    drugtypes_raw_estab = Drugs.objects.values('drugtype').filter(novelty='established').annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    # list_of_hec_colors = get_spaced_colors(len(drugtypes_raw_estab)+5)
-    drugtypes_estab = []
-    for i, drugtype in enumerate(drugtypes_raw_estab):
-        drugtype['label'] = drugtype['drugtype']
-        drugtype['color'] = str(list_of_hec_colors[i])
-        del drugtype['drugtype']
-        drugtypes_estab.append(drugtype)
-
-    # ===== modes of action =====
-    moas_raw_approved = Drugs.objects.values('moa').filter(status='approved').annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(moas_raw_approved)+5)
-    moas_approved = []
-    for i, moa in enumerate(moas_raw_approved):
-        moa['label'] = moa['moa']
-        moa['color'] = str(list_of_hec_colors[i])
-        del moa['moa']
-        moas_approved.append(moa)
-
-    moa_raw_trials = Drugs.objects.values('moa').filter(status='in trial', clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    # list_of_hec_colors = get_spaced_colors(len(moa_raw_trials)+5)
-    moas_trials = []
-    for i, moa in enumerate(moa_raw_trials):
-        moa['label'] = moa['moa']
-        moa['color'] = str(list_of_hec_colors[i])
-        del moa['moa']
-        moas_trials.append(moa)
-
-    # ===== Phase distributions =====
-    # Distinguish between different Clinical Status
-    phases_raw_active = Drugs.objects.values('phase').filter(status='in trial', clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    phase_trials = []
-    list_of_hec_colors = ["#88df8c", "#43A047", "#b0f2b2"]
-    for i, phase in enumerate(phases_raw_active):
-        phase['label'] = 'Phase ' + phase['phase']
-        phase['color'] = str(list_of_hec_colors[i])
-        del phase['phase']
-        phase_trials.append(phase)
-
-    phases_raw_inactive = Drugs.objects.values('phase').filter(status='in trial', clinicalstatus__in=['terminated','discontinued','unknown','withdrawn']).annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    phase_trials_inactive = []
-    list_of_hec_colors = ["#88df8c", "#43A047", "#b0f2b2"]
-    for i, phase in enumerate(phases_raw_inactive):
-        phase['label'] = 'Phase ' + phase['phase']
-        phase['color'] = str(list_of_hec_colors[i])
-        del phase['phase']
-        phase_trials_inactive.append(phase)
-
-    # ===== drugindications =====
-    drugindications_raw_approved = Drugs.objects.values('indication').filter(status='approved').annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    list_of_hec_colors = get_spaced_colors(len(drugindications_raw_approved)+10)
-    drugindications_approved = []
-    for i, drugindication in enumerate(drugindications_raw_approved):
-        drugindication['label'] = drugindication['indication']
-        drugindication['color'] = str(list_of_hec_colors[i])
-        del drugindication['indication']
-        drugindications_approved.append(drugindication)
-
-    drugindications_raw_trials = Drugs.objects.values('indication').filter(status='in trial', clinicalstatus__in=['completed','not open yet','ongoing','recruiting','suspended']).annotate(value=Count('name', distinct = True)).order_by('-value')
-
-    # list_of_hec_colors = get_spaced_colors(len(drugindications_raw_trials))
-    drugindications_trials = []
-    for i, drugindication in enumerate(drugindications_raw_trials):
-        drugindication['label'] = drugindication['indication']
-        drugindication['color'] = str(list_of_hec_colors[i])
-        del drugindication['indication']
-        drugindications_trials.append(drugindication)
-
-    # ===== drugtimes =====
-    drugtime_raw = Drugs.objects.values('approval').filter(status='approved').annotate(y=Count('name', distinct = True)).order_by('approval')
-
-    drugtimes = []
-    running_total = 0
-
-    for i, time in enumerate(range(1942,2017,1)):
-        if str(time) in [i['approval'] for i in drugtime_raw]:
-            y = [i['y'] for i in drugtime_raw if i['approval']==str(time)][0] + running_total
-            x = time
-            running_total = y
-        else:
-            x = time
-            y = running_total
-        if time % 2 == 0:
-            drugtimes.append({'x':x,'y':y})
-
-    drugs_over_time = [{"values": drugtimes, "yAxis": "1", "key": "GPCRs"}, {'values': [{'y': 2, 'x': '1942'}, {'x': '1944', 'y': 2}, {'y': 6, 'x': '1946'}, {'y': 9, 'x': '1948'}, {'y': 18, 'x': '1950'}, {'y': 30, 'x': '1952'}, {'y': 55, 'x': '1954'}, {'y': 72, 'x': '1956'}, {'y': 98, 'x': '1958'}, {'y': 131, 'x': '1960'}, {'y': 153, 'x': '1962'}, {'y': 171, 'x': '1964'}, {'y': 188, 'x': '1966'}, {'y': 205, 'x': '1968'}, {'y': 224, 'x': '1970'}, {'y': 242, 'x': '1972'}, {'y': 265, 'x': '1974'}, {'y': 300, 'x': '1976'}, {'y': 340, 'x': '1978'}, {'y': 361, 'x': '1980'}, {'y': 410, 'x': '1982'}, {'y': 442, 'x': '1984'}, {'y': 499, 'x': '1986'}, {'y': 542, 'x': '1988'}, {'y': 583, 'x': '1990'}, {'y': 639, 'x': '1992'}, {'y': 686, 'x': '1994'}, {'y': 779, 'x': '1996'}, {'y': 847, 'x': '1998'}, {'y': 909, 'x': '2000'}, {'y': 948, 'x': '2002'}, {'y': 1003, 'x': '2004'}, {'y': 1041, 'x': '2006'}, {'y': 1078, 'x': '2008'}, {'y': 1115, 'x': '2010'}, {'y': 1177, 'x': '2012'}, {'y': 1239, 'x': '2014'}, {'y': 1286, 'x': '2016'}], 'key': 'All FDA drugs', 'yAxis': '1'}]
-
-    # ===== drugtimes =====
-
-
-    return render(request, 'drugstatistics.html', {'drugtypes_approved':drugtypes_approved, 'drugtypes_trials':drugtypes_trials,  'drugtypes_estab':drugtypes_estab,  'drugtypes_not_estab':drugtypes_not_estab, 'drugindications_approved':drugindications_approved, 'drugindications_trials':drugindications_trials, 'drugtargets_approved':drugtargets_approved, 'drugtargets_trials':drugtargets_trials, 'phase_trials':phase_trials, 'phase_trials_inactive': phase_trials_inactive, 'moas_trials':moas_trials, 'moas_approved':moas_approved, 'drugfamilies_approved':drugfamilies_approved, 'drugfamilies_trials':drugfamilies_trials, 'drugClasses_approved':drugClasses_approved, 'drugClasses_trials':drugClasses_trials, 'drugs_over_time':drugs_over_time, 'in_trial':len(in_trial), 'not_targeted':not_targeted})
-
-class DrugBrowser(TemplateView):
-    template_name = 'drugbrowser.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        drugs = Drugs.objects.all().prefetch_related('target', 'target__family__parent__parent__parent', 'publication', 'publication__web_link', 'publication__web_link__web_resource', 'publication__journal')
-        drugs_NHS_names = list(NHSPrescribings.objects.values_list('drugname__name', flat=True).distinct())
-        context_data = list()
-
-        def get_pmid(publication):
-            try:
-                pmid = publication.web_link.index if publication.web_link.web_resource.slug == "pubmed" else None
-            except AttributeError:
-                pmid = None
-            return pmid
-
-        # Create the string for the References column under APA rules
-        def format_title(title):
-            return re.sub(r'[\'"]', '-', title) if title else ''
-
-        def format_authors(authors):
-            return f"<b>{authors},</b>" if authors else ''
-
-        def format_year(year):
-            return f"<b>({year})</b><br/>" if year else ''
-
-        def format_journal(journal):
-            return f"<i>{journal.name}</i>" if journal else ''
-
-        def format_volume_and_pages(reference):
-            if reference and ':' in reference:
-                volume, pages = reference.split(':')
-                return f"<b>{volume}:</b><b>{pages}</b>"
-            else:
-                return ''
-
-        def format_pmid_link(pmid):
-            return f"[PMID: <a href='https://pubmed.ncbi.nlm.nih.gov/{pmid}' target='_blank'>{pmid}</a>]<br/>" if pmid else ''
-
-        def format_publication(pub):
-            pmid = get_pmid(pub)
-            return f"{format_authors(pub.authors)} {format_year(pub.year)} {format_title(pub.title)}<br/> {format_journal(pub.journal)}, {format_volume_and_pages(pub.reference)} {format_pmid_link(pmid)}"
-
-        for drug in drugs:
-            drugname = drug.name
-            NHS = 'yes' if drugname in drugs_NHS_names else 'no'
-            target_list = drug.target.all()
-
-            publications = drug.publication.all()
-            publication_info = [format_publication(pub) for pub in publications]
-
-            publication_info_string = '<br>'.join(publication_info)
-
-            regex = r'\bClass\b' # Regular expression to extract text after the word 'Class'
-
-            for protein in target_list:
-
-                # Get the hierarchical class name from the protein family
-                hierarchical_class_name = str(protein.family.parent.parent.parent.name)
-
-                # Remove the word "Class" from the hierarchical class name using the provided regular expression
-                class_name = re.sub(regex, '', hierarchical_class_name)
-
-                family = str(protein.family.parent.name)
-
-                jsondata = {
-                    'name': drugname,
-                    'target': str(protein),
-                    'phase': drug.phase,
-                    'approval': drug.approval,
-                    'class': class_name,
-                    'family': family,
-                    'indication': drug.indication,
-                    'status': drug.status,
-                    'drugtype': drug.drugtype,
-                    'moa': drug.moa,
-                    'novelty': drug.novelty,
-                    'targetlevel': drug.targetlevel,
-                    'clinicalstatus': drug.clinicalstatus,
-                    'NHS': NHS,
-                    'publications': publication_info_string
-                }
-
-                context_data.append(jsondata)
-
-        context['drugdata'] = context_data
-
-        return context
 
 def DrugsVenn(request):
     return Venn(request, "drugs")
@@ -359,7 +51,7 @@ def Venn(request, origin="both"):
         }
         if origin == "drugs":
             # Call to get drugs in each maximum phase
-            drug_phases = Drugs2024.objects.all().values_list('indication_max_phase','ligand_id__name').distinct()
+            drug_phases = Drugs.objects.all().values_list('indication_max_phase','ligand_id__name').distinct()
             for item in drug_phases:
                 if item[0] not in phases_dict.keys():
                     phases_dict[item[0]] = []
@@ -369,7 +61,7 @@ def Venn(request, origin="both"):
                 phases_dict[key] = '\n'.join(phases_dict[key])
         else:
             # Call to get receptors in each maximum phase
-            receptor_phases = Drugs2024.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
+            receptor_phases = Drugs.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
             for item in receptor_phases:
                 if item[0] not in phases_dict.keys():
                     phases_dict[item[0]] = []
@@ -382,7 +74,7 @@ def Venn(request, origin="both"):
         context["phases_dict_keys"] = list(phases_dict.keys())
 
         #  Fetch table data with all related information
-        table_data = Drugs2024.objects.select_related(
+        table_data = Drugs.objects.select_related(
             'target__family__parent__parent__parent',  # All target info
             'ligand__ligand_type',
             'indication',
@@ -479,7 +171,7 @@ class DrugSectionSelection(TemplateView):
         if page == 'Drugs':
             description = 'Search by agent / drug name'
             # Fetch distinct ligands and create a dictionary of {ligand.name: ligand.id}
-            search_data = Drugs2024.objects.all().prefetch_related('ligand').distinct('ligand')
+            search_data = Drugs.objects.all().prefetch_related('ligand').distinct('ligand')
             search_dict = {drug.ligand.name: drug.ligand.id for drug in search_data}
 
             # Fetch ATC codes for the table
@@ -503,7 +195,7 @@ class DrugSectionSelection(TemplateView):
             atc_df_grouped.rename(columns={'ligand': 'LigandID', 'code__index': 'ATC'}, inplace=True)
 
             # Fetch table data with all related information
-            table_data = Drugs2024.objects.select_related(
+            table_data = Drugs.objects.select_related(
                 'ligand',
                 'target__family__parent__parent__parent', # All target info
                 'indication'
@@ -575,7 +267,7 @@ class DrugSectionSelection(TemplateView):
         elif page == 'Targets':
             description = 'Search by target name'
             # Fetch distinct targets and create a dictionary of {target.name: target.id}
-            search_data = Drugs2024.objects.all().prefetch_related('target').distinct('target')
+            search_data = Drugs.objects.all().prefetch_related('target').distinct('target')
             search_dict = {drug.target.name: drug.target.id for drug in search_data}
 
             # Create sankey_dict_serialized using a dictionary comprehension
@@ -609,7 +301,7 @@ class DrugSectionSelection(TemplateView):
 
 
             # Fetch table data with all related information
-            table_data = Drugs2024.objects.select_related(
+            table_data = Drugs.objects.select_related(
                 'target',
                 'ligand__ligand_type',
                 'indication',
@@ -682,14 +374,14 @@ class DrugSectionSelection(TemplateView):
         elif page == 'Indications':
             description = 'Search by indication name'
             # Fetch distinct indications and create a dictionary of {indication.name: indication.id}
-            search_data = Drugs2024.objects.all().prefetch_related('indication').distinct('indication')
+            search_data = Drugs.objects.all().prefetch_related('indication').distinct('indication')
             search_dict = {drug.indication.title: drug.indication.id for drug in search_data}
 
             # ###########################
             # Single Data Query
             # ###########################
             # Fetch all data in a single query
-            table_data = Drugs2024.objects.select_related(
+            table_data = Drugs.objects.select_related(
                 'indication__code',
                 'ligand__ligand_type',
                 'target__family__parent__parent__parent',  # All target info
@@ -895,59 +587,73 @@ class DrugSectionSelection(TemplateView):
             json_records_drugs = agg_data_drugs.to_json(orient='records')
             context['Full_data_drugs'] = json_records_drugs
 
-            #### GPCRome Indication Stuff START ####
-            data_dir = os.sep.join([settings.DATA_DIR, 'drug_data'])
-            filepath = os.sep.join([data_dir, 'short_titles_ICD.csv'])
-            titles = pd.read_csv(filepath, sep=';', low_memory=False)
-            title_conversion = {key: value for key, value in zip(titles['title'], titles['title_short'])}
+        #     #### GPCRome Indication Stuff START ####
+        #     data_dir = os.sep.join([settings.DATA_DIR, 'drug_data'])
+        #     filepath = os.sep.join([data_dir, 'short_titles_ICD.csv'])
+        #     titles = pd.read_csv(filepath, sep=';', low_memory=False)
+        #     title_conversion = {key: [value] for key, value in zip(titles['title'], titles['title_short'])}
 
-            indication_levels_01 = Indication.objects.filter(level__in=[0,1])
-            indication_tree = {}
-            conversion = {}
-            wheel_data = {}
-            wheel_slugs = {}
+        #     indication_levels_01 = Indication.objects.filter(level__in=[0,1])
+        #     indication_tree = {}
+        #     conversion = {}
+        #     wheel_data = {}
+        #     wheel_slugs = {}
+        #     crunch = {}
 
-            for item in indication_levels_01:
-                if item.title == 'Symptoms, signs or clinical findings, not elsewhere classified':
-                    item.title = 'Symptoms, signs or clinical findings'
-                elif item.title == 'Certain conditions originating in the perinatal period':
-                    item.title = 'Certain conditions originating in perinatal period'
-                elif item.title == 'Injury, poisoning or certain other consequences of external causes':
-                    item.title = 'Injury, poisoning or other external causes'
-                elif item.title == 'Pregnancy, childbirth or the puerperium':
-                    item.title = 'Pregnancy, childbirth or puerperium'
-                elif item.title == 'Diseases of the blood or blood-forming organs':
-                    item.title = 'Diseases of the blood or related organs'
+        #     for item in indication_levels_01:
+        #         if item.title == 'Symptoms, signs or clinical findings, not elsewhere classified':
+        #             item.title = 'Symptoms, signs or clinical findings'
+        #         elif item.title == 'Certain conditions originating in the perinatal period':
+        #             item.title = 'Certain conditions originating in perinatal period'
+        #         elif item.title == 'Injury, poisoning or certain other consequences of external causes':
+        #             item.title = 'Injury, poisoning or other external causes'
+        #         elif item.title == 'Pregnancy, childbirth or the puerperium':
+        #             item.title = 'Pregnancy, childbirth or puerperium'
+        #         elif item.title == 'Diseases of the blood or blood-forming organs':
+        #             item.title = 'Diseases of the blood or related organs'
 
-                if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-                    indication_tree[item.slug] = []
-                    conversion[item.slug] = item.title
-                if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-                    root = item.slug[:4]
-                    indication_tree[root].append(item.title)
-                    conversion[item.slug] = item.title
-                    wheel_data[item.title] = {'Value1': 0}
-                    wheel_slugs[item.slug] = {'Value1': 0}
+        #         if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+        #             indication_tree[item.slug] = []
+        #             conversion[item.slug] = item.title
+        #         if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+        #             root = item.slug[:4]
+        #             indication_tree[root].append(item.title)
+        #             conversion[item.slug] = item.title
+        #             wheel_data[item.title] = {'Value1': 0}
+        #             wheel_slugs[item.slug] = {'Value1': 0}
+        #             crunch[item.title] = {1: 0, 2: 0, 3: 0, 4: 0, 'unique': []}
 
-            indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
+        #     indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
 
-            #Now get the drug data
-            indication_drug_data = Drugs2024.objects.all().prefetch_related('indication')
+        #     #Now get the drug data
+        #     indication_drug_data = Drugs.objects.all().prefetch_related('indication')
 
-            for item in indication_drug_data:
-                try:
-                    title = item.indication.get_level_1().title
-                    slug = item.indication.get_level_1().slug
-                    wheel_data[title]['Value1'] +=1
-                    wheel_slugs[slug]['Value1'] +=1
-                except:
-                    continue
+        #     for item in indication_drug_data:
+        #         try:
+        #             title = item.indication.get_level_1().title
+        #             slug = item.indication.get_level_1().slug
+        #             phase = item.indication_max_phase
+        #             wheel_data[title]['Value1'] +=1
+        #             wheel_slugs[slug]['Value1'] +=1
+        #             crunch[title][phase] += 1
+        #             crunch[title]['unique'].append(item.ligand_id)
+        #         except:
+        #             continue
 
-            indication_full = {"NameList": indication_tree2, "DataPoints": wheel_data}
-            context['GPCRome_data'] = json.dumps(indication_full["NameList"])
-            context['GPCRome_data_variables'] = json.dumps(indication_full['DataPoints'])
-            context['Title_conversion'] = json.dumps(title_conversion)
-            #### GPCRome Indication Stuff END   ####
+        #     for key in title_conversion.keys():
+        #         title_conversion[key].append(wheel_data[key]['Value1'])
+        #         title_conversion[key].append(crunch[key][1])
+        #         title_conversion[key].append(crunch[key][2])
+        #         title_conversion[key].append(crunch[key][3])
+        #         title_conversion[key].append(crunch[key][4])
+        #         uniq = len(set(crunch[key]['unique']))
+        #         title_conversion[key].append(uniq)
+
+        #     indication_full = {"NameList": indication_tree2, "DataPoints": wheel_data}
+        #     context['GPCRome_data'] = json.dumps(indication_full["NameList"])
+        #     context['GPCRome_data_variables'] = json.dumps(indication_full['DataPoints'])
+        #     context['Title_conversion'] = json.dumps(title_conversion)
+        #     #### GPCRome Indication Stuff END   ####
 
         # Convert to JSON string and pass to context
         context['search_data'] = json.dumps(search_dict)
@@ -988,7 +694,7 @@ class DruggedGPCRome(TemplateView):
         drug_count_receptor_dict = {}
 
         # Use iterator to process the queryset in chunks
-        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'indication_max_phase').distinct()
+        drug_data = Drugs.objects.all().values_list('target__entry_name', 'indication_max_phase').distinct()
 
         all_proteins = Protein.objects.filter(species_id=1, parent_id__isnull=True, accession__isnull=False, family_id__slug__startswith='0').exclude(
                                             family_id__slug__startswith='007'
@@ -1038,7 +744,7 @@ class DruggedGPCRome(TemplateView):
         context['GPCRome_Label_Conversion'] = json.dumps(Data_full['LabelConversionDict'])
 
         #TREE SECTION
-        drug_data = Drugs2024.objects.all().values_list('target__entry_name', 'ligand__name','indication_max_phase')
+        drug_data = Drugs.objects.all().values_list('target__entry_name', 'ligand__name','indication_max_phase')
         
         drug_dict = {}
         
@@ -1059,8 +765,8 @@ class DruggedGPCRome(TemplateView):
         for target in drug_dict:
             for key in drug_dict[target]:
                 unique_entries = set(drug_dict[target][key])  # Get unique ligands
-                if target == 'drd2_human' and key == 'Outer4':
-                    print(len(unique_entries),sorted(unique_entries))
+                # if target == 'drd2_human' and key == 'Outer4':
+                #     print(len(unique_entries),sorted(unique_entries))
                 drug_dict[target][key] = len(unique_entries)  # Replace the list with the count
 
         tree, tree_options, circles, receptors = LandingPage.generate_tree_plot(drug_dict)
@@ -1075,6 +781,7 @@ class DruggedGPCRome(TemplateView):
 
         return context
 
+
 class TargetSelectionTool(TemplateView):
     # Template using this class #
     template_name = 'TargetSelectionTool.html'
@@ -1084,7 +791,7 @@ class TargetSelectionTool(TemplateView):
 
         
         # Fetch all data in a single query
-        table_data = Drugs2024.objects.select_related(
+        table_data = Drugs.objects.select_related(
                 'target__family__parent__parent__parent',  # All target info
                 'moa'
             ).values(
@@ -1237,9 +944,9 @@ class TargetSelectionTool(TemplateView):
         }, inplace=True)
 
         # Merge `agg_data_targets` back into the original DataFrame on `Target ID`
-        df_final = df.merge(agg_data_targets, on=group_cols, how='left')
+        df_first = df.merge(agg_data_targets, on=group_cols, how='left')
 
-        # Keep only the specified columns in df_final
+        # Keep only the specified columns in df_first
         keep_col_names = [
             'Target ID', 'Gene name', 'Protein name', 'Receptor family', 'Ligand type',
             'Class', 'Literature', 'Novelty (Pharos)', 'IDG',
@@ -1248,11 +955,55 @@ class TargetSelectionTool(TemplateView):
             'Inhibitory_max_phase', 'Inhibitory_Drugs', 'Inhibitory_Agents',
         ]
 
-        # Keep only the specified columns in df_final
-        df_final = df_final[keep_col_names]
+        # Keep only the specified columns in df_first
+        df_first = df_first[keep_col_names]
 
         # Drop duplicates based on the reduced set of columns
-        df_final.drop_duplicates(inplace=True)
+        df_first.drop_duplicates(inplace=True)
+
+        # Fetch data from AssayExperiment with select_related for performance
+        assay_data = (
+            AssayExperiment.objects.select_related("protein", "ligand")
+            .values("protein", "ligand", "value_type")
+        )
+
+        # Convert to DataFrame
+        assay_df = pd.DataFrame(list(assay_data))
+
+        # Step 1: Count occurrences of "pEC50" and "pIC50" for each target-ligand pair
+        pair_counts = assay_df.groupby(["protein", "ligand", "value_type"]).size().unstack(fill_value=0)
+
+        # Step 2: Identify and exclude pairs that have both "pEC50" and "pIC50"
+        pairs_with_both = pair_counts[(pair_counts.get("pEC50", 0) > 0) & (pair_counts.get("pIC50", 0) > 0)].reset_index()
+        remaining_pairs = assay_df[~assay_df.set_index(["protein", "ligand"]).index.isin(
+            pairs_with_both.set_index(["protein", "ligand"]).index
+        )]
+
+        # Step 3: Count remaining unique target-ligand pairs and their "pEC50" and "pIC50"
+        remaining_counts = (
+            remaining_pairs.groupby(["protein", "ligand", "value_type"])
+            .size()
+            .unstack(fill_value=0)
+            .reset_index()
+        )
+
+        # Step 4: Aggregate at the target level
+        agg_results = remaining_counts.groupby("protein").agg(
+            Total_Ligands=("ligand", "nunique"),
+            pEC50_Count=("pEC50", "sum"),
+            pIC50_Count=("pIC50", "sum"),
+        ).reset_index()
+
+        # Rename "protein" to "Target ID" to match df_first
+        agg_results.rename(columns={"protein": "Target ID"}, inplace=True)
+
+        # Merge the new aggregated data with df_first
+        df_first = pd.merge(df_first, agg_results, on="Target ID", how="left")
+
+        # Fill NaN values in the newly added columns with 0
+        df_first[["Total_Ligands", "pEC50_Count", "pIC50_Count"]] = df_first[
+            ["Total_Ligands", "pEC50_Count", "pIC50_Count"]
+        ].fillna(0)
 
         # Fetch all Indications and create a hierarchical mapping
         indications = Indication.objects.values("id", "title", "slug", "level")
@@ -1361,39 +1112,191 @@ class TargetSelectionTool(TemplateView):
         # Apply the renaming to the DataFrame
         df = df.rename(columns=new_columns)
         
-        # print(df)
         # reset index
         df.reset_index(inplace=True)
         # Perform the merge
-        merged_df = pd.merge(df_final, df, on='Target ID', how='left')
+        df_second = pd.merge(df_first, df, on='Target ID', how='left')
         
         # Add a new column for "Max disease association score"
-        merged_df["Max_disease_association_score"] = merged_df[
+        df_second["Max_disease_association_score"] = df_second[
             IDC_hierarchy.keys()  # Keys of the IDC_hierarchy dict correspond to master columns
         ].apply(pd.to_numeric, errors="coerce").max(axis=1)  # Convert to numeric and compute the max
 
         # Add a new column for "Disease associated"
-        merged_df["Disease_associated"] = merged_df["Max_disease_association_score"].apply(
+        df_second["Disease_associated"] = df_second["Max_disease_association_score"].apply(
             lambda x: "Yes" if x >= 0.5 else "No"
         )
 
+
+        # Step 1: Query data
+        table_data = Drugs.objects.select_related('indication').values(
+            'target',               # Target ID
+            'ligand',               # Ligand ID
+            'indication__title',    # Indication title
+            'drug_status'           # Drug status
+        )
+
+        # Step 2: Convert to DataFrame and classify
+        df = pd.DataFrame(list(table_data))
+        df['Classification'] = df['drug_status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
+
+        # Step 3: Pivot data for counts of drugs and agents
+        pivoted = df.groupby(['target', 'indication__title', 'Classification'])['ligand'].count().reset_index()
+        pivoted = pivoted.pivot_table(
+            index='target',
+            columns=['indication__title', 'Classification'],
+            values='ligand',
+            fill_value=0
+        )
+
+        # Flatten multi-index columns (indication, Classification) into single column names
+        pivoted.columns = [f"{ind}_{cls}" for ind, cls in pivoted.columns]
+        pivoted.reset_index(inplace=True)
+
+        # Step 4: Calculate master columns by summing children for each indication master
+        # Using IDC_hierarchy to identify master-child relationships
+        for master, details in IDC_hierarchy.items():
+            children = details['children']
+            # Sum columns corresponding to children for Drugs
+            drug_columns = [f"{child}_Drug" for child in children if f"{child}_Drug" in pivoted.columns]
+            pivoted[f"{master}_Drug"] = pivoted[drug_columns].sum(axis=1) if drug_columns else 0
+            
+            # Sum columns corresponding to children for Agents
+            agent_columns = [f"{child}_Agent" for child in children if f"{child}_Agent" in pivoted.columns]
+            pivoted[f"{master}_Agent"] = pivoted[agent_columns].sum(axis=1) if agent_columns else 0
+
+        # Step 5: Remove empty columns (entirely zero)
+        pivoted = pivoted.loc[:, (pivoted != 0).any(axis=0)]
+
+        # Step 6: Rebuild dictionaries
+        IDC_hierarchy_drugs = {}
+        IDC_hierarchy_agents = {}
+
+        for master, details in IDC_hierarchy.items():
+            children = details['children']
+            # Filter children that still exist in the DataFrame
+            valid_children_drugs = [child for child in children if f"{child}_Drug" in pivoted.columns]
+            valid_children_agents = [child for child in children if f"{child}_Agent" in pivoted.columns]
+            
+            # Add master and filtered children to hierarchy
+            if valid_children_drugs:
+                IDC_hierarchy_drugs[master] = {
+                    'title': details['title'],
+                    'children': valid_children_drugs
+                }
+            if valid_children_agents:
+                IDC_hierarchy_agents[master] = {
+                    'title': details['title'],
+                    'children': valid_children_agents
+                }
+
+        # Step 7: Ensure the pivoted DataFrame has 'Target ID' as the key for merging
+        pivoted.rename(columns={'target': 'Target ID'}, inplace=True)
+
+        # Step 8: Merge the new columns into df_second to create df_third
+        df_third = pd.merge(df_second, pivoted, on='Target ID', how='left')
+
         # Convert the final DataFrame to JSON
-        json_records_targets = merged_df.to_json(orient='records')
+        json_records_targets = df_third.to_json(orient='records')
         context['Full_data'] = json_records_targets
-        # Prepare sorted keys for IDC_hierarchy
-        # sorted_keys = sorted(IDC_hierarchy.keys())
-        # context['sorted_keys'] = sorted_keys
-        # context['IDC_hierarchy'] = IDC_hierarchy
-        limit = 1  # Adjust this number as needed for your subset
-        subset_keys = sorted(IDC_hierarchy.keys())[:limit]  # Limit to first `limit` keys
-        context['subset_keys'] = subset_keys
-        # Create a reduced version of IDC_hierarchy with only the subset keys
-        # reduced_hierarchy = {key: IDC_hierarchy[key] for key in subset_keys}
         context['IDC_hierarchy'] = json.dumps(IDC_hierarchy)
+        context['IDC_hierarchy_drugs'] = json.dumps(IDC_hierarchy_drugs)
+        context['IDC_hierarchy_agents'] = json.dumps(IDC_hierarchy_agents)
 
+        # # Fetch data with select_related for better performance
+        # ligand_assay_data = (
+        #     AssayExperiment.objects.select_related("protein", "ligand")
+        #     .values("protein", "ligand", "value_type")
+        # )
+
+        # # Convert to DataFrame for easier manipulation
+        # ligand_assay_df = pd.DataFrame(list(ligand_assay_data))
+
+        # # Count occurrences of "pEC50" and "pIC50" for each protein-ligand pair
+        # counts = ligand_assay_df.groupby(["protein", "ligand", "value_type"]).size().unstack(fill_value=0)
+
+        # # Filter for rows that have both "pEC50" and "pIC50"
+        # pairs_with_both = counts[(counts.get("pEC50", 0) > 0) & (counts.get("pIC50", 0) > 0)].reset_index()
+
+        # # Aggregate counts for pEC50 and pIC50 for these pairs
+        # pairs_with_both["pEC50_Count"] = pairs_with_both.get("pEC50", 0)
+        # pairs_with_both["pIC50_Count"] = pairs_with_both.get("pIC50", 0)
+
+        # # Fetch data with protein__entry_name and ligand__name
+        # name_data = AssayExperiment.objects.select_related("protein", "ligand").values(
+        #     "protein", "ligand", "protein__entry_name", "ligand__name"
+        # ).distinct()
+
+        # # Convert name_data to DataFrame
+        # name_df = pd.DataFrame(list(name_data))
+
+        # # Merge name data into pairs_with_both
+        # pairs_with_both = pairs_with_both.merge(
+        #     name_df,
+        #     on=["protein", "ligand"],
+        #     how="left",
+        # )
+
+        # # Format as requested: "entry_name: ligand__name = pEC50: $count, pIC50: $count"
+        # formatted_pairs = pairs_with_both.apply(
+        #     lambda row: f"{row['protein__entry_name']}: {row['ligand__name']} = pEC50: {row['pEC50_Count']}, pIC50: {row['pIC50_Count']}",
+        #     axis=1,
+        # )
+
+        # # Print or return the formatted pairs
+        # formatted_results = formatted_pairs.tolist()
+        # print("\n".join(formatted_results))
+
+                
+        return context
+
+
+#################################
+####        Targets          ####
+#################################
+
+class Targets(TemplateView):
+    # Template using this class #
+    template_name = 'Targets.html'
+    # Get context for hmtl usage #
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+
+
+        # for key in sorted(IDC_hierarchy_drugs):
+        #     print(key, IDC_hierarchy_drugs[key]['title'],len(IDC_hierarchy_drugs[key]['children']))
+        
+        # start=22
+        # list_of_drugs = [start]
         # for key in sorted(IDC_hierarchy):
-        #     print(key, IDC_hierarchy[key]['title'],len(IDC_hierarchy[key]['children']))
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy[key]['title'],current,next)
+        # print(list_of_drugs)
 
+
+        # start=706
+        # list_of_drugs = [start]
+        # for key in sorted(IDC_hierarchy_drugs):
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy_drugs[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy_drugs[key]['title'],current,next)
+        # print(list_of_drugs)
+
+        # start=1363
+        # list_of_drugs = [start]
+        # for key in sorted(IDC_hierarchy_agents):
+        #     last = list_of_drugs[-1]
+        #     current = len(IDC_hierarchy_agents[key]['children'])
+        #     next = last+current+1
+        #     list_of_drugs.append(next)
+        #     print(key,IDC_hierarchy_agents[key]['title'],current,next)
+        # print(list_of_drugs)
         return context
 
         # # Get data - server side - Queries #
@@ -1825,7 +1728,7 @@ def indication_detail(request, code):
     code = code.upper()
     context = dict()
     #code = 'EFO_0003843'
-    indication_data = Drugs2024.objects.filter(indication__code=code).prefetch_related('ligand',
+    indication_data = Drugs.objects.filter(indication__code=code).prefetch_related('ligand',
                                                                                         'target',
                                                                                         'indication',
                                                                                         'indication__uri')
@@ -1899,33 +1802,3 @@ def indication_detail(request, code):
     context['targets'] = list(caches['entries'])
     context['ligands'] = list(caches['ligands'])
     return render(request, 'indication_detail.html', context)
-
-@cache_page(60 * 60 * 24 * 28)
-def nhs_section(request, slug):
-
-    nhs_data = NHSPrescribings.objects.filter(bnf_section=slug).order_by('date')
-
-    data_dic = {}
-    sections = []
-    query_translate = {}
-    for i in nhs_data:
-        prescription_name = i.op_name +' (' + i.drugCode + ')'
-        queryname = i.drugname.name
-
-        if not prescription_name in data_dic:
-            data_dic[prescription_name] = []
-            sections.append(i.bnf_section)
-
-        dic = {}
-        dic['x'] = str(i.date)
-        dic['y'] = int(i.actual_cost)
-        data_dic[prescription_name].append(dic)
-
-        if not prescription_name in query_translate:
-            query_translate[prescription_name] = queryname
-
-    data = []
-    for nhs_name in data_dic.keys():
-        data.append({'values': data_dic[nhs_name], 'query_key':str(query_translate[nhs_name]), 'key':nhs_name})
-
-    return render(request, 'nhs.html', {'data':data, 'drug':slug, 'section':list(set(sections))})

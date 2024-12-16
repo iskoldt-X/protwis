@@ -77,17 +77,18 @@
         padding-left: 0 !important;
     }
 
-    .tooltip {
-        position: absolute;
-        text-align: center;
-        padding: 6px;
-        font-size: 12px;
-        background: lightgrey;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        pointer-events: none; /* Prevents the tooltip from capturing mouse events */
-        z-index: 10;
+    .d3-tip {
+      font-family: Arial;
+      background: #eef8ff;
+      padding: 9px;
+      border: 1px;
+      border-radius: 10px;
+      color: black;
+      z-index: 5070;
+      position: absolute;
+      pointer-events: none;
     }
+
     .text-greyed-out {
         fill: grey;
     }
@@ -96,21 +97,12 @@
         font-weight: bold;
     }
 
-    .graydiv {
+    <!-- .graydiv {
         height: 20px;
         width: 275px;
         background: linear-gradient(to right, white 0%, blue 100%)
     }
 /* Adjust header text to wrap only at spaces */
-.rotate-text .dt-column-title {
-    display: inline-block;
-    white-space: pre-wrap; /* Preserve spaces and allow wrapping at spaces */
-    word-break: keep-all; /* Prevent breaking words */
-    text-align: center; /* Center-align text within the header cell */
-    line-height: 1.2; /* Adjust line height for multi-line text */
-    padding-top: 10px; /* Optional: Add spacing to top if needed */
-    vertical-align: middle; /* Align text to the middle of the cell */
-}
 
 .search-info {
     display: inline-block;
@@ -375,19 +367,19 @@
 
   {% if page == 'Indications' %}
   <!-- ### Create the panel tabs ### -->
-  <ul class="nav nav-tabs">
+  <!-- <ul class="nav nav-tabs">
       <li class="active">
         <a href="#overview" data-toggle="tab">Overview</a>
       </li>
       <li>
         <a href="#search" data-toggle="tab">Search</a>
       </li>
-  </ul>
+  </ul> -->
 
   <!-- ## Tab content ## -->
-  <div class="tab-content">
-    <div id="overview" class="tab-pane fade in active">
-      <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
+  <!-- <div class="tab-content">
+    <div id="overview" class="tab-pane fade in active"> -->
+      <!-- <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
         <div class="col-md-12">
           <div class="col-md-12" style="margin-bottom: 40px;"">
             <br>
@@ -395,13 +387,20 @@
             <br>
           </div>
           <br>
-
-          <div class="col-md-2" style="padding-top: 5px;">
-            Icon toggle:
-            <button id="ToggleIcon" class="btn btn-info active">On</button>
+ <div class="col-md-3">
+            <div style="float: right;" class="text-center">
+              <b>Drugs count (from low to high)</b>
+              <div class="graydiv"></div>
+            </div>
           </div>
+          <br />  -->
 
-          <div class="col-md-4">
+          <!-- <div id="image-container" data-image-url="{% static 'home/images/DataMapper_GPCRome_icon_legend.png' %}"></div> -->
+          <!-- GPCRome -->
+          <!-- <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+              <div id="GPCRome_plot" class="text-center"></div>
+          </div>
+          <div class="col-md-12">
             <div class="text-center">
               <div class="dropdown">
                 <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -416,27 +415,11 @@
               </div>
             </div>
           </div>
-          <div class="col-md-3">
-            <div style="float: right;" class="text-center">
-              <b>Drugs count (from low to high)</b>
-              <div class="graydiv"></div>
-            </div>
-          </div>
-        <br />
-        <br />
-        <br />
-
-          <div id="image-container" data-image-url="{% static 'home/images/DataMapper_GPCRome_icon_legend.png' %}"></div>
-          <!-- GPCRome -->
-          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
-              <div id="GPCRome_plot" class="text-center"></div>
-          </div>
-
         </div>
       </div>
-    </div>
+    </div> -->
 
-    <div id="search" class="tab-pane fade in">
+    <!-- <div id="search" class="tab-pane fade in"> -->
       <div class="row">
           <div class="col-md-3"></div>
           <!-- Search bar -->
@@ -685,7 +668,7 @@
     } else if (page === 'Targets') {
         search_placeholder = 'Select a target';
     } else if (page === 'Indications') {
-        search_placeholder = 'Select an indication';
+        search_placeholder = 'Select a disease';
     }
 
     // Parse the whole serialized sankey_dict for page 'Targets'
@@ -1047,13 +1030,13 @@
             var table = $(tableId).DataTable();
             table.clear();
             table.rows.add(data);
-            table.draw();
+            table.columns.adjust().draw(false)
             // Add the searchedText next to the search bar
             if (searchedText) {
                 $('.search-info').html(searchedText); // Update the placeholder dynamically
             }
         } else {
-            $(tableId).DataTable({
+            var table = $(tableId).DataTable({
                 dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-7 text-end search-info'>>" +  // Buttons and search bar in the same row
                 "<'row'<'col-sm-12'tr>>" +                    // Table rows
                 "<'row'<'col-sm-12'ip>>", // Pagination and info
@@ -1079,6 +1062,7 @@
                     if (searchedText) {
                         $('.search-info').html(searchedText);
                     }
+                    // table.columns.adjust().draw(false)
                 }
             });
 
@@ -1159,11 +1143,15 @@
                 table.column(i).visible(true);
             }
         }
+        table.columns.adjust().draw(false);
     });
 
 
     $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function (e) {
-        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        $.fn.dataTable
+        .tables({ visible: true, api: true })
+        .columns.adjust()
+        .draw(false); // False redraw to prevent reordering
     });
 
     function reset_all() {
@@ -1171,10 +1159,10 @@
     }
 </script>
 
-{% if page == 'Indications' %}
+<!-- {% if page == 'Indications' %} -->
 <!-- // DATAMAPPER STUFF  -->
 
-<script src="{% static 'home/js/d3.min.js' %}"></script>
+<!-- <script src="{% static 'home/js/d3.min.js' %}"></script>
 <script src="{% static 'home/js/nv.d3.min.js' %}"></script>
 <script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script src="{% static 'home/js/saveSvgAsPng.js' %}"></script>
@@ -1184,6 +1172,7 @@
 <script src="{% static 'home/js/popper.min.js' %}"></script>
 <script src="{% static 'home/js/spectrum_v1_8_1.js' %}"></script>
 <script src="{% static 'home/js/ml.js' %}"></script>
+<script src="{% static 'home/js/d3.tip.js' %}"></script>
 <script>
 
 var GPCRome_categories_data = {{ GPCRome_data|safe }};
@@ -1232,8 +1221,8 @@ var GPCRomes_styling = {
 
 // # initial draw
 let GPCRome_location = "GPCRome_plot";
-Draw_GPCRomes(layout_data, fill_data, GPCRome_location, GPCRomes_styling, odorant=false, indication=true);
+Draw_GPCRomes(layout_data, fill_data, GPCRome_location, GPCRomes_styling, odorant=false, indication=true); -->
 
-</script>
-{% endif %}
+<!-- </script> -->
+<!-- {% endif %} -->
 {% endblock %}
