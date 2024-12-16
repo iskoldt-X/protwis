@@ -97,6 +97,7 @@
     border-radius: 50%;
     border-style: solid;
     border-color: black;
+    border-width: 1px; /* Adjust the thickness here */
     margin-right: 5px;
     vertical-align: middle;
 }
@@ -109,6 +110,15 @@
 .no-bullet-indent li {
     padding-left: 20px;  /* Add indentation */
 }
+
+.hover-pointer {
+    cursor: pointer; /* Changes cursor to a pointer on hover */
+}
+
+.hover-pointer:hover {
+    text-decoration: underline; /* Optional: Add an underline effect on hover */
+}
+
 </style>
 {% endblock %}
 
@@ -137,7 +147,7 @@
               <span class="dot" style="background-color: {{ block.main_label.red }};"></span>
               <span class="dot" style="background-color: {{ block.main_label.purple }};"></span>
               <span class="dot" style="background-color: {{ block.main_label.blue }};"></span>
-              <b>{{ block.main_key }}</b>
+              <b class="hover-pointer">{{ block.main_key }}</b>
             </summary>
             <ul class="no-bullet-indent">
               {% for key, color_codes in block.items.items %}
@@ -145,7 +155,7 @@
                   <span class="dot" style="background-color: {{ color_codes.red }};"></span>
                   <span class="dot" style="background-color: {{ color_codes.purple }};"></span>
                   <span class="dot" style="background-color: {{ color_codes.blue }};"></span>
-                  {{ key }}
+                  <span>{{ key }}</span>
                 </li>
               {% endfor %}
             </ul>
