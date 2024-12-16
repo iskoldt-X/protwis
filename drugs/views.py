@@ -612,18 +612,18 @@ class DrugSectionSelection(TemplateView):
         #         elif item.title == 'Diseases of the blood or blood-forming organs':
         #             item.title = 'Diseases of the blood or related organs'
 
-                if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-                    indication_tree[item.slug] = []
-                    conversion[item.slug] = item.title
-                if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
-                    root = item.slug[:4]
-                    if root not in indication_tree.keys():
-                        indication_tree[root] = []
-                    indication_tree[root].append(item.title)
-                    conversion[item.slug] = item.title
-                    wheel_data[item.title] = {'Value1': 0}
-                    wheel_slugs[item.slug] = {'Value1': 0}
-                    crunch[item.title] = {1: 0, 2: 0, 3: 0, 4: 0, 'unique': []}
+                # if (item.level == 0) and (item.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                #     indication_tree[item.slug] = []
+                #     conversion[item.slug] = item.title
+                # if (item.level == 1) and (item.parent.title.split(' ')[0] not in ['Supplementary', 'Extension', 'External', 'Factors']):
+                #     root = item.slug[:4]
+                #     if root not in indication_tree.keys():
+                #         indication_tree[root] = []
+                #     indication_tree[root].append(item.title)
+                #     conversion[item.slug] = item.title
+                #     wheel_data[item.title] = {'Value1': 0}
+                #     wheel_slugs[item.slug] = {'Value1': 0}
+                #     crunch[item.title] = {1: 0, 2: 0, 3: 0, 4: 0, 'unique': []}
 
         #     indication_tree2 = LandingPage.convert_keys(indication_tree, conversion)
 
@@ -986,7 +986,7 @@ class DiseaseOverview(TemplateView):
 
         return context
 
-class NewDrugsBrowser(TemplateView):
+class TargetSelectionTool(TemplateView):
     # Template using this class #
     template_name = 'TargetSelectionTool.html'
     # Get context for hmtl usage #

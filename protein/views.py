@@ -160,7 +160,7 @@ def get_sankey_data(entry_name):
     #ADDING SECTION FOR SANKEY
 
     #slug = '5ht1a_human'
-    indication_data = Drugs.objects.filter(target__entry_name=slug).prefetch_related('ligand',
+    indication_data = Drugs.objects.filter(target__entry_name=entry_name).prefetch_related('ligand',
                                                                                          'target',
                                                                                          'indication')
 

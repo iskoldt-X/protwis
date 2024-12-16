@@ -2882,7 +2882,7 @@ class LigandInformationView(TemplateView):
             atc_df_grouped.rename(columns={'ligand': 'Ligand ID', 'code__index': 'ATC'}, inplace=True)
 
             # Prepare the Full_data_drug_table
-            table_data = Drugs2024.objects.select_related(
+            table_data = Drugs.objects.select_related(
                 'ligand',
                 'target__family__parent__parent__parent',
                 'indication',
