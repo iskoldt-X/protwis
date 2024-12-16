@@ -85,10 +85,20 @@
 }
 
 #Init_loader {
-    margin-left: 35%;
+    margin-left: 45%;
     top: 40%;
     position: absolute;
     display: none;
+}
+
+.busy-load-container {
+    width: 80%; /* Set this to your desired width, e.g., 80% of the screen width */
+    max-width: 1000px; /* Optional: Set a maximum width */
+    text-align: center; /* Center the text */
+}
+
+.custom-loader-text {
+    white-space: nowrap; /* Prevent text from wrapping to the next line */
 }
 
 /* Apply fixed layout to prevent overflow issues */
@@ -222,6 +232,49 @@ table thead tr:nth-child(3) th:first-child {
     display: none !important;
 }
 
+
+.modal-footer.d-flex {
+    display: flex;
+    justify-content: space-between; /* Space between Clear All and other buttons */
+    align-items: center; /* Align items vertically */
+}
+
+.modal-footer .btn-danger {
+    margin-right: auto; /* Push the Clear All button to the far left */
+}
+
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Align title on the left and close button on the right */
+    gap: 1rem; /* Optional: Add spacing between elements if needed */
+}
+
+.modal-header .modal-title {
+    margin-bottom: 0; /* Remove any default bottom margin */
+    flex-grow: 1; /* Allow the title to take up all available space */
+}
+
+.modal-header .close {
+    margin-left: auto; /* Push the close button to the far right */
+    line-height: 1; /* Ensure the button aligns vertically */
+    font-size: 1.5rem; /* Adjust size to match the header text */
+}
+
+/* Target all "Reset selection" buttons in the modals */
+.modal-footer .btn.btn-danger {
+    background-color: #f8f9fa; /* Light grey, same as btn-secondary */
+    color: #212529; /* Dark text for contrast */
+    border: 1px solid #ced4da; /* Light border matching secondary button style */
+}
+
+.modal-footer .btn.btn-danger:hover {
+    background-color: gold; /* Gold hover effect */
+    color: black; /* Black text for readability */
+    border-color: #ffc107; /* Slightly darker gold border */
+}
+
 </style>
 {% endblock %}
 
@@ -232,22 +285,61 @@ table thead tr:nth-child(3) th:first-child {
 <div id="Init_loader"></div>
 <div class="container" id="Target_selection_tool_container" style="margin-top: 30px;display: none;">
     <div class="col-md-12">
-        <!-- Buttons for Column Visibility Control -->
-        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
-            <button type="button" class="btn btn-primary" data-column="0" onclick="handleButtonClick(0)">Characterization</button>
-            <button type="button" class="btn btn-secondary" data-column="1" onclick="handleButtonClick(1)">#Compounds</button>
-            <button type="button" class="btn btn-secondary" data-column="2" onclick="handleButtonClick(2)">Disease associations<br>(Open Targets, ICD11)</button>
-            <button type="button" class="btn btn-secondary" data-column="3" onclick="handleButtonClick(3)">Disease indications<br>(Clinical trials, ICD11)</button>
-            <button type="button" class="btn btn-secondary" data-column="4" onclick="handleButtonClick(4)">Disease indications<br>(Drugs, ICD11)</button>
-            <button type="button" class="btn btn-secondary" data-column="5" onclick="handleButtonClick(5)">Disease indications<br>(Approved drugs, ATC)</button>
-            <button type="button" class="btn btn-secondary" data-column="6" onclick="handleButtonClick(6)">Tissue expression (HPA)</button>
-            <button type="button" class="btn btn-secondary" data-column="7" onclick="handleButtonClick(7)">Cancer expression (HPA)</button>
+        <!-- Buttons and Headers for Column Visibility Control -->
+        <div class="container-fluid" style="margin-top: 15px; margin-bottom: 30px;">
+
+            <!-- Header Row -->
+            <div class="row text-center align-items-center">
+                <!-- Empty Header -->
+                <div class="col-md-3">
+                    <h4>Target and compound information</h4>
+                </div>
+                <!-- Disease Indications Header -->
+                <div class="col-md-6">
+                    <h4>Disease indications and associations</h4>
+                </div>
+                <!-- Expression Header -->
+                <div class="col-md-3">
+                    <h4>Expression (HPA)</h4>
+                </div>
+            </div>
+
+            <!-- Line Separation -->
+            <div class="row">
+                <div class="col-12">
+                    <hr style="border-top: 1px solid #ccc; margin: 5px 0;">
+                </div>
+            </div>
+
+            <!-- Buttons Row -->
+            <div class="row text-center align-items-center" style="margin-top: 10px">
+                <!-- Buttons for Characterization + Compounds -->
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-primary tab-button mb-2" data-column="0" onclick="handleButtonClick(0)">Target characterization</button>
+                    <button type="button" class="btn btn-secondary tab-button mb-2" data-column="1" onclick="handleButtonClick(1)">Compounds</button>
+                </div>
+
+                <!-- Buttons for Disease Indications -->
+                <div class="col-md-6">
+                    <button type="button" class="btn btn-secondary tab-button mb-2" data-column="5" onclick="handleButtonClick(5)">Drugs<br>(ATC)</button>
+                    <button type="button" class="btn btn-secondary tab-button mb-2" data-column="4" onclick="handleButtonClick(4)">Drugs<br>(ICD11)</button>
+                    <button type="button" class="btn btn-secondary tab-button mb-2" data-column="3" onclick="handleButtonClick(3)">Agents in trials<br>(ICD11)</button>
+                    <button type="button" class="btn btn-secondary tab-button" data-column="2" onclick="handleButtonClick(2)">Target disease<br>associations (ICD11)</button>
+                </div>
+
+                <!-- Buttons for Expression -->
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-secondary tab-button mb-2" data-column="6" onclick="handleButtonClick(6)">Tissues</button>
+                    <button type="button" class="btn btn-secondary tab-button" data-column="7" onclick="handleButtonClick(7)">Cancers</button>
+                </div>
+            </div>
         </div>
+        <!-- Target selection tool table -->
         <table width="100%" class="display compact" id="TargetSelectionToolTable">
             <thead>
                 <!-- Dummy Header Row for Complex Header Fix -->
                 <tr>
-                    <td colspan="1539" style="text-align: center" data-dt-order="disable"></td>
+                    <td colspan="1542" style="text-align: center" data-dt-order="disable"></td>
                 </tr>
                 <!-- Super Header Row -->
                 <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
@@ -255,9 +347,9 @@ table thead tr:nth-child(3) th:first-child {
                     <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Literature</th>
                     <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Novelty</th>
                     <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Structures</th>
-                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs & Agents</th>
-                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
-                    <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs & Agents</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
+                    <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
                     <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Disease association score</th>
                     <!-- Placeholder for Indications -->
                     <th colspan="1" id="indications-placeholder" style="text-align:center;border-left: 1px solid #cccccc;">Indications</th>
@@ -276,17 +368,20 @@ table thead tr:nth-child(3) th:first-child {
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Novelty (Pharos)</th>
                     <th style="text-align: center;">IDG target level</th>
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Total</th>
-                    <th style="text-align: center;">Active</th>
                     <th style="text-align: center;">Inactive</th>
+                    <th style="text-align: center;">Active</th>
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Max Phase</th>
-                    <th style="text-align: center;">No. Drugs</th>
-                    <th style="text-align: center;">No. Agents</th>
+                    <th style="text-align: center;">Drugs</th>
+                    <th style="text-align: center;">Agents</th>
+                    <th style="text-align: center;">Ligands</th>
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Max Phase</th>
-                    <th style="text-align: center;">No. Drugs</th>
-                    <th style="text-align: center;">No. Agents</th>
+                    <th style="text-align: center;">Drugs</th>
+                    <th style="text-align: center;">Agents</th>
+                    <th style="text-align: center;">Ligands</th>
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Max Phase</th>
-                    <th style="text-align: center;">No. Drugs</th>
-                    <th style="text-align: center;">No. Agents</th>
+                    <th style="text-align: center;">Drugs</th>
+                    <th style="text-align: center;">Agents</th>
+                    <th style="text-align: center;">Ligands</th>
                     <th style="text-align: center;border-left: 1px solid #cccccc;">Max score</th>
                     <th style="text-align: center;">Score &ge; 0.5</th>
                     <!-- Placeholder for Indications -->
@@ -309,10 +404,13 @@ table thead tr:nth-child(3) th:first-child {
                     <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center" data-dt-order="disable"></td>
                     <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
@@ -330,26 +428,81 @@ table thead tr:nth-child(3) th:first-child {
 </div>
 
 
-<!-- Modal Structure -->
-<div id="hierarchyModal" class="modal" tabindex="-1" role="dialog">
+<!-- Modal Structures -->
+<!-- Modal for Disease Associations -->
+<!-- Modal for Disease Associations -->
+<div id="hierarchyModalDisease" class="modal" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Select Columns</h5>
+                <h5 class="modal-title mb-0 flex-grow-1">Select Columns for Disease Associations</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="line-height: 1;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="hierarchyTreeDisease"></div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-danger btn-sm" id="clearAllDisease">Reset selection</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary saveColumnVisibility" data-modal="Disease">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal for Clinical Trials -->
+<div id="hierarchyModalClinical" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header d-flex justify-content-between align-items-center">
+                <h5 class="modal-title mb-0">Select Columns for Clinical Trials</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <div id="hierarchyTree"></div>
+                <div id="hierarchyTreeClinical"></div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="saveColumnVisibility">Save</button>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-danger btn-sm" id="clearAllClinical">Reset selection</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary saveColumnVisibility" data-modal="Clinical">Save</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal for Drugs -->
+<div id="hierarchyModalDrugs" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header d-flex justify-content-between align-items-center">
+                <h5 class="modal-title mb-0">Select Columns for Drugs</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="hierarchyTreeDrugs"></div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-danger btn-sm" id="clearAllDrugs">Reset selection</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary saveColumnVisibility" data-modal="Drugs">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 
 {% endblock %}
@@ -371,25 +524,23 @@ const IDC_HIERARCHY = {{ IDC_hierarchy|safe }};
 const IDC_HIERARCHY_Drugs = {{ IDC_hierarchy_drugs|safe }};
 const IDC_HIERARCHY_Agents = {{ IDC_hierarchy_agents|safe }};
 
-// console.log(Full_table_data);
-// console.log("Full_table_data sample:", Full_table_data[0]); // Inspect one entry from the original data
+var originalMasterData = {}; // To store original master column data
 
 const ICD_masterPositions = [
-        22, 43, 132, 145, 169, 220, 274, 283, 340, 369, 372, 420, 449, 498,
-         523, 541, 570, 574, 583, 590, 617, 682, 699, 702, 704
-    ];
-
-    
+    25, 46, 135, 148, 172, 223, 277, 286, 343, 372, 375, 423, 452, 501,
+    526, 544, 573, 577, 586, 593, 620, 685, 702, 705, 707
+];
 
 const ICD_masterPositions_Drugs = [
-        706, 726, 810, 823, 846, 892, 944, 953, 1006, 1033, 1036, 1084, 1112,
-        1159, 1182, 1200, 1229, 1233, 1242, 1249, 1276, 1341, 1358, 1361
+    709, 729, 813, 826, 849, 895, 947, 956, 1009, 1036, 1039, 1087, 1115,
+    1162, 1185, 1203, 1232, 1236, 1245, 1252, 1279, 1344, 1361, 1364
 ];
 
 const ICD_masterPositions_Agents = [
-    1363, 1367, 1401, 1404, 1409, 1423, 1447, 1452, 1467, 1471, 1481, 1489, 1498, 
-    1508, 1511, 1518, 1521, 1534, 1537
+    1366, 1370, 1404, 1407, 1412, 1426, 1450, 1455, 1470, 1474, 1484, 1492, 1501,
+    1511, 1514, 1521, 1524, 1537, 1540
 ];
+
 
 let adjustTimeout; // Move this outside to make it global
 
@@ -397,24 +548,71 @@ let adjustTimeout; // Move this outside to make it global
 // ### Initialization loader   ###
 // ###############################
 $("#Init_loader").show();
-$("#Init_loader").busyLoad("show", { spinner: "accordion", text: "Loading",fontSize: "3rem",textPosition: "top",textMargin: "-6rem",color: "black",background: "white",});
-
+$("#Init_loader").busyLoad("show", { 
+    spinner: "accordion", 
+    text: "Loading data...", 
+    fontSize: "2.5rem",
+    textClass: "custom-loader-text", // Ensures easy access for text changes
+    textPosition: "top",
+    textMargin: "-6rem",
+    color: "black",
+    background: "white",
+});
 
 // ###############################
 // ### Document ready function ###
 // ###############################
 $(document).ready(function() {
 
+function updateLoaderText(newText) {
+    $(".custom-loader-text").text(newText); // Dynamically update the loader's text
+}
+
+function initializeDataTableAsync(tableId, data, hierarchy, hierarchy_drugs, hierarchy_agents) {
+
+        // Run the function for each hierarchy type
+        addIndicationsToTable(IDC_HIERARCHY, ICD_masterPositions, 'indications-placeholder', ""); // Main hierarchy
+        addIndicationsToTable(IDC_HIERARCHY_Drugs, ICD_masterPositions_Drugs, 'indications-drugs-placeholder', "_drugs"); // Drugs hierarchy
+        addIndicationsToTable(IDC_HIERARCHY_Agents, ICD_masterPositions_Agents, 'indications-agents-placeholder', "_agents"); // Agents hierarchy
+        
+        // Step 1: Update loader text
+        updateLoaderText("Initializing tables...");
+
+        // Use a timeout to allow the browser to update the loader's text
+        setTimeout(() => {
+            initializeDataTable(tableId, data, hierarchy, hierarchy_drugs, hierarchy_agents);
+
+            // Step 2: Update loader text for filters
+            updateLoaderText("Creating filters...");
+
+            // Create filters asynchronously
+            setTimeout(() => {
+                createFilters();
+
+                // Final step: Hide the loader
+                $("#Init_loader").busyLoad("hide");
+                $("#Init_loader").hide();
+
+                // Show the container for the Target Selection Tool
+                $("#Target_selection_tool_container").show();
+                document.querySelector('button[data-column="0"]').click();
+            }, 0); // Create filters asynchronously
+        }, 0); // Initialize DataTable asynchronously
+    }
+
 function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_agents) {
 
         // digit fixed value
         const digit_fixed = 3
 
+        // Reset the originalMasterData object to avoid stale data
+        originalMasterData = {};
+
         // Define columns
         var columnDefs = [
             { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
             // { targets: Array.from({ length: 1538 - 11 + 1 }, (_, i) => i + 11), visible: false },
-            { targets: [5, 6, 8], className: 'border-left' },
+            { targets: [5, 6, 8, 11, 15, 19, 23], className: 'border-left' },
             { targets: ICD_masterPositions, className: 'border-left' }, // Apply border-left to ICD_masterPositions
             { targets: ICD_masterPositions_Drugs, className: 'border-left' },
             { targets: ICD_masterPositions_Agents, className: 'border-left' },
@@ -431,17 +629,20 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
             {data: "Novelty (Pharos)", name: "Novelty (Pharos)", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed); }},
             {data: "IDG", name: "IDG target level", width: "125px", className: "small-width"},
             {data: "Total", name: "Total", width: "125px", className: "small-width"},
-            {data: "Active", name: "Active", width: "125px", className: "small-width"},
             {data: "Inactive", name: "Inactive", width: "125px", className: "small-width"},
+            {data: "Active", name: "Active", width: "125px", className: "small-width"},
             {data: "All_Max_Phase", name: "Stimulatory_max_phase", width: "125px", className: "small-width"},
             {data: "All_Drugs", name: "All_Drugs", width: "125px", className: "small-width"},
             {data: "All_Agents", name: "All_Agents", width: "125px", className: "small-width"},
+            {data: "Total_Ligands", name: "Total_Ligands", width: "125px", className: "small-width"},
             {data: "Stimulatory_max_phase", name: "All_Max_Phase", width: "125px", className: "small-width"},
             {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs", width: "125px", className: "small-width"},
             {data: "Stimulatory_Agents", name: "Stimulatory_Agents", width: "125px", className: "small-width"},
+            {data: "pEC50_Count", name: "pEC50_Count", width: "125px", className: "small-width"},
             {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase", width: "125px", className: "small-width"},
             {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs", width: "125px", className: "small-width"},
             {data: "Inhibitory_Agents", name: "Inhibitory_Agents", width: "125px", className: "small-width"},
+            {data: "pIC50_Count", name: "pIC50_Count", width: "125px", className: "small-width"},
             {data: "Max_disease_association_score", name: "Max_disease_association_score", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed); }},
             {data: "Disease_associated", name: "Disease_associated", width: "125px", className: "small-width"}
         ];
@@ -463,6 +664,15 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
                         masterColumn.render = function (data) {
                             return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
                         };
+
+                        // Store the original master column data with formatting applied
+                        originalMasterData[masterKey] = data.map(row => {
+                            const value = row[masterKey];
+                            return value === "" || value === null ? "" : parseFloat(value).toFixed(digit_fixed);
+                        });
+                    } else {
+                        // Store the original master column data without formatting for other hierarchies
+                        originalMasterData[masterKey + suffix] = data.map(row => row[masterKey + suffix]);
                     }
 
                     columns.push(masterColumn);
@@ -495,7 +705,7 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
 
         // Initialize DataTable
         $(tableId).DataTable({
-                    dom: "<'row'<'col-sm-2 dt-btn'B><'col-sm-3'f><'col-sm-'7>>" +  // Buttons and search bar in the same row
+                    dom: "<'row'<'col-sm-3 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
                         "<'row'<'col-sm-12'tr>>" +                               // Table rows
                         "<'row'<'col-sm-12'ip>>",                                // Pagination and info
 
@@ -509,7 +719,7 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
                     deferRender: true,              // Optimize rendering for large data sets
                     paging: true,                  // Disable pagination
                     scrollX: true,                  // Enable horizontal scrolling
-                    scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
+                    scrollY: "55vh",                // Enable vertical scrolling with a height of 50% of the viewport
                     scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
                     fixedHeader: false, // Disable FixedHeader
                     // fixedColumns: true,
@@ -519,37 +729,45 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
                             action: function () { reset_all(); } 
                         },
                         {
-                            text: 'Reselect ICD11',
-                            className: 'btn btn-warning d-none', // Initially hidden
+                            text: 'Reselect ICD11 (Disease Associations)',
+                            className: 'btn-warning d-none', // Shared class
+                            attr: { 'data-column': 2, 'data-modal': 'Disease' }, // Unique data-column and modal type
                             action: function () {
-                                // Reset steady state
-                                SteadyState_Disease_indication = 0;
-
-                                // Show the modal to reselect ICD11
-                                $('#hierarchyModal').modal('show');
+                                $('#hierarchyModalDisease').modal('show'); // Show the Disease modal
+                            }
+                        },
+                        {
+                            text: 'Reselect ICD11 (Clinical Trials)',
+                            className: 'btn-warning d-none', // Shared class
+                            attr: { 'data-column': 3, 'data-modal': 'Clinical' }, // Unique data-column and modal type
+                            action: function () {
+                                $('#hierarchyModalClinical').modal('show'); // Show the Clinical Trials modal
+                            }
+                        },
+                        {
+                            text: 'Reselect ICD11 (Drugs)',
+                            className: 'btn-warning d-none', // Shared class
+                            attr: { 'data-column': 4, 'data-modal': 'Drugs' }, // Unique data-column and modal type
+                            action: function () {
+                                $('#hierarchyModalDrugs').modal('show'); // Show the Drugs modal
                             }
                         }
                     ],
                     initComplete : function () {
-                        // Hide the loading spinner
-                        $("#Init_loader").busyLoad("hide");
-                        $("#Init_loader").hide();
-
                         // Trigger the Characterization button click
                         document.querySelector('button[data-column="0"]').click();
-
-                        // Show the container for the Target Selection Tool
-                        $("#Target_selection_tool_container").show();
+                        
                     }
                 });
-
-
-
-
+}
         // #############################
         // ###    Create Filters     ###
         // #############################
 
+        function createFilters() {
+            
+            // Logic to create filters...
+     
 
         // var column_filters = [];
         // const Table_selector = $(tableId).DataTable();
@@ -565,8 +783,9 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
         
         // // Create the filteres
         // createDropdownFilters(Table_selector,column_filters);
+        }
 
-    }
+
     function addIndicationsToTable(hierarchy, masterPositions, placeholderId , suffix = "") {
         // Fetch dynamic placeholders
         const indicationsPlaceholder = document.getElementById(`${placeholderId}`);
@@ -665,18 +884,8 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
         indicationsPlaceholderCells?.remove();
     }
 
-    // Run the function for each hierarchy type
-    addIndicationsToTable(IDC_HIERARCHY, ICD_masterPositions, 'indications-placeholder', ""); // Main hierarchy
-    addIndicationsToTable(IDC_HIERARCHY_Drugs, ICD_masterPositions_Drugs, 'indications-drugs-placeholder', "_drugs"); // Drugs hierarchy
-    addIndicationsToTable(IDC_HIERARCHY_Agents, ICD_masterPositions_Agents, 'indications-agents-placeholder', "_agents"); // Agents hierarchy
-
-
-    // Initialize table
-    initializeDataTable("#TargetSelectionToolTable",Full_table_data,IDC_HIERARCHY,IDC_HIERARCHY_Drugs,IDC_HIERARCHY_Agents)
-
-    const table = $("#TargetSelectionToolTable").DataTable();
-    table.columns.adjust();
-
+    // Run the initialization sequence
+    initializeDataTableAsync("#TargetSelectionToolTable", Full_table_data, IDC_HIERARCHY, IDC_HIERARCHY_Drugs, IDC_HIERARCHY_Agents);
 
 }); // End document ready function
 
@@ -710,9 +919,23 @@ function populateHierarchyTree(hierarchy, containerId, masterPositions) {
         masterLabel.textContent = masterTitle;
         masterLabel.style.cursor = 'pointer'; // Hand cursor for better UX
 
-        // Append arrow and label to the master div
+        // Create "Select All" checkbox
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.className = 'form-check-input master-checkbox';
+        selectAllCheckbox.style.marginLeft = '10px'; // Add spacing from label
+        selectAllCheckbox.dataset.masterColumnIndex = masterPositions[index]; // Ensure this is set uniquely
+
+        const selectAllLabel = document.createElement('label');
+        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.style.cursor = 'pointer';
+        selectAllLabel.style.marginLeft = '5px'; // Spacing for readability
+
+        // Append arrow, label, and "Select All" checkbox
         masterDiv.appendChild(toggleArrow);
         masterDiv.appendChild(masterLabel);
+        masterDiv.appendChild(selectAllCheckbox);
+        masterDiv.appendChild(selectAllLabel);
 
         // Create children checkboxes container
         const childrenDiv = document.createElement('div');
@@ -729,33 +952,32 @@ function populateHierarchyTree(hierarchy, containerId, masterPositions) {
             const childCheckbox = document.createElement('input');
             childCheckbox.type = 'checkbox';
             childCheckbox.className = 'form-check-input child-checkbox';
-            childCheckbox.id = `child-${childKey}`;
+            const uniqueId = `child-${containerId}-${childKey}`; // Unique ID for this modal instance
+            childCheckbox.id = uniqueId; // Set unique ID
             childCheckbox.dataset.columnIndex = startIndex + childIndex; // Calculate column index dynamically
             childCheckbox.dataset.masterColumnIndex = masterPositions[index]; // Link to master column index
 
             const childLabel = document.createElement('label');
             childLabel.className = 'form-check-label';
             childLabel.textContent = childKey;
-            childLabel.htmlFor = `child-${childKey}`;
-
-            childCheckbox.addEventListener('change', () => {
-                // If any child is checked, include the master in visibility
-                const masterCheckbox = document.querySelector(`input[data-master-column-index="${masterPositions[index]}"]`);
-                if (childCheckbox.checked) {
-                    masterCheckbox.checked = true;
-                } else {
-                    // Check if all children are unchecked, then uncheck master
-                    const siblingsChecked = childrenDiv.querySelectorAll('input.child-checkbox:checked').length;
-                    if (siblingsChecked === 0) {
-                        masterCheckbox.checked = false;
-                    }
-                }
-            });
+            childLabel.setAttribute('for', uniqueId); // Link label to checkbox
 
             childDiv.appendChild(childCheckbox);
             childDiv.appendChild(childLabel);
 
             childrenDiv.appendChild(childDiv);
+
+            // Add event listener for each child checkbox
+            childCheckbox.addEventListener('change', () => {
+                // If any child is unchecked, uncheck the master "Select All"
+                if (!childCheckbox.checked) {
+                    selectAllCheckbox.checked = false;
+                } else {
+                    // If all children are checked, check the master "Select All"
+                    const allChecked = Array.from(childrenDiv.querySelectorAll('.child-checkbox')).every(checkbox => checkbox.checked);
+                    selectAllCheckbox.checked = allChecked;
+                }
+            });
         });
 
         // Toggle functionality for both the arrow and master label
@@ -772,6 +994,29 @@ function populateHierarchyTree(hierarchy, containerId, masterPositions) {
         toggleArrow.addEventListener('click', toggleChildren);
         masterLabel.addEventListener('click', toggleChildren);
 
+        // Add event listener for "Select All" functionality
+        const toggleSelectAll = () => {
+            const isChecked = selectAllCheckbox.checked;
+
+            // Ensure the children are visible
+            if (childrenDiv.style.display === 'none') {
+                toggleChildren();
+            }
+
+            // Check/uncheck all child checkboxes
+            const childCheckboxes = childrenDiv.querySelectorAll('.child-checkbox');
+            childCheckboxes.forEach(childCheckbox => {
+                childCheckbox.checked = isChecked;
+            });
+        };
+
+        selectAllCheckbox.addEventListener('change', toggleSelectAll);
+        selectAllLabel.addEventListener('click', () => {
+            selectAllCheckbox.checked = !selectAllCheckbox.checked; // Toggle checkbox state
+            toggleSelectAll(); // Apply the "Select All" logic
+        });
+
+        // Append everything to the masterDiv and container
         masterDiv.appendChild(childrenDiv);
         container.appendChild(masterDiv);
     });
@@ -787,21 +1032,42 @@ function range(start, end) {
 // column visibility configuration for the master button clicks
 const columnVisibilityConfig = {
     0: [...range(0, 4), ...range(5, 10)], // Characterization
-    1: [...range(0, 4), ...range(11, 19)], // Drugs/Agents/Ligands
-    2: [...range(0, 4), ...range(20, 21), ...ICD_masterPositions], // Indications (Disease association)
-    3: [...range(0, 4), ...ICD_masterPositions_Drugs], // Indications (Drugs, ICD11)
-    4: [...range(0, 4), ...ICD_masterPositions_Agents], // Ensure valid columns
+    1: [...range(0, 4), ...range(11, 22)], // Drugs/Agents/Ligands
+    2: [...range(0, 4), ...range(23, 24), ...ICD_masterPositions], // Indications (Disease association)
+    3: [...range(0, 4), ...ICD_masterPositions_Agents], //  Indications (Agents (clinical trials), ICD11)
+    4: [...range(0, 4), ...ICD_masterPositions_Drugs], //  Indications (Drugs, ICD11)
     5: [...range(0, 1), 10], // Indications (Drugs, ATC)
     6: [...range(0, 1), 11], // Tissue Expression (HPA)
     7: [...range(0, 1), 12], // Cancer Expression (HPA)
 };
 
 // steady state 
-SteadyState_Disease_indication = 0;
+let SteadyState_Disease_indication = 0;
+let SteadyState_Disease_indication_Agents = 0;
+let SteadyState_Disease_indication_Drugs = 0;
+let clickedColumnType = null; // Variable to track the clicked column
 
-function handleButtonClick(columnType, Disease_indication_steadyState) {
-    // Update button classes
-    document.querySelectorAll('button[data-column]').forEach(button => {
+// Handle button click
+function handleButtonClick(columnType) {
+    clickedColumnType = columnType; // Track the clicked column
+
+    // Handle column visibility and hierarchy modal logic for specific modals
+    if (columnType === 2 && SteadyState_Disease_indication === 0) {
+        populateHierarchyTreeDisease();
+        $('#hierarchyModalDisease').modal('show');
+        return;
+    } else if (columnType === 3 && SteadyState_Disease_indication_Agents === 0) {
+        populateHierarchyTreeClinical();
+        $('#hierarchyModalClinical').modal('show');
+        return;
+    } else if (columnType === 4 && SteadyState_Disease_indication_Drugs === 0) {
+        populateHierarchyTreeDrugs();
+        $('#hierarchyModalDrugs').modal('show');
+        return;
+    }
+
+    // Update button classes for toggling primary/secondary styles
+    document.querySelectorAll('.tab-button[data-column]').forEach(button => {
         if (parseInt(button.getAttribute('data-column')) === columnType) {
             button.classList.remove('btn-secondary');
             button.classList.add('btn-primary');
@@ -811,29 +1077,12 @@ function handleButtonClick(columnType, Disease_indication_steadyState) {
         }
     });
 
-    // Check if ColumnType is 2 and SteadyState is 0
-    if (columnType === 2 && SteadyState_Disease_indication === 0) {
-        // Populate hierarchy tree for the modal with master positions
-        populateHierarchyTree(IDC_HIERARCHY, 'hierarchyTree', ICD_masterPositions);
+    // Manage "Reselect ICD11" button visibility
+    manageReselectButtonVisibility(columnType);
 
-        // Show modal
-        $('#hierarchyModal').modal('show');
-
-        return; // Skip the rest of the function for this columnType
-    }
-
-    // Check if SteadyState is 1 and ColumnType is not 2
-    if (SteadyState_Disease_indication === 1 && columnType === 2) {
-        // show the Reselect button
-        toggleReselectButton(true);
-    } else if (SteadyState_Disease_indication === 1 && columnType !== 2) {
-        // Hide the Reselect button
-        toggleReselectButton(false);
-    }
-
-    // Handle DataTables column visibility
+    // Handle table column visibility
+    let indices = columnVisibilityConfig[columnType] || []; // Dynamically get indices or fallback to empty
     const table = $('#TargetSelectionToolTable').DataTable();
-    const indices = columnVisibilityConfig[columnType];
 
     // Hide all columns
     table.columns().visible(false, false);
@@ -843,111 +1092,182 @@ function handleButtonClick(columnType, Disease_indication_steadyState) {
         table.column(index).visible(true, false);
     });
 
-    // Adjust the table layout
-    table.columns.adjust();
+    table.columns.adjust(); // Adjust the table layout
 }
 
 
+// Manage "Reselect ICD11" button visibility
+function manageReselectButtonVisibility(columnType) {
+    switch (columnType) {
+        case 2: // Disease Associations
+            toggleReselectButton(2, true);
+            toggleReselectButton(3, false);
+            toggleReselectButton(4, false);
+            break;
+        case 3: // Clinical Trials
+            toggleReselectButton(2, false);
+            toggleReselectButton(3, true);
+            toggleReselectButton(4, false);
+            break;
+        case 4: // Drugs
+            toggleReselectButton(2, false);
+            toggleReselectButton(3, false);
+            toggleReselectButton(4, true);
+            break;
+        default:
+            toggleReselectButton(2, false);
+            toggleReselectButton(3, false);
+            toggleReselectButton(4, false);
+            break;
+    }
+}
 
-document.getElementById('saveColumnVisibility').addEventListener('click', () => {
-    const selectedColumns = new Set(); // Use a Set to avoid duplicates
-    const masterMaxValues = {}; // Store max values for each master column
+// Save button logic
+document.querySelectorAll('.saveColumnVisibility').forEach(button => {
+    button.addEventListener('click', (event) => {
+        const modalType = event.target.dataset.modal;
 
-    // Add default ranges (columns always visible)
-    const alwaysVisibleColumns = [...range(0, 4), ...range(20, 21)];
-    alwaysVisibleColumns.forEach(col => selectedColumns.add(col));
+        let selectedColumns = new Set(); // Use a Set to avoid duplicates
+        let masterPositions, hierarchy, alwaysVisibleColumns;
 
-    // Track visible child columns and map them to their master columns
-    const checkboxes = document.querySelectorAll('#hierarchyTree input.child-checkbox:checked');
-    checkboxes.forEach(checkbox => {
-        const columnIndex = parseInt(checkbox.dataset.columnIndex, 10);
-        const masterColumnIndex = parseInt(checkbox.dataset.masterColumnIndex, 10);
-
-        if (!isNaN(columnIndex)) {
-            selectedColumns.add(columnIndex); // Include child column
+        // Update steadyState and select the hierarchy based on the modal type
+        if (modalType === 'Disease') {
+            clickedColumnType = 2;
+            hierarchy = IDC_HIERARCHY;
+            masterPositions = ICD_masterPositions;
+            SteadyState_Disease_indication = 1;
+            alwaysVisibleColumns = [...range(0, 4), ...range(23, 24)];
+        } else if (modalType === 'Clinical') {
+            clickedColumnType = 3;
+            hierarchy = IDC_HIERARCHY_Agents;
+            masterPositions = ICD_masterPositions_Agents;
+            SteadyState_Disease_indication_Agents = 1;
+            alwaysVisibleColumns = [...range(0, 4)];
+        } else if (modalType === 'Drugs') {
+            clickedColumnType = 4;
+            hierarchy = IDC_HIERARCHY_Drugs;
+            masterPositions = ICD_masterPositions_Drugs;
+            SteadyState_Disease_indication_Drugs = 1;
+            alwaysVisibleColumns = [...range(0, 4)];
         }
 
-        if (!isNaN(masterColumnIndex)) {
-            // Group child indices under the corresponding master column
-            if (!masterMaxValues[masterColumnIndex]) {
-                masterMaxValues[masterColumnIndex] = [];
-            }
-            masterMaxValues[masterColumnIndex].push(columnIndex);
-        }
-    });
+        const masterMaxValues = {}; // Store max values for each master column
 
-    // Calculate row-wise max values for each master column
-    const table = $('#TargetSelectionToolTable').DataTable();
-    const tableData = table.data().toArray(); // Fetch all row data at once for better performance
+        // Add default ranges (columns always visible)
+        alwaysVisibleColumns.forEach(col => selectedColumns.add(col));
 
-    Object.keys(masterMaxValues).forEach(masterColumnIndex => {
-        const childIndices = masterMaxValues[masterColumnIndex]; // Get associated child indices
+        // Track visible child columns and map them to their master columns
+        const checkboxes = document.querySelectorAll(`#hierarchyTree${modalType} input.child-checkbox:checked`);
+        checkboxes.forEach(checkbox => {
+            const columnIndex = parseInt(checkbox.dataset.columnIndex, 10);
+            const masterColumnIndex = parseInt(checkbox.dataset.masterColumnIndex, 10);
 
-        // Convert masterColumnIndex to an integer if it's coming as a string
-        const masterColumnIndexInt = parseInt(masterColumnIndex, 10);
-
-        // Get the dataSrc for the master column
-        const masterColumnKey = table.column(masterColumnIndexInt).dataSrc();
-
-        // Calculate max values for the current master column
-        const maxValues = calculateRowWiseMaxValuesForMaster(childIndices, tableData, table);
-
-        // Batch update only cells for the master column
-        table.rows({ order: 'index' }).every(function () {
-            const originalRowIdx = this.index(); // Get the original index of the row
-            const rowData = this.data();
-
-            // Ensure master column key exists in the rowData
-            if (!(masterColumnKey in rowData)) {
-                rowData[masterColumnKey] = ""; // Initialize with empty value
+            if (!isNaN(columnIndex)) {
+                selectedColumns.add(columnIndex); // Include child column
             }
 
-            const currentMasterValue = parseFloat(rowData[masterColumnKey]) || ""; // Normalize to float or empty
-            const newMasterValue = parseFloat(maxValues[originalRowIdx]) || ""; // Use original row index for maxValues
-
-            // Update only if the value changes
-            if (currentMasterValue !== newMasterValue) {
-                rowData[masterColumnKey] = newMasterValue; // Assign calculated max value
-                table.cell(originalRowIdx, masterColumnIndexInt).invalidate(); // Invalidate only the specific cell
+            if (!isNaN(masterColumnIndex)) {
+                // Group child indices under the corresponding master column
+                if (!masterMaxValues[masterColumnIndex]) {
+                    masterMaxValues[masterColumnIndex] = [];
+                }
+                masterMaxValues[masterColumnIndex].push(columnIndex);
             }
         });
 
-        selectedColumns.add(masterColumnIndexInt); // Ensure master column is visible
+        // Calculate row-wise max values for each master column or revert to original data
+        const table = $('#TargetSelectionToolTable').DataTable();
+        const tableData = table.data().toArray(); // Fetch all row data at once for better performance
+
+        Object.keys(masterMaxValues).forEach(masterColumnIndex => {
+            const childIndices = masterMaxValues[masterColumnIndex]; // Get associated child indices
+            const masterColumnKey = table.column(masterColumnIndex).dataSrc(); // Master column key
+            const selectAllCheckbox = document.querySelector(`#hierarchyTree${modalType} input.master-checkbox[data-master-column-index="${masterColumnIndex}"]`);
+            const isSelectAllChecked = selectAllCheckbox ? selectAllCheckbox.checked : false; // Safeguard against null
+            
+            console.log(masterColumnKey,isSelectAllChecked)
+            // Calculate max values or revert to original data
+            const maxValues = calculateRowWiseMaxValuesForMaster(
+                childIndices,
+                tableData,
+                table,
+                masterColumnKey,
+                isSelectAllChecked
+            );
+
+            // Batch update only cells for the master column
+            table.rows({ order: 'index' }).every(function () {
+                const originalRowIdx = this.index(); // Get the original index of the row
+                const rowData = this.data();
+
+                // Ensure master column key exists in the rowData
+                if (!(masterColumnKey in rowData)) {
+                    rowData[masterColumnKey] = ""; // Initialize with empty value
+                }
+
+                const currentMasterValue = parseFloat(rowData[masterColumnKey]) || ""; // Normalize to float or empty
+                const newMasterValue = parseFloat(maxValues[originalRowIdx]) || ""; // Use original row index for maxValues
+
+                // Update only if the value changes
+                if (currentMasterValue !== newMasterValue) {
+                    rowData[masterColumnKey] = newMasterValue; // Assign calculated max value
+                    table.cell(originalRowIdx, masterColumnIndex).invalidate(); // Invalidate only the specific cell
+                }
+            });
+
+            selectedColumns.add(parseInt(masterColumnIndex, 10)); // Ensure master column is visible
+        });
+
+        // Convert selectedColumns to an array
+        const selectedColumnArray = [...selectedColumns];
+
+        // Update columnVisibilityConfig for the clicked column type
+        columnVisibilityConfig[clickedColumnType] = selectedColumnArray;
+
+        // Apply column visibility for selected columns
+        applyColumnVisibility(selectedColumnArray);
+
+        // Update button classes to reflect the saved state
+        document.querySelectorAll('.tab-button[data-column]').forEach(button => {
+            if (parseInt(button.getAttribute('data-column')) === clickedColumnType) {
+                button.classList.remove('btn-secondary');
+                button.classList.add('btn-primary');
+            } else {
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-secondary');
+            }
+        });
+
+        // Update visibility of "Reselect ICD11" buttons
+        manageReselectButtonVisibility(clickedColumnType);
+
+        // Reset the clicked column type after save
+        clickedColumnType = null;
+
+        // Close the respective modal
+        $(`#hierarchyModal${modalType}`).modal('hide');
     });
-
-    // Convert selectedColumns to an array
-    const SteadyState_Disease_indication_positions = [...selectedColumns];
-
-    // Update columnVisibilityConfig for Indications (Disease association)
-    columnVisibilityConfig[2] = SteadyState_Disease_indication_positions;
-
-    // Apply column visibility for selected columns only
-    applyColumnVisibility(SteadyState_Disease_indication_positions);
-
-    // Adjust only updated cells without a full redraw
-    table.columns.adjust();
-
-    // Set steady state to 1
-    SteadyState_Disease_indication = 1;
-
-    // Show the Reselect button
-    toggleReselectButton(true);
-
-    // Close the modal
-    $('#hierarchyModal').modal('hide');
 });
 
 
-function calculateRowWiseMaxValuesForMaster(childIndices, tableData, table) {
+
+
+
+function calculateRowWiseMaxValuesForMaster(childIndices, tableData, table, masterColumnKey, isSelectAllChecked) {
+    // Check if "Select All" is checked and original data exists
+    if (isSelectAllChecked && originalMasterData[masterColumnKey]) {
+        return originalMasterData[masterColumnKey]; // Return original data directly
+    }
+
     const maxValues = [];
 
-    // Iterate over each row to calculate the max value
+    // Calculate row-wise max values for the child indices
     tableData.forEach(rowData => {
         let rowMax = null;
 
         // Iterate over the relevant child indices only
         childIndices.forEach(childIndex => {
-            const childColumnKey = table.column(childIndex).dataSrc(); // Get the column key (e.g., "0023", "0024")
+            const childColumnKey = table.column(childIndex).dataSrc(); // Get the column key
             const cellValue = rowData[childColumnKey];
             const parsedValue = parseFloat(cellValue);
 
@@ -961,6 +1281,7 @@ function calculateRowWiseMaxValuesForMaster(childIndices, tableData, table) {
 
     return maxValues;
 }
+
 
 // Optimized function to set visibility only for specific columns
 function applyColumnVisibility(columnIndices) {
@@ -979,16 +1300,85 @@ function applyColumnVisibility(columnIndices) {
 }
 
 // Toggle the visibility of the reselect ICD11
-function toggleReselectButton(show) {
-    const table = $('#TargetSelectionToolTable').DataTable();
-    const reselectButton = table.buttons().container().find('.btn-warning');
-    
-    if (show) {
-        reselectButton.removeClass('d-none');
-    } else {
-        reselectButton.addClass('d-none');
+function toggleReselectButton(columnType, show) {
+    const button = document.querySelector(`.btn-warning[data-column="${columnType}"]`);
+
+    if (button) {
+        if (show) {
+            button.classList.remove('d-none');
+        } else {
+            button.classList.add('d-none');
+        }
     }
 }
+
+
+function populateHierarchyTreeDisease() {
+    populateHierarchyTree(IDC_HIERARCHY, 'hierarchyTreeDisease', ICD_masterPositions);
+}
+
+function populateHierarchyTreeClinical() {
+    populateHierarchyTree(IDC_HIERARCHY_Agents, 'hierarchyTreeClinical', ICD_masterPositions_Agents);
+}
+
+function populateHierarchyTreeDrugs() {
+    populateHierarchyTree(IDC_HIERARCHY_Drugs, 'hierarchyTreeDrugs', ICD_masterPositions_Drugs);
+}
+
+//revert back to steady state if none is selected
+$('#hierarchyModal').on('hide.bs.modal', function () {
+
+    // If the modal is closed without saving, clickedColumnType should reset to null
+    clickedColumnType = null;
+});
+
+function clearAll(containerId) {
+    const container = document.getElementById(containerId);
+
+    // Uncheck all child checkboxes
+    const childCheckboxes = container.querySelectorAll('input.child-checkbox');
+    childCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+
+    // Uncheck all "Select All" checkboxes
+    const selectAllCheckboxes = container.querySelectorAll('input.form-check-input[type="checkbox"]');
+    selectAllCheckboxes.forEach(selectAll => {
+        selectAll.checked = false;
+    });
+
+    // Collapse all children while keeping masters functional
+    const masterDivs = container.querySelectorAll(':scope > div'); // Select top-level master divs
+    masterDivs.forEach(masterDiv => {
+        const childrenDiv = masterDiv.querySelector('div'); // Locate the children container
+        const toggleArrow = masterDiv.querySelector('.toggle-arrow'); // Locate the arrow element
+
+        if (childrenDiv && toggleArrow) {
+            // Explicitly collapse children
+            childrenDiv.style.display = 'none';
+            toggleArrow.textContent = '→'; // Set arrow to "collapsed" state
+
+            // Ensure the master div remains interactive
+            masterDiv.style.display = 'block'; // Masters should always stay visible
+        }
+    });
+}
+
+
+// Attach "Clear All" functionality to each modal
+document.getElementById('clearAllDisease').addEventListener('click', () => {
+    clearAll('hierarchyTreeDisease');
+});
+
+document.getElementById('clearAllClinical').addEventListener('click', () => {
+    clearAll('hierarchyTreeClinical');
+});
+
+document.getElementById('clearAllDrugs').addEventListener('click', () => {
+    clearAll('hierarchyTreeDrugs');
+});
+
+
 
 
 </script>

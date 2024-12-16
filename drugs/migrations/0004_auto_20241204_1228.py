@@ -29,6 +29,15 @@ class Migration(migrations.Migration):
                 'db_table': 'indication',
             },
         ),
+        migrations.RemoveField(
+            model_name='drugs',
+            name='indication',
+        ),
+        migrations.AddField(
+            model_name='drugs',
+            name='indication',
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='drugs.indication'),
+        ),
         migrations.RenameField(
             model_name='drugs',
             old_name='publication',
@@ -135,7 +144,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='drugs',
             name='publication_count',
-            field=models.IntegerField(max_length=4, null=True),
+            field=models.IntegerField(null=True),
         ),
         migrations.AddField(
             model_name='drugs',
@@ -224,14 +233,5 @@ class Migration(migrations.Migration):
             model_name='drugs',
             name='disease_association',
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='drugs.indicationassociation'),
-        ),
-        migrations.RemoveField(
-            model_name='drugs',
-            name='indication',
-        ),
-        migrations.AddField(
-            model_name='drugs',
-            name='indication',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='drugs.indication'),
         ),
     ]
