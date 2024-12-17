@@ -1426,58 +1426,93 @@ class TargetSelectionTool(TemplateView):
         # Step 8: Merge the new columns into df_second to create df_third
         df_third = pd.merge(df_second, pivoted, on='Target ID', how='left')
 
+        # Step 1: Query ATC codes data and drug data
+        atc_data = ATCCodes.objects.values('ligand', 'code__index', 'name_0')
+        drug_data = Drugs.objects.values('target', 'ligand', 'drug_status')
+
+        # Step 2: Convert data to DataFrames
+        atc_df = pd.DataFrame(list(atc_data))
+        drug_df = pd.DataFrame(list(drug_data))
+
+        # Step 3: Filter only Approved drugs
+        approved_drug_df = drug_df[drug_df['drug_status'] == 'Approved']
+
+        # Step 4: Merge ATC codes with approved drugs based on 'ligand'
+        merged_df = approved_drug_df.merge(atc_df, on='ligand', how='inner')
+
+        # Step 5: Group counts of drugs at target and hierarchical levels
+        # Group by 'target', 'name_0' (master), and 'code__index' (children)
+        grouped = merged_df.groupby(['target', 'name_0', 'code__index'])['ligand'].nunique().reset_index()
+
+        # Step 6: Pivot Table - Organize children under each master
+        pivoted = grouped.pivot_table(
+            index='target',
+            columns=['name_0', 'code__index'],  # Hierarchical levels
+            values='ligand',
+            fill_value=0
+        )
+
+        # Step 7: Flatten column hierarchy and clean up
+        # Build the clean hierarchical format
+        clean_columns = []
+        for master, child in pivoted.columns:
+            if child:  # If child column exists
+                clean_columns.append((master, child))  # Keep as tuple for easy sorting
+            else:  # If no child, just add the master
+                clean_columns.append((master, None))
+
+        # Sort the columns to maintain alphabetical order
+        clean_columns = sorted(set(clean_columns), key=lambda x: (x[0], x[1] or ""))
+
+        # Create the DataFrame with clean hierarchical columns
+        data = pivoted.reset_index()
+        data.columns = ['Target ID'] + [
+            col[1] if col[1] else col[0] for col in clean_columns  # Child names or master name
+        ]
+
+        # Step 8: Summarize children columns under master names
+        for master, group in merged_df.groupby('name_0'):
+            children = [child for child in data.columns if child in group['code__index'].unique()]
+            if children:
+                data[master] = data[children].sum(axis=1)  # Summarize children counts under master
+
+        # Step 9: Rename master columns properly and remove "Total"
+        data = data.rename(columns={col: col if "_Total" not in col else col.replace("_Total", "") for col in data.columns})
+
+        # Step 10: Finalize - Merge the ATC data with df_third to form df_fourth
+        df_fourth = pd.merge(df_third, data, on='Target ID', how='left')
+
+        # Step 11: Clean up NaN values with 0
+        df_fourth = df_fourth.fillna(0)
+
+        # Optional: Convert ATC hierarchy to JSON
+        atc_hierarchy = {}
+        for master, group in merged_df.groupby('name_0'):
+            atc_hierarchy[master] = {
+                "title": master,
+                "children": sorted(group['code__index'].unique())
+            }
+
+        atc_hierarchy_json = json.dumps(atc_hierarchy)
+
         # Convert the final DataFrame to JSON
-        json_records_targets = df_third.to_json(orient='records')
+        json_records_targets = df_fourth.to_json(orient='records')
         context['Full_data'] = json_records_targets
+        context['ATC_hierarchy'] = atc_hierarchy_json
         context['IDC_hierarchy'] = json.dumps(IDC_hierarchy)
         context['IDC_hierarchy_drugs'] = json.dumps(IDC_hierarchy_drugs)
         context['IDC_hierarchy_agents'] = json.dumps(IDC_hierarchy_agents)
 
-        # # Fetch data with select_related for better performance
-        # ligand_assay_data = (
-        #     AssayExperiment.objects.select_related("protein", "ligand")
-        #     .values("protein", "ligand", "value_type")
-        # )
+        start=1544
+        list_of_drugs = [start]
+        for key in sorted(atc_hierarchy):
+            last = list_of_drugs[-1]
+            current = len(atc_hierarchy[key]['children'])
+            next = last+current+1
+            list_of_drugs.append(next)
+            print(key,atc_hierarchy[key]['title'],current,next)
+        print(list_of_drugs)
 
-        # # Convert to DataFrame for easier manipulation
-        # ligand_assay_df = pd.DataFrame(list(ligand_assay_data))
-
-        # # Count occurrences of "pEC50" and "pIC50" for each protein-ligand pair
-        # counts = ligand_assay_df.groupby(["protein", "ligand", "value_type"]).size().unstack(fill_value=0)
-
-        # # Filter for rows that have both "pEC50" and "pIC50"
-        # pairs_with_both = counts[(counts.get("pEC50", 0) > 0) & (counts.get("pIC50", 0) > 0)].reset_index()
-
-        # # Aggregate counts for pEC50 and pIC50 for these pairs
-        # pairs_with_both["pEC50_Count"] = pairs_with_both.get("pEC50", 0)
-        # pairs_with_both["pIC50_Count"] = pairs_with_both.get("pIC50", 0)
-
-        # # Fetch data with protein__entry_name and ligand__name
-        # name_data = AssayExperiment.objects.select_related("protein", "ligand").values(
-        #     "protein", "ligand", "protein__entry_name", "ligand__name"
-        # ).distinct()
-
-        # # Convert name_data to DataFrame
-        # name_df = pd.DataFrame(list(name_data))
-
-        # # Merge name data into pairs_with_both
-        # pairs_with_both = pairs_with_both.merge(
-        #     name_df,
-        #     on=["protein", "ligand"],
-        #     how="left",
-        # )
-
-        # # Format as requested: "entry_name: ligand__name = pEC50: $count, pIC50: $count"
-        # formatted_pairs = pairs_with_both.apply(
-        #     lambda row: f"{row['protein__entry_name']}: {row['ligand__name']} = pEC50: {row['pEC50_Count']}, pIC50: {row['pIC50_Count']}",
-        #     axis=1,
-        # )
-
-        # # Print or return the formatted pairs
-        # formatted_results = formatted_pairs.tolist()
-        # print("\n".join(formatted_results))
-
-                
         return context
 
 

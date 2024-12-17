@@ -521,6 +521,7 @@ Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
 const IDC_HIERARCHY = {{ IDC_hierarchy|safe }};
 const IDC_HIERARCHY_Drugs = {{ IDC_hierarchy_drugs|safe }};
 const IDC_HIERARCHY_Agents = {{ IDC_hierarchy_agents|safe }};
+const ATC_HIERARCHY = {{ ATC_hierarchy|safe }}
 
 var originalMasterData = {}; // To store original master column data
 
@@ -539,6 +540,8 @@ const ICD_masterPositions_Agents = [
     1511, 1514, 1521, 1524, 1537, 1540
 ];
 
+
+const ATC_masterPositions = [1543, 1558, 1560, 1566, 1568, 1571, 1591, 1595, 1602, 1604, 1623, 1631, 1636, 1643, 1646]
 
 let adjustTimeout; // Move this outside to make it global
 
@@ -647,7 +650,7 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
 
         function addHierarchyColumns(hierarchy, suffix = "") {
             Object.keys(hierarchy)
-                .sort((a, b) => parseInt(a) - parseInt(b)) // Sort master keys numerically
+                .sort((a, b) => suffix === "ATC" ? a.localeCompare(b) : parseInt(a) - parseInt(b)) // Ternary for sorting
                 .forEach(masterKey => {
                     // Master column
                     const masterColumn = {
@@ -658,43 +661,39 @@ function initializeDataTable(tableId, data, hierarchy,hierarchy_drugs,hierarchy_
                     };
 
                     // Add render function only for non-integer columns
-                    if (suffix === "") {
-                        masterColumn.render = function (data) {
-                            return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
-                        };
+                    suffix === "" && (masterColumn.render = data =>
+                        data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed)
+                    );
 
-                        // Store the original master column data with formatting applied
-                        originalMasterData[masterKey] = data.map(row => {
-                            const value = row[masterKey];
-                            return value === "" || value === null ? "" : parseFloat(value).toFixed(digit_fixed);
-                        });
-                    } else {
-                        // Store the original master column data without formatting for other hierarchies
-                        originalMasterData[masterKey + suffix] = data.map(row => row[masterKey + suffix]);
-                    }
+                    // Store original master column data
+                    originalMasterData[masterKey + (suffix === "" ? "" : suffix)] = data.map(row =>
+                        suffix === "" ? 
+                            (row[masterKey] === "" || row[masterKey] === null ? "" : parseFloat(row[masterKey]).toFixed(digit_fixed)) :
+                            row[masterKey + suffix]
+                    );
 
                     columns.push(masterColumn);
 
                     // Child columns
-                    hierarchy[masterKey].children.forEach(child => {
-                        const childColumn = {
-                            data: child + suffix, // Append suffix for correct data field
-                            name: child, // Use the child name
-                            className: "medium-width",
-                            width: "150px"
-                        };
-
-                        // Add render function only for non-integer columns
-                        if (suffix === "") {
-                            childColumn.render = function (data) {
-                                return data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed);
+                    hierarchy[masterKey].children
+                        .sort((a, b) => suffix === "ATC" ? a.localeCompare(b) : parseInt(a) - parseInt(b)) // Ternary for children sorting
+                        .forEach(child => {
+                            const childColumn = {
+                                data: child + suffix, // Append suffix for correct data field
+                                name: child, // Use the child name
+                                className: "medium-width",
+                                width: "150px"
                             };
-                        }
 
-                        columns.push(childColumn);
-                    });
+                            suffix === "" && (childColumn.render = data =>
+                                data === "" || data === null ? "" : parseFloat(data).toFixed(digit_fixed)
+                            );
+
+                            columns.push(childColumn);
+                        });
                 });
         }
+
 
         // Add IDC_hierarchy columns for all three hierarchies
         addHierarchyColumns(hierarchy, "");          // For main hierarchy (float values)
