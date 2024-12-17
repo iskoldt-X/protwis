@@ -405,14 +405,14 @@
 						<thead>
 							<!-- Dummy Header Row for Complex Header Fix -->
 							<tr>
-								<td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+								<td colspan="11" style="text-align: center" data-dt-order="disable"></td>
 							</tr>
 			  
 							<!-- Super Header Row -->
 							<tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
 								<th colspan="5" style="text-align:center">Target</th>
 								<th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
-								<th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+								<th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
 							</tr>
 			  
 							<!-- Header Row -->
@@ -422,14 +422,11 @@
 								<th style="text-align: center;">Receptor family</th>
 								<th style="text-align: center;">Ligand type</th>
 								<th style="text-align: center;">Class</th>
-								<th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc">Indication name</th>
 								<th style="text-align: center;">ICD11</th>
 								<th style="text-align: center;">ATC</th>
 								<th style="text-align: center;">Association score</th>
-								<th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
-								<th style="text-align: center;">I</th>
-								<th style="text-align: center;">II</th>
-								<th style="text-align: center;">III</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
 								<th style="text-align: center;">Approved</th>
 							</tr>
 							<!-- Filter Row for header -->
@@ -444,9 +441,6 @@
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 							</tr>
 						</thead>
@@ -600,19 +594,41 @@
 
 		// Define columns
 		var columns = [
-			{data: "Gene name", name: "Gene name", width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+			{data: "Gene name", name: "Gene name",width: "5%", render: function (data, type, row, meta) {
+				if (type === 'display') {
+					const originalData = data; // Raw data
+					const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+					return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+				} else if (type === 'filter') {
+					// Return transformed data for the filter dropdown
+					return data.replace('_human', '').toUpperCase();
+				}
+				return data; // Raw data for sorting
+			}},
 			{data: "Protein name", name: "Protein name", width: "7%"},
 			{data: "Receptor family", name: "Receptor family", width: "9%"},
 			{data: "Ligand type", name: "Ligand type", width: "8%"},
 			{data: "Class", name: "Class", width: "7%", render: function (data) { return data.split(' (')[0]; }},
-			{data: "Indication name", name: "Indication", width: "10%"},
+			{data: "Indication name", name: "Indication",width: "15%",render: function (data, type, row, meta) {
+				if (type === 'display') {
+					if (row && row.ICD11) {
+						const transformedData = data || 'Unknown'; // Fallback if Indication name is missing
+						const link = '/drugs/indication/' + row.ICD11 + '/'; // Create the link using row.ICD11
+						return '<a href="' + link + '" target="_blank">' + transformedData + '</a>';
+					} else {
+						return data || ''; // Fallback to plain text if ICD11 is missing
+					}
+				} else if (type === 'filter') {
+					// Provide the raw data for filtering
+					return data || 'Unknown'; // Ensure it aligns with the displayed text
+				}
+				return data; // Use raw data for sorting
+			}},
 			{data: "ICD11", name: "ICD11", width: "7%"},
 			{data: 'ATC', name: "ATC", width: "7%"},
 			{data: 'Association score', name: "Association score", width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
 			{data: "Highest_phase", name: "Highest phase", width: "3%"},
-			{data: "Phase_I_trials", name: "Phase I trials", width: "3%"},
-			{data: "Phase_II_trials", name: "Phase II trials", width: "3%"},
-			{data: "Phase_III_trials", name: "Phase III trials", width: "3%"},
 			{data: "Approved", name: "Approved", width: "8%"}
 		];
 
@@ -649,8 +665,8 @@
 		// Create and apply the filters
 		var column_filters = [];
 		column_filters = column_filters.concat(CreateColumnFilters(table, 0, 8, "Multi-select-exact"));
-		 column_filters = column_filters.concat(CreateColumnFilters(table, 8, 5, "Range-float-vertical"));
-		 column_filters = column_filters.concat(CreateColumnFilters(table, 13, 1, "Multi-select-exact"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 8, 2, "Range-float-vertical"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 10, 1, "Multi-select-exact"));
 
 		createDropdownFilters(table, column_filters);
 

@@ -199,7 +199,7 @@ class DrugSectionSelection(TemplateView):
             table_data = Drugs.objects.select_related(
                 'ligand',
                 'target__family__parent__parent__parent', # All target info
-                'indication'
+                'indication',
                 'disease_association'
             ).values(
                 'ligand', # Agent/Drug id
@@ -256,8 +256,6 @@ class DrugSectionSelection(TemplateView):
             # Convert 'Approved' from integer to 'Yes'/'No'
             Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
 
-            # Convert 'Approved' from integer to 'Yes'/'No'
-            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
 
             # Convert DataFrame to JSON
             json_records = Modified_df.to_json(orient='records')
