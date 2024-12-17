@@ -136,14 +136,10 @@ def detail(request, slug):
 
     homology_models = StructureModel.objects.filter(protein=p)
 
-    sankey_data = get_sankey_data(p.entry_name)
-
-    sankey, total_points, nodes_nr = sankey_data['sankey'], sankey_data['total_points'], sankey_data['nodes_nr']
-
     context = {'p': p, 'families': families, 'r_chunks': r_chunks, 'chunk_size': chunk_size,
                'aliases': aliases, 'gene': gene, 'alt_genes': alt_genes, 'structures': structures,
                'mutations': mutations, 'protein_links': protein_links,'homology_models': homology_models,
-               'sankey': json.dumps(sankey), 'points': total_points, 'nodes_nr': nodes_nr}
+               }
 
     # sb = StructureBrowser()
     # sb_context = sb.get_context_data(protein=p)
