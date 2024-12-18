@@ -28,6 +28,10 @@
     font-size: 15px;
 }
 
+.color_repurposed {
+    color: #ae5dae;
+    font-size: 15px;
+}
 .color_untapped {
     color: #D3D3D3;
     font-size: 15px;
@@ -52,6 +56,9 @@
     <ul class="nav nav-tabs">
         <li class="active">
           <a href="#gpcrome" data-toggle="tab">Drugged GPCRome</a>
+        </li>
+        <li>
+          <a href="#repurposed" data-toggle="tab">Repurposed Tree</a>
         </li>
         <li>
           <a href="#tree" data-toggle="tab">Tree visualization</a>
@@ -117,50 +124,93 @@
           </div>
         </div>
       </div>
-    <div id="tree" class="tab-pane fade">
-      <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
-        <div class="col-md-12">
-          <br>
-          <div class="col-md-3">
-            Receptor names:
-              <div class="btn-group" role="group" id="gtp_plus">
-                  <button id="TREE_UniProtNames" class="btn btn-info active">Gene</button>
-                  <button id="TREE_IUPHARNames" class="btn btn-info">Protein</button>
-              </div>
-          </div>
-          <div class="col-md-6">
-            <div class="text-center">
-              <div class="dropdown">
-                <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
-                </button>
-                <div class="dropdown-menu dropdown-menu-right-middle">
-                  <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('tree_plot_svg'), 'Tree.svg');">SVG</a></li>
-                  <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('tree_plot_svg'), 'Tree.png');">PNG</a></li>
-                  <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('tree_plot_svg'), 'Tree.jpg');">JPG</a></li>
-                  <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('tree_plot_svg'), 'Tree.tiff');">TIFF</a></li>
+      <div id="repurposed" class="tab-pane fade">
+        <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
+          <div class="col-md-12">
+            <br>
+            <div class="col-md-3">
+              Receptor names:
+                <div class="btn-group" role="group" id="gtp_plus">
+                    <button id="rep_TREE_UniProtNames" class="btn btn-info active">Gene</button>
+                    <button id="rep_TREE_IUPHARNames" class="btn btn-info">Protein</button>
+                </div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-center">
+                <div class="dropdown">
+                  <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-right-middle">
+                    <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('rep_tree_plot_svg'), 'Tree.svg');">SVG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('rep_tree_plot_svg'), 'Tree.png');">PNG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('rep_tree_plot_svg'), 'Tree.jpg');">JPG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('rep_tree_plot_svg'), 'Tree.tiff');">TIFF</a></li>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="col-md-3">
-            <div style="float: left; position: relative" class="text-center">
-              <b>Clinical phase</b> <br/>
-                  <span class="color_phase1">&#9644; <b>Phase 1</b></span>
-                  <span class="color_phase2">&#9644; <b>Phase 2</b></span>
-                  <span class="color_phase3">&#9644; <b>Phase 3</b></span>
-                  <span class="color_phase4">&#9644; <b>Phase 4</b></span>
+            <div class="col-md-3">
+              <div style="float: left; position: relative" class="text-center">
+                <b>Agent/Drugs</b> <br/>
+                    <span class="color_phase3">&#9644; <b>New agents in trial</b></span>
+                    <span class="color_repurposed">&#9644; <b>Repurposed drugs</b></span>
+                    <span class="color_phase4">&#9644; <b>Approved drugs</b></span>
+              </div>
             </div>
-          </div>
-          <!-- ############# -->
-          <!-- # TREE plot # -->
-          <!-- ############# -->
-          <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
-              <div id="tree_plot" class="text-center"></div>
+            <!-- ############# -->
+            <!-- # TREE plot # -->
+            <!-- ############# -->
+            <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+                <div id="rep_tree_plot" class="text-center"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <div id="tree" class="tab-pane fade">
+        <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
+          <div class="col-md-12">
+            <br>
+            <div class="col-md-3">
+              Receptor names:
+                <div class="btn-group" role="group" id="gtp_plus">
+                    <button id="TREE_UniProtNames" class="btn btn-info active">Gene</button>
+                    <button id="TREE_IUPHARNames" class="btn btn-info">Protein</button>
+                </div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-center">
+                <div class="dropdown">
+                  <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-right-middle">
+                    <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('tree_plot_svg'), 'Tree.svg');">SVG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('tree_plot_svg'), 'Tree.png');">PNG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('tree_plot_svg'), 'Tree.jpg');">JPG</a></li>
+                    <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('tree_plot_svg'), 'Tree.tiff');">TIFF</a></li>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div style="float: left; position: relative" class="text-center">
+                <b>Clinical phase</b> <br/>
+                    <span class="color_phase1">&#9644; <b>Phase 1</b></span>
+                    <span class="color_phase2">&#9644; <b>Phase 2</b></span>
+                    <span class="color_phase3">&#9644; <b>Phase 3</b></span>
+                    <span class="color_phase4">&#9644; <b>Phase 4</b></span>
+              </div>
+            </div>
+            <!-- ############# -->
+            <!-- # TREE plot # -->
+            <!-- ############# -->
+            <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+                <div id="tree_plot" class="text-center"></div>
+            </div>
+          </div>
+        </div>
+      </div>
   </div>
 </div>
 {% endblock %}
@@ -176,6 +226,7 @@
 <script src="{% static 'home/js/popper.min.js' %}"></script>
 <script src="{% static 'home/js/spectrum_v1_8_1.js' %}"></script>
 <script src="{% static 'home/js/ml.js' %}"></script>
+<script src="{% static 'home/js/d3.tip.js' %}"></script>
 <script>
 
 var GPCRome_categories_data = {{ GPCRome_data|safe }};
@@ -183,10 +234,10 @@ var fill_data = {{ GPCRome_data_variables|safe }};
 var GPCRome_Label_conversion_dict = {{GPCRome_Label_Conversion|safe}};
 
 const receptorData = {"kisspeptin receptor": 5, "PKR<sub>2</sub>": 5, "LPA<sub>6</sub> receptor": 5, "Rhodopsin": 6, "OPN3": 6, "OPN4": 6, "OPN5": 6, "OPN1SW": 6,
- "OPN1MW": 6, "OPN1LW": 6, "GPR20": 5, "GPR50": 5, "GPR65": 5, "GPR68": 5, "ADGRE2": 5, "CELSR1": 5, "ADGRG1": 5, "ADGRG2": 5, "ADGRG6": 5, "ADGRV1": 5, 
- "mGlu<sub>1</sub> receptor": 5, "mGlu<sub>6</sub> receptor": 5, "mGlu<sub>7</sub> receptor": 5, "TAS1R1": 6, "TAS1R2": 6, "TAS1R3": 6, "GPR179": 5, "FZD<sub>2</sub>": 5, 
+ "OPN1MW": 6, "OPN1LW": 6, "GPR20": 5, "GPR50": 5, "GPR65": 5, "GPR68": 5, "ADGRE2": 5, "CELSR1": 5, "ADGRG1": 5, "ADGRG2": 5, "ADGRG6": 5, "ADGRV1": 5,
+ "mGlu<sub>1</sub> receptor": 5, "mGlu<sub>6</sub> receptor": 5, "mGlu<sub>7</sub> receptor": 5, "TAS1R1": 6, "TAS1R2": 6, "TAS1R3": 6, "GPR179": 5, "FZD<sub>2</sub>": 5,
  "FZD<sub>4</sub>": 5, "FZD<sub>5</sub>": 5, "FZD<sub>6</sub>": 5, "o51a2_human": 6, "o51a4_human": 6, "o51a7_human": 6, "o51b2_human": 6, "o51b4_human": 6, "o51b5_human": 6,
-  "o51b6_human": 6, "o51d1_human": 6, "o51e1_human": 6, "o51e2_human": 6, "o51f1_human": 6, "o51f2_human": 6, "o51g1_human": 6, "o51g2_human": 6, "o51i1_human": 6, "o51i2_human": 6, 
+  "o51b6_human": 6, "o51d1_human": 6, "o51e1_human": 6, "o51e2_human": 6, "o51f1_human": 6, "o51f2_human": 6, "o51g1_human": 6, "o51g2_human": 6, "o51i1_human": 6, "o51i2_human": 6,
   "o51j1_human": 6, "o51l1_human": 6, "o51m1_human": 6, "o51q1_human": 6, "o51s1_human": 6, "o51t1_human": 6, "o51v1_human": 6, "or1a1_human": 6, "or1g1_human": 6, "o2t11_human": 6,
    "TAS2R1": 6, "TAS2R3": 6, "TAS2R4": 6, "TAS2R5": 6, "TAS2R7": 6, "TAS2R8": 6, "TAS2R9": 6, "TAS2R10": 6, "TAS2R13": 6, "TAS2R14": 6, "TAS2R16": 6, "TAS2R19": 6, "TAS2R20": 6,
     "TAS2R30": 6, "TAS2R31": 6, "TAS2R38": 6, "TAS2R39": 6, "TAS2R40": 6, "TAS2R41": 6, "TAS2R42": 6, "TAS2R43": 6, "TAS2R45": 6, "TAS2R46": 6, "TAS2R50": 6, "TAS2R60": 6, "GPR137": 5, "GPR143": 5};
@@ -375,39 +426,26 @@ function updateFillData(fill_data, conversionDict, labelType) {
     tree_options = {{ tree_options | safe }};
     Tree_circles = {{ circles|safe }};
     Tree_label_dict = {{ whole_dict|safe }};
-   
-    // normalizeOuterValues(Tree_circles);
-    // Function to normalize each object's outer values, even if some are missing
-    function normalizeOuterValues(obj) {
-        for (const key in obj) {
-            const entry = obj[key];
-            
-            // Collect available Outer values dynamically
-            const outerKeys = ["Outer1", "Outer2", "Outer3", "Outer4"];
-            const availableOuterValues = outerKeys
-                .filter(outerKey => entry[outerKey] !== undefined)
-                .map(outerKey => ({ key: outerKey, value: entry[outerKey] }));
-
-            // Calculate the sum of available Outer values
-            const sum = availableOuterValues.reduce((acc, item) => acc + item.value, 0);
-
-            // Normalize each available Outer value
-            if (sum > 0) { // Only normalize if there's a positive sum
-                availableOuterValues.forEach(item => {
-                    entry[item.key] = item.value / sum;
-                });
-            }
-        }
-    }
+    // # repurposed data #
+    rep_tree_data = {{ rep_tree | safe }};
+    rep_tree_options = {{ rep_tree_options | safe }};
+    rep_tree_circles = {{ rep_circles|safe }};
+    rep_tree_label_dict = {{ rep_whole_dict|safe }};
 
     tree_data = update_tree_data(tree_data,tree_options.depth);
-    const depth = tree_options.depth;  // Set this value when the page loads
+    rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
 
     // Handler for one class -> reduce the depth
     if (tree_options.depth == 4) {
-      maxLeafNodeLenght = 4*parseInt(tree_options.fontSize.receptor);
+      maxLeafNodeLength = 4*parseInt(tree_options.fontSize.receptor);
     } else if (tree_options.depth == 3) {
-      maxLeafNodeLenght = 4*parseInt(tree_options.fontSize.receptorfamily);
+      maxLeafNodeLength = 4*parseInt(tree_options.fontSize.receptorfamily);
+    }
+    // Handler for one class -> reduce the depth
+    if (rep_tree_options.depth == 4) {
+      rep_maxLeafNodeLength = 4*parseInt(rep_tree_options.fontSize.receptor);
+    } else if (rep_tree_options.depth == 3) {
+      rep_maxLeafNodeLength = 3*parseInt(rep_tree_options.fontSize.receptorfamily);
     }
     circle_size = 6;
     circle_spacer = circle_size*2+1;
@@ -429,31 +467,126 @@ function updateFillData(fill_data, conversionDict, labelType) {
                   "Outer4":["#FFFFFF","#2c87c8"],
                   "Outer5":["#FFFFFF","#FFA500"]};
 
+    rep_tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
+                  "Outer1":["#FFFFFF","#dd2628"],
+                  "Outer2":["#FFFFFF","#ae5dae"],
+                  "Outer3":["#FFFFFF","#2c87c8"],
+                  "Outer4":["#FFFFFF","#FFFFFF"],
+                  "Outer5":["#FFFFFF","#FFFFFF"]};
 
     tree_options.fontSize.class = "18px";
     tree_options.fontSize.ligandtype = "18px";
     tree_options.fontSize.receptorfamily = "18px";
     tree_options.fontSize.receptor = "17px";
-
+    // Repurposed checking
+    rep_tree_options.fontSize.class = "18px";
+    rep_tree_options.fontSize.ligandtype = "18px";
+    rep_tree_options.fontSize.receptorfamily = "18px";
+    rep_tree_options.fontSize.receptor = "17px";
+    rep_tree_options.anchor = "rep_tree_plot";
+    console.log(rep_tree_options);
     // # Change leaves buttons #
     $("#TREE_UniProtNames").click(function(){
         $("#TREE_UniProtNames").addClass("active");
         $("#TREE_IUPHARNames").removeClass("active");
         changeLeavesLabels("tree_plot", "UniProt", Tree_label_dict);
-        DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+        DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
     });
     $("#TREE_IUPHARNames").click(function() {
-      $("#TREE_UniProtNames_bal").removeClass("active");
-      $("#TREE_IUPHARNames_bal").addClass("active");
+      $("#TREE_UniProtNames").removeClass("active");
+      $("#TREE_IUPHARNames").addClass("active");
       changeLeavesLabels("tree_plot","IUPHAR", Tree_label_dict);
-      DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
     });
+
+    // # Change leaves buttons #
+    $("#rep_TREE_UniProtNames").click(function(){
+        $("#rep_TREE_UniProtNames").addClass("active");
+        $("#rep_TREE_IUPHARNames").removeClass("active");
+        changeLeavesLabels("rep_tree_plot", "UniProt", rep_tree_label_dict);
+        DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+    });
+    $("#rep_TREE_IUPHARNames").click(function() {
+      $("#rep_TREE_UniProtNames").removeClass("active");
+      $("#rep_TREE_IUPHARNames").addClass("active");
+      changeLeavesLabels("rep_tree_plot", "IUPHAR", rep_tree_label_dict);
+      DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+    });
+
     // # Initialize tree plot #
     document.addEventListener("DOMContentLoaded", function() {
       draw_tree(tree_data, tree_options, circle_size);
       DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      draw_tree(rep_tree_data, rep_tree_options, circle_size);
+      DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
     });
+</script>
 
+<script type="text/javascript" charset="utf-8">
 
+  // Set dropdown to keep open
+  // $('.dropdown-menu').on('click', function(event){
+  //     event.stopPropagation();
+  //   });
+
+    // // # Initialize data #
+    // rep_tree_data = {{ rep_tree | safe }};
+    // rep_tree_options = {{ rep_tree_options | safe }};
+    // rep_Tree_circles = {{ rep_circles|safe }};
+    // rep_Tree_label_dict = {{ rep_whole_dict|safe }};
+    //
+    // rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
+    // const rep_depth = rep_tree_options.depth;  // Set this value when the page loads
+    //
+    // // Handler for one class -> reduce the depth
+    // if (rep_tree_options.depth == 4) {
+    //   maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptor);
+    // } else if (tree_options.depth == 3) {
+    //   maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptorfamily);
+    // }
+    // rep_circle_size = 6;
+    // rep_circle_spacer = rep_circle_size*2+1;
+    // rep_circle_spacer = rep_circle_spacer+2
+    //
+    // var rep_Tree_circle_styling_dict = {
+    //   "Inner":'Drugged_tree',
+    //   "Outer1":"Two",
+    //   "Outer2":"Two",
+    //   "Outer3":"Two",
+    //   "Outer4":"Two",
+    //   "Outer5":"Three",
+    // }
+    //
+    // rep_Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
+    //               "Outer1":["#FFFFFF","#dd2628"],
+    //               "Outer2":["#FFFFFF","#ae5dae"],
+    //               "Outer3":["#FFFFFF","#2c87c8"],
+    //               "Outer4":["#FFFFFF","#FFFFFF"],
+    //               "Outer5":["#FFFFFF","#FFFFFF"]};
+    //
+    //
+    // rep_tree_options.fontSize.class = "18px";
+    // rep_tree_options.fontSize.ligandtype = "18px";
+    // rep_tree_options.fontSize.receptorfamily = "18px";
+    // rep_tree_options.fontSize.receptor = "17px";
+    //
+    // // # Change leaves buttons #
+    // $("#rep_TREE_UniProtNames").click(function(){
+    //     $("#rep_TREE_UniProtNames").addClass("active");
+    //     $("#rep_TREE_IUPHARNames").removeClass("active");
+    //     changeLeavesLabels("rep_tree_plot", "UniProt", rep_Tree_label_dict);
+    //     DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true,rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    // });
+    // $("#rep_TREE_IUPHARNames").click(function() {
+    //   $("#rep_TREE_UniProtNames").removeClass("active");
+    //   $("#rep_TREE_IUPHARNames").addClass("active");
+    //   changeLeavesLabels("rep_tree_plot","IUPHAR", rep_Tree_label_dict);
+    //   DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    // });
+    // // # Initialize tree plot #
+    // document.addEventListener("DOMContentLoaded", function() {
+    //   draw_tree(rep_tree_data, rep_tree_options, rep_circle_size);
+    //   DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    // });
 </script>
 {% endblock %}

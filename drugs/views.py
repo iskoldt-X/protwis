@@ -767,6 +767,47 @@ class DruggedGPCRome(TemplateView):
         context['circles'] = json.dumps(circles)
         context['whole_dict'] = json.dumps(receptors)
 
+        #REPURPOSED TREE SECTION
+        # Red: IndicationMaxPhase < 4 and MaxPhase (compound) < 4 [New agents in trial (lack approval)]
+        # Purple: IndicationMaxPhase < 4 and MaxPhase = 4         [Drugs being repurposed in trials (have approval)]
+        # Blue: IndicationMaxPhase and MaxPhase = 4               [All drugs (both those being repurposed in trials and not)]
+
+        drug_data = Drugs.objects.all().values_list('ligand__name', 'target__entry_name', 'indication_max_phase').distinct()
+        phase4 = {}
+        for drug in drug_data:
+            if drug[0] not in phase4.keys():
+                phase4[drug[0]] = []
+            if drug[2] == 4:
+                phase4[drug[0]].append(drug[1])
+        phase4 = {k: v for k, v in phase4.items() if v != []}
+        # Red: IndicationMaxPhase < 4 and MaxPhase (compound) < 4 [New agents in trial (lack approval)]
+        # Purple: IndicationMaxPhase < 4 and MaxPhase = 4         [Drugs being repurposed in trials (have approval)]
+        # Blue: IndicationMaxPhase and MaxPhase = 4               [All drugs (both those being repurposed in trials and not)]
+        drug_dict = {}
+        for drug in drug_data:
+            if drug[1] not in drug_dict.keys():
+                drug_dict[drug[1]] = {'Outer1': 0, 'Outer2': 0, 'Outer3': 0, 'Outer4': 0, 'Inner': 0}
+            #Approved Drug
+            if drug[2] == 4:
+                drug_dict[drug[1]]['Outer3'] += 1
+            else:
+                #Repurposed Drug
+                if drug[0] in phase4.keys():
+                    drug_dict[drug[1]]['Outer2'] += 1
+                # New Agent
+                else:
+                    drug_dict[drug[1]]['Outer1'] += 1
+
+        repurposed_tree, repurposed_tree_options, repurposed_circles, repurposed_receptors = LandingPage.generate_tree_plot(drug_dict)
+        #Remove 0 circles
+        for key, outer_dict in repurposed_circles.items():
+            repurposed_circles[key] = {k: v for k, v in outer_dict.items() if v != 0}
+
+        context['rep_tree'] = json.dumps(repurposed_tree)
+        context['rep_tree_options'] = repurposed_tree_options
+        context['rep_circles'] = json.dumps(repurposed_circles)
+        context['rep_whole_dict'] = json.dumps(repurposed_receptors)
+
         return context
 
 class DiseaseOverview(TemplateView):
