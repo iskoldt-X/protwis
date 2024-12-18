@@ -240,11 +240,11 @@
 								<th style="text-align: center;">Species</th>
 								<th style="text-align: center;">Family</th>
 								<th style="text-align: center;">Class</th>
-								<th style="border-left: 1px solid black; text-align: center;">Type</th>
+								<th style="border-left: 1px solid #cccccc; text-align: center;">Type</th>
 								<th style="text-align: center;">Min</th>
 								<th style="text-align: center;">Avg</th>
 								<th style="text-align: center;">Max</th>
-								<th style="border-left: 1px solid black; text-align: center;">Database</th>
+								<th style="border-left: 1px solid #cccccc; text-align: center;">Database</th>
 							</tr>
 							<!-- Filter Row for header -->
 							<tr>
@@ -253,11 +253,11 @@
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
 							</tr>
 						</thead>
 						<tbody>
@@ -483,11 +483,8 @@
 <script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script src="{% static 'home/js/sankey.js' %}"></script>
 <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.flash.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- For Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script> <!-- Optional: For PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
 
 
 
@@ -546,22 +543,27 @@
 			data: data,
 			columns: columns,
 			columnDefs: columnDefs,
-			dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
-			"<'row'<'col-sm-11'tr>>" +                    // Table rows
-			"<'row'<'col-sm-11'ip>>", // Pagination and info
+			dom: "<'row'<'col-sm-3 dt-btn'B><'col-sm-3'f><'col-sm-'4>>" +
+			"<'row'<'col-sm-12'tr>>" + 
+			"<'row'<'col-sm-12'ip>>",
 			paging: false,
 			scrollCollapse: true,
 			autoWidth: true,
 			buttons: [
 				{
-					extend: 'csv',
-					text: 'Export to CSV',
-					className: 'btn btn-primary'
-				},
-				{
 					text: 'Reset All Filters',
 					className: 'btn btn-primary',
 					action: function () { reset_all(); }
+				},
+				{
+					extend: 'csv',
+					text: 'Export CSV', // Button text
+					className: 'btn btn-primary' // Optional: Add Bootstrap styling
+				},
+				{
+					extend: 'excel',
+					text: 'Export Excel',
+					className: 'btn btn-success'
 				}
 			]
 		});
