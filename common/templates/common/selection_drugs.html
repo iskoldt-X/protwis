@@ -151,10 +151,10 @@
                     <!-- Primary Tabs -->
                     <ul class="nav nav-tabs" id="targetsPrimaryTabs" role="tablist">
                         <li class="active">
-                            <a  id="drugs-table-tab" data-toggle="tab" href="#drugs-table" role="tab" aria-controls="drugs-table" aria-selected="true">Drugs Table</a>
+                            <a  id="drugs-table-tab" data-toggle="tab" href="#drugs-table" role="tab" aria-controls="drugs-table" aria-selected="true">Agent/drug-disease pairs</a>
                         </li>
                         <li>
-                            <a id="sankey-plot-tab" data-toggle="tab" href="#sankey-plot" role="tab" aria-controls="sankey-plot" aria-selected="false">Sankey Plot</a>
+                            <a id="sankey-plot-tab" data-toggle="tab" href="#sankey-plot" role="tab" aria-controls="sankey-plot" aria-selected="false">Sankey</a>
                         </li>
                     </ul>
 
@@ -653,6 +653,7 @@
     var page = '{{ page }}';
     var Full_table_data;
 
+    let searchedText = null;
     // Parse data based on the page type
     if (page === 'Drugs' || page === 'Targets') {
         Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
@@ -738,7 +739,7 @@
             if (Selected_table_data.length > 0) {
                 var ligandName = Selected_table_data[0]['Ligand name']; // Assuming one match
                 var ligandID = Selected_table_data[0]['LigandID'];
-                searchedText = 'Drug/Agent: <a href="/ligand/' + ligandID + '/info" target="_blank">' + ligandName + '</a>';
+                // searchedText = 'Drug/Agent: <a href="/ligand/' + ligandID + '/info" target="_blank">' + ligandName + '</a>';
             }
         } else if (page === 'Targets') {
             Selected_table_data = Full_table_data.filter(function(row) {

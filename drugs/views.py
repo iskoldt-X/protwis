@@ -58,8 +58,16 @@ def Venn(request, origin="both"):
                     phases_dict[item[0]] = []
                 phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
-            for key in phases_dict.keys():
-                phases_dict[key] = '\n'.join(phases_dict[key])
+            for key in list(phases_dict.keys()):
+                # Calculate the count of items in the current phase
+                count = len(phases_dict[key])
+                
+                # Update the key with the count in parentheses
+                new_key = f"{key} {count}"
+                
+                # Update the dictionary: add a new key and remove the old one
+                phases_dict[new_key] = '\n'.join(phases_dict[key])
+                del phases_dict[key]  # Remove the old key
         else:
             # Call to get receptors in each maximum phase
             receptor_phases = Drugs.objects.all().values_list('indication_max_phase','target_id__entry_name').distinct()
@@ -68,8 +76,16 @@ def Venn(request, origin="both"):
                     phases_dict[item[0]] = []
                 phases_dict[item[0]].append(item[1])
             phases_dict = {key_mapping[k]: phases_dict[k] for k in key_mapping if k in phases_dict}
-            for key in phases_dict.keys():
-                phases_dict[key] = '\n'.join(phases_dict[key])
+            for key in list(phases_dict.keys()):
+                # Calculate the count of items in the current phase
+                count = len(phases_dict[key])
+                
+                # Update the key with the count in parentheses
+                new_key = f"{key} ({count})"
+                
+                # Update the dictionary: add a new key and remove the old one
+                phases_dict[new_key] = '\n'.join(phases_dict[key])
+                del phases_dict[key]  # Remove the old key
 
         context["phases_dict"] = phases_dict
         context["phases_dict_keys"] = list(phases_dict.keys())
@@ -199,7 +215,7 @@ class DrugSectionSelection(TemplateView):
             table_data = Drugs.objects.select_related(
                 'ligand',
                 'target__family__parent__parent__parent', # All target info
-                'indication'
+                'indication',
                 'disease_association'
             ).values(
                 'ligand', # Agent/Drug id
@@ -252,9 +268,6 @@ class DrugSectionSelection(TemplateView):
                 Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
                 Approved=('Status', lambda x: 1 if 'Approved' in x.values else 0)  # Mark as 1 if any row has 'Approved'
             ).reset_index()
-
-            # Convert 'Approved' from integer to 'Yes'/'No'
-            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
 
             # Convert 'Approved' from integer to 'Yes'/'No'
             Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
@@ -1018,7 +1031,33 @@ class TargetSelectionTool(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
 
+        # Fetch all proteins
+        all_proteins = Protein.objects.filter(
+            species_id=1,
+            parent_id__isnull=True,
+            accession__isnull=False,
+            family_id__slug__startswith='0'
+        ).exclude(
+            family_id__slug__startswith='007'
+        ).exclude(
+            family_id__slug__startswith='008'
+        ).values(
+            'id', 'entry_name', 'name', 'family__parent__name', 
+            'family__parent__parent__name', 'family__parent__parent__parent__name'
+        )
+
+        # Convert to DataFrame
+        proteins_df = pd.DataFrame(list(all_proteins))
+        proteins_df.rename(columns={
+            'id': 'Target ID',
+            'entry_name': 'Gene name',
+            'name': 'Protein name',
+            'family__parent__name': 'Receptor family',
+            'family__parent__parent__name': 'Ligand type',
+            'family__parent__parent__parent__name': 'Class'
+        }, inplace=True)
         
         # Fetch all data in a single query
         table_data = Drugs.objects.select_related(
@@ -1068,6 +1107,15 @@ class TargetSelectionTool(TemplateView):
 
         }, inplace=True)
 
+        # Merge the proteins DataFrame with the drugs DataFrame on 'Target ID'
+        df = proteins_df.merge(df, on='Target ID', how='left', suffixes=('', '_dup'))
+
+        # Drop duplicate columns introduced by the merge
+        df = df.loc[:, ~df.columns.str.endswith('_dup')]
+
+        # Fill missing values in the merged DataFrame with an empty string
+        df.fillna("", inplace=True)
+
         # Assuming `target_ids` is a list of IDs from the Drugs data
         target_ids = df['Target ID'].unique()
 
@@ -1101,9 +1149,6 @@ class TargetSelectionTool(TemplateView):
         inhib_moa = ['Antagonist', 'Inverse agonist', 'NAM']
 
         # Precompute classifications: Label as 'Drug' if status is 'Approved', otherwise as 'Agent'
-        df['Classification'] = df['Status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
-
-       # Precompute classifications: Label as 'Drug' if status is 'Approved', otherwise as 'Agent'
         df['Classification'] = df['Status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
 
         # Filter data for stimulatory and inhibitory based on Mode of Action
@@ -1233,285 +1278,161 @@ class TargetSelectionTool(TemplateView):
         # Fill NaN values in the newly added columns with 0
         df_first[["Total_Ligands", "pEC50_Count", "pIC50_Count"]] = df_first[
             ["Total_Ligands", "pEC50_Count", "pIC50_Count"]
-        ].fillna(0)
+        ].fillna("")
 
-        # Fetch all Indications and create a hierarchical mapping
-        indications = Indication.objects.values("id", "title", "slug", "level")
+        # Replace 0s with empty strings in relevant count columns
+        df_first[["Total_Ligands", "pEC50_Count", "pIC50_Count", 
+                "Total", "Active", "Inactive", "All_Drugs", "All_Agents", 
+                "Stimulatory_max_phase", "Stimulatory_Drugs", "Stimulatory_Agents", 
+                "Inhibitory_max_phase", "Inhibitory_Drugs", "Inhibitory_Agents"]] = \
+            df_first[["Total_Ligands", "pEC50_Count", "pIC50_Count", 
+                    "Total", "Active", "Inactive", "All_Drugs", "All_Agents", 
+                    "Stimulatory_max_phase", "Stimulatory_Drugs", "Stimulatory_Agents", 
+                    "Inhibitory_max_phase", "Inhibitory_Drugs", "Inhibitory_Agents"]].replace(0, "")
 
-        indication_hierarchy = {
-            indication["id"]: {
-                "title": indication["title"],
-                "slug": indication["slug"],
-                "level": indication["level"],
-                "master": indication["slug"].split("_")[0],  # Extract level 0 from slug
-            }
-            for indication in indications
-        }
-
-        # Create a dictionary to map master slugs (level 0) to their titles
-        conversion_dict = {
-            indication["slug"]: indication["title"]
-            for indication in indications
-            if indication["level"] == 0  # Only include level 0 masters
-        }
-
-        # Fetch all Indication Associations (omit select_related since we no longer need target__entry_name)
-        associations = IndicationAssociation.objects.values(
-            "target", "indication", "association_score"
-        )
-
-        # Precompute target-ID-to-master mapping
-        indication_to_master = {
-            indication["id"]: indication["slug"].split("_")[0] for indication in indications
-        }
-
-        # Deduplicate associations (ensure unique target-indication pairs)
-        unique_associations = {
-            (assoc["target"], assoc["indication"]): assoc for assoc in associations
-        }.values()
-
-        # Group associations efficiently into a dictionary
-        grouped_data = defaultdict(lambda: defaultdict(list))
-        for assoc in unique_associations:
-            target_id = assoc["target"]  # Use Target ID directly
-            indication_id = assoc["indication"]
-            association_score = assoc["association_score"]
-            master = indication_to_master[indication_id]
-            
-            grouped_data[target_id][master].append({
-                "indication": indication_hierarchy[indication_id]["title"],
-                "association_score": association_score,
-            })
-
-        # Prepare a structured DataFrame in a single step
-        rows = []
-        columns_hierarchy = defaultdict(set)  # Use sets to prevent duplicate columns
-
-        for target_id, masters in grouped_data.items():
-            row = {"Target ID": target_id}  # Replace entry_name with Target ID
-
-            for master, indications in masters.items():
-                # Compute max score for the master
-                max_score = max(indication["association_score"] for indication in indications)
-                row[master] = max_score
-
-                # Add child indications
-                for indication in indications:
-                    col = (master, indication["indication"])
-                    row[col] = indication["association_score"]
-                    columns_hierarchy[master].add(col)  # Use set to prevent duplicates
-
-            rows.append(row)
-
-        # Flatten column hierarchy into ordered columns
-        ordered_columns = ["Target ID"] + list(columns_hierarchy.keys()) + [
-            col for master in columns_hierarchy for col in sorted(columns_hierarchy[master])
-        ]
-
-        # Create the DataFrame directly
-        df = pd.DataFrame(rows)
-        df = df.reindex(columns=ordered_columns).set_index("Target ID")
-        df = df.fillna("")  # Fill missing values with 0
-
-        # Create IDC_hierarchy with master titles and their trimmed children
-        IDC_hierarchy = {}
-
-        for master, child_columns in columns_hierarchy.items():
-            # Get the title of the master from conversion_dict
-            master_title = conversion_dict.get(master, master)  # Default to master if not found
-            
-            # Extract and trim child titles
-            children = [child[1] for child in sorted(child_columns)]  # Extract only the child titles
-            
-            # Add to the hierarchy
-            IDC_hierarchy[master] = {
-                "title": master_title,
-                "children": children
-            }
-
-        # Rename columns to remove the master in their names
-        new_columns = {}
-        for column in df.columns:
-            if isinstance(column, tuple):
-                # Child columns: Take only the child name (2nd part of the tuple)
-                new_columns[column] = column[1]
-            else:
-                # Master columns: Keep them as they are
-                new_columns[column] = column
-
-        # Apply the renaming to the DataFrame
-        df = df.rename(columns=new_columns)
+        ########################################
+        # Disease indications and associations #
+        ########################################
         
-        # reset index
-        df.reset_index(inplace=True)
-        # Perform the merge
-        df_second = pd.merge(df_first, df, on='Target ID', how='left')
-        
-        # Add a new column for "Max disease association score"
-        df_second["Max_disease_association_score"] = df_second[
-            IDC_hierarchy.keys()  # Keys of the IDC_hierarchy dict correspond to master columns
-        ].apply(pd.to_numeric, errors="coerce").max(axis=1)  # Convert to numeric and compute the max
-
-        # Add a new column for "Disease associated"
-        df_second["Disease_associated"] = df_second["Max_disease_association_score"].apply(
-            lambda x: "Yes" if x >= 0.5 else "No"
+        # Fetch the second data table with indication and master level
+        table_data_2 = Drugs.objects.select_related(
+            'target__family__parent__parent__parent',
+            'moa',
+            'indication'
+        ).values(
+            'target',  # Target ID
+            'target__entry_name',  # Gene name
+            'target__name',  # Protein name
+            'target__family__parent__name',  # Receptor family
+            'target__family__parent__parent__name',  # Ligand type
+            'target__family__parent__parent__parent__name',  # Class
+            'ligand',  # Ligand ID
+            'indication__title',  # Indication title
+            'indication__slug',  # Indication slug
+            'disease_association__association_score',  # Association score
+            'drug_status'  # Status
         )
 
+        # Convert to DataFrame
+        df_table_2 = pd.DataFrame(list(table_data_2))
+        df_table_2.rename(columns={
+            'target': 'Target ID',
+            'target__entry_name': 'Gene name',
+            'target__name': 'Protein name',
+            'target__family__parent__name': 'Receptor family',
+            'target__family__parent__parent__name': 'Ligand type',
+            'target__family__parent__parent__parent__name': 'Class',
+            'ligand': "Ligand ID",
+            'indication__title': 'Indication',
+            'indication__slug': 'Indication Slug',
+            'disease_association__association_score': 'Association Score',
+            'drug_status': 'Status'
+        }, inplace=True)
 
-        # Step 1: Query data
-        table_data = Drugs.objects.select_related('indication').values(
-            'target',               # Target ID
-            'ligand',               # Ligand ID
-            'indication__title',    # Indication title
-            'drug_status'           # Drug status
+        # Classify based on status
+        df_table_2['Classification'] = df_table_2['Status'].apply(
+            lambda x: 'Drug' if x == 'Approved' else 'Agent'
         )
 
-        # Step 2: Convert to DataFrame and classify
-        df = pd.DataFrame(list(table_data))
-        df['Classification'] = df['drug_status'].apply(lambda x: 'Drug' if x == 'Approved' else 'Agent')
+        # Fetch top-level indications (master indications)
+        master_indications = Indication.objects.filter(level=0).values('slug', 'title')
 
-        # Step 3: Pivot data for counts of drugs and agents
-        pivoted = df.groupby(['target', 'indication__title', 'Classification'])['ligand'].count().reset_index()
-        pivoted = pivoted.pivot_table(
-            index='target',
-            columns=['indication__title', 'Classification'],
-            values='ligand',
-            fill_value=0
+        # Create a mapping dictionary for master indications
+        master_mapping = {entry['slug']: entry['title'] for entry in master_indications}
+
+        # Map master titles to indications based on the top-level slug
+        df_table_2['Master Indication'] = df_table_2['Indication Slug'].apply(
+            lambda slug: master_mapping.get(slug.split("_")[0], "")
         )
 
-        # Flatten multi-index columns (indication, Classification) into single column names
-        pivoted.columns = [f"{ind}_{cls}" for ind, cls in pivoted.columns]
-        pivoted.reset_index(inplace=True)
+        # Fetch ATC data
+        atc_data = ATCCodes.objects.values(
+            'ligand', 'code__index', 'name_0', 'name_1'
+        )
 
-        # Step 4: Calculate master columns by summing children for each indication master
-        # Using IDC_hierarchy to identify master-child relationships
-        for master, details in IDC_hierarchy.items():
-            children = details['children']
-            # Sum columns corresponding to children for Drugs
-            drug_columns = [f"{child}_Drug" for child in children if f"{child}_Drug" in pivoted.columns]
-            pivoted[f"{master}_Drug"] = pivoted[drug_columns].sum(axis=1) if drug_columns else 0
-            
-            # Sum columns corresponding to children for Agents
-            agent_columns = [f"{child}_Agent" for child in children if f"{child}_Agent" in pivoted.columns]
-            pivoted[f"{master}_Agent"] = pivoted[agent_columns].sum(axis=1) if agent_columns else 0
-
-        # Step 5: Remove empty columns (entirely zero)
-        pivoted = pivoted.loc[:, (pivoted != 0).any(axis=0)]
-
-        # Step 6: Rebuild dictionaries
-        IDC_hierarchy_drugs = {}
-        IDC_hierarchy_agents = {}
-
-        for master, details in IDC_hierarchy.items():
-            children = details['children']
-            # Filter children that still exist in the DataFrame
-            valid_children_drugs = [child for child in children if f"{child}_Drug" in pivoted.columns]
-            valid_children_agents = [child for child in children if f"{child}_Agent" in pivoted.columns]
-            
-            # Add master and filtered children to hierarchy
-            if valid_children_drugs:
-                IDC_hierarchy_drugs[master] = {
-                    'title': details['title'],
-                    'children': valid_children_drugs
-                }
-            if valid_children_agents:
-                IDC_hierarchy_agents[master] = {
-                    'title': details['title'],
-                    'children': valid_children_agents
-                }
-
-        # Step 7: Ensure the pivoted DataFrame has 'Target ID' as the key for merging
-        pivoted.rename(columns={'target': 'Target ID'}, inplace=True)
-
-        # Step 8: Merge the new columns into df_second to create df_third
-        df_third = pd.merge(df_second, pivoted, on='Target ID', how='left')
-
-        # Step 1: Query ATC codes data and drug data
-        atc_data = ATCCodes.objects.values('ligand', 'code__index', 'name_0')
-        drug_data = Drugs.objects.values('target', 'ligand', 'drug_status')
-
-        # Step 2: Convert data to DataFrames
+        # Convert to DataFrame
         atc_df = pd.DataFrame(list(atc_data))
-        drug_df = pd.DataFrame(list(drug_data))
+        atc_df.rename(columns={
+            'ligand': 'Ligand ID',
+            'code__index': 'ATC Code',
+            'name_0': 'ATC Parent Name',
+            'name_1': 'ATC Name'
+        }, inplace=True)
 
-        # Step 3: Filter only Approved drugs
-        approved_drug_df = drug_df[drug_df['drug_status'] == 'Approved']
+        # Merge ATC data with the second table
+        df_table_2 = df_table_2.merge(atc_df, on='Ligand ID', how='left')
 
-        # Step 4: Merge ATC codes with approved drugs based on 'ligand'
-        merged_df = approved_drug_df.merge(atc_df, on='ligand', how='inner')
+        # Fill missing values with empty strings
+        df_table_2.fillna("", inplace=True)
 
-        # Step 5: Group counts of drugs at target and hierarchical levels
-        # Group by 'target', 'name_0' (master), and 'code__index' (children)
-        grouped = merged_df.groupby(['target', 'name_0', 'code__index'])['ligand'].nunique().reset_index()
+        # Aggregate the table efficiently
+        def aggregate_table_fast(df):
+            # Select unique rows for non-aggregated columns
+            unique_df = df.drop_duplicates(subset=[
+                'Target ID', 'Gene name', 'Protein name', 'Receptor family',
+                'Ligand type', 'Class', 'Master Indication', 'Indication',
+                'ATC Code', 'ATC Parent Name', 'ATC Name', 'Association Score'
+            ])
 
-        # Step 6: Pivot Table - Organize children under each master
-        pivoted = grouped.pivot_table(
-            index='target',
-            columns=['name_0', 'code__index'],  # Hierarchical levels
-            values='ligand',
-            fill_value=0
-        )
+            # Compute counts for 'Drug' and 'Agent' using crosstab
+            classification_counts = pd.crosstab(
+                index=[df['Target ID'], df['Indication']],  # Grouping keys
+                columns=df['Classification']
+            ).reset_index()
 
-        # Step 7: Flatten column hierarchy and clean up
-        # Build the clean hierarchical format
-        clean_columns = []
-        for master, child in pivoted.columns:
-            if child:  # If child column exists
-                clean_columns.append((master, child))  # Keep as tuple for easy sorting
-            else:  # If no child, just add the master
-                clean_columns.append((master, None))
+            # Rename columns for clarity
+            classification_counts.rename(columns={
+                'Drug': 'Drug Count',
+                'Agent': 'Agent Count'
+            }, inplace=True)
 
-        # Sort the columns to maintain alphabetical order
-        clean_columns = sorted(set(clean_columns), key=lambda x: (x[0], x[1] or ""))
+            # Merge classification counts back into the unique rows
+            result = pd.merge(
+                unique_df,
+                classification_counts,
+                on=['Target ID', 'Indication'],
+                how='left'
+            )
 
-        # Create the DataFrame with clean hierarchical columns
-        data = pivoted.reset_index()
-        data.columns = ['Target ID'] + [
-            col[1] if col[1] else col[0] for col in clean_columns  # Child names or master name
+            # Fill NaN counts with 0
+            result[['Drug Count', 'Agent Count']] = result[['Drug Count', 'Agent Count']].fillna(0).astype(int)
+
+            return result
+
+        # Aggregate the table to collapse unique rows and compute counts quickly
+        df_table_2 = aggregate_table_fast(df_table_2)
+
+        def remove_duplicates_and_fill_gaps(df):
+            # Replace empty strings with NaN for better handling of missing values
+            df.replace("", pd.NA, inplace=True)
+
+            # Sort by completeness (count of non-missing values) and drop exact duplicates
+            df = df.sort_values(by=df.columns.to_list(), key=lambda col: col.notna(), ascending=False)
+            df = df.drop_duplicates(subset=df.columns.difference(['ATC Code', 'ATC Name', 'ATC Parent Name']), keep='first')
+
+            # Fill gaps by replacing NaN back with empty strings for display purposes
+            df.fillna("", inplace=True)
+
+            return df
+        # Remove duplicates and prioritize completeness
+        df_table_2 = remove_duplicates_and_fill_gaps(df_table_2)
+
+        # Retain only the specified columns
+        keep_cols = [
+            'Target ID', 'Gene name', 'Protein name', 'Receptor family', 'Ligand type',
+            'Class', 'Master Indication', 'Indication', 'ATC Code',
+            'ATC Parent Name', 'ATC Name', 'Association Score', 'Drug Count', 'Agent Count'
         ]
+        df_table_2 = df_table_2[keep_cols]
 
-        # Step 8: Summarize children columns under master names
-        for master, group in merged_df.groupby('name_0'):
-            children = [child for child in data.columns if child in group['code__index'].unique()]
-            if children:
-                data[master] = data[children].sum(axis=1)  # Summarize children counts under master
-
-        # Step 9: Rename master columns properly and remove "Total"
-        data = data.rename(columns={col: col if "_Total" not in col else col.replace("_Total", "") for col in data.columns})
-
-        # Step 10: Finalize - Merge the ATC data with df_third to form df_fourth
-        df_fourth = pd.merge(df_third, data, on='Target ID', how='left')
-
-        # Step 11: Clean up NaN values with 0
-        df_fourth = df_fourth.fillna(0)
-
-        # Optional: Convert ATC hierarchy to JSON
-        atc_hierarchy = {}
-        for master, group in merged_df.groupby('name_0'):
-            atc_hierarchy[master] = {
-                "title": master,
-                "children": sorted(group['code__index'].unique())
-            }
-
-        atc_hierarchy_json = json.dumps(atc_hierarchy)
+        # Replace 0s with empty strings for display purposes
+        df_table_2.replace(0, "", inplace=True)
 
         # Convert the final DataFrame to JSON
-        json_records_targets = df_fourth.to_json(orient='records')
+        json_records_targets = df_first.to_json(orient='records')
+        json_records_table_2 = df_table_2.to_json(orient='records')
         context['Full_data'] = json_records_targets
-        context['ATC_hierarchy'] = atc_hierarchy_json
-        context['IDC_hierarchy'] = json.dumps(IDC_hierarchy)
-        context['IDC_hierarchy_drugs'] = json.dumps(IDC_hierarchy_drugs)
-        context['IDC_hierarchy_agents'] = json.dumps(IDC_hierarchy_agents)
-
-        start=1544
-        list_of_drugs = [start]
-        for key in sorted(atc_hierarchy):
-            last = list_of_drugs[-1]
-            current = len(atc_hierarchy[key]['children'])
-            next = last+current+1
-            list_of_drugs.append(next)
-            print(key,atc_hierarchy[key]['title'],current,next)
-        print(list_of_drugs)
+        context['Disease_table'] = json_records_table_2
 
         return context
 

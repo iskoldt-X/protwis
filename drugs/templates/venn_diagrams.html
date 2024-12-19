@@ -208,8 +208,6 @@ var gprotein_ID = {{ phases_dict_keys|safe }};
 // var dict = {{ drug_dictionary|safe }};
 var fullData = {{ Full_data|safe }};
 const layout = "{{ layout|escapejs }}";
-console.log(gprotein_ID)
-console.log(gdata)
 
 function getArrayFromData(gprotein) {
   var lines = gdata[gprotein].split("\n");
@@ -218,7 +216,6 @@ function getArrayFromData(gprotein) {
     table.push(lines[lindex].trim());
   } return (table);
 }
-
 
 function initializeDataTable(tableId, data) {
   
@@ -404,31 +401,6 @@ function updateJvenn(gprotein_ID) {
       }
     });
 
-    // Handle clicks on phase labels
-    $("#label1, #label2, #label3, #label4").off("click").on("click", function () {
-      const phaseLabel = $(this).text().trim(); // Get the clicked label's text, e.g., "Phase I"
-
-      // Use gdata to get the newline-separated list for the phase
-      const filterValues = gdata[phaseLabel].split("\n").map((item) => item.trim());
-
-      // Define the column to filter by based on layout
-      const filterColumn = layout === "targets" ? "Gene name" : "Ligand name";
-
-      // Filter the fullData based on the selected phase's filter values
-      const selectedData = fullData.filter((row) =>
-        filterValues.includes(row[filterColumn])
-      );
-
-      // Show the filtered table
-      $("#table-container").show();
-
-      // Reset filters
-      reset_all();
-
-      // Pass the filtered data to initializeDataTable function
-      initializeDataTable("#receptor_table", selectedData);
-    });
-
     // Helper function to convert HEX to RGB
     function hexToRgb(hex) {
       // Remove the hash at the start if it's there
@@ -518,36 +490,135 @@ function updateJvenn(gprotein_ID) {
       }
     }
 
-    // Apply base styles to the labels
-    $("#label1, #label2, #label3, #label4").css({
+    // Update the content of labels to split into two lines
+      // Dynamically set up the labels
+      gprotein_ID.forEach((label, index) => {
+          // Split the label into the main part and the count
+          const parts = label.split(" ");
+          const mainText = parts.slice(0, -1).join(" "); // Join all except the last part
+          const count = parts[parts.length - 1]; // The last part is the count
+
+          // Dynamically set the label's HTML
+          $(`#label${index + 1}`).html(`${mainText}<br><span class="clickable-part">${count}</span>`);
+      });
+
+     // Base styles for all labels
+    const labelBaseStyles = {
       "font-weight": "bold",
-      "color": "#007bff", /* Blue color for text */
-      "text-decoration": "underline", /* Underline the text */
+      "text-decoration": "none", // Remove underline for the main text
       "font-size": "18px",
       "opacity": "1",
-      "cursor": "pointer", // Makes the labels look clickable
-      "transition": "color 0.3s, text-decoration 0.3s, background-color 0.3s" // Smooth transitions
+      "cursor": "default", // Only the numbers are clickable
+      "transition": "color 0.3s, text-decoration 0.3s, background-color 0.3s", // Smooth transitions
+      "text-align": "center", // Center-align text
+      "line-height": "1", // Compact line spacing
+      "margin-bottom": "0", // Remove extra spacing after each element
+      "padding-bottom": "0", // Remove padding
+      // "text-shadow": "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" // Thin black outline
+    };
+
+    // Apply individual label styles (color and margin)
+    $("#label1").css({
+      ...labelBaseStyles,
+      "color": "#f5bcbf", // Bright Red
+      "margin-left": "-20px" // Move to the left
     });
 
-    // Add hover effects dynamically
-    $("#label1, #label2, #label3, #label4").off("mouseenter mouseleave") // Remove previous bindings
+    $("#label2").css({
+      ...labelBaseStyles,
+      "color": "#f17270", // Darker Red
+      "margin-left": "-40px" // Move further to the left
+    });
+
+    $("#label3").css({
+      ...labelBaseStyles,
+      "color": "#dd2628", // Even darker Red
+      "margin-left": "40px" // Move to the right
+    });
+
+    $("#label4").css({
+      ...labelBaseStyles,
+      "color": "#2c87c8", // Blue
+      "margin-left": "20px" // Move slightly to the right
+    });
+
+    // Style the clickable part (numbers in parentheses)
+    $(".clickable-part").css({
+      "text-decoration": "underline",
+      "text-underline-offset": "3px", // Adjust the offset to move the underline further down
+      "cursor": "pointer", // Make it look clickable
+      "font-size": "16px", // Slightly smaller font size
+      "display": "block", // Display as a block element for stacking
+      "margin-top": "5px", // Add spacing between the lines
+    });
+
+    // Style the clickable part (numbers in parentheses)
+    $(".clickable-part").css({
+      "text-decoration": "underline",
+      "text-underline-offset": "3px", // Adjust the offset to move the underline further down
+      "cursor": "pointer", // Make it look clickable
+      "font-size": "16px", // Slightly smaller font size
+      "display": "block", // Display as a block element for stacking
+      "margin-top": "5px", // Add spacing between the lines
+      "color": "black", // Set the default color to black
+    });
+
+    // Add hover effects to the clickable part, temporarily changing color and reverting to black
+    $(".clickable-part")
+      .off("mouseenter mouseleave") // Remove previous bindings
       .on("mouseenter", function () {
         $(this).css({
-          "color": "#0056b3", /* Darker blue on hover */
-          "text-decoration": "underline" // Keep underline
+          "color": "#0056b3", // Hover color
+          "text-decoration": "underline", // Keep underline
         });
       })
       .on("mouseleave", function () {
         $(this).css({
-          "color": "#007bff", /* Reset to original blue */
-          "text-decoration": "underline" // Keep underline
+          "color": "black", // Revert to black
+          "text-decoration": "underline", // Keep underline
         });
+      });
+
+      // Attach click event to the clickable part
+      $(".clickable-part").on("click", function () {
+        // Get the phase text from the parent label, excluding the count
+        const phaseText = $(this).closest("div").clone() // Clone the element to avoid modifying the original
+            .children(".clickable-part") // Remove the count part
+            .remove()
+            .end()
+            .text()
+            .trim(); // Extract text without the count
+
+        const phaseCount = $(this).text().trim(); // e.g., "(XXX)"
+
+        // Concatenate phaseText and phaseCount to form the full phase label
+        const phaseLabel = `${phaseText} ${phaseCount}`; // e.g., "Phase I (XXXX)"
+
+        // Use gdata to get the newline-separated list for the phase
+        const filterValues = gdata[phaseLabel].split("\n").map((item) => item.trim());
+
+        // Define the column to filter by based on layout
+        const filterColumn = layout === "targets" ? "Gene name" : "Ligand name";
+
+        // Filter the fullData based on the selected phase's filter values
+        const selectedData = fullData.filter((row) =>
+          filterValues.includes(row[filterColumn])
+        );
+      // Show the filtered table
+      $("#table-container").show();
+
+      // Reset filters
+      reset_all();
+
+      // Pass the filtered data to initializeDataTable function
+      initializeDataTable("#receptor_table", selectedData);
       });
 
       // Apply base styles to the labels
       $(".number-black").css({
         "font-weight": "bold",
-        "text-decoration": "underline", /* Underline the text */
+        "text-decoration": "underline", 
+        "text-underline-offset": "3px",/* Underline the text */
         "font-size": "19px",
         "opacity": "1",
         "cursor": "pointer", // Makes the labels look clickable
@@ -559,13 +630,15 @@ function updateJvenn(gprotein_ID) {
       .on("mouseenter", function () {
         $(this).css({
           "color": "#0056b3", /* Darker blue on hover */
-          "text-decoration": "underline", // Keep underline
+          "text-decoration": "underline", 
+          "text-underline-offset": "3px",// Keep underline
         });
       })
       .on("mouseleave", function () {
         $(this).css({
           "color": "Black", /* Reset to original blue */
-          "text-decoration": "underline", // Keep underline
+          "text-decoration": "underline", 
+          "text-underline-offset": "3px",// Keep underline
         });
       });
 
@@ -575,6 +648,8 @@ function updateJvenn(gprotein_ID) {
     });
 
     $(".number-empty").html("-");
+
+
     // $("#frame").css({
     //   "left": "50%"
     // });

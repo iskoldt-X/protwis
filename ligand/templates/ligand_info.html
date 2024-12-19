@@ -43,11 +43,11 @@
     
     <!-- Tabs for Agent/Drug and Bioactivity -->
     <ul class="nav nav-tabs">
+		<li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/Drug</a>
+        </li>
         <li class="nav-item active">
             <a class="nav-link active" data-toggle="tab" href="#bioactivity" id="bioactivity_tab">Bioactivity</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/Drug</a>
         </li>
 		{% if ligand.labels.endogenous == 'Endogenous' %}
 			<li class="nav-item">
