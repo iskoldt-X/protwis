@@ -441,12 +441,7 @@ function updateFillData(fill_data, conversionDict, labelType) {
     } else if (tree_options.depth == 3) {
       maxLeafNodeLength = 4*parseInt(tree_options.fontSize.receptorfamily);
     }
-    // Handler for one class -> reduce the depth
-    if (rep_tree_options.depth == 4) {
-      rep_maxLeafNodeLength = 4*parseInt(rep_tree_options.fontSize.receptor);
-    } else if (rep_tree_options.depth == 3) {
-      rep_maxLeafNodeLength = 3*parseInt(rep_tree_options.fontSize.receptorfamily);
-    }
+
     circle_size = 6;
     circle_spacer = circle_size*2+1;
     circle_spacer = circle_spacer+2
@@ -484,7 +479,6 @@ function updateFillData(fill_data, conversionDict, labelType) {
     rep_tree_options.fontSize.receptorfamily = "18px";
     rep_tree_options.fontSize.receptor = "17px";
     rep_tree_options.anchor = "rep_tree_plot";
-    console.log(rep_tree_options);
     // # Change leaves buttons #
     $("#TREE_UniProtNames").click(function(){
         $("#TREE_UniProtNames").addClass("active");
