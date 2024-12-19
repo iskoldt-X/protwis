@@ -8,35 +8,50 @@
       width: 275px;
       background: linear-gradient(to right, white 0%, black 100%)
   }
+  .approveddiv {
+      height: 20px;
+      width: 150px;
+      background: linear-gradient(to right, white 0%, #2c87c8 100%)
+  }
+  .repurposeddiv {
+      height: 20px;
+      width: 150px;
+      background: linear-gradient(to right, white 0%, #ae5dae 100%)
+  }
+  .agentsdiv {
+      height: 20px;
+      width: 150px;
+      background: linear-gradient(to right, white 0%, #dd2628 100%)
+  }
   .color_phase1 {
-    color: #f5bcbf;
-    font-size: 15px;
-}
+      color: #f5bcbf;
+      font-size: 15px;
+  }
 
-.color_phase2 {
-    color: #f17270;
-    font-size: 15px;
-}
+  .color_phase2 {
+      color: #f17270;
+      font-size: 15px;
+  }
 
-.color_phase3 {
-    color: #dd2628;
-    font-size: 15px;
-}
+  .color_phase3 {
+      color: #dd2628;
+      font-size: 15px;
+  }
 
-.color_phase4 {
-    color: #2c87c8;
-    font-size: 15px;
-}
+  .color_phase4 {
+      color: #2c87c8;
+      font-size: 15px;
+  }
 
-.color_untapped {
-    color: #D3D3D3;
-    font-size: 15px;
-}
+  .color_untapped {
+      color: #D3D3D3;
+      font-size: 15px;
+  }
 
-.color_sensory {
-    color: #A3D9C8;
-    font-size: 15px;
-}
+  .color_sensory {
+      color: #A3D9C8;
+      font-size: 15px;
+  }
 
 
 #plotContainer_cluster {
@@ -127,10 +142,10 @@
 
 <ul class="nav nav-tabs">
     <li class="active">
-      <a href="#summary" data-toggle="tab">Summary</a>
+      <a href="#summary" data-toggle="tab">Outline</a>
     </li>
     <li>
-      <a href="#list" data-toggle="tab">List plot</a>
+      <a href="#list" data-toggle="tab">List</a>
     </li>
 </ul>
 
@@ -139,26 +154,29 @@
   <div id="summary" class="tab-pane fade in active">
     <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
       <div class="col-md-12">
+        <div style="float: left; position: relative; padding-right: 10px;" class="text-center">
+          <b>New agents in trial</b>
+          <div class="agentsdiv"></div>
+        </div>
+        <div style="float: left; position: relative; padding-right: 10px;" class="text-center">
+          <b>Drugs repurposed</b>
+          <div class="repurposeddiv"></div>
+        </div>
+        <div style="float: left; position: relative; padding-right: 10px;" class="text-center">
+          <b>Approved drugs</b>
+          <div class="approveddiv"></div>
+        </div>
+        <br />
         <div class="col-md-12" style="margin-bottom: 40px;">
           {% for block in combined %}
           <details>
             <summary>
-              <!-- Access the main_label colors directly -->
               <span class="dot" style="background-color: {{ block.main_label.red }};"></span>
               <span class="dot" style="background-color: {{ block.main_label.purple }};"></span>
               <span class="dot" style="background-color: {{ block.main_label.blue }};"></span>
               <b class="hover-pointer">{{ block.main_key }}</b>
             </summary>
-            <ul class="no-bullet-indent">
-              {% for key, color_codes in block.items.items %}
-                <li>
-                  <span class="dot" style="background-color: {{ color_codes.red }};"></span>
-                  <span class="dot" style="background-color: {{ color_codes.purple }};"></span>
-                  <span class="dot" style="background-color: {{ color_codes.blue }};"></span>
-                  <span>{{ key }}</span>
-                </li>
-              {% endfor %}
-            </ul>
+            {{ block.rendered_items|safe }}
           </details>
           {% endfor %}
         </div>
@@ -301,7 +319,6 @@ function Listplot_render_visualization(){
 document.addEventListener("DOMContentLoaded", function() {
   Listplot_render_visualization();
   // Call this function to populate options for continuous data columns
-  populateListPlotStyling();
   document.getElementById("legend_1").textContent = "New agents";
   document.getElementById("legend_2").textContent = "Drugs being repurposed";
   document.getElementById("legend_3").textContent = "All drugs";
@@ -310,14 +327,6 @@ document.addEventListener("DOMContentLoaded", function() {
 $('.dropdown-menu').on('click', function(event){
     event.stopPropagation();
   });
-
-// #####################
-// ## Layout options  ##
-// #####################
-
-// #####################
-// ## Styling options ##
-// #####################
 
 // Trigger initialization when the document is fully loaded
 document.addEventListener("DOMContentLoaded", initializeStylingOptions);

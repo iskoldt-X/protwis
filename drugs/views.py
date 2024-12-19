@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.db import connection, reset_queries
 from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
+from django.utils.safestring import mark_safe
 from common.views import AbsReferenceSelectionTable, getReferenceTable, getLigandTable, getLigandCountTable, AbsTargetSelection
 from structure.models import Structure
 from drugs.models import Drugs, Indication, ATCCodes, IndicationAssociation
@@ -820,6 +821,47 @@ class DruggedGPCRome(TemplateView):
         context['circles'] = json.dumps(circles)
         context['whole_dict'] = json.dumps(receptors)
 
+        #REPURPOSED TREE SECTION
+        # Red: IndicationMaxPhase < 4 and MaxPhase (compound) < 4 [New agents in trial (lack approval)]
+        # Purple: IndicationMaxPhase < 4 and MaxPhase = 4         [Drugs being repurposed in trials (have approval)]
+        # Blue: IndicationMaxPhase and MaxPhase = 4               [All drugs (both those being repurposed in trials and not)]
+
+        drug_data = Drugs.objects.all().values_list('ligand__name', 'target__entry_name', 'indication_max_phase').distinct()
+        phase4 = {}
+        for drug in drug_data:
+            if drug[0] not in phase4.keys():
+                phase4[drug[0]] = []
+            if drug[2] == 4:
+                phase4[drug[0]].append(drug[1])
+        phase4 = {k: v for k, v in phase4.items() if v != []}
+        # Red: IndicationMaxPhase < 4 and MaxPhase (compound) < 4 [New agents in trial (lack approval)]
+        # Purple: IndicationMaxPhase < 4 and MaxPhase = 4         [Drugs being repurposed in trials (have approval)]
+        # Blue: IndicationMaxPhase and MaxPhase = 4               [All drugs (both those being repurposed in trials and not)]
+        drug_dict = {}
+        for drug in drug_data:
+            if drug[1] not in drug_dict.keys():
+                drug_dict[drug[1]] = {'Outer1': 0, 'Outer2': 0, 'Outer3': 0, 'Outer4': 0, 'Inner': 0}
+            #Approved Drug
+            if drug[2] == 4:
+                drug_dict[drug[1]]['Outer3'] += 1
+            else:
+                #Repurposed Drug
+                if drug[0] in phase4.keys():
+                    drug_dict[drug[1]]['Outer2'] += 1
+                # New Agent
+                else:
+                    drug_dict[drug[1]]['Outer1'] += 1
+
+        repurposed_tree, repurposed_tree_options, repurposed_circles, repurposed_receptors = LandingPage.generate_tree_plot(drug_dict)
+        #Remove 0 circles
+        for key, outer_dict in repurposed_circles.items():
+            repurposed_circles[key] = {k: v for k, v in outer_dict.items() if v != 0}
+
+        context['rep_tree'] = json.dumps(repurposed_tree)
+        context['rep_tree_options'] = repurposed_tree_options
+        context['rep_circles'] = json.dumps(repurposed_circles)
+        context['rep_whole_dict'] = json.dumps(repurposed_receptors)
+
         return context
 
 class DiseaseOverview(TemplateView):
@@ -833,6 +875,94 @@ class DiseaseOverview(TemplateView):
 
         context = super().get_context_data(**kwargs)
 
+        def find_max_values(node, node_name):
+            """
+            Given a node (a dictionary) and its name (a string), return:
+            (max_red, red_node, max_purple, purple_node, max_blue, blue_node)
+            for the entire subtree starting at `node`.
+
+            If a color key is missing at a node, treat its value as 0.
+            """
+            # Get current node's color values (default to 0 if missing)
+            local_red = node.get('red', 0)
+            local_purple = node.get('purple', 0)
+            local_blue = node.get('blue', 0)
+
+            # Initialize maxima with the current node's values
+            max_red = local_red
+            red_node = node_name
+            max_purple = local_purple
+            purple_node = node_name
+            max_blue = local_blue
+            blue_node = node_name
+
+            # Iterate over children. Children are identified as dictionary values.
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    # Recurse into child
+                    r_val, r_k, p_val, p_k, b_val, b_k = find_max_values(value, key)
+
+                    # Compare and update max_red
+                    if r_val > max_red:
+                        max_red = r_val
+                        red_node = r_k
+
+                    # Compare and update max_purple
+                    if p_val > max_purple:
+                        max_purple = p_val
+                        purple_node = p_k
+
+                    # Compare and update max_blue
+                    if b_val > max_blue:
+                        max_blue = b_val
+                        blue_node = b_k
+
+            return max_red, red_node, max_purple, purple_node, max_blue, blue_node
+
+
+        def find_node_by_name(nested_dict, target_name):
+            """
+            Recursively search nested_dict for a node keyed by target_name.
+            Returns the dictionary for that node if found, else None.
+            """
+            for key, value in nested_dict.items():
+                if key == target_name:
+                    # Found the node
+                    return value
+                if isinstance(value, dict):
+                    # Recurse into children
+                    result = find_node_by_name(value, target_name)
+                    if result is not None:
+                        return result
+            return None
+
+        def increment_color_value(nested_dict, target_leaf, color):
+            """
+            Search through nested_dict for target_leaf. Once found, increment the
+            value associated with 'color' by 1.
+            Returns True if successful, False if not found.
+            """
+            for key, value in nested_dict.items():
+                if key == target_leaf:
+                    # Found the leaf node
+                    if color in value:
+                        # Handle case if value is None or not initialized
+                        if value[color] is None:
+                            value[color] = 0
+                        value[color] += 1
+                    else:
+                        # If the color key doesn't exist, initialize it at 1
+                        value[color] = 1
+                    return True
+
+                # If the value is a nested dict, recurse into it
+                if isinstance(value, dict):
+                    if increment_color_value(value, target_leaf, color):
+                        return True
+
+            # If not found in this branch, return False
+            return False
+
         def gradient_color(value_fraction, start_color=(255,255,255), end_color=(0,0,0)):
 
             r = int(start_color[0] + (end_color[0] - start_color[0]) * value_fraction)
@@ -840,6 +970,62 @@ class DiseaseOverview(TemplateView):
             b = int(start_color[2] + (end_color[2] - start_color[2]) * value_fraction)
 
             return f"#{r:02x}{g:02x}{b:02x}"
+
+        def find_global_maxima(node, global_max_values):
+            """
+            Recursively traverse 'node' and update global_max_values.
+            Any node can have 'red', 'purple', 'blue' keys.
+            Missing keys default to 0.
+            """
+            red_val = node.get('red', 0)
+            purple_val = node.get('purple', 0)
+            blue_val = node.get('blue', 0)
+
+            if red_val > global_max_values['red']:
+                global_max_values['red'] = red_val
+            if purple_val > global_max_values['purple']:
+                global_max_values['purple'] = purple_val
+            if blue_val > global_max_values['blue']:
+                global_max_values['blue'] = blue_val
+
+            # Recurse into child dictionaries
+            for k, v in node.items():
+                if isinstance(v, dict):
+                    find_global_maxima(v, global_max_values)
+
+
+        def apply_colors(node, global_max_values, color_targets):
+            """
+            Recursively apply gradient colors to each node based on its values and global maxima.
+            Replace 'red', 'purple', 'blue' values with their corresponding gradient colors.
+            """
+            # Extract node's own values (default 0 if missing)
+            red_val = node.get('red', 0)
+            purple_val = node.get('purple', 0)
+            blue_val = node.get('blue', 0)
+
+            red_frac = red_val / global_max_values['red'] if global_max_values['red'] > 0 else 0
+            purple_frac = purple_val / global_max_values['purple'] if global_max_values['purple'] > 0 else 0
+            blue_frac = blue_val / global_max_values['blue'] if global_max_values['blue'] > 0 else 0
+
+            # Compute gradient colors
+            # The function gradient_color(frac, start_color, end_color) must be defined beforehand.
+            new_node = {}
+            new_node['red'] = gradient_color(red_frac, (255,255,255), color_targets['red'])
+            new_node['purple'] = gradient_color(purple_frac, (255,255,255), color_targets['purple'])
+            new_node['blue'] = gradient_color(blue_frac, (255,255,255), color_targets['blue'])
+
+            # Recurse into children
+            for k, v in node.items():
+                if isinstance(v, dict):
+                    new_node[k] = apply_colors(v, global_max_values, color_targets)
+                else:
+                    # For non-dict, non-color keys, if you need to preserve them, reassign here
+                    # Check that you're not overwriting the colors keys we just set
+                    if k not in ['red', 'purple', 'blue']:
+                        new_node[k] = v
+
+            return new_node
 
         def convert_dict_to_colors(data_dict):
             # Define the target colors for each metric
@@ -849,44 +1035,114 @@ class DiseaseOverview(TemplateView):
                 "blue": (0,0,255)
             }
 
-            # 1. Find global maxima for each color across all main_keys and subkeys
+            # 1. Find global maxima for each color across the entire nested structure
             global_max_values = {"red": 0, "purple": 0, "blue": 0}
+            find_global_maxima(data_dict, global_max_values)
 
-            for main_key, keys in data_dict.items():
-                for k, color_dict in keys.items():
-                    for c in global_max_values:
-                        if color_dict[c] > global_max_values[c]:
-                            global_max_values[c] = color_dict[c]
-
-            # 2. Now generate gradient colors for each key using global maxima
-            result = {}
-            for main_key, keys in data_dict.items():
-                new_keys = {}
-                for k, color_dict in keys.items():
-                    red_val = color_dict['red']
-                    purple_val = color_dict['purple']
-                    blue_val = color_dict['blue']
-
-                    # Avoid division by zero by checking global maxima
-                    red_frac = red_val / global_max_values['red'] if global_max_values['red'] > 0 else 0
-                    purple_frac = purple_val / global_max_values['purple'] if global_max_values['purple'] > 0 else 0
-                    blue_frac = blue_val / global_max_values['blue'] if global_max_values['blue'] > 0 else 0
-
-                    red_color = gradient_color(red_frac, (255,255,255), color_targets['red'])
-                    purple_color = gradient_color(purple_frac, (255,255,255), color_targets['purple'])
-                    blue_color = gradient_color(blue_frac, (255,255,255), color_targets['blue'])
-
-                    new_keys[k] = {
-                        'red': red_color,
-                        'purple': purple_color,
-                        'blue': blue_color
-                    }
-
-                result[main_key] = new_keys
-
+            # 2. Apply gradient colors throughout the nested dict
+            result = apply_colors(data_dict, global_max_values, color_targets)
             return result
 
+        def color_style(color):
+            # If the color is white, add a border style. Otherwise, no border.
+            if color == '#ffffff':
+                return f"background-color: {color}; border: 1px solid #ccc;"
+            else:
+                return f"background-color: {color};"
+
+        def propagate_max_colors(node):
+            """
+            Given a nested dictionary node:
+            - Keys that are colors (red, purple, blue) have integer values.
+            - Other keys may lead to child dictionaries.
+            This function updates each node's (red, purple, blue) to be the maximum
+            found in that node or any of its descendants.
+
+            Returns a tuple (max_red, max_purple, max_blue) for the subtree.
+            """
+
+            # Initialize current node's colors. If missing, default to 0.
+            current_red = node.get('red', 0)
+            current_purple = node.get('purple', 0)
+            current_blue = node.get('blue', 0)
+
+            # Check children
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    # Recursively propagate max colors down the subtree
+                    r_val, p_val, b_val = propagate_max_colors(value)
+
+                    # Update current node's max based on child
+                    if r_val > current_red:
+                        current_red = r_val
+                    if p_val > current_purple:
+                        current_purple = p_val
+                    if b_val > current_blue:
+                        current_blue = b_val
+
+            # Update the node's own values after checking children
+            node['red'] = current_red
+            node['purple'] = current_purple
+            node['blue'] = current_blue
+
+            return current_red, current_purple, current_blue
+
+        def render_nested_structure(data):
+            html = []
+            html.append('<ul class="no-bullet-indent">')
+            for key, value in data.items():
+                if key in ('red', 'purple', 'blue'):
+                    continue
+
+                # Safely extract colors
+                red = value.get('red', '#ffffff') if isinstance(value, dict) else '#ffffff'
+                purple = value.get('purple', '#ffffff') if isinstance(value, dict) else '#ffffff'
+                blue = value.get('blue', '#ffffff') if isinstance(value, dict) else '#ffffff'
+
+                # Check if node has children
+                has_children = False
+                if isinstance(value, dict):
+                    for v in value.values():
+                        if isinstance(v, dict):
+                            has_children = True
+                            break
+
+                if isinstance(value, dict) and has_children:
+                    # Node with children
+                    html.append(f"""
+                    <li>
+                        <details>
+                            <summary>
+                                <span class="dot" style="{color_style(red)}"></span>
+                                <span class="dot" style="{color_style(purple)}"></span>
+                                <span class="dot" style="{color_style(blue)}"></span>
+                                <b>{key}</b>
+                            </summary>
+                            {render_nested_structure(value)}
+                        </details>
+                    </li>
+                    """)
+                else:
+                    # Leaf node
+                    if isinstance(value, dict):
+                        # Leaf node with colors
+                        html.append(f"""
+                        <li>
+                            <span class="dot" style="{color_style(red)}"></span>
+                            <span class="dot" style="{color_style(purple)}"></span>
+                            <span class="dot" style="{color_style(blue)}"></span>
+                            {key}
+                        </li>
+                        """)
+                    else:
+                        # Leaf node without colors (just a string or value)
+                        # No colors defined, but if you want, you can handle differently
+                        html.append(f"<li>{key}: {value}</li>")
+            html.append('</ul>')
+            return ''.join(html)
+
         lvl_0_1 = Indication.objects.filter(level__in=[0,1]).order_by('slug')
+        all_indis = Indication.objects.all().order_by('slug')
         indication_data = {}
         listdata = {}
         listplot_data_variables = {}
@@ -932,89 +1188,131 @@ class DiseaseOverview(TemplateView):
             indications = list(drug_dict[drug].keys())[1:]
             for ind in indications:
                 if max_phase < 4 and drug_dict[drug][ind][0] < 4:
-                    indication_data[drug_dict[drug][ind][1]][ind]['red'] += 1
                     listplot_data_variables[ind]['Value2'] += 1
                 elif max_phase == 4 and drug_dict[drug][ind][0] < 4:
-                    indication_data[drug_dict[drug][ind][1]][ind]['purple'] += 1
                     listplot_data_variables[ind]['Value4'] += 1
                 elif max_phase == 4 and drug_dict[drug][ind][0] == 4:
-                    indication_data[drug_dict[drug][ind][1]][ind]['blue'] += 1
                     listplot_data_variables[ind]['Value6'] += 1
 
-        #Manually purging irrelevant classes
-        to_purge = ['External causes of morbidity or mortality',
-                    'Injury, poisoning or certain other consequences of external causes',
-                    'Supplementary Chapter Traditional Medicine Conditions',
-                    'Supplementary section for functioning assessment',
-                    'Factors influencing health status or contact with health services',
-                    'Extension Codes']
-
-        for item in to_purge:
-            del listdata[item]
-
-
-        List_Data_result = {"category_array": [], "final_array": []}
-        for key in listdata.keys():
-            List_Data_result['category_array'].append('ReceptorFamily')
-            List_Data_result['final_array'].append(key)
-            for value in listdata[key]:
-                List_Data_result['category_array'].append('Receptor')
-                List_Data_result['final_array'].append(value)
-
-
         counter = 1
-        labeled_indication = {}
-        for key in indication_data.keys():
+        labeled_listdata = {}
+        for key in listdata.keys():
             new_key = f"{counter:02d} {key}"
-            labeled_indication[new_key] = indication_data[key]
+            labeled_listdata[new_key] = listdata[key]
             counter += 1
 
         #Manually purging irrelevant classes
         to_purge = ['23 External causes of morbidity or mortality',
-                    '22 Injury, poisoning or certain other consequences of external causes',
+                    # 'Injury, poisoning or certain other consequences of external causes',
                     '26 Supplementary Chapter Traditional Medicine Conditions',
                     '27 Supplementary section for functioning assessment',
                     '24 Factors influencing health status or contact with health services',
                     '28 Extension Codes']
 
         for item in to_purge:
-            del labeled_indication[item]
+            del labeled_listdata[item]
+
+        List_Data_result = {"category_array": [], "final_array": []}
+        for key in labeled_listdata.keys():
+            List_Data_result['category_array'].append('ReceptorFamily')
+            List_Data_result['final_array'].append(key)
+            for value in labeled_listdata[key]:
+                List_Data_result['category_array'].append('Receptor')
+                List_Data_result['final_array'].append(value)
+
+        ####### TESTING ########
+
+        records = []
+        for indi in all_indis:
+            records.append({'title':indi.title, 'level':indi.level})
+        # Setup the master nested dict
+        hierarchy = {}
+        # Start with a "virtual root" at level -1
+        stack = [(-1, hierarchy)]
+        for record in records:
+            level = record['level']
+            title = record['title']
+            # Pop until the top of the stack is strictly less than the current record's level
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            # Now the stack top should be the parent level
+            parent_dict = stack[-1][1]
+            # Create a new entry for the current record
+            parent_dict[title] = {}
+            # Push current node
+            stack.append((level, parent_dict[title]))
+
+        counter = 1
+        labeled_hierarchy = {}
+        for key in hierarchy.keys():
+            new_key = f"{counter:02d} {key}"
+            labeled_hierarchy[new_key] = hierarchy[key]
+            counter += 1
+
+        for item in to_purge:
+            del labeled_hierarchy[item]
+
+        drug_dict_leaf = {}
+        for item in drug_data:
+            if item.ligand.name not in drug_dict_leaf.keys():
+                drug_dict_leaf[item.ligand.name] = {'Max Phase': 0}
+            if item.indication.title not in drug_dict_leaf[item.ligand.name].keys():
+                drug_dict_leaf[item.ligand.name][item.indication.title] = [item.indication_max_phase, item.indication.title]
+            if item.indication_max_phase > drug_dict_leaf[item.ligand.name]['Max Phase']:
+                drug_dict_leaf[item.ligand.name]['Max Phase'] = item.indication_max_phase
+
+        #now need to populated them
+        for drug in drug_dict_leaf.keys():
+            max_phase = drug_dict_leaf[drug]['Max Phase']
+            indications = list(drug_dict_leaf[drug].keys())[1:]
+            for ind in indications:
+                if max_phase < 4 and drug_dict_leaf[drug][ind][0] < 4:
+                    increment_color_value(labeled_hierarchy, ind, 'red')
+                elif max_phase == 4 and drug_dict_leaf[drug][ind][0] < 4:
+                    increment_color_value(labeled_hierarchy, ind, 'purple')
+                elif max_phase == 4 and drug_dict_leaf[drug][ind][0] == 4:
+                    increment_color_value(labeled_hierarchy, ind, 'blue')
 
         max_labels = {}
-        for key in labeled_indication.keys():
-            max_labels[key] = {'red':'#ffffff', 'purple':'#ffffff', 'blue':'#ffffff'}
-            red, purple, blue = 0,0,0
-            for indi in labeled_indication[key].keys():
-                if labeled_indication[key][indi]['red'] > red:
-                    red = labeled_indication[key][indi]['red']
-                    max_labels[key]['red'] = indi
-                if labeled_indication[key][indi]['purple'] > purple:
-                    purple = labeled_indication[key][indi]['purple']
-                    max_labels[key]['purple'] = indi
-                if labeled_indication[key][indi]['blue'] > blue:
-                    blue = labeled_indication[key][indi]['blue']
-                    max_labels[key]['blue'] = indi
+        for primary_key in labeled_hierarchy:
+            r_val, r_k, p_val, p_k, b_val, b_k = find_max_values(labeled_hierarchy[primary_key], primary_key)
+            max_labels[primary_key] = {
+                'red': r_k if r_val != 0 else '#ffffff',
+                'purple': p_k if p_val != 0 else '#ffffff',
+                'blue': b_k if b_val != 0 else '#ffffff'
+            }
 
-        colored = convert_dict_to_colors(labeled_indication)
+        propagate_max_colors(labeled_hierarchy)
+        colored = convert_dict_to_colors(labeled_hierarchy)
 
-        for key in max_labels.keys():
-            max_labels[key]['red'] = colored[key][max_labels[key]['red']]['red'] if max_labels[key]['red'] != '#ffffff' else max_labels[key]['red']
-            max_labels[key]['purple'] = colored[key][max_labels[key]['purple']]['purple'] if max_labels[key]['purple'] != '#ffffff' else max_labels[key]['purple']
-            max_labels[key]['blue'] = colored[key][max_labels[key]['blue']]['blue'] if max_labels[key]['blue'] != '#ffffff' else max_labels[key]['blue']
+        # Now we update max_labels with actual colors from colored_result.
+        for major_key, color_dict in max_labels.items():
+            for color_key, node_name in color_dict.items():
+                if node_name == '#ffffff':
+                    continue
 
+                # Find the node in colored_result that matches node_name
+                node = find_node_by_name(colored, node_name)
+                if node is not None and color_key in node:
+                    # Replace the string in max_labels with the actual color tuple
+                    max_labels[major_key][color_key] = node[color_key]
+
+        del colored['red']
+        del colored['purple']
+        del colored['blue']
         # Combine data and labels into a single structure:
         combined = []
         for main_key, keys in colored.items():
-            # Retrieve the corresponding label dictionary for this main_key
             main_label = max_labels.get(main_key, {"red": "#ffffff", "purple": "#ffffff", "blue": "#ffffff"})
+            rendered_html = mark_safe(render_nested_structure(keys))
             combined.append({
                 "main_key": main_key,
                 "main_label": main_label,
-                "items": keys
+                "rendered_items": rendered_html
             })
 
         context['data'] = json.dumps(indication_data)
-        context['listplot_data'] = json.dumps(listdata)
+        context['listplot_data'] = json.dumps(labeled_listdata)
         context['listplot_data_variables'] = json.dumps(listplot_data_variables)
         context['listplot_datatypes'] = json.dumps(data_types_list)
         context['Label_Conversion'] = json.dumps(Label_Conversion)
