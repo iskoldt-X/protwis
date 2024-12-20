@@ -99,9 +99,9 @@ th .dt-column-title {
               <td colspan="13" style="text-align: center" data-dt-order="disable"></td>
             </tr>
             <tr>
-              <th colspan="3" style="text-align:center">Drug/Agent</th>
-              <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Target</th>
-              <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Indication</th>
+              <th colspan="3" style="text-align:center">Compounds</th>
+              <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Targets</th>
+              <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Diseases</th>
               <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
             </tr>
             <tr>
@@ -222,7 +222,7 @@ function initializeDataTable(tableId, data) {
   // Add common column definitions
   var columnDefs = [
     { className: "dt-head-center dt-center dt-body-center expand", targets: "_all" },
-    { className: 'border-left', targets: [3, 8, 12] }
+    { className: 'border-left', targets: [3, 8, 11] }
 ];
   
   // Set order based on layout value: column 3 for "Targets" and column 0 for "Drugs"
@@ -299,7 +299,7 @@ function initializeDataTable(tableId, data) {
       table.draw();
       // Update row count after redrawing
       const totalRows = table.rows().count();
-      const rowCountText = `Target-Drug/Agent-Indication rows: ${totalRows}`;
+      const rowCountText = `Target-compound-disease rows: ${totalRows}`;
       $('.row-count-info').html(`<span class="row-count">${rowCountText}</span>`);
   } else {
       $(tableId).DataTable({
@@ -327,7 +327,7 @@ function initializeDataTable(tableId, data) {
               // Use `this.api()` to get the table instance inside initComplete
               const api = this.api(); // Access the DataTable API
               const totalRows = api.rows().count(); // Use the API to get row count
-              const rowCountText = `Target-Drug/Agent-Indication rows: ${totalRows}`;
+              const rowCountText = `Target-compound-disease rows: ${totalRows}`;
               $('.row-count-info').html(`<span class="row-count">${rowCountText}</span>`);
           }
       });

@@ -8,7 +8,12 @@
       width: 275px;
       background: linear-gradient(to right, white 0%, black 100%)
   }
-  .color_phase1 {
+  .color_header {
+    color: black;
+    font-size: 15px;
+}
+
+.color_phase1 {
     color: #f5bcbf;
     font-size: 15px;
 }
@@ -47,12 +52,6 @@
 {% block content %}
 <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
   <div class="col-md-12">
-    <div class="col-md-12" style="margin-bottom: 40px;">
-      <br>
-      The GPCRome wheel plot shows the highest clinical phase drugs have reached for each receptor.<br>
-      <br>
-    </div>
-
     <ul class="nav nav-tabs">
         <li class="active">
           <a href="#gpcrome" data-toggle="tab">Drugged GPCRome</a>
@@ -61,7 +60,7 @@
           <a href="#repurposed" data-toggle="tab">Repurposed Tree</a>
         </li>
         <li>
-          <a href="#tree" data-toggle="tab">Tree visualization</a>
+          <a href="#tree" data-toggle="tab">Phase Tree</a>
         </li>
     </ul>
 
@@ -101,8 +100,8 @@
             </div>
             <div class="col-md-3"></div>
             <div class="col-md-1">
-              <div style="float: left; position: relative;margin-bottom: -150px;margin-top: 50px;" class="text-center">
-                <b style="font-size: 15px;">Color scheme</b> <br/>
+              <div style="margin-bottom: -150px;margin-top: 0px;" class="text-center">
+                  <span class="color_header"><b><u>Color scheme</u></b><br></span>
                     <span class="color_phase1">&#9644; <b>Phase 1</b></span><br/>
                     <span class="color_phase2">&#9644; <b>Phase 2</b></span><br/>
                     <span class="color_phase3">&#9644; <b>Phase 3</b></span><br/>
@@ -136,7 +135,7 @@
                     <button id="rep_TREE_IUPHARNames" class="btn btn-info">Protein</button>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
               <div class="text-center">
                 <div class="dropdown">
                   <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -151,18 +150,23 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div style="float: left; position: relative" class="text-center">
-                <b>Agent/Drugs</b> <br/>
-                    <span class="color_phase3">&#9644; <b>New agents in trial</b></span>
-                    <span class="color_repurposed">&#9644; <b>Repurposed drugs</b></span>
-                    <span class="color_phase4">&#9644; <b>Approved drugs</b></span>
+            <div class="col-md-2"></div>
+            <div class="col-md-3" style="margin-bottom: -75px;">
+              <div class="text-center">
+                  <span class="color_header"><b><u>Agent/drugs</u></b></span>
+                    <span class="color_phase3"><br>&#9644; <b>New agents in trial</b></span>
+                    <span class="color_repurposed"><br>&#9644; <b>Repurposed drugs</b></span>
+                    <span class="color_phase4"><br>&#9644; <b>Approved drugs</b></span>
               </div>
             </div>
             <!-- ############# -->
             <!-- # TREE plot # -->
             <!-- ############# -->
-            <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+             <!-- Legend bars -->
+            <div class="col-md-12" id="rep_legend_bars" style="margin-top: 30px;">
+              <svg width="600" height="75"></svg>
+            </div>
+            <div class="col-md-12" style="margin-top: -125px;margin-bottom: 30px;">
                 <div id="rep_tree_plot" class="text-center"></div>
             </div>
           </div>
@@ -179,7 +183,7 @@
                     <button id="TREE_IUPHARNames" class="btn btn-info">Protein</button>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
               <div class="text-center">
                 <div class="dropdown">
                   <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -194,19 +198,24 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div style="float: left; position: relative" class="text-center">
-                <b>Clinical phase</b> <br/>
-                    <span class="color_phase1">&#9644; <b>Phase 1</b></span>
-                    <span class="color_phase2">&#9644; <b>Phase 2</b></span>
-                    <span class="color_phase3">&#9644; <b>Phase 3</b></span>
-                    <span class="color_phase4">&#9644; <b>Phase 4</b></span>
+            <div class="col-md-2"></div>
+            <div class="col-md-3" style="margin-bottom: -100px;">
+              <div class="text-center">
+                    <span class="color_header"><b><u>Clinical phases</u></b></span>
+                    <span class="color_phase1"><br>&#9644; <b>Phase I</b></span>
+                    <span class="color_phase2"><br>&#9644; <b>Phase II</b></span>
+                    <span class="color_phase3"><br>&#9644; <b>Phase III</b></span>
+                    <span class="color_phase4"><br>&#9644; <b>Phase IV</b></span>
               </div>
+            </div>
+            <!-- Legend bars -->
+            <div class="col-md-12" id="legend_bars" style="margin-top: 30px;">
+              <svg width="600" height="75"></svg>
             </div>
             <!-- ############# -->
             <!-- # TREE plot # -->
             <!-- ############# -->
-            <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+            <div class="col-md-12" style="margin-top: -125px;margin-bottom: 30px;">
                 <div id="tree_plot" class="text-center"></div>
             </div>
           </div>
@@ -436,11 +445,112 @@ function updateFillData(fill_data, conversionDict, labelType) {
     tree_data = update_tree_data(tree_data,tree_options.depth);
     rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
 
+    function renameClasses(data) {
+      // Check if data has children
+      if (data.children && data.children.length > 0) {
+        data.children.forEach(child => {
+          // Replace "Class X" with "X"
+          child.name = child.name.replace(/^Class\s+/, '');
+        });
+      }
+    }
+    // renameClasses(tree_data);
+    // renameClasses(rep_tree_data);
+
+
+    // First, calculate the min and max values for the Outer group (Outer1, Outer2, Outer3)
+    let minOuterValue = Infinity;
+    let maxOuterValue = -Infinity;
+
+    for (const x in Tree_circles) {
+      const outerValues = [
+        Tree_circles[x].Outer1,
+        Tree_circles[x].Outer2,
+        Tree_circles[x].Outer3
+      ];
+      const localMin = Math.min(...outerValues);
+      const localMax = Math.max(...outerValues);
+      
+      if (localMin < minOuterValue) minOuterValue = localMin;
+      if (localMax > maxOuterValue) maxOuterValue = localMax;
+    }
+
+    // Add dummy_min and dummy_max entries to `Tree_circles` to hold these values
+    Tree_circles["dummy_min"] = { Outer1: minOuterValue, Outer2: minOuterValue, Outer3: minOuterValue };
+    Tree_circles["dummy_max"] = { Outer1: maxOuterValue, Outer2: maxOuterValue, Outer3: maxOuterValue };
+
+    // Re calculate the values for the bar legends
+
+    function transformData(data) {
+    let min = Infinity;
+    let max = -Infinity;
+    let minKey = null;
+    let maxKey = null;
+
+    // First pass to find global min and max across Outer1, Outer2, Outer3
+    for (const key in data) {
+      const entry = data[key];
+      const outerValues = [entry.Outer1, entry.Outer2, entry.Outer3];
+
+      const entryMin = Math.min(...outerValues);
+      const entryMax = Math.max(...outerValues);
+
+      if (entryMin < min) {
+        min = entryMin;
+        minKey = key;
+      }
+      if (entryMax > max) {
+        max = entryMax;
+        maxKey = key;
+      }
+    }
+
+    // Second pass to transform data
+    const result = {};
+    for (const key in data) {
+      const entry = data[key];
+
+      result[key] = {
+        "Phase_I-III": key === minKey ? min : key === maxKey ? max : 1,
+        "Phase_IV": entry.Outer4
+      };
+    }
+
+    return result;
+  }
+
+  let Bar_Tree_circles = transformData(Tree_circles);
+
+   // setup the variables
+
+    tree_options.fontSize.class = "18px";
+    tree_options.fontSize.ligandtype = "18px";
+    tree_options.fontSize.receptorfamily = "18px";
+    tree_options.fontSize.receptor = "17px";
+
+    rep_tree_options.fontSize.class = "18px";
+    rep_tree_options.fontSize.ligandtype = "18px";
+    rep_tree_options.fontSize.receptorfamily = "18px";
+    rep_tree_options.fontSize.receptor = "17px";
+    rep_tree_options.anchor = "rep_tree_plot";
+    
+    let maxLeafNodeLength = 0;
+    let rep_maxLeafNodeLength = 0;
+    
+
+
     // Handler for one class -> reduce the depth
     if (tree_options.depth == 4) {
       maxLeafNodeLength = 4*parseInt(tree_options.fontSize.receptor);
     } else if (tree_options.depth == 3) {
       maxLeafNodeLength = 4*parseInt(tree_options.fontSize.receptorfamily);
+    }
+
+    // Handler for one class -> reduce the depth
+    if (rep_tree_options.depth == 4) {
+      rep_maxLeafNodeLength = 4*parseInt(rep_tree_options.fontSize.receptor);
+    } else if (rep_tree_options.depth == 3) {
+      rep_maxLeafNodeLength = 4*parseInt(rep_tree_options.fontSize.receptorfamily);
     }
 
     circle_size = 6;
@@ -456,7 +566,25 @@ function updateFillData(fill_data, conversionDict, labelType) {
       "Outer5":"Three",
     }
 
-    Tree_colors = {"Outer1":["#FCE8E8","#dd2628"],
+
+
+    rep_circle_size = 6;
+    rep_circle_spacer = rep_circle_size*2+1;
+    rep_circle_spacer = rep_circle_spacer+5
+    
+    var rep_Tree_circle_styling_dict = {
+      "Inner":'Drugged_tree',
+      "Outer1":"Two",
+      "Outer2":"Two",
+      "Outer3":"Two",
+      "Outer4":"Two",
+      "Outer5":"Three",
+    }
+
+    
+
+    Tree_colors = {
+                  "Outer1":["#FCE8E8","#dd2628"],
                   "Outer2":["#FCE8E8","#dd2628"],
                   "Outer3":["#FCE8E8","#dd2628"],
                   "Outer4":["#E8F4FB","#2c87c8"],
@@ -468,11 +596,48 @@ function updateFillData(fill_data, conversionDict, labelType) {
                   "Outer3":["#FFFFFF","#2c87c8"],
                   "Outer4":["#FFFFFF","#FFFFFF"],
                   "Outer5":["#FFFFFF","#FFFFFF"]};
-    Bar_colors = {"PhaseI-III": ["#FCE8E8","#dd2628"],
-                  "PhaseIV": ["#E8F4FB","#2c87c8"]};
-    Tree_bar_styling = {"PhaseI-III": "Two", "PhaseIV": "Two"};
 
-    Tree_datatype = {"PhaseI-III": "Continuous", "PhaseIV": "Continuous"};
+
+    Bar_colors = {"Phase_I-III": ["#FCE8E8","#dd2628"],
+                  "Phase_IV": ["#E8F4FB","#2c87c8"]};
+    Tree_bar_styling = {"Phase_I-III": "Two", "Phase_IV": "Two"};
+
+    Tree_datatype = {"Phase_I-III": "Continuous", "Phase_IV": "Continuous",};
+
+    function renameKeys(obj) {
+      const keyMapping = {
+        Outer1: "New_agents_in_trial",
+        Outer2: "Repurposed_drugs",
+        Outer3: "Approved_drugs"
+      };
+
+      const newObj = {};
+
+      // Iterate through the object's keys and rename as needed
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          // Replace key if it matches the mapping
+          const newKey = keyMapping[key] || key;
+          newObj[newKey] = obj[key];
+
+          // If nested, apply renaming recursively
+          if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            newObj[newKey] = renameKeys(obj[key]);
+          }
+        }
+      }
+
+      return newObj;
+    }
+
+    // Example usage
+    rep_Bar_tree_circles = renameKeys(rep_tree_circles);
+    rep_Bar_colors = {"New_agents_in_trial":["#FFFFFF","#dd2628"],
+                  "Repurposed_drugs":["#FFFFFF","#ae5dae"],
+                  "Approved_drugs":["#FFFFFF","#2c87c8"]};
+    rep_Tree_bar_styling = {"New_agents_in_trial": "Two", "Repurposed_drugs": "Two","Approved_drugs": "Two"};
+
+    rep_Tree_datatype = {"New_agents_in_trial": "Continuous","Repurposed_drugs": "Continuous", "Approved_drugs": "Continuous"};
 
    // Data for phases with specific labels
     const phases = [
@@ -480,6 +645,13 @@ function updateFillData(fill_data, conversionDict, labelType) {
       { label: "III" },
       { label: "II" },
       { label: "I" }
+    ];
+
+    const rep_phases = [
+      { label: "Approved" },
+      { label: "Repurposed" },
+      { label: "New" },
+      { label: "" }
     ];
 
     // Function to draw labels to the left of a specific node
@@ -510,67 +682,80 @@ function updateFillData(fill_data, conversionDict, labelType) {
     }
 
     // stupid workaround changeLeavesLabels
-    function updatePhaseLabels(newLabels, labelType, maxLeafNodeLength) {
+    function updatePhaseLabels(newLabels, labelType, maxLeafNodeLength, treeId) {
       newLabels.forEach((label, i) => {
-        const labelElement = d3.select(`#phase-label-${i}`);
+        // Select the label element scoped to the specific treeId
+        const labelElement = d3.select(`${treeId} #phase-label-${i}`);
 
         // Update label text
         labelElement.text(label);
 
-        // Adjust x position if labelType is "IUPHAR"
+        // Adjust y position based on labelType
+        const currentY = parseFloat(labelElement.attr("y"));
         if (labelType === "IUPHAR") {
-          const currentY = parseFloat(labelElement.attr("y"));
-          if (currentY !== -257){
+          if (currentY !== -257) {
             labelElement.attr("y", currentY - 50);
           }
         } else {
-          const currentY = parseFloat(labelElement.attr("y"));
-          if (currentY !== -207){
+          if (currentY !== -207) {
             labelElement.attr("y", currentY + 50);
           }
         }
       });
     }
 
-    function addBackgroundToText(svgId) {
-  // Select the SVG element by ID and target all node groups with text
-  const svg = d3.select(`#${svgId}`);
-  
-  // Select all text elements within node groups
-  svg.selectAll(".node text").each(function() {
-    const textElement = d3.select(this);
-    const bbox = this.getBBox(); // Get bounding box of the text element
+    function rep_updatePhaseLabels(newLabels, labelType, maxLeafNodeLength, treeId) {
+      newLabels.forEach((label, i) => {
+        // Select the label element scoped to the specific treeId
+        const labelElement = d3.select(`${treeId} #phase-label-${i}`);
 
-    // Insert a rectangle behind the text within the same group
-    d3.select(this.parentNode)
-      .insert("rect", "text")
-      .attr("x", bbox.x - 2)          // Position rect slightly to the left
-      .attr("y", bbox.y - 2)          // Position rect slightly above the text
-      .attr("width", bbox.width + 4)  // Slightly wider than text
-      .attr("height", bbox.height + 4) // Slightly taller than text
-      .attr("fill", "white");         // Background color
-  });
-}
-    // Repurposed checking
-    rep_tree_options.fontSize.class = "18px";
-    rep_tree_options.fontSize.ligandtype = "18px";
-    rep_tree_options.fontSize.receptorfamily = "18px";
-    rep_tree_options.fontSize.receptor = "17px";
-    rep_tree_options.anchor = "rep_tree_plot";
+        // Update label text
+        labelElement.text(label);
+
+        // Adjust y position based on labelType
+        const currentY = parseFloat(labelElement.attr("y"));
+        console.log(currentY);
+        if (labelType === "IUPHAR") {
+          if (currentY !== -249) {
+            labelElement.attr("y", currentY - 50);
+          }
+        } else {
+          if (currentY !== -199) {
+            labelElement.attr("y", currentY + 50);
+          }
+        }
+      });
+    }
+
+    function updateLegendLabels(containerId) {
+      // Select all text elements within the specified container
+      d3.select(`#${containerId} svg`)
+          .selectAll("text")
+          .each(function() {
+              // Get the current text content
+              const currentText = d3.select(this).text();
+
+              // Replace underscores with spaces and update the text content
+              const updatedText = currentText.replace(/_/g, " ");
+              d3.select(this).text(updatedText);
+          });
+    }
+
     // # Change leaves buttons #
     $("#TREE_UniProtNames").click(function(){
         $("#TREE_UniProtNames").addClass("active");
         $("#TREE_IUPHARNames").removeClass("active");
-        changeLeavesLabels("tree_plot", "UniProt", Tree_label_dict);
+        changeLeavesLabels("tree_plot", "UniProt", Tree_label_dict,maxLeafNodeLength);
         DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
         // Finally, restore original labels
-        // updatePhaseLabels(["Phase IV", "III", "II", "I"],"UniProt",maxLeafNodeLenght);
+        updatePhaseLabels(["Phase IV", "III", "II", "I"],"UniProt",maxLeafNodeLength,"#tree_plot");
     });
     $("#TREE_IUPHARNames").click(function() {
       $("#TREE_UniProtNames").removeClass("active");
       $("#TREE_IUPHARNames").addClass("active");
-      changeLeavesLabels("tree_plot","IUPHAR", Tree_label_dict);
+      changeLeavesLabels("tree_plot","IUPHAR", Tree_label_dict,maxLeafNodeLength);
       DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      updatePhaseLabels(["Phase IV", "III", "II", "I"],"IUPHAR",maxLeafNodeLength,"#tree_plot");
     });
 
     // # Change leaves buttons #
@@ -579,90 +764,32 @@ function updateFillData(fill_data, conversionDict, labelType) {
         $("#rep_TREE_IUPHARNames").removeClass("active");
         changeLeavesLabels("rep_tree_plot", "UniProt", rep_tree_label_dict);
         DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
-      // Finally, restore original labels
-      // updatePhaseLabels(["Phase IV", "III", "II", "I"],"IUPHAR",maxLeafNodeLenght);
+        // Finally, restore original labels
+        rep_updatePhaseLabels(["Approved", "Repurposed", "New", ""],"UniProt",maxLeafNodeLength,"#rep_tree_plot");
     });
     $("#rep_TREE_IUPHARNames").click(function() {
       $("#rep_TREE_UniProtNames").removeClass("active");
       $("#rep_TREE_IUPHARNames").addClass("active");
       changeLeavesLabels("rep_tree_plot", "IUPHAR", rep_tree_label_dict);
       DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      rep_updatePhaseLabels(["Approved", "Repurposed", "New", ""],"IUPHAR",maxLeafNodeLength,"#rep_tree_plot");
     });
 
     // # Initialize tree plot #
     document.addEventListener("DOMContentLoaded", function() {
+      // Phase tree
       draw_tree(tree_data, tree_options, circle_size);
-      DrawCircles('tree_plot', Tree_circles, maxLeafNodeLenght, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
+      DrawLabelsToLeftOfNode("tree_plot", phases, "5HT1A", 18.5, -40); // Adjust offsets as needed
+      createLegendBars('legend_bars', Bar_Tree_circles, Bar_colors, Tree_bar_styling,Tree_datatype);
+      updateLegendLabels('legend_bars');
+
+      // Repurpose Tree
       draw_tree(rep_tree_data, rep_tree_options, circle_size);
-      DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
-    });
-</script>
-
-<script type="text/javascript" charset="utf-8">
-
-  // Set dropdown to keep open
-  $('.dropdown-menu').on('click', function(event){
-      event.stopPropagation();
-    });
-
-    // # Initialize data #
-    rep_tree_data = {{ rep_tree | safe }};
-    rep_tree_options = {{ rep_tree_options | safe }};
-    rep_Tree_circles = {{ rep_circles|safe }};
-    rep_Tree_label_dict = {{ rep_whole_dict|safe }};
-    
-    rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
-    const rep_depth = rep_tree_options.depth;  // Set this value when the page loads
-    
-    // Handler for one class -> reduce the depth
-    if (rep_tree_options.depth == 4) {
-      maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptor);
-    } else if (tree_options.depth == 3) {
-      maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptorfamily);
-    }
-    rep_circle_size = 6;
-    rep_circle_spacer = rep_circle_size*2+1;
-    rep_circle_spacer = rep_circle_spacer+2
-    
-    var rep_Tree_circle_styling_dict = {
-      "Inner":'Drugged_tree',
-      "Outer1":"Two",
-      "Outer2":"Two",
-      "Outer3":"Two",
-      "Outer4":"Two",
-      "Outer5":"Three",
-    }
-    
-    rep_Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
-                  "Outer1":["#FFFFFF","#dd2628"],
-                  "Outer2":["#FFFFFF","#ae5dae"],
-                  "Outer3":["#FFFFFF","#2c87c8"],
-                  "Outer4":["#FFFFFF","#FFFFFF"],
-                  "Outer5":["#FFFFFF","#FFFFFF"]};
-    
-    
-    rep_tree_options.fontSize.class = "18px";
-    rep_tree_options.fontSize.ligandtype = "18px";
-    rep_tree_options.fontSize.receptorfamily = "18px";
-    rep_tree_options.fontSize.receptor = "17px";
-    
-    // # Change leaves buttons #
-    $("#rep_TREE_UniProtNames").click(function(){
-        $("#rep_TREE_UniProtNames").addClass("active");
-        $("#rep_TREE_IUPHARNames").removeClass("active");
-        changeLeavesLabels("rep_tree_plot", "UniProt", rep_Tree_label_dict);
-        DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true,rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
-    });
-    $("#rep_TREE_IUPHARNames").click(function() {
-      $("#rep_TREE_UniProtNames").removeClass("active");
-      $("#rep_TREE_IUPHARNames").addClass("active");
-      changeLeavesLabels("rep_tree_plot","IUPHAR", rep_Tree_label_dict);
-      DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
-    });
-    // # Initialize tree plot #
-    document.addEventListener("DOMContentLoaded", function() {
-      draw_tree(rep_tree_data, rep_tree_options, rep_circle_size);
-      DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+      DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+      DrawLabelsToLeftOfNode("rep_tree_plot", rep_phases, "5HT1A", 18.5, -32); // Adjust offsets as needed
+      createLegendBars('rep_legend_bars', rep_Bar_tree_circles, rep_Bar_colors, rep_Tree_bar_styling,rep_Tree_datatype);
+      updateLegendLabels('rep_legend_bars');
     });
 </script>
 {% endblock %}

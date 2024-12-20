@@ -297,7 +297,7 @@ function formatTextWithHTML(text) {
 // Change the labels
 function changeLeavesLabels(location, value, dict){
     // Initialize leaf node length
-    maxLeafNodeLenght = 0;
+    maxLeafNodeLength = 0;
     // Find longest label
     gNodes = d3.select('#'+location).selectAll('g');
     gNodes.each(function(d) {
@@ -312,9 +312,9 @@ function changeLeavesLabels(location, value, dict){
               function(node_label){
                 node_label.innerHTML = labelName;
                 labelSize = node_label.getBBox().width*1.05 + 0.5 * 10
-                if (labelSize > maxLeafNodeLenght){
+                if (labelSize > maxLeafNodeLength){
                   // change initialization label length, needed for outer circles
-                  maxLeafNodeLenght = labelSize
+                  maxLeafNodeLength = labelSize
                 }
               });
           } else if (value === "UniProt"){
@@ -322,8 +322,8 @@ function changeLeavesLabels(location, value, dict){
               function(node_label){
                 node_label.innerHTML = name;
                 labelSize = node_label.getBBox().width*1.05 + 0.5 * 10
-                if (labelSize > maxLeafNodeLenght){
-                  maxLeafNodeLenght = labelSize
+                if (labelSize > maxLeafNodeLength){
+                  maxLeafNodeLength = labelSize
                 }
               });
           }
