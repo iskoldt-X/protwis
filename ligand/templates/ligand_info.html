@@ -43,8 +43,8 @@
     
     <!-- Tabs for Agent/Drug and Bioactivity -->
     <ul class="nav nav-tabs">
-		<li class="nav-item">
-            <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/Drug</a>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#agent_drug" id="agent_drug_tab">Agent/drug</a>
         </li>
         <li class="nav-item active">
             <a class="nav-link active" data-toggle="tab" href="#bioactivity" id="bioactivity_tab">Bioactivity</a>
@@ -240,11 +240,11 @@
 								<th style="text-align: center;">Species</th>
 								<th style="text-align: center;">Family</th>
 								<th style="text-align: center;">Class</th>
-								<th style="border-left: 1px solid black; text-align: center;">Type</th>
+								<th style="border-left: 1px solid #cccccc; text-align: center;">Type</th>
 								<th style="text-align: center;">Min</th>
 								<th style="text-align: center;">Avg</th>
 								<th style="text-align: center;">Max</th>
-								<th style="border-left: 1px solid black; text-align: center;">Database</th>
+								<th style="border-left: 1px solid #cccccc; text-align: center;">Database</th>
 							</tr>
 							<!-- Filter Row for header -->
 							<tr>
@@ -253,11 +253,11 @@
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;border-left: 1px solid black;" data-dt-order="disable"></td>
+								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
 							</tr>
 						</thead>
 						<tbody>
@@ -374,7 +374,7 @@
              <hr>
             <h3>Sankey plot</h3>
             {% if plot_existence == 'yes' %}
-                <div id="sankey_plot"></div>
+                <div id="sankey_plot" style="display: flex; justify-content: center;"></div>
                 <p>
                     <div class="btn-group">
                         <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown"
@@ -383,13 +383,13 @@
                         </button>
                         <ul class="dropdown-menu">
                         <li>
-                                <a href="javascript:saveSvgAsPng(document.getElementById('sankey'), 'sankey_{{ indication }}.png');">PNG</a>
+                                <a href="javascript:saveSvgAsPng(document.getElementById('sankey'),'sankey.png');">PNG</a>
                         </li>
                         <li>
-                                <a href="javascript:saveSvgAsJpg(document.getElementById('sankey'), 'sankey_{{ indication }}.jpg');">JPG</a>
+                                <a href="javascript:saveSvgAsJpg(document.getElementById('sankey'),'sankey.jpg');">JPG</a>
                         </li>
                         <li>
-                                <a href="javascript:saveSvgAsTiff(document.getElementById('sankey'), 'sankey_{{ indication }}.tiff');">TIFF</a>
+                                <a href="javascript:saveSvgAsTiff(document.getElementById('sankey'),'sankey.tiff');">TIFF</a>
                         </li>
                         </ul>
                     </div></p>
@@ -405,14 +405,14 @@
 						<thead>
 							<!-- Dummy Header Row for Complex Header Fix -->
 							<tr>
-								<td colspan="14" style="text-align: center" data-dt-order="disable"></td>
+								<td colspan="11" style="text-align: center" data-dt-order="disable"></td>
 							</tr>
 			  
 							<!-- Super Header Row -->
 							<tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
 								<th colspan="5" style="text-align:center">Target</th>
 								<th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Disease</th>
-								<th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
+								<th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Phase</th>
 							</tr>
 			  
 							<!-- Header Row -->
@@ -422,14 +422,11 @@
 								<th style="text-align: center;">Receptor family</th>
 								<th style="text-align: center;">Ligand type</th>
 								<th style="text-align: center;">Class</th>
-								<th style="text-align: center;border-left: 1px solid #cccccc">Indication</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc">Indication name</th>
 								<th style="text-align: center;">ICD11</th>
 								<th style="text-align: center;">ATC</th>
 								<th style="text-align: center;">Association score</th>
-								<th style="text-align: center;border-left: 1px solid #cccccc;">Max</th>
-								<th style="text-align: center;">I</th>
-								<th style="text-align: center;">II</th>
-								<th style="text-align: center;">III</th>
+								<th style="text-align: center;border-left: 1px solid #cccccc;">Phase</th>
 								<th style="text-align: center;">Approved</th>
 							</tr>
 							<!-- Filter Row for header -->
@@ -444,9 +441,6 @@
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
-								<td style="text-align: center;" data-dt-order="disable"></td>
 								<td style="text-align: center;" data-dt-order="disable"></td>
 							</tr>
 						</thead>
@@ -477,6 +471,7 @@
 
 {% block addon_js %}
 <!-- Make sure the Select2 JS file is included -->
+<script src="{% static 'home/js/saveSvgAsPng.js' %}"></script> <!-- For Saving Sankey plot -->
 <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
 <script src="{% static 'home/js/DataTables_v2.0.5.js' %}"></script>
 <script src="{% static 'home/js/dataTables.buttons_3_0_0.js' %}"></script>
@@ -488,14 +483,8 @@
 <script src="{% static 'home/js/gpcrdb.js' %}"></script>
 <script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script src="{% static 'home/js/sankey.js' %}"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.flash.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> <!-- For Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script> <!-- Optional: For PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-
+<script src="{% static 'home/js/buttons.html5.min.js' %}"></script> <!-- For CSV -->
+<script src="{% static 'home/js/jszip.min.js' %}"></script> <!-- For Excel -->
 
 <script type="text/javascript">
     var page = '{{ page }}';
@@ -552,22 +541,27 @@
 			data: data,
 			columns: columns,
 			columnDefs: columnDefs,
-			dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
-			"<'row'<'col-sm-11'tr>>" +                    // Table rows
-			"<'row'<'col-sm-11'ip>>", // Pagination and info
+			dom: "<'row'<'col-sm-3 dt-btn'B><'col-sm-3'f><'col-sm-'4>>" +
+			"<'row'<'col-sm-12'tr>>" + 
+			"<'row'<'col-sm-12'ip>>",
 			paging: false,
 			scrollCollapse: true,
 			autoWidth: true,
 			buttons: [
 				{
-					extend: 'csv',
-					text: 'Export to CSV',
-					className: 'btn btn-primary'
-				},
-				{
 					text: 'Reset All Filters',
 					className: 'btn btn-primary',
 					action: function () { reset_all(); }
+				},
+				{
+					extend: 'csv',
+					text: 'Export CSV', // Button text
+					className: 'btn btn-primary' // Optional: Add Bootstrap styling
+				},
+				{
+					extend: 'excel',
+					text: 'Export Excel',
+					className: 'btn btn-success'
 				}
 			]
 		});
@@ -600,19 +594,41 @@
 
 		// Define columns
 		var columns = [
-			{data: "Gene name", name: "Gene name", width: "5%", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+			{data: "Gene name", name: "Gene name",width: "5%", render: function (data, type, row, meta) {
+				if (type === 'display') {
+					const originalData = data; // Raw data
+					const transformedData = data.replace('_human', '').toUpperCase(); // Transformed display value
+
+					return '<a href="/protein/' + originalData + '/" target="_blank">' + transformedData + '</a>';
+				} else if (type === 'filter') {
+					// Return transformed data for the filter dropdown
+					return data.replace('_human', '').toUpperCase();
+				}
+				return data; // Raw data for sorting
+			}},
 			{data: "Protein name", name: "Protein name", width: "7%"},
 			{data: "Receptor family", name: "Receptor family", width: "9%"},
 			{data: "Ligand type", name: "Ligand type", width: "8%"},
 			{data: "Class", name: "Class", width: "7%", render: function (data) { return data.split(' (')[0]; }},
-			{data: "Indication name", name: "Indication", width: "10%"},
+			{data: "Indication name", name: "Indication",width: "15%",render: function (data, type, row, meta) {
+				if (type === 'display') {
+					if (row && row.ICD11) {
+						const transformedData = data || 'Unknown'; // Fallback if Indication name is missing
+						const link = '/drugs/indication/' + row.ICD11 + '/'; // Create the link using row.ICD11
+						return '<a href="' + link + '" target="_blank">' + transformedData + '</a>';
+					} else {
+						return data || ''; // Fallback to plain text if ICD11 is missing
+					}
+				} else if (type === 'filter') {
+					// Provide the raw data for filtering
+					return data || 'Unknown'; // Ensure it aligns with the displayed text
+				}
+				return data; // Use raw data for sorting
+			}},
 			{data: "ICD11", name: "ICD11", width: "7%"},
 			{data: 'ATC', name: "ATC", width: "7%"},
 			{data: 'Association score', name: "Association score", width: "10%", render: function (data) {return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed);}},
 			{data: "Highest_phase", name: "Highest phase", width: "3%"},
-			{data: "Phase_I_trials", name: "Phase I trials", width: "3%"},
-			{data: "Phase_II_trials", name: "Phase II trials", width: "3%"},
-			{data: "Phase_III_trials", name: "Phase III trials", width: "3%"},
 			{data: "Approved", name: "Approved", width: "8%"}
 		];
 
@@ -649,8 +665,8 @@
 		// Create and apply the filters
 		var column_filters = [];
 		column_filters = column_filters.concat(CreateColumnFilters(table, 0, 8, "Multi-select-exact"));
-		 column_filters = column_filters.concat(CreateColumnFilters(table, 8, 5, "Range-float-vertical"));
-		 column_filters = column_filters.concat(CreateColumnFilters(table, 13, 1, "Multi-select-exact"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 8, 2, "Range-float-vertical"));
+		 column_filters = column_filters.concat(CreateColumnFilters(table, 10, 1, "Multi-select-exact"));
 
 		createDropdownFilters(table, column_filters);
 
@@ -736,7 +752,6 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints, custom_width);
 {% endblock %}
 
 {% block addon_css %}
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
 <link rel="stylesheet" href="{% static 'home/css/button_spinner.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
 <link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">

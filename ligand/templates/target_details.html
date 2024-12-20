@@ -575,10 +575,10 @@
             var csv_data = [];
 
             {% if mode == 'extended' %}
-              csv_data.push('Lig. Name;GPCRdb ID;#Vendors;Ref. Ligand;Fold selectivity (Potency);# Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
+              csv_data.push('Lig. Name;GPCRdb ID;Vendors;Ref. Ligand;Fold selectivity (Potency);Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
             {% endif %}
             {% if mode == 'compact' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Fold selectivity (Potency);# Tested GPCRs;{% if ligand_query %}Receptor (Gtp);Receptor (UniProt);{% endif %}Species;{% if ligand_query %}Class;Family;{% endif %}#Vendors;Assay type;#Records;Min.;Average;Max.;Activ. Value;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
+              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Fold selectivity (Potency);Tested GPCRs;{% if ligand_query %}Receptor (Protein);Receptor (Gene);{% endif %}Species;{% if ligand_query %}Class;Family;{% endif %}Vendors;Assay type;#Records;Min;Avg;Max;Activ. Value;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
             {% endif %}
             for (i = 0; i < checked_data.length; i++) {
                 var csv_row = []
@@ -612,10 +612,10 @@
             var csv_data = [];
            
             {% if mode == 'extended' %}
-              csv_data.push('Lig. Name;GPCRdb ID;#Vendors;Ref. Ligand;Fold selectivity (Affinity);# Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
+              csv_data.push('Lig. Name;GPCRdb ID;Vendors;Ref. Ligand;Fold selectivity (Affinity);Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
             {% endif %}
             {% if mode == 'compact' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Fold selectivity (Affinity);# Tested GPCRs;{% if ligand_query %}Receptor (Gtp);Receptor (UniProt);{% endif %}Species;{% if ligand_query %}Class;Family;{% endif %}#Vendors;Assay type;#Records;Min.;Average;Max.;Activ. Value;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
+              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Fold selectivity (Affinity);Tested GPCRs;{% if ligand_query %}Receptor (Protein);Receptor (Gene);{% endif %}Species;{% if ligand_query %}Class;Family;{% endif %}Vendors;Assay type;#Records;Min;Avg;Max;Activ. Value;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
             {% endif %}
             
             for (i = 0; i < checked_data.length; i++) {
@@ -772,7 +772,7 @@
                     <th style="border-left: 1px solid black; text-align:left" colspan="3" style="">Receptor
                       <button type="button" class="close hide_columns" columns="5,6,7" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     </th>
-                    <th style="border-left: 1px solid black; text-align:left" colspan="7">Assay information
+                    <th style="border-left: 1px solid black; text-align:left" colspan="7">Activity
                       <button type="button" class="close hide_columns" columns="8,9,10,11,12,13,14" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     </th>
                     <th style="border-left: 1px solid black; text-align:left" colspan="7">Chemical information
@@ -783,18 +783,18 @@
                       <th class="select-page-th"><input class="select-page" type="checkbox">Sel. page</th>
                       <th style="text-align:left">Common<br />name</th>
                       <th style="text-align:left">GPCRdb<br />ID</th>
-                      <th style="text-align:left">#Vendors<br /><br /></th>
+                      <th style="text-align:left">Vendors<br /><br /></th>
                       <th style="text-align:left">Reference<br />ligand</th>
 
                       <th style="border-left: 1px solid black;text-align:left" class="general-th">Fold<br />selectivity</th>
-                      <th style="text-align:left"># Tested<br />GPCRs</th>
+                      <th style="text-align:left">Tested<br />GPCRs</th>
 
                       <th style="text-align:left">Species<br /><br /></th>
                       <th style="border-left: 1px solid black;text-align:left" class="activity-th">p-value<br />(-log)</th>
                       <th style="text-align:left">Activity<br />Type</th>
                       <th style="text-align:left">Activity<br />Relation</th>
                       <th style="text-align:left">Activity<br />Value</th>
-                      <th style="text-align:left">AssayType<br /><br /></th>
+                      <th style="text-align:left">Assay<br />Type<br /><br /></th>
                       <th style="text-align:left">Assay<br>Description</th>
                       <th style="text-align:left">Source<br /><br /></th>
                       <th style="border-left: 1px solid black;text-align:left" class="chemical-th">Mol<br />weight</th>
@@ -884,7 +884,7 @@
                   <th style="border-left: 1px solid black; text-align:left" colspan="{% if ligand_query %}7{% else %}3{% endif %}" style="">Receptor
                     <button type="button" class="close hide_columns" columns="{% if ligand_query %}5,6,7,8,9,10,11{% else %}5,6,7{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                   </th>
-                  <th style="border-left: 1px solid black; text-align:left" colspan="7">Assay information
+                  <th style="border-left: 1px solid black; text-align:left" colspan="7">Activity
                     <button type="button" class="close hide_columns" columns="{% if ligand_query %}12,13,14,15,16,17,18{% else %}8,9,10,11,12,13,14{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                   </th>
                   <th style="border-left: 1px solid black; text-align:left" colspan="7">Chemical information
@@ -896,11 +896,11 @@
                     <th style="text-align:left">Similar-<br />ity</th>
                     <th style="text-align:left">Common<br />name</th>
                     <th style="text-align:left">GPCRdb<br />ID</th>
-                    <th style="text-align:left">#Vendors<br /><br /></th>
+                    <th style="text-align:left">Vendors<br /><br /></th>
                     <th style="text-align:left">Reference<br />ligand</th>
 
                     <th style="border-left: 1px solid black;text-align:left" class="general-th">Fold<br />selectivity</th>
-                    <th style="text-align:left"># Tested<br />GPCRs</th>
+                    <th style="text-align:left">Tested<br />GPCRs</th>
 
                     <th style="text-align:left">Species<br /><br /></th>
                     <th style="border-left: 1px solid black;text-align:left" class="activity-th">p-value<br />(-log)</th>
@@ -1015,7 +1015,7 @@
                    <th style="border-left: 1px solid black; text-align:left" colspan="{% if ligand_query %}7{% else %}3{% endif %}" style="">Receptor
                     <button type="button" class="close hide_columns" columns="{% if ligand_query %}{% if not ligand_similarity %}5,{% endif %}6,7,8,9,10,11{% if ligand_similarity %},12{% endif %}{% else %}5,6,7{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                   </th>
-                   <th style="border-left: 1px solid black; text-align:left" colspan="8">Assay information
+                   <th style="border-left: 1px solid black; text-align:left" colspan="8">Activity
                     <button type="button" class="close hide_columns" columns="{% if ligand_query %}{% if not ligand_similarity %}12,{% endif %}13,14,15,16,17,18,19{% if ligand_similarity %},20{% endif %}{% else %}8,9,10,11,12,13,14,15{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                   </th>
                   <th style="border-left: 1px solid black; text-align:left" colspan="6">Chemical information
@@ -1031,23 +1031,23 @@
                    <th style="text-align:left">Reference<br />ligand</th>
 
                    <th style="border-left: 1px solid black; text-align:left">Fold<br />selectivity</th>
-                   <th style="text-align:left"># Tested<br />GPCRs</th>
+                   <th style="text-align:left">Tested<br />GPCRs</th>
                    {% if ligand_query %}
-                   <th style="text-align:left">GtP<br>name</th>
-                   <th style="text-align:left">UniProt<br>name</th>
+                   <th style="text-align:left">Protein<br />name<br>name</th>
+                   <th style="text-align:left">Gene<br />name</th>
                    {% endif %}
                    <th style="text-align:left">Species<br /><br /></th>
                    {% if ligand_query %}
                    <th style="text-align:left">Class<br /><br /></th>
                    <th style="text-align:left">Family<br /><br /></th>
                    {% endif %}
-                   <th style="border-left: 1px solid black; text-align:left">#Vendors<br /><br /></th>
+                   <th style="border-left: 1px solid black; text-align:left">Vendors<br /><br /></th>
                    <th style="text-align:left">Assay<br>Type</th>
                    <th style="text-align:left">No.<br />records</th>
-                   <th style="text-align:left">Min.<br /><br /></th>
-                   <th style="text-align:left">Average<br /><br /></th>
-                   <th style="text-align:left">Max.<br /><br /></th>
-                   <th style="text-align:left">Param<br>-eter</th>
+                   <th style="text-align:left">Min<br /><br /></th>
+                   <th style="text-align:left">Avg<br /><br /></th>
+                   <th style="text-align:left">Max<br /><br /></th>
+                   <th style="text-align:left">Parameter</th>
                    <th style="text-align:left">Source<br /><br /></th>
                    <th style="border-left: 1px solid black; text-align:left">Mol<br />weight</th>
                    <th style="text-align:left">Rot<br />Bonds</th>
@@ -1148,7 +1148,7 @@
                 <th style="border-left: 1px solid black; text-align:left" colspan="{% if ligand_query %}7{% else %}3{% endif %}" style="">Receptor
                   <button type="button" class="close hide_columns" columns="{% if ligand_query %}{% if not ligand_similarity %}5,{% endif %}6,7,8,9,10,11{% if ligand_similarity %},12{% endif %}{% else %}5,6,7{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </th>
-                 <th style="border-left: 1px solid black; text-align:left" colspan="8">Assay information
+                 <th style="border-left: 1px solid black; text-align:left" colspan="8">Activity
                   <button type="button" class="close hide_columns" columns="{% if ligand_query %}{% if not ligand_similarity %}12,{% endif %}13,14,15,16,17,18,19{% if ligand_similarity %},20{% endif %}{% else %}8,9,10,11,12,13,14,15{% endif %}" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </th>
                 <th style="border-left: 1px solid black; text-align:left" colspan="6">Chemical information
@@ -1164,24 +1164,24 @@
                 <th style="text-align:left">Reference<br />ligand</th>
 
                 <th style="border-left: 1px solid black; text-align:left">Fold<br />selectivity</th>
-                <th style="text-align:left"># Tested<br />GPCRs</th>
+                <th style="text-align:left">Tested<br />GPCRs</th>
 
                 {% if ligand_query %}
-                <th style="text-align:left">GtP<br />name</th>
-                <th style="text-align:left">UniProt<br />name</th>
+                <th style="text-align:left">Protein<br />name</th>
+                <th style="text-align:left">Gene<br />name</th>
                 {% endif %}
                 <th style="text-align:left">Species<br /><br /></th>
                 {% if ligand_query %}
                 <th style="text-align:left">Class<br /><br /></th>
                 <th style="text-align:left">Family<br /><br /></th>
                 {% endif %}
-                <th style="border-left: 1px solid black; text-align:left">#Vendors<br /><br /></th>
+                <th style="border-left: 1px solid black; text-align:left">Vendors<br /><br /></th>
                 <th style="text-align:left">Assay<br>Type</th>
                 <th style="text-align:left">No.<br />records</th>
-                <th style="text-align:left">Min.<br /><br /></th>
-                <th style="text-align:left">Average<br /><br /></th>
-                <th style="text-align:left">Max.<br /><br /></th>
-                <th style="text-align:left">Param<br>-eter</th>
+                <th style="text-align:left">Min<br /><br /></th>
+                <th style="text-align:left">Avg<br /><br /></th>
+                <th style="text-align:left">Max<br /><br /></th>
+                <th style="text-align:left">Parameter</th>
                 <th style="text-align:left">Source<br /><br /></th>
                 <th style="border-left: 1px solid black; text-align:left">Mol<br />weight</th>
                 <th style="text-align:left">Rot<br />Bonds</th>

@@ -273,6 +273,7 @@ class DrugSectionSelection(TemplateView):
             # Convert 'Approved' from integer to 'Yes'/'No'
             Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
 
+
             # Convert DataFrame to JSON
             json_records = Modified_df.to_json(orient='records')
 
