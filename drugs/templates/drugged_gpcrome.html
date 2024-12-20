@@ -47,7 +47,7 @@
 {% block content %}
 <div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
   <div class="col-md-12">
-    <div class="col-md-12" style="margin-bottom: 40px;"">
+    <div class="col-md-12" style="margin-bottom: 40px;">
       <br>
       The GPCRome wheel plot shows the highest clinical phase drugs have reached for each receptor.<br>
       <br>
@@ -564,7 +564,7 @@ function updateFillData(fill_data, conversionDict, labelType) {
         changeLeavesLabels("tree_plot", "UniProt", Tree_label_dict);
         DrawCircles('tree_plot', Tree_circles, maxLeafNodeLength, Tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
         // Finally, restore original labels
-        updatePhaseLabels(["Phase IV", "III", "II", "I"],"UniProt",maxLeafNodeLenght);
+        // updatePhaseLabels(["Phase IV", "III", "II", "I"],"UniProt",maxLeafNodeLenght);
     });
     $("#TREE_IUPHARNames").click(function() {
       $("#TREE_UniProtNames").removeClass("active");
@@ -580,7 +580,7 @@ function updateFillData(fill_data, conversionDict, labelType) {
         changeLeavesLabels("rep_tree_plot", "UniProt", rep_tree_label_dict);
         DrawCircles('rep_tree_plot', rep_tree_circles, maxLeafNodeLength, rep_tree_colors, true, true, Tree_circle_styling_dict, circle_spacer, circle_size);
       // Finally, restore original labels
-      updatePhaseLabels(["Phase IV", "III", "II", "I"],"IUPHAR",maxLeafNodeLenght);
+      // updatePhaseLabels(["Phase IV", "III", "II", "I"],"IUPHAR",maxLeafNodeLenght);
     });
     $("#rep_TREE_IUPHARNames").click(function() {
       $("#rep_TREE_UniProtNames").removeClass("active");
@@ -601,68 +601,68 @@ function updateFillData(fill_data, conversionDict, labelType) {
 <script type="text/javascript" charset="utf-8">
 
   // Set dropdown to keep open
-  // $('.dropdown-menu').on('click', function(event){
-  //     event.stopPropagation();
-  //   });
+  $('.dropdown-menu').on('click', function(event){
+      event.stopPropagation();
+    });
 
-    // // # Initialize data #
-    // rep_tree_data = {{ rep_tree | safe }};
-    // rep_tree_options = {{ rep_tree_options | safe }};
-    // rep_Tree_circles = {{ rep_circles|safe }};
-    // rep_Tree_label_dict = {{ rep_whole_dict|safe }};
-    //
-    // rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
-    // const rep_depth = rep_tree_options.depth;  // Set this value when the page loads
-    //
-    // // Handler for one class -> reduce the depth
-    // if (rep_tree_options.depth == 4) {
-    //   maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptor);
-    // } else if (tree_options.depth == 3) {
-    //   maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptorfamily);
-    // }
-    // rep_circle_size = 6;
-    // rep_circle_spacer = rep_circle_size*2+1;
-    // rep_circle_spacer = rep_circle_spacer+2
-    //
-    // var rep_Tree_circle_styling_dict = {
-    //   "Inner":'Drugged_tree',
-    //   "Outer1":"Two",
-    //   "Outer2":"Two",
-    //   "Outer3":"Two",
-    //   "Outer4":"Two",
-    //   "Outer5":"Three",
-    // }
-    //
-    // rep_Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
-    //               "Outer1":["#FFFFFF","#dd2628"],
-    //               "Outer2":["#FFFFFF","#ae5dae"],
-    //               "Outer3":["#FFFFFF","#2c87c8"],
-    //               "Outer4":["#FFFFFF","#FFFFFF"],
-    //               "Outer5":["#FFFFFF","#FFFFFF"]};
-    //
-    //
-    // rep_tree_options.fontSize.class = "18px";
-    // rep_tree_options.fontSize.ligandtype = "18px";
-    // rep_tree_options.fontSize.receptorfamily = "18px";
-    // rep_tree_options.fontSize.receptor = "17px";
-    //
-    // // # Change leaves buttons #
-    // $("#rep_TREE_UniProtNames").click(function(){
-    //     $("#rep_TREE_UniProtNames").addClass("active");
-    //     $("#rep_TREE_IUPHARNames").removeClass("active");
-    //     changeLeavesLabels("rep_tree_plot", "UniProt", rep_Tree_label_dict);
-    //     DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true,rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
-    // });
-    // $("#rep_TREE_IUPHARNames").click(function() {
-    //   $("#rep_TREE_UniProtNames").removeClass("active");
-    //   $("#rep_TREE_IUPHARNames").addClass("active");
-    //   changeLeavesLabels("rep_tree_plot","IUPHAR", rep_Tree_label_dict);
-    //   DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
-    // });
-    // // # Initialize tree plot #
-    // document.addEventListener("DOMContentLoaded", function() {
-    //   draw_tree(rep_tree_data, rep_tree_options, rep_circle_size);
-    //   DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
-    // });
+    // # Initialize data #
+    rep_tree_data = {{ rep_tree | safe }};
+    rep_tree_options = {{ rep_tree_options | safe }};
+    rep_Tree_circles = {{ rep_circles|safe }};
+    rep_Tree_label_dict = {{ rep_whole_dict|safe }};
+    
+    rep_tree_data = update_tree_data(rep_tree_data, rep_tree_options.depth);
+    const rep_depth = rep_tree_options.depth;  // Set this value when the page loads
+    
+    // Handler for one class -> reduce the depth
+    if (rep_tree_options.depth == 4) {
+      maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptor);
+    } else if (tree_options.depth == 3) {
+      maxLeafNodeLenght = 4*parseInt(rep_tree_options.fontSize.receptorfamily);
+    }
+    rep_circle_size = 6;
+    rep_circle_spacer = rep_circle_size*2+1;
+    rep_circle_spacer = rep_circle_spacer+2
+    
+    var rep_Tree_circle_styling_dict = {
+      "Inner":'Drugged_tree',
+      "Outer1":"Two",
+      "Outer2":"Two",
+      "Outer3":"Two",
+      "Outer4":"Two",
+      "Outer5":"Three",
+    }
+    
+    rep_Tree_colors = {"Inner":["#FFFFFF","#FFFFFF"],
+                  "Outer1":["#FFFFFF","#dd2628"],
+                  "Outer2":["#FFFFFF","#ae5dae"],
+                  "Outer3":["#FFFFFF","#2c87c8"],
+                  "Outer4":["#FFFFFF","#FFFFFF"],
+                  "Outer5":["#FFFFFF","#FFFFFF"]};
+    
+    
+    rep_tree_options.fontSize.class = "18px";
+    rep_tree_options.fontSize.ligandtype = "18px";
+    rep_tree_options.fontSize.receptorfamily = "18px";
+    rep_tree_options.fontSize.receptor = "17px";
+    
+    // # Change leaves buttons #
+    $("#rep_TREE_UniProtNames").click(function(){
+        $("#rep_TREE_UniProtNames").addClass("active");
+        $("#rep_TREE_IUPHARNames").removeClass("active");
+        changeLeavesLabels("rep_tree_plot", "UniProt", rep_Tree_label_dict);
+        DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true,rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    });
+    $("#rep_TREE_IUPHARNames").click(function() {
+      $("#rep_TREE_UniProtNames").removeClass("active");
+      $("#rep_TREE_IUPHARNames").addClass("active");
+      changeLeavesLabels("rep_tree_plot","IUPHAR", rep_Tree_label_dict);
+      DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    });
+    // # Initialize tree plot #
+    document.addEventListener("DOMContentLoaded", function() {
+      draw_tree(rep_tree_data, rep_tree_options, rep_circle_size);
+      DrawCircles('rep_tree_plot', rep_Tree_circles, maxLeafNodeLenght, rep_Tree_colors, true, true, rep_Tree_circle_styling_dict, rep_circle_spacer, rep_circle_size);
+    });
 </script>
 {% endblock %}
