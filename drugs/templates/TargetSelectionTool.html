@@ -226,21 +226,23 @@ table thead tr:nth-child(3) th:first-child {
                 <thead>
                     <!-- Dummy Header Row for Complex Header Fix -->
                     <tr>
-                        <td colspan="23" style="text-align: center" data-dt-order="disable"></td>
+                        <td colspan="74" style="text-align: center" data-dt-order="disable"></td>
                     </tr>
                     <!-- Super Header Row -->
                     <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
-                        <th colspan="5" style="text-align:center;">Targets</th>
+                        <th colspan="6" style="text-align:center;">Targets</th>
                         <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Literature</th>
                         <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Novelty</th>
                         <th colspan="3" style="text-align:center;border-left: 1px solid #cccccc;">Structures</th>
                         <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">All Drugs & Agents</th>
                         <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
                         <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
+                        <th colspan="50" style="text-align:center;border-left: 1px solid #cccccc;">Tissue expression</th>
                     </tr>
                     
                     <!-- Header Row -->
                     <tr>
+                        <th style="text-align: center;">Target ID</th>
                         <th class="sticky-column" style="text-align: center;">Gene</th>
                         <th style="text-align: center;">Protein</th>
                         <th style="text-align: center;">Receptor family</th>
@@ -264,8 +266,10 @@ table thead tr:nth-child(3) th:first-child {
                         <th style="text-align: center;">Drugs</th>
                         <th style="text-align: center;">Agents</th>
                         <th style="text-align: center;">Ligands</th>
+                        <th style="text-align: center;" id="Tissue_placeholder"></th>
                     </tr>
                     <tr>
+                        <td style="text-align: center" data-dt-order="disable"></td>
                         <td class="sticky-column" style="text-align: center;" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
@@ -289,6 +293,7 @@ table thead tr:nth-child(3) th:first-child {
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center" id = "tissue_filter_placeholder" data-dt-order="disable"></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -301,11 +306,11 @@ table thead tr:nth-child(3) th:first-child {
                 <thead>
                     <!-- Dummy Header Row for Complex Header Fix -->
                     <tr>
-                        <td colspan="13" style="text-align: center" data-dt-order="disable"></td>
+                        <td colspan="14" style="text-align: center" data-dt-order="disable"></td>
                     </tr>
                     <!-- Super Header Row -->
                     <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
-                        <th colspan="5" style="text-align:center;">Targets</th>
+                        <th colspan="6" style="text-align:center;">Targets</th>
                         <th colspan="5" style="text-align:center;border-left: 1px solid #cccccc;">Diseases</th>
                         <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Compounds</th>
                         <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Disease associations</th>
@@ -313,6 +318,7 @@ table thead tr:nth-child(3) th:first-child {
                     
                     <!-- Header Row -->
                     <tr>
+                        <th style="text-align: center;">Target ID</th>
                         <th class="sticky-column" style="text-align: center;">Gene</th>
                         <th style="text-align: center;">Protein</th>
                         <th style="text-align: center;">Receptor family</th>
@@ -328,6 +334,7 @@ table thead tr:nth-child(3) th:first-child {
                         <th style="text-align: center;border-left: 1px solid #cccccc;">Score</th>
                     </tr>
                     <tr>
+                        <td style="text-align: center" data-dt-order="disable"></td>
                         <td class="sticky-column" style="text-align: center;" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
@@ -346,7 +353,50 @@ table thead tr:nth-child(3) th:first-child {
                 <tbody>
                 </tbody>
             </table>
-    </div>
+        </div>
+        <div id=TargetSelectionToolTable_untapped_container>
+            <!-- Target selection tool table disaease-->
+            <table width="100%" class="display compact" id="TargetSelectionToolTable_untapped">
+                <thead>
+                    <!-- Dummy Header Row for Complex Header Fix -->
+                    <tr>
+                        <td colspan="9" style="text-align: center" data-dt-order="disable"></td>
+                    </tr>
+                    <!-- Super Header Row -->
+                    <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
+                        <th colspan="6" style="text-align:center;">Targets</th>
+                        <th colspan="2" style="text-align:center;border-left: 1px solid #cccccc;">Diseases</th>
+                        <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Disease associations</th>
+                    </tr>
+                    
+                    <!-- Header Row -->
+                    <tr>
+                        <th style="text-align: center;">Target ID</th>
+                        <th class="sticky-column" style="text-align: center;">Gene</th>
+                        <th style="text-align: center;">Protein</th>
+                        <th style="text-align: center;">Receptor family</th>
+                        <th style="text-align: center;">Ligand type</th>
+                        <th style="text-align: center;">Class</th>
+                        <th style="text-align: center;border-left: 1px solid #cccccc;">Disease area<br>(ICD11)</th>
+                        <th style="text-align: center;">Disease<br>(ICD11)</th>
+                        <th style="text-align: center;border-left: 1px solid #cccccc;">Score</th>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td class="sticky-column" style="text-align: center;" data-dt-order="disable"></td>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                        <td style="text-align: center" data-dt-order="disable"></td>
+                        <td style="text-align: center;border-left: 1px solid #cccccc;" data-dt-order="disable"></td>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -369,10 +419,12 @@ table thead tr:nth-child(3) th:first-child {
 
 var Full_table_data;
 var Disease_table_data;
+var Untapped_table_data;
 Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
 Disease_table_data = JSON.parse('{{ Disease_table|escapejs }}');
+Untapped_table_data = JSON.parse('{{ Untapped_table|escapejs }}');
 
-console.log(Disease_table_data)
+const Tissue_col_list = {{ Tissue_cols|safe }};
 
 let adjustTimeout; // Move this outside to make it global
 
@@ -400,14 +452,15 @@ function updateLoaderText(newText) {
     $(".custom-loader-text").text(newText); // Dynamically update the loader's text
 }
 
-function initializeDataTableAsync(tableId, data) {
+function initializeDataTableAsync(tableId, data,cols,col_defs) {
         
         // Step 1: Update loader text
         updateLoaderText("Initializing tables...");
 
         // Use a timeout to allow the browser to update the loader's text
         setTimeout(() => {
-            initializeDataTable(tableId, data);
+            populateTissueColumns(Tissue_col_list);
+            initializeDataTable(tableId, data,cols,col_defs);
 
             // Step 2: Update loader text for filters
             updateLoaderText("Creating filters...");
@@ -422,97 +475,77 @@ function initializeDataTableAsync(tableId, data) {
 
                 // Show the container for the Target Selection Tool
                 $("#Target_selection_tool_container").show();
-                document.querySelector('button[data-column="2"]').click();
+                document.querySelector('button[data-column="0"]').click();
             }, 0); // Create filters asynchronously
         }, 0); // Initialize DataTable asynchronously
-    }
-
-function initializeDataTable(tableId, data) {
-
-        // digit fixed value
-        const digit_fixed = 3
-
-        // Define columns
-        var columnDefs = [
-            { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
-            // { targets: Array.from({ length: 1538 - 11 + 1 }, (_, i) => i + 11), visible: false },
-            { targets: [5, 6, 8, 11, 15, 19], className: 'border-left' },
-        ];
-
-        // Define columns dynamically based on the type
-        var columns = [
-            {data: "Gene name", name: "Gene name", width: "125px", className: "small-width sticky-column", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
-            {data: "Protein name", name: "Protein name", width: "125px", className: "small-width"},
-            {data: "Receptor family", name: "Receptor family", width: "150px", className: "medium-width"},
-            {data: "Ligand type", name: "Ligand type", width: "150px", className: "medium-width"},
-            {data: "Class", name: "Class", width: "125px", className: "small-width", render: function (data) { return data.split(' (')[0]; }},
-            {data: "Literature", name: "No. Publications", width: "125px", className: "small-width"}, 
-            {data: "Novelty (Pharos)", name: "Novelty (Pharos)", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed); }},
-            {data: "IDG", name: "IDG target level", width: "125px", className: "small-width"},
-            {data: "Total", name: "Total", width: "125px", className: "small-width"},
-            {data: "Inactive", name: "Inactive", width: "125px", className: "small-width"},
-            {data: "Active", name: "Active", width: "125px", className: "small-width"},
-            {data: "All_Max_Phase", name: "Stimulatory_max_phase", width: "125px", className: "small-width"},
-            {data: "All_Drugs", name: "All_Drugs", width: "125px", className: "small-width"},
-            {data: "All_Agents", name: "All_Agents", width: "125px", className: "small-width"},
-            {data: "Total_Ligands", name: "Total_Ligands", width: "125px", className: "small-width"},
-            {data: "Stimulatory_max_phase", name: "All_Max_Phase", width: "125px", className: "small-width"},
-            {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs", width: "125px", className: "small-width"},
-            {data: "Stimulatory_Agents", name: "Stimulatory_Agents", width: "125px", className: "small-width"},
-            {data: "pEC50_Count", name: "pEC50_Count", width: "125px", className: "small-width"},
-            {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase", width: "125px", className: "small-width"},
-            {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs", width: "125px", className: "small-width"},
-            {data: "Inhibitory_Agents", name: "Inhibitory_Agents", width: "125px", className: "small-width"},
-            {data: "pIC50_Count", name: "pIC50_Count", width: "125px", className: "small-width"},
-        ];
-
-        // Initialize DataTable
-        $(tableId).DataTable({
-                    dom: "<'row'<'col-sm-3 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
-                        "<'row'<'col-sm-12'tr>>" +                               // Table rows
-                        "<'row'<'col-sm-12'ip>>",                                // Pagination and info
-                    order: [0, "asc"],              // Initial sort order
-                    pageLength: 20,                 // Show all rows by default
-                    data: data,                     // Data source
-                    columns: columns,               // Column definitions
-                    columnDefs: columnDefs,         // Column-specific settings
-                    autoWidth: true,               // Disable automatic column width calculation
-                    processing: false,              // Disable processing indicator
-                    deferRender: true,              // Optimize rendering for large data sets
-                    paging: true,                  // Disable pagination
-                    scrollX: true,                  // Enable horizontal scrolling
-                    scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
-                    scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
-                    fixedHeader: false, // Disable FixedHeader
-                    // fixedColumns: true,
-                    buttons: [
-                        { 
-                            text: 'Reset filters', 
-                            action: function () { reset_all(); } 
-                        }
-                    ],
-                    initComplete : function () {
-                        // Trigger the Characterization button click
-                        document.querySelector('button[data-column="0"]').click();
-                        
-                    }
-                });
 }
-
-function initializeDataTable_disease(tableId, data) {
 
 // digit fixed value
 const digit_fixed = 3
 
 // Define columns
-var columnDefs = [
+var target_columnDefs = [
     { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
     // { targets: Array.from({ length: 1538 - 11 + 1 }, (_, i) => i + 11), visible: false },
-    { targets: [5, 10,12], className: 'border-left' },
+    { targets: [6, 7, 9, 12, 16, 20], className: 'border-left' },
 ];
 
+var disease_columnDefs = [
+    { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
+    // { targets: Array.from({ length: 1538 - 11 + 1 }, (_, i) => i + 11), visible: false },
+    { targets: [6, 11,13], className: 'border-left' },
+]
+
+var untapped_columnDefs = [
+    { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" }, 
+    { targets: [6, 8], className: 'border-left' },
+];
+
+
 // Define columns dynamically based on the type
-var columns = [
+var target_columns = [
+    {data: "Target ID", name: "Target ID", visible: false}, // Hidden Target ID column
+    {data: "Gene name", name: "Gene name", width: "125px", className: "sticky-column", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+    {data: "Protein name", name: "Protein name", width: "125px", render: function (data) { return data.replace('receptor', ''); }},
+    {data: "Receptor family", name: "Receptor family", width: "150px",className: "receptor-width", render: function (data) { return data.replace('receptors', ''); }},
+    {data: "Ligand type", name: "Ligand type", width: "150px"},
+    {data: "Class", name: "Class", width: "50px", render: function (data) { return data.split(' (')[0].replace('Class ', ''); }},
+    {data: "Literature", name: "No. Publications", width: "125px", className: "small-width"}, 
+    {data: "Novelty (Pharos)", name: "Novelty (Pharos)", width: "125px", className: "small-width", render: function (data) { return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed); }},
+    {data: "IDG", name: "IDG target level", width: "125px", className: "small-width"},
+    {data: "Total", name: "Total", width: "125px", className: "small-width"},
+    {data: "Inactive", name: "Inactive", width: "125px", className: "small-width"},
+    {data: "Active", name: "Active", width: "125px", className: "small-width"},
+    {data: "All_Max_Phase", name: "Stimulatory_max_phase", width: "125px", className: "small-width"},
+    {data: "All_Drugs", name: "All_Drugs", width: "125px", className: "small-width"},
+    {data: "All_Agents", name: "All_Agents", width: "125px", className: "small-width"},
+    {data: "Total_Ligands", name: "Total_Ligands", width: "125px", className: "small-width"},
+    {data: "Stimulatory_max_phase", name: "All_Max_Phase", width: "125px", className: "small-width"},
+    {data: "Stimulatory_Drugs", name: "Stimulatory_Drugs", width: "125px", className: "small-width"},
+    {data: "Stimulatory_Agents", name: "Stimulatory_Agents", width: "125px", className: "small-width"},
+    {data: "pEC50_Count", name: "pEC50_Count", width: "125px", className: "small-width"},
+    {data: "Inhibitory_max_phase", name: "Inhibitory_max_phase", width: "125px", className: "small-width"},
+    {data: "Inhibitory_Drugs", name: "Inhibitory_Drugs", width: "125px", className: "small-width"},
+    {data: "Inhibitory_Agents", name: "Inhibitory_Agents", width: "125px", className: "small-width"},
+    {data: "pIC50_Count", name: "pIC50_Count", width: "125px", className: "small-width"},
+];
+
+// Extend the target_columns with Tissue_col_list
+Tissue_col_list.forEach(tissue => {
+    target_columns.push({
+        data: tissue,
+        name: tissue,
+        width: "125px",
+        className: "small-width",
+        render: function (data) {
+            return data === "" || data === null ? "" : data; // Format values
+        }
+    });
+});
+
+// Define columns dynamically based on the type
+var disease_columns = [
+    {data: "Target ID", name: "Target ID", visible: false}, // Hidden Target ID column
     {data: "Gene name", name: "Gene name", width: "125px", className: "sticky-column", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
     {data: "Protein name", name: "Protein name", width: "125px", render: function (data) { return data.replace('receptor', ''); }},
     {data: "Receptor family", name: "Receptor family", width: "150px",className: "receptor-width", render: function (data) { return data.replace('receptors', ''); }},
@@ -547,77 +580,116 @@ var columns = [
 
 ];
 
-// Initialize DataTable
-$(tableId).DataTable({
-            dom: "<'row'<'col-sm-1 dt-btn'B><'col-sm-3'f><'col-sm-'6>>" +  // Buttons and search bar in the same row
-                "<'row'<'col-sm-12'tr>>" +                               // Table rows
-                "<'row'<'col-sm-12'ip>>",                                // Pagination and info
-            order: [0, "asc"],              // Initial sort order
-            pageLength: 20,                 // Show all rows by default
-            data: data,                     // Data source
-            columns: columns,               // Column definitions
-            columnDefs: columnDefs,         // Column-specific settings
-            autoWidth: true,               // Disable automatic column width calculation
-            processing: false,              // Disable processing indicator
-            deferRender: true,              // Optimize rendering for large data sets
-            paging: true,                  // Disable pagination
-            scrollX: true,                  // Enable horizontal scrolling
-            scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
-            scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
-            fixedHeader: false, // Disable FixedHeader
-            // fixedColumns: true,
-            buttons: [
-                { 
-                    text: 'Reset filters', 
-                    action: function () { reset_all(); } 
-                }
-            ]
-        });
+// Define columns dynamically based on the type
+var untapped_columns = [
+    {data: "Target ID", name: "Target ID", visible: false}, // Hidden Target ID column
+    {data: "Gene name", name: "Gene name", width: "5%", className: "sticky-column", render: function (data) { return data.replace('_human', '').toUpperCase(); }},
+    {data: "Protein name", name: "Protein name", width: "10%", render: function (data) { return data.replace('receptor', ''); }},
+    {data: "Receptor family", name: "Receptor family", width: "10%",className: "receptor-width", render: function (data) { return data.replace('receptors', ''); }},
+    {data: "Ligand type", name: "Ligand type", width: "10%"},
+    {data: "Class", name: "Class", width: "5%", render: function (data) { return data.split(' (')[0].replace('Class ', ''); }},
+    {data: "Master Indication", name: "Master Indication", width: "25%", className: "large-width"},
+    {data: "Indication", name: "Indication", width: "25%", className: "large-width"},
+    {data: "Association Score", name: "Association Score", width: "10%", className: "small-width", render: function (data) { return data === "" || data === null ? data : parseFloat(data).toFixed(digit_fixed); }},
+
+];
+
+
+function initializeDataTable(tableId, data, columns, columnDefs) {
+
+    // Initialize DataTable
+    $(tableId).DataTable({
+        dom: "<'row'<'col-sm-3 dt-btn'B><'col-sm-6'><'col-sm-3 text-end'f>>" +  // Buttons and search bar in the same row
+        "<'row'<'col-sm-12'tr>>" +                                       // Table rows
+        "<'row'<'col-sm-12'ip>>",                                        // Pagination and info
+        order: [0, "asc"],              // Initial sort order
+        pageLength: 20,                 // Show all rows by default
+        data: data,                     // Data source
+        columns: columns,               // Column definitions
+        columnDefs: columnDefs,         // Column-specific settings
+        autoWidth: true,               // Disable automatic column width calculation
+        processing: false,              // Disable processing indicator
+        deferRender: true,              // Optimize rendering for large data sets
+        paging: true,                  // Disable pagination
+        scrollX: true,                  // Enable horizontal scrolling
+        scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
+        scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
+        fixedHeader: false, // Disable FixedHeader
+        // fixedColumns: true,
+        buttons: [
+            { 
+                text: 'Reset filters', 
+                action: function () { reset_all(); } 
+            }
+        ]
+    });
 }
-        // #############################
-        // ###    Create Filters     ###
-        // #############################
 
-        function createFilters() {
-            
-            // Logic to create filters...
-            var column_filters = [];
-            const Table_selector = $("#TargetSelectionToolTable").DataTable();
-            // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
 
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,5,"Multi-select-exact"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,5,2,"Range-float-vertical"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,7,1,"Multi-select-exact"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,3,"Range-float-vertical"));
-            // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,20,680,"Range-float-vertical"));
+    // #############################
+    // ###    Create Filters     ###
+    // #############################
 
-            
-            
-            // // Create the filteres
-            createDropdownFilters(Table_selector,column_filters);
-        }
-        function createFilters_disease() {
-            
-            // Logic to create filters...
-            var column_filters = [];
-            const Table_selector = $("#TargetSelectionToolTable_disease").DataTable();
-            // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+    function createFilters() {
+        
+        // Logic to create filters...
+        var column_filters = [];
+        const Table_selector = $("#TargetSelectionToolTable").DataTable();
+        // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
 
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,10,"Multi-select-exact"));
-            column_filters = column_filters.concat(CreateColumnFilters(Table_selector,10,3,"Range-float-vertical"));
-            // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,20,680,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,6,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,6,2,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,1,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,9,15,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,24,50,"Range-float-vertical"));
 
-            
-            
-            // // Create the filteres
-            createDropdownFilters(Table_selector,column_filters);
-        }
+        
+        
+        // // Create the filteres
+        createDropdownFilters(Table_selector,column_filters);
+    }
+    function createFilters_disease() {
+        
+        // Logic to create filters...
+        var column_filters = [];
+        const Table_selector = $("#TargetSelectionToolTable_disease").DataTable();
+        // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,11,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,11,3,"Range-float-vertical"));
+        // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,20,680,"Range-float-vertical"));
+
+        
+        
+        // // Create the filteres
+        createDropdownFilters(Table_selector,column_filters);
+    }
+
+    function createFilters_untapped() {
+        
+        // Logic to create filters...
+        var column_filters = [];
+        const Table_selector = $("#TargetSelectionToolTable_untapped").DataTable();
+        // CreateColumnFilters --> CreateColumnFilters(datatable_selector,column_number, column_range, filter_type)
+
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,0,8,"Multi-select-exact"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,1,"Range-float-vertical"));
+        // column_filters = column_filters.concat(CreateColumnFilters(Table_selector,20,680,"Range-float-vertical"));
+
+        
+        
+        // // Create the filteres
+        createDropdownFilters(Table_selector,column_filters);
+    }
 
     // Run the initialization sequence
-    initializeDataTableAsync("#TargetSelectionToolTable", Full_table_data);
-    initializeDataTable_disease("#TargetSelectionToolTable_disease", Disease_table_data)
+    initializeDataTableAsync("#TargetSelectionToolTable", Full_table_data,target_columns,target_columnDefs);
+    initializeDataTable("#TargetSelectionToolTable_disease", Disease_table_data,disease_columns,disease_columnDefs)
+    initializeDataTable("#TargetSelectionToolTable_untapped", Untapped_table_data,untapped_columns,untapped_columnDefs)
     createFilters_disease();
+    createFilters_untapped();
     $('#TargetSelectionToolTable_disease_container').hide();
+    $('#TargetSelectionToolTable_untapped_container').hide();
 
 }); // End document ready function
 
@@ -629,59 +701,188 @@ function range(start, end) {
 
 // column visibility configuration for the master button clicks
 const columnVisibilityConfig = {
-    0: [...range(0, 4), ...range(5, 10)], // Characterization
-    1: [...range(0, 4), ...range(11, 22)], // Drugs/Agents/Ligands
-    2: [...range(0, 4)], // Clinically targeted
-    3: [...range(0, 4)], //  Untapped target disease associations
-    4: [...range(0, 4)], //  Tissue expression 
-    5: [...range(0, 4)], // Cancer expression
+    0: [...range(1, 5), ...range(6, 11)], // Characterization
+    1: [...range(1, 5), ...range(12, 23)], // Drugs/Agents/Ligands
+    2: [...range(1, 5)], // Clinically targeted
+    3: [...range(1, 5)], //  Untapped target disease associations
+    4: [...range(1, 5),...range(24,73)], //  Tissue expression 
+    5: [...range(1, 5)], // Cancer expression
 };
 
-
+let activeTargetIds = []; // Stores globally synchronized IDs
+let currentActiveTargetIds = []; // Stores current table's active IDs
 
 // Handle button click
 function handleButtonClick(columnType) {
-    clickedColumnType = columnType; // Track the clicked column
 
-    // Update button classes for toggling primary/secondary styles
-    document.querySelectorAll('.tab-button[data-column]').forEach(button => {
-        if (parseInt(button.getAttribute('data-column')) === columnType) {
-            button.classList.remove('btn-secondary');
-            button.classList.add('btn-primary');
-        } else {
-            button.classList.remove('btn-primary');
-            button.classList.add('btn-secondary');
+// Determine the currently visible table
+let currentTableId;
+if ($('#TargetSelectionToolTable_container').is(':visible')) {
+    currentTableId = '#TargetSelectionToolTable';
+} else if ($('#TargetSelectionToolTable_disease_container').is(':visible')) {
+    currentTableId = '#TargetSelectionToolTable_disease';
+} else if ($('#TargetSelectionToolTable_untapped_container').is(':visible')) {
+    currentTableId = '#TargetSelectionToolTable_untapped';
+}
+
+// Get filtered Target IDs from the current table
+currentActiveTargetIds = getFilteredTargetIds(currentTableId);
+
+// Check if any filters are applied
+const isFilterApplied = isAnyFilterApplied(currentTableId);
+
+// If filters are applied and activeTargetIds is different from currentActiveTargetIds, update it
+if (isFilterApplied && !arraysEqual(activeTargetIds, currentActiveTargetIds)) {
+    activeTargetIds = [...currentActiveTargetIds]; // Sync the global activeTargetIds
+    // Apply this filter to the other tables
+    applyTargetIdFilter('#TargetSelectionToolTable');
+    applyTargetIdFilter('#TargetSelectionToolTable_disease');
+    applyTargetIdFilter('#TargetSelectionToolTable_untapped');
+}
+
+// Update button classes for toggling primary/secondary styles
+document.querySelectorAll('.tab-button[data-column]').forEach(button => {
+    if (parseInt(button.getAttribute('data-column')) === columnType) {
+        button.classList.remove('btn-secondary');
+        button.classList.add('btn-primary');
+    } else {
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-secondary');
+    }
+});
+
+// Show/hide tables based on button clicked
+if (columnType === 2) {
+    $('#TargetSelectionToolTable_container').hide();
+    $('#TargetSelectionToolTable_untapped_container').hide();
+    $('#TargetSelectionToolTable_disease_container').show();
+} else if (columnType === 3) {
+    $('#TargetSelectionToolTable_container').hide();
+    $('#TargetSelectionToolTable_disease_container').hide();
+    $('#TargetSelectionToolTable_untapped_container').show();
+} else {
+    $('#TargetSelectionToolTable_container').show();
+    $('#TargetSelectionToolTable_disease_container').hide();
+    $('#TargetSelectionToolTable_untapped_container').hide();
+}
+
+// Handle table column visibility only for TargetSelectionToolTable
+if (columnType !== 2 && columnType !== 3) {
+    let indices = columnVisibilityConfig[columnType] || []; // Dynamically get indices or fallback to empty
+    const table = $('#TargetSelectionToolTable').DataTable();
+
+    // Hide all columns
+    table.columns().visible(false, false);
+
+    // Show relevant columns
+    indices.forEach(index => {
+        table.column(index).visible(true, false);
+    });
+
+    table.columns.adjust(); // Adjust the table layout
+} else if (columnType === 2) {
+    // For columnType === 2, adjust the disease table
+    const table = $('#TargetSelectionToolTable_disease').DataTable();
+    table.columns.adjust(); // Adjust the table layout
+} else if (columnType === 3) {
+    // For columnType === 3, adjust the untapped table
+    const table = $('#TargetSelectionToolTable_untapped').DataTable();
+    table.columns.adjust(); // Adjust the table layout
+}
+}
+
+// Function to check if any filters are applied on the current table
+function isAnyFilterApplied(tableId) {
+    const table = $(tableId).DataTable();
+
+    // Get truly visible columns
+    const visibleColumns = table.columns().indexes().filter(index => table.column(index).visible());
+
+    // Check if any visible column has an active `select2` filter or range filter
+    let filterApplied = false; // Track if any filter is applied
+
+    visibleColumns.each((index) => {
+        const headerCell = $(table.column(index).header()); // Get the header cell for the column
+
+        // Check for select2 filters
+        const select2Filter = headerCell.find('.select2');
+        if (select2Filter.length > 0) {
+            const selectedValues = select2Filter.val(); // Get selected values in the select2 filter
+            if (selectedValues && selectedValues.length > 0) {
+                filterApplied = true; // A visible column has a select2 filter with selected values
+                return false; // Exit loop early
+            }
+        }
+
+        // Check for range filters (min/max inputs)
+        const minInput = headerCell.find(`${tableId}_Filter${index}min`); // Select min input
+        const maxInput = headerCell.find(`${tableId}_Filter${index}max`); // Select max input
+
+        const minVal = parseFloat(minInput.val()) || null; // Get min value or null
+        const maxVal = parseFloat(maxInput.val()) || null; // Get max value or null
+
+        if (minVal !== null || maxVal !== null) {
+            filterApplied = true; // A visible column has an active range filter
+            return false; // Exit loop early
         }
     });
 
-    // Show/hide tables based on button clicked
-    if (columnType === 2) {
-        $('#TargetSelectionToolTable_container').hide();
-        $('#TargetSelectionToolTable_disease_container').show();
-    } else {
-        $('#TargetSelectionToolTable_container').show();
-        $('#TargetSelectionToolTable_disease_container').hide();
-    }
-
-    // Handle table column visibility only for TargetSelectionToolTable
-    if (columnType !== 2) {
-        let indices = columnVisibilityConfig[columnType] || []; // Dynamically get indices or fallback to empty
-        const table = $('#TargetSelectionToolTable').DataTable();
-
-        // Hide all columns
-        table.columns().visible(false, false);
-
-        // Show relevant columns
-        indices.forEach(index => {
-            table.column(index).visible(true, false);
-        });
-
-        table.columns.adjust(); // Adjust the table layout
-    } else {
-        const table = $('#TargetSelectionToolTable_disease').DataTable();
-        table.columns.adjust(); // Adjust the table layout
-    }
+    return filterApplied; // Return true if any filter is applied
 }
+
+
+// Get filtered Target IDs from the given table
+function getFilteredTargetIds(tableId) {
+    const table = $(tableId).DataTable();
+    const filteredRows = table.rows({ filter: 'applied' }).data(); // Get filtered rows
+
+    // Check if filteredRows is iterable and has the expected structure
+    if (!filteredRows || typeof filteredRows.each !== 'function') {
+        console.error("Filtered rows are not iterable:", filteredRows);
+        return []; // Return an empty array to avoid errors
+    }
+
+    // Initialize an array to hold the Target IDs
+    const targetIds = [];
+
+    // Extract Target IDs, ensuring the key exists
+    filteredRows.each((row) => {
+        if (row && row['Target ID'] !== undefined) {
+            targetIds.push(row['Target ID']);
+        } else {
+            console.warn("Row does not have 'Target ID':", row);
+        }
+    });
+
+    // Return unique Target IDs
+    return Array.from(new Set(targetIds));
+}
+
+
+
+// Check if two arrays are equal
+function arraysEqual(arr1, arr2) {
+if (arr1.length !== arr2.length) return false;
+return arr1.every((value, index) => value === arr2[index]);
+}
+
+// Apply the Target ID filter to a given table
+function applyTargetIdFilter(tableId) {
+const table = $(tableId).DataTable();
+
+// Clear previous search on Target ID
+table.column(0).search('');
+
+if (activeTargetIds.length > 0) {
+    // Construct a regex to match any of the active Target IDs
+    const targetIdRegex = activeTargetIds.map(id => `^${id}$`).join('|');
+    table.column(0).search(targetIdRegex, true, false); // Apply regex search
+}
+
+table.draw(); // Redraw the table to apply the filter
+}
+
+
 
 // Optimized function to set visibility only for specific columns
 function applyColumnVisibility(columnIndices) {
@@ -701,8 +902,101 @@ function applyColumnVisibility(columnIndices) {
 
 
 function reset_all() {
-        $('.select2').val(null).trigger('change');
+    // Reset all multi-select filters (select2)
+    $('.select2').each(function () {
+        const $this = $(this);
+        $this.val(null).trigger('change'); // Clear value and update UI
+
+        // Remove empty ("") options from the dropdown
+        $this.find('option').filter(function () {
+            return $(this).text().trim() === ""; // Match empty text
+        }).remove();
+    });
+
+    // Reset all range filters (min/max inputs)
+    $('input[id$="min"], input[id$="max"]').each(function () {
+        $(this).val(''); // Clear the input value
+    });
+
+    // Reset all range-select filters (min/max selects)
+    $('select[id$="min"], select[id$="max"]').each(function () {
+        const $this = $(this);
+        $this.val(null).trigger('change'); // Clear value and update UI
+
+        // Remove empty ("") options from range-select dropdowns
+        $this.find('option').filter(function () {
+            return $(this).text().trim() === ""; // Match empty text
+        }).remove();
+    });
+
+    // Explicitly iterate over all DataTables columns to clear hidden column filters
+    const tables = $.fn.dataTable.tables(); // Get all initialized DataTables
+    tables.forEach((tableId) => {
+        const api = $(tableId).DataTable();
+
+        // Iterate over all columns, including hidden ones
+        api.columns().every(function () {
+            const columnIndex = this.index();
+            const headerCell = $(this.header());
+
+            // Clear multi-select filters (select2)
+            const selectFilter = headerCell.find('.select2');
+            if (selectFilter.length) {
+                selectFilter.val(null).trigger('change'); // Clear value
+
+                // Remove empty ("") options from the dropdown
+                selectFilter.find('option').filter(function () {
+                    return $(this).text().trim() === ""; // Match empty text
+                }).remove();
+            }
+
+            // Clear range filters (min/max inputs)
+            const minInput = headerCell.find(`#${tableId.id}_Filter${columnIndex}min`);
+            const maxInput = headerCell.find(`#${tableId.id}_Filter${columnIndex}max`);
+            if (minInput.length) minInput.val(''); // Clear min input
+            if (maxInput.length) maxInput.val(''); // Clear max input
+        });
+
+        // Clear DataTables search state for all columns
+        api.columns().search(''); // Clear column-specific searches
+        api.draw(); // Redraw the table to apply the reset
+    });
+}
+
+function populateTissueColumns(tissueColumns) {
+    // Select the tissue placeholders for the header and filter rows
+    const tissueHeaderPlaceholder = document.getElementById('Tissue_placeholder');
+    const tissueFilterPlaceholder = document.getElementById('tissue_filter_placeholder');
+
+    // Ensure the placeholders exist
+    if (!tissueHeaderPlaceholder || !tissueFilterPlaceholder) {
+        console.error("Tissue placeholders not found!");
+        return;
     }
+
+    // Remove the placeholders themselves
+    const headerRow = tissueHeaderPlaceholder.parentElement;
+    const filterRow = tissueFilterPlaceholder.parentElement;
+
+    tissueHeaderPlaceholder.remove();
+    tissueFilterPlaceholder.remove();
+
+    // Append a <th> for each tissue column dynamically to the header row
+    tissueColumns.forEach(tissue => {
+        const th = document.createElement('th');
+        th.style.textAlign = "center";
+        th.textContent = tissue; // Set the tissue name
+        headerRow.appendChild(th);
+    });
+
+    // Append a <td> for each tissue column dynamically to the filter row
+    tissueColumns.forEach(() => {
+        const td = document.createElement('td');
+        td.style.textAlign = "center";
+        td.setAttribute('data-dt-order', 'disable'); // Disable ordering
+        filterRow.appendChild(td);
+    });
+}
 
 </script>
 

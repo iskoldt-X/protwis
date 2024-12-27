@@ -1588,6 +1588,56 @@ class TargetSelectionTool(TemplateView):
                     "Total", "Active", "Inactive", "All_Drugs", "All_Agents", 
                     "Stimulatory_max_phase", "Stimulatory_Drugs", "Stimulatory_Agents", 
                     "Inhibitory_max_phase", "Inhibitory_Drugs", "Inhibitory_Agents"]].replace(0, "")
+        
+
+
+        # Step 1: Query the TissueExpression model
+        tissue_datatable = TissueExpression.objects.select_related('tissue').values(
+            'protein',        # Target ID
+            'tissue__name',  # Tissue name
+            'value'          # Expression value
+        )
+
+        # Step 2: Convert the QuerySet to a DataFrame
+        df_tissue_table = pd.DataFrame(list(tissue_datatable))
+
+        # Step 3: Rename columns for clarity
+        df_tissue_table.rename(columns={
+            'protein': 'Target ID',
+            'tissue__name': 'Tissue Name',
+            'value': 'Expression Value'
+        }, inplace=True)
+
+        # Step 4: Clean tissue names (e.g., replace underscores, capitalize)
+        def clean_tissue_name(name):
+            # Replace underscores with spaces, remove trailing "_X", and capitalize words
+            name = name.replace("_", " ").rstrip(" 1234567890").title()
+            return name
+
+        df_tissue_table['Tissue Name'] = df_tissue_table['Tissue Name'].apply(clean_tissue_name)
+
+        # Step 5: Pivot the DataFrame to make Tissue Names columns
+        df_tissue_pivot = df_tissue_table.pivot_table(
+            index='Target ID',         # Use Target ID as the index
+            columns='Tissue Name',     # Use Tissue Name as columns
+            values='Expression Value', # Use Expression Value as values
+            aggfunc='first'            # If there are duplicates, take the first value
+        )
+
+        # Step 6: Reset index to turn Target ID back into a column
+        df_tissue_pivot.reset_index(inplace=True)
+
+        # Step 7: Fill NaN values with 0 (optional, based on your needs)
+        df_tissue_pivot.fillna("", inplace=True)
+
+        # Step 8: Generate a list of tissue column names (excluding Target ID)
+        tissue_column_list = sorted([col for col in df_tissue_pivot.columns if col != 'Target ID'])
+
+        # Merge df_first with df_tissue_pivot on 'Target ID'
+        merged_df = pd.merge(df_first, df_tissue_pivot, on="Target ID", how="left")
+
+        # Fill NaN values with empty strings for all columns
+        merged_df.fillna("", inplace=True)
 
         ########################################
         # Disease indications and associations #
@@ -1727,11 +1777,63 @@ class TargetSelectionTool(TemplateView):
         # Replace 0s with empty strings for display purposes
         df_table_2.replace(0, "", inplace=True)
 
+        ####################
+        # Untapped targets #
+        ####################
+
+        # Extract unique Target IDs from df_table_2
+        existing_target_ids = df_table_2['Target ID'].unique()
+
+        # Filter table_data_3 to exclude existing Target IDs
+        filtered_table_data_3 = IndicationAssociation.objects.select_related(
+            'target__family__parent__parent__parent',
+            'indication'
+        ).exclude(
+            target__in=existing_target_ids  # Exclude targets that already exist in df_table_2
+        ).values(
+            'target',  # Target ID
+            'target__entry_name',  # Gene name
+            'target__name',  # Protein name
+            'target__family__parent__name',  # Receptor family
+            'target__family__parent__parent__name',  # Ligand type
+            'target__family__parent__parent__parent__name',  # Class
+            'indication__title',  # Indication title
+            'indication__slug', # Indication slug
+            'association_score',  # Association score
+        )
+
+        # Convert the filtered QuerySet to a DataFrame
+        df_table_3 = pd.DataFrame(list(filtered_table_data_3))
+
+        df_table_3.rename(columns={
+            'target': 'Target ID',
+            'target__entry_name': 'Gene name',
+            'target__name': 'Protein name',
+            'target__family__parent__name': 'Receptor family',
+            'target__family__parent__parent__name': 'Ligand type',
+            'target__family__parent__parent__parent__name': 'Class',
+            'indication__title': 'Indication',
+            'indication__slug': 'Indication Slug',
+            'association_score': 'Association Score',
+        }, inplace=True)
+
+        # Fetch master indications and create mapping
+        master_indications = Indication.objects.filter(level=0).values('slug', 'title')
+        master_mapping = {entry['slug']: entry['title'] for entry in master_indications}
+
+        # Add Master Indication to df_table_3
+        df_table_3['Master Indication'] = df_table_3['Indication Slug'].apply(
+            lambda slug: master_mapping.get(slug.split("_")[0], "")
+        )
+
         # Convert the final DataFrame to JSON
-        json_records_targets = df_first.to_json(orient='records')
+        json_records_targets = merged_df.to_json(orient='records')
         json_records_table_2 = df_table_2.to_json(orient='records')
+        json_records_table_3 = df_table_3.to_json(orient='records')
         context['Full_data'] = json_records_targets
         context['Disease_table'] = json_records_table_2
+        context['Untapped_table'] = json_records_table_3
+        context['Tissue_cols'] = tissue_column_list
 
         return context
 
