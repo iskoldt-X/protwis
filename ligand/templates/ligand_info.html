@@ -749,6 +749,20 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints, custom_width);
 		return ligand_id
 	}
 </script>
+
+<script>
+    $(document).ready(function () {
+        // Check if the navigation came from the Drug page
+        if (localStorage.getItem('fromDrugPage') === 'true') {
+            // Simulate a click on the "Agent/Drug" tab
+            $('#agent_drug_tab').click();
+
+            // Clear the flag after use
+            localStorage.removeItem('fromDrugPage');
+        }
+    });
+</script>
+
 {% endblock %}
 
 {% block addon_css %}
@@ -1006,4 +1020,5 @@ SankeyPlot(sankey_data, 'sankey_plot', top_nodes, totalPoints, custom_width);
 		color: #fff;
 	}
 </style>
+
 {% endblock %}

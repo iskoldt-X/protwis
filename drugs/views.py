@@ -14,7 +14,7 @@ from drugs.models import Drugs, Indication, ATCCodes, IndicationAssociation
 from protein.views import get_sankey_data
 from protein.models import Protein, ProteinFamily, Tissues, TissueExpression
 from mapper.views import LandingPage
-from ligand.models import AssayExperiment
+from ligand.models import AssayExperiment, LigandID
 
 import re
 import json
@@ -188,97 +188,62 @@ class DrugSectionSelection(TemplateView):
          # Modify the description and fetch data based on the page type
         if page == 'Drugs':
             description = 'Search by agent / drug name'
-            # Fetch distinct ligands and create a dictionary of {ligand.name: ligand.id}
-            search_data = Drugs.objects.all().prefetch_related('ligand').distinct('ligand')
-            search_dict = {drug.ligand.name: drug.ligand.id for drug in search_data}
 
-            # Fetch ATC codes for the table
-            ATC_data = ATCCodes.objects.select_related(
-                'code'
+            # Fetch distinct ligands and their names
+            table_data = Drugs.objects.select_related('ligand').values(
+                'ligand',  # Agent/Drug id
+                'ligand__name',  # Agent/Drug name
+            ).distinct()
+
+            # Convert `table_data` to a DataFrame
+            table_df = pd.DataFrame(table_data)
+
+            # Ensure we have a unique list of ligand IDs
+            unique_ligand_ids = table_df['ligand'].unique().tolist()
+
+            # Fetch related resources: `web_resource__name` and `index` for the unique ligand IDs
+            resource_data = LigandID.objects.filter(
+                ligand__in=unique_ligand_ids
             ).values(
-                'ligand', # Agent/Drug id
-                'code__index' # ATC codes
+                'ligand',  # Ligand ID
+                'web_resource__name',  # Web resource name (e.g., "PubChem", "ChEMBL")
+                'index',  # Identifier ID
             )
 
-            # Convert ATC_data queryset to a list of dictionaries
-            ATC_data_list = list(ATC_data)
+            # Convert `resource_data` queryset to a list of dictionaries
+            resource_data_list = list(resource_data)
 
-            # Create a DataFrame from the ATC data
-            atc_df = pd.DataFrame(ATC_data_list)
+            # Transform `resource_data_list` into a structure for merging
+            resource_dict = defaultdict(dict)
+            for row in resource_data_list:
+                ligand_id = row['ligand']
+                resource_name = row['web_resource__name']
+                resource_index = row['index']
+                resource_dict[ligand_id][resource_name] = resource_index
 
-            # Group ATC codes by 'Ligand ID' and concatenate them
-            atc_df_grouped = atc_df.groupby('ligand')['code__index'].apply(lambda x: ', '.join(x)).reset_index()
+            # Add resource data to the table DataFrame by mapping from `resource_dict`
+            table_df['Resources'] = table_df['ligand'].map(resource_dict)
 
-            # Rename columns for the ATC DataFrame
-            atc_df_grouped.rename(columns={'ligand': 'LigandID', 'code__index': 'ATC'}, inplace=True)
+            # Flatten the `Resources` dictionary into separate columns for each resource
+            resource_df = table_df['Resources'].apply(pd.Series)
 
-            # Fetch table data with all related information
-            table_data = Drugs.objects.select_related(
-                'ligand',
-                'target__family__parent__parent__parent', # All target info
-                'indication',
-                'disease_association'
-            ).values(
-                'ligand', # Agent/Drug id
-                'ligand__name', # Agent/Drug name
-                'target__entry_name', # Gene name
-                'target__name', # Protein name
-                'target__family__parent__name',  # Receptor family
-                'target__family__parent__parent__name',  # Ligand type
-                'target__family__parent__parent__parent__name',  # Class
-                'indication__title', # Disease name
-                'indication__code', # Disease ICD11 code
-                'indication_max_phase', # Max phase
-                'drug_status', # Approval
-                'disease_association__association_score' # Disease association score
-            )
+            # Merge `table_df` and `resource_df`
+            final_df = pd.concat([table_df, resource_df], axis=1).drop(columns=['Resources'])
 
-            # Convert the table_data queryset to a list of dictionaries
-            table_data_list = list(table_data)
-
-            # Convert the list of dictionaries to a pandas DataFrame
-            df = pd.DataFrame(table_data_list)
-
-            # Rename the columns to your desired format
-            df.rename(columns={
+            # Rename columns for better readability
+            final_df.rename(columns={
                 'ligand': 'LigandID',
-                'ligand__name': 'Ligand name',
-                'target__entry_name': 'Gene name',
-                'target__name': 'Protein name',
-                'target__family__parent__name': 'Receptor family',
-                'target__family__parent__parent__name': 'Ligand type',
-                'target__family__parent__parent__parent__name': 'Class',
-                'indication__title': 'Indication name',
-                'indication__code': 'ICD11',
-                'indication_max_phase': 'Phase',
-                'disease_association__association_score' : 'Association score',
-                'drug_status': 'Status'}, inplace=True)
+                'ligand__name': 'Ligand Name',
+                'ChEMBL_compound_ids': 'ChEMBL',  # Rename for consistency
+                'Guide To Pharmacology': 'GTP',  # Rename for consistency
+                'Drug Central': 'DrugCentral',   # Rename for consistency
+            }, inplace=True)
 
-            # Merge the ATC data into the main DataFrame (df) on 'Ligand ID'
-            df = df.merge(atc_df_grouped, on='LigandID', how='left')
-            # Fill NaN values in the 'ATC' column with None
-            df['ATC'] = df['ATC'].fillna("")
-
-            # Precompute Phase and Status Information
-            df['Is_Approved'] = (df['Status'] == 'Approved').astype(int)
-
-            # Perform GroupBy and Aggregate
-            Modified_df = df.groupby(
-                ['LigandID', 'Gene name', 'Indication name', 'Ligand name', 'Protein name', 'Receptor family', 'Ligand type', 'Class', 'ICD11', 'ATC', 'Association score']
-            ).agg(
-                Highest_phase=('Phase', 'max'),  # Get the highest phase for each group
-                Approved=('Status', lambda x: 1 if 'Approved' in x.values else 0)  # Mark as 1 if any row has 'Approved'
-            ).reset_index()
-
-            # Convert 'Approved' from integer to 'Yes'/'No'
-            Modified_df['Approved'] = Modified_df['Approved'].apply(lambda x: 'Yes' if x == 1 else 'No')
-
-
-            # Convert DataFrame to JSON
-            json_records = Modified_df.to_json(orient='records')
+            # Convert the final DataFrame to JSON
+            json_records = final_df.to_json(orient='records')
 
             # Pass the JSON data to the template context
-            context['Full_data'] = json_records
+            context['Drugs_identifier_table'] = json_records
 
         elif page == 'Targets':
             description = 'Search by target name'
@@ -674,7 +639,10 @@ class DrugSectionSelection(TemplateView):
         #     #### GPCRome Indication Stuff END   ####
 
         # Convert to JSON string and pass to context
-        context['search_data'] = json.dumps(search_dict)
+        if page == 'Drugs':
+            pass
+        else:
+            context['search_data'] = json.dumps(search_dict)
         context['page'] = page
         context['title'] = title
         context['description'] = description
