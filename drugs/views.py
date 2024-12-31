@@ -1330,7 +1330,6 @@ class TargetSelectionTool(TemplateView):
     # Get context for hmtl usage #
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
 
         # Fetch all proteins
         all_proteins = Protein.objects.filter(
@@ -1589,8 +1588,6 @@ class TargetSelectionTool(TemplateView):
                     "Stimulatory_max_phase", "Stimulatory_Drugs", "Stimulatory_Agents", 
                     "Inhibitory_max_phase", "Inhibitory_Drugs", "Inhibitory_Agents"]].replace(0, "")
         
-
-
         # Step 1: Query the TissueExpression model
         tissue_datatable = TissueExpression.objects.select_related('tissue').values(
             'protein',        # Target ID
@@ -1638,6 +1635,67 @@ class TargetSelectionTool(TemplateView):
 
         # Fill NaN values with empty strings for all columns
         merged_df.fillna("", inplace=True)
+
+        # Add cancer to table 1
+
+         # Add cancer data
+        cancer_data = Protein.objects.select_related('Protein').values(
+            'cancer__protein',
+            'cancer__cancer__name',
+            'cancer__expression__max_expression',
+        )
+        
+        cancer_df = pd.DataFrame(list(cancer_data))
+        cancer_df.rename(columns={
+            'cancer__protein': 'Target ID',
+            'cancer__cancer__name': 'Cancer',
+            'cancer__expression__max_expression': 'Expression'
+        }, inplace=True)
+
+        # Filter only shared target IDs
+        cancer_df = cancer_df[cancer_df['Target ID'].isin(target_ids)]
+
+        # Ensure Target ID is an integer in cancer_df
+        cancer_df['Target ID'] = cancer_df['Target ID'].astype(int)
+
+       # Step 1: Calculate `NumberOfCancers` (sum of Medium and High for each Target ID)
+        cancer_df['IsRelevantExpression'] = cancer_df['Expression'].isin(['Medium', 'High']).astype(int)
+        number_of_cancers = (
+            cancer_df.groupby('Target ID')['IsRelevantExpression']
+            .sum()
+            .reset_index(name='NumberOfCancers')
+        )
+
+        # Step 2: Pivot the cancer data
+        cancer_pivot = cancer_df.pivot_table(
+            index='Target ID',  # Rows: Target ID
+            columns='Cancer',   # Columns: Cancer types
+            values='Expression',  # Values: Expression levels
+            aggfunc='first'      # Use the first value (only one row per Target ID + Cancer)
+        )
+
+        # Capitalize Cancer column names
+        cancer_pivot.columns = [col.capitalize() for col in cancer_pivot.columns]
+
+        # Reset index to make Target ID a column
+        cancer_pivot.reset_index(inplace=True)
+
+        # Step 3: Merge `NumberOfCancers` into the pivot table
+        final_cancer_table = pd.merge(
+            cancer_pivot,
+            number_of_cancers,
+            on='Target ID',
+            how='left'
+        )
+
+        # Step 4: Merge cancer data with the main table
+        Table1 = pd.merge(merged_df, final_cancer_table, on='Target ID', how='left')
+
+        # Fill NaN values with empty strings
+        Table1.fillna("", inplace=True)
+
+        # Exclude 'Target ID' and sort the remaining columns
+        cancer_column_list = sorted([col for col in cancer_pivot.columns if col != 'Target ID'])
 
         ########################################
         # Disease indications and associations #
@@ -1827,13 +1885,14 @@ class TargetSelectionTool(TemplateView):
         )
 
         # Convert the final DataFrame to JSON
-        json_records_targets = merged_df.to_json(orient='records')
+        json_records_targets = Table1.to_json(orient='records')
         json_records_table_2 = df_table_2.to_json(orient='records')
         json_records_table_3 = df_table_3.to_json(orient='records')
         context['Full_data'] = json_records_targets
         context['Disease_table'] = json_records_table_2
         context['Untapped_table'] = json_records_table_3
         context['Tissue_cols'] = tissue_column_list
+        context['cancer_cols'] = cancer_column_list
 
         return context
 

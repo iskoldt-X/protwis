@@ -226,7 +226,7 @@ table thead tr:nth-child(3) th:first-child {
                 <thead>
                     <!-- Dummy Header Row for Complex Header Fix -->
                     <tr>
-                        <td colspan="74" style="text-align: center" data-dt-order="disable"></td>
+                        <td colspan="95" style="text-align: center" data-dt-order="disable"></td>
                     </tr>
                     <!-- Super Header Row -->
                     <tr style="padding-top: 10px; font-size: 14px; white-space: nowrap;">
@@ -238,6 +238,8 @@ table thead tr:nth-child(3) th:first-child {
                         <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Stimulatory</th>
                         <th colspan="4" style="text-align:center;border-left: 1px solid #cccccc;">Inhibitory</th>
                         <th colspan="50" style="text-align:center;border-left: 1px solid #cccccc;">Tissue expression</th>
+                        <th colspan="1" style="text-align:center;border-left: 1px solid #cccccc;">Overview</th>
+                        <th colspan="20" style="text-align:center;border-left: 1px solid #cccccc;">Cancer expression</th>
                     </tr>
                     
                     <!-- Header Row -->
@@ -267,6 +269,8 @@ table thead tr:nth-child(3) th:first-child {
                         <th style="text-align: center;">Agents</th>
                         <th style="text-align: center;">Ligands</th>
                         <th style="text-align: center;" id="Tissue_placeholder"></th>
+                        <th style="text-align: center;" id="Cancer_placeholder"></th>
+
                     </tr>
                     <tr>
                         <td style="text-align: center" data-dt-order="disable"></td>
@@ -294,6 +298,7 @@ table thead tr:nth-child(3) th:first-child {
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" data-dt-order="disable"></td>
                         <td style="text-align: center" id = "tissue_filter_placeholder" data-dt-order="disable"></td>
+                        <td style="text-align: center" id = "Cancer_filter_placeholder" data-dt-order="disable"></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -424,7 +429,11 @@ Full_table_data = JSON.parse('{{ Full_data|escapejs }}');
 Disease_table_data = JSON.parse('{{ Disease_table|escapejs }}');
 Untapped_table_data = JSON.parse('{{ Untapped_table|escapejs }}');
 
+
+console.log(Full_table_data)
+
 const Tissue_col_list = {{ Tissue_cols|safe }};
+const Cancer_col_list = {{ cancer_cols|safe }};
 
 let adjustTimeout; // Move this outside to make it global
 
@@ -460,6 +469,7 @@ function initializeDataTableAsync(tableId, data,cols,col_defs) {
         // Use a timeout to allow the browser to update the loader's text
         setTimeout(() => {
             populateTissueColumns(Tissue_col_list);
+            populateCancerColumns(Cancer_col_list)
             initializeDataTable(tableId, data,cols,col_defs);
 
             // Step 2: Update loader text for filters
@@ -535,6 +545,29 @@ Tissue_col_list.forEach(tissue => {
     target_columns.push({
         data: tissue,
         name: tissue,
+        width: "125px",
+        className: "small-width",
+        render: function (data) {
+            return data === "" || data === null ? "" : data; // Format values
+        }
+    });
+});
+
+target_columns.push({
+        data: 'NumberOfCancers',
+        name: 'NumberOfCancers',
+        width: "125px",
+        className: "small-width",
+        render: function (data) {
+            return data === "" || data === null ? "" : data; // Format values
+        }
+    });
+
+// Extend the target_columns with Tissue_col_list
+Cancer_col_list.forEach(cancer => {
+    target_columns.push({
+        data: cancer,
+        name: cancer,
         width: "125px",
         className: "small-width",
         render: function (data) {
@@ -641,7 +674,8 @@ function initializeDataTable(tableId, data, columns, columnDefs) {
         column_filters = column_filters.concat(CreateColumnFilters(Table_selector,6,2,"Range-float-vertical"));
         column_filters = column_filters.concat(CreateColumnFilters(Table_selector,8,1,"Multi-select-exact"));
         column_filters = column_filters.concat(CreateColumnFilters(Table_selector,9,15,"Range-float-vertical"));
-        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,24,50,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,24,51,"Range-float-vertical"));
+        column_filters = column_filters.concat(CreateColumnFilters(Table_selector,75,20,"Multi-select-exact"));
 
         
         
@@ -706,7 +740,7 @@ const columnVisibilityConfig = {
     2: [...range(1, 5)], // Clinically targeted
     3: [...range(1, 5)], //  Untapped target disease associations
     4: [...range(1, 5),...range(24,73)], //  Tissue expression 
-    5: [...range(1, 5)], // Cancer expression
+    5: [...range(1, 5),...range(74,94)], // Cancer expression
 };
 
 let activeTargetIds = []; // Stores globally synchronized IDs
@@ -982,21 +1016,84 @@ function populateTissueColumns(tissueColumns) {
     tissueFilterPlaceholder.remove();
 
     // Append a <th> for each tissue column dynamically to the header row
-    tissueColumns.forEach(tissue => {
+    tissueColumns.forEach((tissue, index) => {
         const th = document.createElement('th');
         th.style.textAlign = "center";
         th.textContent = tissue; // Set the tissue name
+        if (index === 0) {
+            th.style.borderLeft = "1px solid #cccccc"; // Add border for the first tissue column
+        }
         headerRow.appendChild(th);
     });
 
     // Append a <td> for each tissue column dynamically to the filter row
-    tissueColumns.forEach(() => {
+    tissueColumns.forEach((_, index) => {
         const td = document.createElement('td');
         td.style.textAlign = "center";
         td.setAttribute('data-dt-order', 'disable'); // Disable ordering
+        if (index === 0) {
+            td.style.borderLeft = "1px solid #cccccc"; // Add border for the first tissue filter column
+        }
         filterRow.appendChild(td);
     });
 }
+
+function populateCancerColumns(cancerColumns) {
+    // Select the cancer placeholders for the header and filter rows
+    const cancerHeaderPlaceholder = document.getElementById('Cancer_placeholder');
+    const cancerFilterPlaceholder = document.getElementById('Cancer_filter_placeholder');
+
+    // Ensure the placeholders exist
+    if (!cancerHeaderPlaceholder || !cancerFilterPlaceholder) {
+        console.error("Cancer placeholders not found!");
+        return;
+    }
+
+    // Remove the placeholders themselves
+    const headerRow = cancerHeaderPlaceholder.parentElement;
+    const filterRow = cancerFilterPlaceholder.parentElement;
+
+    cancerHeaderPlaceholder.remove();
+    cancerFilterPlaceholder.remove();
+
+    // Add the "Cancers of Medium-High expression" column to the header
+    const thSummary = document.createElement('th');
+    thSummary.style.textAlign = "center";
+    thSummary.style.borderLeft = "1px solid #cccccc";
+    thSummary.textContent = "Medium-High expression"; // Set the custom column header
+    headerRow.appendChild(thSummary);
+
+    // Add the corresponding empty filter cell
+    const tdSummary = document.createElement('td');
+    tdSummary.style.textAlign = "center";
+    tdSummary.style.borderLeft = "1px solid #cccccc";
+    tdSummary.setAttribute('data-dt-order', 'disable'); // Disable ordering
+    filterRow.appendChild(tdSummary);
+
+    // Append a <th> for each cancer column dynamically to the header row
+    cancerColumns.forEach((cancer, index) => {
+        const th = document.createElement('th');
+        th.style.textAlign = "center";
+        th.textContent = cancer; // Set the cancer name
+        if (index === 0) {
+            th.style.borderLeft = "1px solid #cccccc"; // Add border for the first cancer column
+        }
+        headerRow.appendChild(th);
+    });
+
+    // Append a <td> for each cancer column dynamically to the filter row
+    cancerColumns.forEach((_, index) => {
+        const td = document.createElement('td');
+        td.style.textAlign = "center";
+        td.setAttribute('data-dt-order', 'disable'); // Disable ordering
+        if (index === 0) {
+            td.style.borderLeft = "1px solid #cccccc"; // Add border for the first cancer filter column
+        }
+        filterRow.appendChild(td);
+    });
+}
+
+
 
 </script>
 
