@@ -1085,7 +1085,7 @@ class DiseaseOverview(TemplateView):
                                 <span class="dot" style="{color_style(red)}"></span>
                                 <span class="dot" style="{color_style(purple)}"></span>
                                 <span class="dot" style="{color_style(blue)}"></span>
-                                <b>{key}</b>
+                                <b class="hover-pointer">{key}</b>
                             </summary>
                             {render_nested_structure(value)}
                         </details>

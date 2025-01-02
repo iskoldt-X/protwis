@@ -1363,7 +1363,7 @@ function Calculate_dimension(data, Category_data, Col_break_number, columns, lab
 }
 
 // Genreate the printing of the labels
-function RenderListPlot_Labels(data, category_data, location, styling_option, Layout_dict, label_conversion_dict, label_names) {
+function RenderListPlot_Labels(data, category_data, location, styling_option, Layout_dict, label_conversion_dict, label_names,y_off_set_variable=30) {
     // ######################
     // ## Initialization   ##
     // ######################
@@ -1584,7 +1584,7 @@ function RenderListPlot_Labels(data, category_data, location, styling_option, La
         // Add text for the label
         add_text(label, yOffset, category, label_key, style.Bold, style.Italic, style.Underline, style.Fontsize, style.Color,label_names);
 
-        yOffset += 30; // Adjust Y-offset for the next label
+        yOffset += y_off_set_variable; // Adjust Y-offset for the next label
 
         // Check if this is the new maximum yOffset encountered
         if (yOffset > yOffset_max) {
@@ -1614,7 +1614,7 @@ function RenderListPlot_Labels(data, category_data, location, styling_option, La
 }
 
 // Handles the data visualization
-function data_visualization(data, category_data, location, Layout_dict, data_styling, spacing_dict) {
+function data_visualization(data, category_data, location, Layout_dict, data_styling, spacing_dict,y_off_set_variable=30,data_size=6,data_fontsize_variable=14) {
 
     // ###########################
     // ## Initialize Variables  ##
@@ -1787,30 +1787,30 @@ function data_visualization(data, category_data, location, Layout_dict, data_sty
                 // ### Column 1 ###
                 if (Col1_data_checker && (Col1_shape || Col1_data)) {
                     const shape_color = (typeof Col1_data === 'number') ? getShapeColor('Col1', Col1_data) : 'black';
-                    addShape(Shape_list.includes(Col1_shape) ? Col1_shape : 'circle', margin.left + xOffset + col1_XoffSet, yOffset - 10, 6, shape_color);
+                    addShape(Shape_list.includes(Col1_shape) ? Col1_shape : 'circle', margin.left + xOffset + col1_XoffSet, yOffset - 10, data_size, shape_color);
                 }
 
                 // ### Column 2 ###
                 if (Col2_data_checker && (Col2_shape || Col2_data)) {
                     const shape_color = (typeof Col2_data === 'number') ? getShapeColor('Col2', Col2_data) : 'black';
-                    addShape(Shape_list.includes(Col2_shape) ? Col2_shape : 'circle', margin.left + xOffset + col2_XoffSet, yOffset - 10, 6, shape_color);
+                    addShape(Shape_list.includes(Col2_shape) ? Col2_shape : 'circle', margin.left + xOffset + col2_XoffSet, yOffset - 10, data_size, shape_color);
                 }
 
                 // ### Column 3 ###
                 if (Col3_data_checker && (Col3_shape || Col3_data)) {
                     const shape_color = (typeof Col3_data === 'number') ? getShapeColor('Col3', Col3_data) : 'black';
-                    addShape(Shape_list.includes(Col3_shape) ? Col3_shape : 'circle', margin.left + xOffset + col3_XoffSet, yOffset - 10, 6, shape_color);
+                    addShape(Shape_list.includes(Col3_shape) ? Col3_shape : 'circle', margin.left + xOffset + col3_XoffSet, yOffset - 10, data_size, shape_color);
                 }
 
                 // ### Column 4 ###
                 if (Col4_data_checker && (Col4_shape || Col4_data)) {
                     const shape_color = (typeof Col4_data === 'number') ? getShapeColor('Col4', Col4_data) : 'black';
-                    addShape(Shape_list.includes(Col4_shape) ? Col4_shape : 'circle', margin.left + xOffset + col4_XoffSet, yOffset - 10, 6, shape_color);
+                    addShape(Shape_list.includes(Col4_shape) ? Col4_shape : 'circle', margin.left + xOffset + col4_XoffSet, yOffset - 10, data_size, shape_color);
                 }
             }
 
             // Increment yOffset for the next label and shape
-            yOffset += 30;
+            yOffset += y_off_set_variable;
             label_counter++;
 
             // Handle column break
@@ -1818,7 +1818,7 @@ function data_visualization(data, category_data, location, Layout_dict, data_sty
 
         } else {
             // If the category is not 'Receptor', simply move the Y offset without rendering shapes
-            yOffset += 30;
+            yOffset += y_off_set_variable;
             label_counter++;
 
             // Handle column break
@@ -1834,7 +1834,7 @@ function data_visualization(data, category_data, location, Layout_dict, data_sty
     Object.keys(data_styling).forEach(function(column) {
         if (data_styling[column].Data === "Yes" && data_styling[column].Datatype === 'Continuous') {
             const legendWidth = 200; // Width of the legend bar
-            const data_fontsize = 14; // Adjust as needed
+            const data_fontsize = data_fontsize_variable; // Adjust as needed
             const lowest_value = data_styling[column].Data_min;
             const highest_value = data_styling[column].Data_max;
             const spacing_bar = 30;
