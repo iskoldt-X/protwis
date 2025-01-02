@@ -926,8 +926,9 @@
             var nodes_nr = sankeyData.nodes_nr;
             var totalPoints = sankeyData.total_points;
 
+            var custom_width = 1300;
             // Call your existing SankeyPlot function
-            SankeyPlot(sankeyDataParsed, 'sankey_plot', nodes_nr, totalPoints);
+            SankeyPlot(sankeyDataParsed, 'sankey_plot', nodes_nr, totalPoints, custom_width);
         }
 
         function initializeDataTable(tableId, data, type) {
