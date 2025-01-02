@@ -893,7 +893,6 @@
                 </tr>
                 <tr>
                     <th class="select-page-th"><input class="select-page" type="checkbox">Sel. page</th>
-                    <th style="text-align:left">Similar-<br />ity</th>
                     <th style="text-align:left">Common<br />name</th>
                     <th style="text-align:left">GPCRdb<br />ID</th>
                     <th style="text-align:left">Vendors<br /><br /></th>
@@ -923,7 +922,6 @@
                 {% for p in affinity_data %}
                 <tr>
                     <td><input class="alt" type="checkbox"></td>
-                    <td align="right">{{p.ligand_similarity}}</td>
                     <td><a class="struct" rel="http://www.ebi.ac.uk/chembl/api/data/image/{{p.ligand__ids__index}}" href="/ligand/{{p.ligand__id}}/info" target="_blank">{{p.ligand__ids__index}}</a></td>
                     <td align="right"><a href="/ligand/{{p.ligand__id}}/info" target="_blank">{{p.ligand__id}}</a></td>
                     <td align="right">{{p.purchasability}}</td>
