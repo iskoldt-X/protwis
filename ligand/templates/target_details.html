@@ -439,24 +439,218 @@
             column_filters = column_filters.concat(createYADCFfilters(16, 1, "multi_select", "select2", "Select", false, "exact", "rendered_html", "50px", null, null, null, other_YADCF_filters_text));
             column_filters = column_filters.concat(createYADCFfilters(17, 5, "range_number", null, ["Min", "Max"], false, null, null, "30px"))
             column_filters = column_filters.concat(createYADCFfilters(22, 1, "multi_select", "select2", "Select", false, "exact", "text", "50px", null, null, null, other_YADCF_filters_smiles));
-            }else{
+
+          } else {
+            // == COMPACT mode ==
+            // if(!ligand_query) {...}  // Already perfect above.
+            // else => we come here => ligand_query == true
             const SSHIFT = {% if ligand_similarity %}1{% else %}0{% endif %};
+          
             var smiles_column = 25 + SSHIFT;
+          
+            // If 'ligand_similarity' is true, column 1 is the “Similarity” column (numeric).
+            // So apply a range_number filter on that column:
             {% if ligand_similarity %}
-            column_filters = column_filters.concat(createYADCFfilters(1, 1, "range_number", null, ["Min", "Max"], false, null, null, "30px"));
-            {% endif %};
-            column_filters = column_filters.concat(createYADCFfilters(1 + SSHIFT, 1, "multi_select", "select2", "Select", false, "exact", "html", "80px", null, null, null, other_YADCF_filters_text));
-            column_filters = column_filters.concat(createYADCFfilters(2 + SSHIFT, 1, "multi_select", "select2", "Select", false, "exact", "html", "80px", null, null, null, other_YADCF_filters_num));
-            column_filters = column_filters.concat(createYADCFfilters(3 + SSHIFT, 2, "multi_select", "select2", "Select", false, "exact", "rendered_html", "50px", null, null, null, other_YADCF_filters_text));
-            column_filters = column_filters.concat(createYADCFfilters(5 + SSHIFT, 2, "range_number", null, ["Min", "Max"], false, null, null, "30px"));
-            column_filters = column_filters.concat(createYADCFfilters(7 + SSHIFT, 5, "multi_select", "select2", "Select", false, "exact", "rendered_html", "50px", null, null, null, other_YADCF_filters_text));
-            column_filters = column_filters.concat(createYADCFfilters(12 + SSHIFT, 1, "range_number", null, ["Min", "Max"], false, null, null, "30px"));
-            column_filters = column_filters.concat(createYADCFfilters(13 + SSHIFT, 1, "multi_select", "select2", "Select", false, "exact",  "rendered_html", "50px", null, null, null, other_YADCF_filters_text));
-            column_filters = column_filters.concat(createYADCFfilters(14 + SSHIFT, 4, "range_number", null, ["Min", "Max"], false, null, null, "30px"));
-            column_filters = column_filters.concat(createYADCFfilters(18 + SSHIFT, 2, "multi_select", "select2", "Select", false, "exact", "rendered_html", "50px", null, null, null, other_YADCF_filters_text));
-            column_filters = column_filters.concat(createYADCFfilters(20 + SSHIFT, 5, "range_number", null, ["Min", "Max"], false, null, null, "30px"));
-            column_filters = column_filters.concat(createYADCFfilters(25 + SSHIFT, 1, "multi_select", "select2", "Select", false, "exact", "text", "50px", null, null, null, other_YADCF_filters_smiles));
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                1,                           // column index (Similarity)
+                1,                           // filter_type: numeric?
+                "range_number",              // filter widget
+                null,                        // default_label
+                ["Min", "Max"],             // range labels
+                false,                       // filter_reset_button
+                null,                        // yadcf params
+                null,
+                "30px"
+              )
+            );
+            {% endif %}
+
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                1 + SSHIFT,
+                1,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "html",
+                "80px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_text
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                2 + SSHIFT,
+                1,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "html",
+                "80px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_num
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                3 + SSHIFT,
+                2,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "rendered_html",
+                "50px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_text
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                5 + SSHIFT,
+                2,
+                "range_number",
+                null,
+                ["Min", "Max"],
+                false,
+                null,
+                null,
+                "30px"
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                7 + SSHIFT,
+                5,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "rendered_html",
+                "50px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_text
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                12 + SSHIFT,
+                1,
+                "range_number",
+                null,
+                ["Min", "Max"],
+                false,
+                null,
+                null,
+                "30px"
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                13 + SSHIFT,
+                1,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "rendered_html",
+                "50px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_text
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                14 + SSHIFT,
+                4,
+                "range_number",
+                null,
+                ["Min", "Max"],
+                false,
+                null,
+                null,
+                "30px"
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                18 + SSHIFT,
+                2,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "rendered_html",
+                "50px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_text
+              )
+            );
+          
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                20 + SSHIFT,
+                5,
+                "range_number",
+                null,
+                ["Min", "Max"],
+                false,
+                null,
+                null,
+                "30px"
+              )
+            );
+          
+            // Finally, the SMILES column at (25 + SSHIFT)
+            column_filters = column_filters.concat(
+              createYADCFfilters(
+                25 + SSHIFT,
+                1,
+                "multi_select",
+                "select2",
+                "Select",
+                false,
+                "exact",
+                "text",
+                "50px",
+                null,
+                null,
+                null,
+                other_YADCF_filters_smiles
+              )
+            );
           }
+          
+
         }
 
         yadcf.init(table_potency.draw(), column_filters, {
@@ -573,10 +767,10 @@
             var csv_data = [];
 
             {% if mode == 'extended' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Vendors;Ref. Ligand;Fold selectivity (Potency);Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
+              csv_data.push('Lig. Name;GPCRdb ID;Ref. Ligand;Vendors;Species;;Assay type;Activ. type;Activ. relation;Activ. value;p-value (-log);Fold selectivity (Potency);Tested GPCRs;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
             {% endif %}
             {% if mode == 'compact' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Vendors;Species;{% if ligand_query %}Receptor (Protein);Receptor (Gene);Class;Family;{% endif %}Assay type;Activ. Value;No. Records;Min;Avg;Max;Fold selectivity (Potency);Tested GPCRs;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
+              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Vendors;Species;;{% if ligand_query %}Receptor (Protein);Receptor (Gene);Class;Family;{% endif %}Assay type;Activ. Value;No. Records;Min;Avg;Max;Fold selectivity (Potency);Tested GPCRs;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
             {% endif %}
             for (i = 0; i < checked_data.length; i++) {
                 var csv_row = []
@@ -610,10 +804,10 @@
             var csv_data = [];
            
             {% if mode == 'extended' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Vendors;Ref. Ligand;Fold selectivity (Affinity);Tested GPCRs;Species;p-value (-log);Value type;Activ. relation;Activ. value;Assay type;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
+              csv_data.push('Lig. Name;GPCRdb ID;Ref. Ligand;Vendors;Species;;Assay type;Activ. type;Activ. relation;Activ. value;p-value (-log);Fold selectivity (Affinity);Tested GPCRs;Assay descript.;Source; Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles;DOI')
             {% endif %}
             {% if mode == 'compact' %}
-              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Vendors;Species;{% if ligand_query %}Receptor (Protein);Receptor (Gene);Class;Family;{% endif %}Assay type;Activ. Value;No. Records;Min;Avg;Max;Fold selectivity (Affinity);Tested GPCRs;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
+              csv_data.push('Lig. Name;GPCRdb ID;Lig. type;Ref. Ligand;Vendors;Species;;{% if ligand_query %}Receptor (Protein);Receptor (Gene);Class;Family;{% endif %}Assay type;Activ. Value;No. Records;Min;Avg;Max;Fold selectivity (Affinity);Tested GPCRs;Source;Mol. weight;Rot. Bonds;H don;H acc;LogP;Smiles')
             {% endif %}
             
             for (i = 0; i < checked_data.length; i++) {
@@ -927,10 +1121,10 @@
                     <td align="center">{% if p.source == 'ChEMBL' %} p{{p.value_type}} {% else %} {{p.value_type}} {% endif %}</td>
                     <td>{{p.standard_relation}}</td>
                     <td align="right">{{p.p_activity_value|floatformat}}</td>
-                    <td class="AssayCell"> <div style="overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; max-width: 350px;white-space: nowrap;">{{p.assay_description}}<span class="AssayDetail">{{p.assay_description}}</span> </div></td>
                     <td align="right">{{p.p_activity_value|floatformat:1}}</td>
                     <td align="right">{{p.affinity}}</td>
                     <td align="right">{{p.count_affinity_test}}</td>
+                    <td class="AssayCell"> <div style="overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; max-width: 350px;white-space: nowrap;">{{p.assay_description}}<span class="AssayDetail">{{p.assay_description}}</span> </div></td>
                     <td>{{p.source}}</td>
                     <td align="right">{{p.ligand__mw|floatformat:0}}</td>
                     <td align="right">{{p.ligand__rotatable_bonds}}</td>
