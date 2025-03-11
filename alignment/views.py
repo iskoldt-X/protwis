@@ -1040,3 +1040,25 @@ def render_class_similarity_xlsx_matrix(request):
     response['Content-Disposition'] = "attachment; filename=" + site_title(request)["site_title"] + "_similaritymatrix.xlsx"
     return response
 
+
+class ClassesAndCounts(TemplateView):
+    template_name = 'class_similarity/ClassesAndCounts.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
+
+class ClassificationWheel(TemplateView):
+    template_name = 'class_similarity/ClassificationWheel.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
+    
+class OrphanSimilarity(TemplateView):
+    template_name = 'class_similarity/OrphanSimilarity.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
+    
