@@ -4,6 +4,9 @@ from django.db import connection
 from django.utils.text import slugify
 from django.db import IntegrityError
 
+# for automatic alignment fixes using space information from the pdb
+from build.management.commands.PDB_sequence_helper import *
+
 from build.management.commands.base_build import Command as BaseBuild
 from build.management.commands.build_ligand_functions import get_or_create_ligand, match_id_via_unichem
 from protein.models import (Protein, ProteinConformation, ProteinState, ProteinAnomaly, ProteinAnomalyType,
@@ -728,6 +731,32 @@ class Command(BaseBuild):
         elif structure.pdb_code.index=='9IVM':
             temp_seq = temp_seq[:105]+'S'+temp_seq[105:111]+temp_seq[112:]
 
+        # New code block for automatic alignment fixes using space information from the pdb, starts here
+        # parent_seq is the wt_seq, 
+        # ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+
+        # pdb_code = structure.pdb_code.index
+        # wt_seq = parent_seq
+        # pdb_text = structure.pdb_data.pdb
+        # pdb_seq, distances = generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain)
+        # ref_seq, temp_seq, pdb_map = run_pairwisealigner(pdb_code, wt_seq, pdb_seq)
+        # outlier_indexes = distances_stats(distances)
+        # fixed_temp_seq = detect_alignment_mistakes_and_reposition(
+        #     pdb_code,
+        #     wt_seq, 
+        #     pdb_seq, 
+        #     ref_seq, 
+        #     temp_seq, 
+        #     pdb_map, 
+        #     distances, 
+        #     outlier_indexes, 
+        #     aanumber=3  # or however many residues you want to look back
+        # )
+
+        # ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+        # fixed_temp_seq is the corrected temp_seq from this method
+        # New code block for automatic alignment fixes using space information from the pdb, ends here
+
 
         for i, r in enumerate(ref_seq, 1): #loop over alignment to create lookups (track pos)
             if self.debug:
@@ -1270,7 +1299,15 @@ class Command(BaseBuild):
                 structure.save()
 
             protein = structure.protein_conformation
-            lig_key = list(data.keys())[0]
+            lig_keys = list(data.keys())
+            if len(lig_keys)>1:
+                for l in lig_keys:
+                    if l==ligand_name:
+                        lig_key = l
+                    elif len(ligand_name)==5 and ligand_name[:3]==l:
+                        lig_key = l
+            else:
+                lig_key = list(data.keys())[0]
 
             f = module_dir + "/results/" + pdb_id + "/interaction" + "/" + pdb_id + "_" + lig_key + ".pdb"
             if os.path.isfile(f):
@@ -1283,6 +1320,8 @@ class Command(BaseBuild):
             lig_db_key = lig_key
             if lig_key!=ligand_name and len(lig_key)==3 and len(ligand_name)==5:
                 lig_db_key = ligand_name
+                if '.' in lig_db_key:
+                    lig_db_key = lig_db_key.split('.')[0]
             struct_lig_interactions = StructureLigandInteraction.objects.filter(pdb_reference=lig_db_key, structure=structure, annotated=True) #, pdb_file=None
             if struct_lig_interactions.exists():  # if the annotated exists
                 try:

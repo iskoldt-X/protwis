@@ -82,7 +82,7 @@ class Command(BaseCommand):
         (blast_out, blast_err) = blast.communicate(input=str(fasta_results))
 
         pdb_list = []
-        if len(blast_err) != 0:
+        if len(blast_err) != 0 and not blast_err.startswith('Warning'):
             print("BLAST search returned an error - exiting")
             return
         elif blast_out!='\n':
