@@ -92,6 +92,36 @@
       });
     </script>
 
+
+
+<script id="matrix-data" type="application/json">
+    {{ m_list|json_script:"matrix-data" }}
+</script>
+<script id="plist-data" type="application/json">
+    {{ p_list|json_script:"plist-data" }}
+</script>
+<script id="csv-data" type="application/json">
+    {{ csv_list|json_script:"csv-data" }}
+</script>
+<script id="hlist-data" type="application/json">
+    {{ h_list|json_script:"hlist-data" }}
+</script>
+<script>
+  // Log the context data to the browser console
+// const mList = JSON.parse(document.getElementById('matrix-data').textContent);
+// const pList = JSON.parse(document.getElementById('plist-data').textContent);
+// const csvList = JSON.parse(document.getElementById('csv-data').textContent);
+// const hList = JSON.parse(document.getElementById('hlist-data').textContent);
+
+// console.log("m_list:", mList);
+// console.log("p_list:", pList);
+// console.log("csv_list:", csvList);
+// console.log("h_list:", hList);
+
+console.log(document.getElementById('matrix-data').textContent);
+</script>
+
+
 {% endblock %}
 
 {% block content %}
@@ -191,3 +221,5 @@
   {% endfor %}
 </div>
 {% endblock %}
+
+

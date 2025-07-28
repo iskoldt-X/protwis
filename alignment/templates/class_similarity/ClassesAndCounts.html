@@ -1,25 +1,225 @@
 {% extends "home/base.html" %}
 {% load static %}
-{% load utils %}
-
 {% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/nv.d3.min.css' %}" type="text/css" />
+<link rel="stylesheet" href="{% static 'home/css/nvd3-update.css' %}" type="text/css" />
 <style>
-  /* Css block for styling */
+  table.heatmap {
+  border-collapse: collapse;
+  width: auto;
+  font-size: 14px;
+  text-align: center;
+  table-layout: fixed;
+}
+
+table.heatmap th,
+table.heatmap td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  white-space: normal;     /* ✅ allow wrapping */
+  word-wrap: break-word;   /* ✅ break long words */
+  vertical-align: middle;
+}
+
+table.heatmap th {
+  background-color: #f9f9f9;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+table.heatmap .row-label {
+  position: sticky;
+  left: 0;
+  background-color: #fff;
+  z-index: 1;
+  text-align: left;
+  white-space: normal;
+}
+
+  td[data-value] {
+    color: black;
+  }
+
+  td[data-value="-"] {
+    background-color: #fff !important;
+  }
+
+  /* Custom column width classes */
+  .col-narrow {
+    width: 90px;
+    max-width: 90px;
+  }
+
+  .col-medium {
+    width: 120px;
+    max-width: 135px;
+  }
+
+  .col-wide {
+    width: 175px;
+    max-width: 175px;
+  }
+
+  .col-wider {
+    width: 230px;
+    max-width: 230px;
+  }
 </style>
 {% endblock %}
 
-
-
 {% block content %}
+<div class="table-responsive" style="max-height: 800px; overflow: auto;">
+  <table class="table heatmap" id="similarityTable">
+    <thead>
+      <tr>
+        <th class="col-wide"></th>
+        <th class="col-medium">Class A<br>(Rhodopsin)</th>
+        <th class="col-medium">Class B1<br>(Secretin)</th>
+        <th class="col-medium">Class B2<br>(Adhesion)</th>
+        <th class="col-medium">Class C<br>(Glutamate)</th>
+        <th class="col-medium">Class F<br>(Frizzled)</th>
+        <th class="col-medium">Class T<br>(Taste 2)</th>
+        <th class="col-narrow">GPR107</th>
+        <th class="col-narrow">GPR137</th>
+        <th class="col-narrow">TPRA1</th>
+        <th class="col-narrow">GPR143</th>
+        <th class="col-narrow">GPR157</th>
+        <th class="col-narrow">GPR214</th>
+        <th class="col-wide">Class D1 (Ste2-like fungal pheromone)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th class="row-label">Class A (Rhodopsin)</th>
+        <td data-value="-">-</td><td data-value="15">15</td><td data-value="17">17</td><td data-value="14">14</td>
+        <td data-value="14">14</td><td data-value="17">17</td><td data-value="11">11</td><td data-value="13">13</td>
+        <td data-value="11">11</td><td data-value="15">15</td><td data-value="18">18</td><td data-value="14">14</td>
+        <td data-value="9">9</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class B1 (Secretin)</th>
+        <td data-value="33">33</td><td data-value="-">-</td><td data-value="25">25</td><td data-value="12">12</td>
+        <td data-value="14">14</td><td data-value="14">14</td><td data-value="7">7</td><td data-value="11">11</td>
+        <td data-value="10">10</td><td data-value="14">14</td><td data-value="15">15</td><td data-value="11">11</td>
+        <td data-value="9">9</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class B2 (Adhesion)</th>
+        <td data-value="34">34</td><td data-value="43">43</td><td data-value="-">-</td><td data-value="13">13</td>
+        <td data-value="18">18</td><td data-value="14">14</td><td data-value="9">9</td><td data-value="10">10</td>
+        <td data-value="12">12</td><td data-value="14">14</td><td data-value="18">18</td><td data-value="14">14</td>
+        <td data-value="9">9</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class C (Glutamate)</th>
+        <td data-value="27">27</td><td data-value="26">26</td><td data-value="27">27</td><td data-value="-">-</td>
+        <td data-value="11">11</td><td data-value="10">10</td><td data-value="8">8</td><td data-value="10">10</td>
+        <td data-value="10">10</td><td data-value="8">8</td><td data-value="13">13</td><td data-value="9">9</td>
+        <td data-value="10">10</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class F (Frizzled)</th>
+        <td data-value="29">29</td><td data-value="27">27</td><td data-value="34">34</td><td data-value="24">24</td>
+        <td data-value="-">-</td><td data-value="12">12</td><td data-value="6">6</td><td data-value="9">9</td>
+        <td data-value="9">9</td><td data-value="12">12</td><td data-value="14">14</td><td data-value="11">11</td>
+        <td data-value="16">16</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class T (Taste 2)</th>
+        <td data-value="34">34</td><td data-value="27">27</td><td data-value="28">28</td><td data-value="22">22</td>
+        <td data-value="28">28</td><td data-value="-">-</td><td data-value="8">8</td><td data-value="7">7</td>
+        <td data-value="9">9</td><td data-value="11">11</td><td data-value="12">12</td><td data-value="10">10</td>
+        <td data-value="19">19</td>
+      </tr>
+      <tr>
+        <th class="row-label">GPR107</th>
+        <td data-value="24">24</td><td data-value="17">17</td><td data-value="19">19</td><td data-value="21">21</td>
+        <td data-value="15">15</td><td data-value="20">20</td><td data-value="-">-</td><td data-value="8">8</td>
+        <td data-value="9">9</td><td data-value="8">8</td><td data-value="5">5</td><td data-value="7">7</td>
+        <td data-value="15">15</td>
+      </tr>
+      <tr>
+        <th class="row-label">GPR137</th>
+        <td data-value="23">23</td><td data-value="21">21</td><td data-value="22">22</td><td data-value="20">20</td>
+        <td data-value="18">18</td><td data-value="18">18</td><td data-value="21">21</td><td data-value="-">-</td>
+        <td data-value="7">7</td><td data-value="5">5</td><td data-value="10">10</td><td data-value="6">6</td>
+        <td data-value="17">17</td>
+      </tr>
+      <tr>
+        <th class="row-label">TPRA1</th>
+        <td data-value="24">24</td><td data-value="20">20</td><td data-value="23">23</td><td data-value="25">25</td>
+        <td data-value="20">20</td><td data-value="22">22</td><td data-value="18">18</td><td data-value="17">17</td>
+        <td data-value="-">-</td><td data-value="10">10</td><td data-value="6">6</td><td data-value="5">5</td>
+        <td data-value="15">15</td>
+      </tr>
+      <tr>
+        <th class="row-label">GPR143</th>
+        <td data-value="28">28</td><td data-value="27">27</td><td data-value="27">27</td><td data-value="21">21</td>
+        <td data-value="22">22</td><td data-value="22">22</td><td data-value="18">18</td><td data-value="14">14</td>
+        <td data-value="24">24</td><td data-value="-">-</td><td data-value="14">14</td><td data-value="9">9</td>
+        <td data-value="15">15</td>
+      </tr>
+      <tr>
+        <th class="row-label">GPR157</th>
+        <td data-value="35">35</td><td data-value="32">32</td><td data-value="34">34</td><td data-value="25">25</td>
+        <td data-value="30">30</td><td data-value="32">32</td><td data-value="15">15</td><td data-value="18">18</td>
+        <td data-value="20">20</td><td data-value="28">28</td><td data-value="-">-</td><td data-value="16">16</td>
+        <td data-value="17">17</td>
+      </tr>
+      <tr>
+        <th class="row-label">GPR214</th>
+        <td data-value="27">27</td><td data-value="25">25</td><td data-value="26">26</td><td data-value="22">22</td>
+        <td data-value="25">25</td><td data-value="21">21</td><td data-value="16">16</td><td data-value="15">15</td>
+        <td data-value="14">14</td><td data-value="20">20</td><td data-value="31">31</td><td data-value="-">-</td>
+        <td data-value="15">15</td>
+      </tr>
+      <tr>
+        <th class="row-label">Class D1 (Ste2-like fungal pheromone)</th>
+        <td data-value="20">20</td><td data-value="19">19</td><td data-value="21">21</td><td data-value="20">20</td>
+        <td data-value="6">6</td><td data-value="8">8</td><td data-value="4">4</td><td data-value="7">7</td>
+        <td data-value="4">4</td><td data-value="6">6</td><td data-value="5">5</td><td data-value="6">6</td>
+        <td data-value="-">-</td>
+      </tr>
+    </tbody>
 
-<h3>Hey Binghan this is for the Classes & Counts</h3>
-
+  </table>
+</div>
+<div class="table-legend mt-3" style="margin-top: 10px; font-size: 14px; max-width: 100%;">
+  <p>
+    More information can be found on 
+    <a href="https://www.guidetopharmacology.org/GRAC/FamilyDisplayForward?familyId=694&familyType=GPCR" target="_blank" rel="noopener noreferrer">this page</a>. 
+    Each GPCR class also has receptor families based on shared endogenous ligand 
+    (classes A, B1, B2, C and F) or sequence similarity (classes D, E, OR, T2 and V). 
+    These are too many to list here but are included in the receptor classification 
+    information/selection across GPCRdb data and tools. Receptors and receptor families 
+    are named by the nomenclature committee of the International Union of Pharmacology and 
+    are available in their database 
+    <a href="https://www.guidetopharmacology.org/GRAC/ReceptorFamiliesForward?type=GPCR" target="_blank" rel="noopener noreferrer">Guide to Pharmacology</a>.
+  </p>
+</div>
 {% endblock %}
 
-
 {% block addon_js %}
+<script src="{% static 'home/js/d3.min.js' %}"></script>
+<script src="{% static 'home/js/nv.d3.min.js' %}"></script>
+<script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script>
-  // Javascript block
-</script>
+const colorScale = d3v4.scaleLinear()
+    .domain([43, 32, 22, 13, 4]) // reversed values
+    .range(["#8CD47E", "#7ABD7E", "#F8D66D", "#FFB54C", "#FF6961"])
+    .interpolate(d3.interpolateRgb);  // smooth RGB interpolation
 
+document.addEventListener("DOMContentLoaded", function () {
+    const cells = document.querySelectorAll("td[data-value]");
+    cells.forEach(cell => {
+      const val = cell.getAttribute("data-value");
+      if (val !== "-") {
+        cell.style.backgroundColor = colorScale(+val);
+      } else {
+        cell.style.backgroundColor = "#ffffff";
+      }
+    });
+  });
+</script>
 {% endblock %}
