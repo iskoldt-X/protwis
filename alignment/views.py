@@ -29,6 +29,7 @@ from residue.models import ResidueNumberingScheme, ResiduePositionSet
 from alignment.models import ClassSimilarity, ClassSimilarityTie, ClassSimilarityType, ClassRepresentativeSpecies
 from seqsign.sequence_signature import SequenceSignature, signature_score_excel
 from protein.models import CLASSLESS_PARENT_GPCR_SLUGS
+from mapper.views import DataMapperHome
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -1051,8 +1052,44 @@ class ClassesAndCounts(TemplateView):
 class ClassificationWheel(TemplateView):
     template_name = 'class_similarity/ClassificationWheel.html'
 
+    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        def update_gpcr_structure(wheelstructure):
+            DARK_BLUE = "#2A9D8F"
+            DARK_PURPLE = "#9D4EDD"
+
+            data = wheelstructure.get("Data", {})
+
+            # Circles 1–3: update all receptors to O2 (tetrapod specific odorant)
+            for i in range(1, 4):
+                circle_key = f"Circle_{i}"
+                circle = data.get(circle_key, {})
+                for class_key, families in circle.items():
+                    for family_key, receptors in families.items():
+                        for receptor_key, receptor in receptors.items():
+                            receptor["Data"] = "O2 (tetrapod specific odorant)"
+                            receptor["Color"] = DARK_BLUE
+
+            # Circle 4: update all receptors to O1 (fish-like odorant)
+            circle = data.get("Circle_4", {})
+            for class_key, families in circle.items():
+                for family_key, receptors in families.items():
+                    for receptor_key, receptor in receptors.items():
+                        receptor["Data"] = "O1 (fish-like odorant)"
+                        receptor["Color"] = DARK_PURPLE
+
+            return wheelstructure
+
+        
+        wheelstructure = DataMapperHome.GenerateGPCRomeDataStructure(data_type="Odorant")
+        
+        updated_wheelstructure = update_gpcr_structure(wheelstructure)
+        
+        context['GPCRomeData'] = json.dumps(updated_wheelstructure['Data'])
+
         return context
     
 class OrphanSimilarity(TemplateView):

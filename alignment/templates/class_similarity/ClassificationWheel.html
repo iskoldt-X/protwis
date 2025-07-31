@@ -12,14 +12,85 @@
 
 {% block content %}
 
-<h3>Hey Binghan this is for the Classification wheel</h3>
+
+<div style="padding-top: 10px; font-size: 11px; white-space: nowrap;">
+  <div class="col-md-12">
+    <br>
+    <div class="col-md-3">
+      Receptor names:
+      <div class="btn-group" role="group" id="gtp_plus">
+        <button id="GPCRome_Odorant_Protein" class="btn btn-info active">Protein</button>
+          <button id="GPCRome_Odorant_Entrez" class="btn btn-info">Gene</button>
+          <button id="GPCRome_Odorant_Uniprot" class="btn btn-info ">UniProt</button>
+      </div>
+    </div>
+    <div class="col-md-1"></div>
+    <div class="col-md-3" style="padding-top: 5px;">
+      Icon toggle:
+      <button id="ToggleIconOdorant" class="btn btn-info active">On</button>
+    </div>
+
+  <div class="col-md-3">
+    <div class="text-center">
+      <div class="dropdown">
+        <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-right-middle">
+          <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.svg');">SVG</a></li>
+          <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.png');">PNG</a></li>
+          <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.jpg');">JPG</a></li>
+          <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.tiff');">TIFF</a></li>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <br />
+  <br />
+  <br />
+
+    <div id="image-container" data-image-url="{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}"></div>
+    <!-- GPCRome -->
+    <div class="col-md-12" style="margin-top: 0px;margin-bottom: 30px;">
+        <div id="GPCRome_odorant_plot" class="text-center"></div>
+    </div>
+
+  </div>
+</div>
 
 {% endblock %}
 
 
 {% block addon_js %}
+<script src="{% static 'home/js/d3.min.js' %}"></script>
+<script src="{% static 'home/js/nv.d3.min.js' %}"></script>
+<script src="{% static 'home/js/d3.v4.min.js' %}"></script>
+<script src="{% static 'home/js/saveSvgAsPng.js' %}"></script>
+<script src="{% static 'home/js/saveSvg.js' %}"></script>
+<script src="{% static 'home/js/datamapper.js' %}"></script>
+<script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
 <script>
-  // Javascript block
+
+var GPCRomeWheelData = {{ GPCRomeData|safe }};
+console.log(GPCRomeWheelData)
+
+var GPCRomes_styling = {
+    DataType: "Text",
+    FontStyle: "Arial",
+    FontsizeGlobal: "11px",
+    FontsizeClass: "20px",
+    showIcon: true,
+    LabelType: "Protein",
+    ShowLegend: true,
+    LegendLayout: { "mode": "row", "columns": "1", "sorted": "Vertically" }
+};
+
+let GPCRome_location = "GPCRome_odorant_plot";
+DrawGPCRomeWheel(GPCRomeWheelData, GPCRome_location, GPCRomes_styling);
+
+
 </script>
 
 {% endblock %}
