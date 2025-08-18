@@ -5,185 +5,626 @@
 {% block addon_css %}
 <link rel="stylesheet" href="{% static 'home/css/nv.d3.min.css' %}" type="text/css" />
 <link rel="stylesheet" href="{% static 'home/css/nvd3-update.css' %}" type="text/css" />
-<link href="{% static 'home/css/bootstrap-responsive.css' %}" rel="stylesheet" media="screen">
-<style>
-  /* Css block for styling */
-</style>
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css" />
+<link rel="stylesheet" href="{% static 'home/css/Spectrum_1_8_1.css' %}" type="text/css" />
 
+<style>
+/* Generic dropdown look */
+.dropdown-menu-side {
+  position: absolute;
+  left: 100%;
+  margin-left: 5px;
+  min-width: 160px;
+  padding: 10px 15px;
+}
+
+/* Per-dropdown vertical alignment */
+.dropdown-menu-align-names   { transform: translateY(-35%); }
+.dropdown-menu-align-legend  { transform: translateY(-27%); }
+.dropdown-menu-align-layout  { transform: translateY(-43%); }
+.dropdown-menu-align-download{ transform: translateY(-49%); }
+
+/* Select2 polish */
+.select2-container--default .select2-selection--single {
+  height: 38px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  line-height: 24px;
+  font-size: 14px;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: 24px;
+  padding-left: 0;
+  text-align: center;
+  width: 100%;
+}
+.select2-container--default .select2-results__option {
+  text-align: center;
+}
+</style>
 {% endblock %}
 
-
-
 {% block content %}
+<div id="image-container" data-image-url="{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}" style="display:none"></div>
 
-<!-- === Navigation Tabs for Switching Views === -->
+<!-- === Tabs === -->
 <ul class="nav nav-tabs">
-  <li class="active">
-    <a href="#GPCRomewheel_classic_tab" data-toggle="tab">GPCRome wheel</a>
-  </li>
-  <li>
-    <a href="#GPCRomewheel_odorant_tab" data-toggle="tab">Odorant wheel</a>
-  </li>
+  <li class="active"><a href="#GPCRomewheel_classic_tab" data-toggle="tab">GPCRome wheel</a></li>
+  <li><a href="#GPCRomewheel_odorant_tab" data-toggle="tab">Odorant wheel</a></li>
 </ul>
 
-<!-- === Tab Content Containers === -->
 <div class="tab-content">
 
-  <!-- ============================
-       GPCRome Classic Wheel Tab
-       ============================ -->
+  <!-- === Classic Wheel === -->
   <div id="GPCRomewheel_classic_tab" class="tab-pane fade in active">
-    <div class="container-fluid" style="padding-top: 10px; font-size: 11px;">
+    <div class="col-md-12" style="margin-bottom:20px; margin-top:10px;">
+      <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-wrap:nowrap;">
 
-      <!-- === Control Buttons Row === -->
-      <div class="row">
-        <!-- Receptor Name Format Switcher -->
-        <div class="col-md-3">
-          Receptor names:
-          <div class="btn-group" role="group" id="gtp_plus_classic">
-            <button id="GPCRome_Classic_Protein" class="btn btn-info active">Protein</button>
-            <button id="GPCRome_Classic_Entrez" class="btn btn-info">Gene</button>
-            <button id="GPCRome_Classic_Uniprot" class="btn btn-info">UniProt</button>
+        <!-- Receptor names -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Receptor names</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-names">
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-label-btn" data-wheel="classic" data-value="Protein">Protein</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-label-btn" data-wheel="classic" data-value="Entrez">Gene</button>
+            <button type="button" class="btn btn-outline-primary btn-block GPCRome-label-btn" data-wheel="classic" data-value="Uniprot">UniProt</button>
           </div>
         </div>
 
-        <!-- Spacer -->
-        <div class="col-md-1"></div>
-
-        <!-- Icon Toggle -->
-        <div class="col-md-3" style="padding-top: 5px;">
-          Icon toggle:
-          <button id="ToggleIconClassic" class="btn btn-info active">On</button>
-        </div>
-
-        <!-- Download Menu -->
-        <div class="col-md-3">
-          <div class="text-center">
-            <div class="dropdown">
-              <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
-              </button>
-              <div class="dropdown-menu dropdown-menu-right-middle">
-                <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic_plot.svg');">SVG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic_plot.png');">PNG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic_plot.jpg');">JPG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic_plot.tiff');">TIFF</a></li>
-              </div>
+        <!-- Graphical legend -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Graphical legend</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-legend text-center" style="min-width:200px;">
+            <div style="padding: 10px 0;">
+              <label>Top-left:</label>
+              <button id="classic-toggleIcon" class="btn btn-success" style="min-width:60px;">Shown</button>
+            </div>
+            <hr>
+            <div style="padding: 10px 0;">
+              <label>Bottom:</label>
+              <button id="classic-toggleLegend" class="btn btn-success" style="min-width:60px;">Shown</button>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- === Plot & Legend Section === -->
-      <div class="row" style="margin-top: 15px;">
-        <div class="col-md-12 text-center">
-          <!-- Optional static image -->
-          <div id="image-container" data-image-url="{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}"></div>
-
-          <!-- GPCRome Classic D3 Plot Target -->
-          <div id="GPCRome_classic_plot" class="text-center" style="margin-top: 20px; margin-bottom: 30px;"></div>
+        <!-- Legend layout -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Data labels</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-layout" style="width:250px;">
+            <div style="display:flex; align-items:center; margin-bottom:15px;">
+              <label style="flex:1; font-weight:bold; font-size:15px; margin:0;">Layout</label>
+              <select id="classic-legend-layout-select" style="width:70%;">
+                <option value="row">Continuous text</option>
+                <option value="columns-1">1 column</option>
+                <option value="columns-2">2 columns</option>
+                <option value="columns-3">3 columns</option>
+                <option value="columns-4">4 columns</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <label style="flex:1; font-size:15px; margin:0;">Sorting</label>
+              <button id="classic-toggleLegendSorting" class="btn btn-primary" style="width:70%;">Vertically</button>
+            </div>
+          </div>
         </div>
+
+        <!-- Color by -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            Color by
+          </button>
+          <div class="dropdown-menu dropdown-menu-side">
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Class">Class</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Ligand type">Ligand type</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Receptor family">Receptor family</button>
+            <button type="button" class="btn btn-outline-primary btn-block GPCRome-colorby-btn" data-wheel="classic" data-value="Sense">Sense</button>
+          </div>
+        </div>
+
+        <!-- Customize Class Colors -->
+        <div class="dropdown">
+          <button class="btn btn-warning dropdown-toggle" type="button" data-toggle="dropdown">
+            Customize Class Colors
+          </button>
+          <div class="dropdown-menu p-3" style="min-width:200px;">
+            <div id="class-color-pickers"></div>
+          </div>
+        </div>
+
+        <!-- Download -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            <span class="glyphicon glyphicon-download"></span> Download
+          </button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-download">
+            <button type="button" class="btn btn-primary btn-block" onclick="saveSvg(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic.svg');">SVG</button>
+            <button type="button" class="btn btn-primary btn-block" onclick="saveSvgAsPng(document.getElementById('GPCRome_classic_plot_svg'), 'GPCRome_classic.png');">PNG</button>
+          </div>
+        </div>
+
       </div>
     </div>
+    <div id="GPCRome_classic_plot" class="text-center" style="margin-bottom:30px;"></div>
   </div>
 
-  <!-- =============================
-       GPCRome Odorant Wheel Tab
-       ============================= -->
+  <!-- === Odorant Wheel === -->
   <div id="GPCRomewheel_odorant_tab" class="tab-pane fade">
-    <div class="container-fluid" style="padding-top: 10px; font-size: 11px;">
+    <div class="col-md-12" style="margin-bottom:20px; margin-top:10px;">
+      <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-wrap:nowrap;">
 
-      <!-- === Control Buttons Row === -->
-      <div class="row">
-        <!-- Receptor Name Format Switcher -->
-        <div class="col-md-3">
-          Receptor names:
-          <div class="btn-group" role="group" id="gtp_plus">
-            <button id="GPCRome_Odorant_Protein" class="btn btn-info active">Protein</button>
-            <button id="GPCRome_Odorant_Entrez" class="btn btn-info">Gene</button>
-            <button id="GPCRome_Odorant_Uniprot" class="btn btn-info">UniProt</button>
+        <!-- Receptor names -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Receptor names</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-names">
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-label-btn" data-wheel="odorant" data-value="Protein">Protein</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-label-btn" data-wheel="odorant" data-value="Entrez">Gene</button>
+            <button type="button" class="btn btn-outline-primary btn-block GPCRome-label-btn" data-wheel="odorant" data-value="Uniprot">UniProt</button>
           </div>
         </div>
 
-        <!-- Spacer -->
-        <div class="col-md-1"></div>
-
-        <!-- Icon Toggle -->
-        <div class="col-md-3" style="padding-top: 5px;">
-          Icon toggle:
-          <button id="ToggleIconOdorant" class="btn btn-info active">On</button>
-        </div>
-
-        <!-- Download Menu -->
-        <div class="col-md-3">
-          <div class="text-center">
-            <div class="dropdown">
-              <button type="button" class="btn btn-primary dropdown-toggle" style="font-size: 14px;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                <span class="glyphicon glyphicon-download" style="vertical-align: top;line-height: 1.3"></span> Download <span class="caret"></span>
-              </button>
-              <div class="dropdown-menu dropdown-menu-right-middle">
-                <li><a class="dropdown-item" href="javascript:saveSvg(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.svg');">SVG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsPng(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.png');">PNG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsJpg(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.jpg');">JPG</a></li>
-                <li><a class="dropdown-item" href="javascript:saveSvgAsTiff(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant_plot.tiff');">TIFF</a></li>
-              </div>
+        <!-- Graphical legend -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Graphical legend</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-legend text-center" style="min-width:200px;">
+            <div style="padding: 10px 0;">
+              <label>Top-left:</label>
+              <button id="odorant-toggleIcon" class="btn btn-success" style="min-width:60px;">Shown</button>
+            </div>
+            <hr>
+            <div style="padding: 10px 0;">
+              <label>Bottom:</label>
+              <button id="odorant-toggleLegend" class="btn btn-success" style="min-width:60px;">Shown</button>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- === Plot & Legend Section === -->
-      <div class="row" style="margin-top: 15px;">
-        <div class="col-md-12 text-center">
-          <!-- Optional static image -->
-          <div id="image-container" data-image-url="{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}"></div>
-
-          <!-- GPCRome Odorant D3 Plot Target -->
-          <div id="GPCRome_odorant_plot" class="text-center" style="margin-top: 20px; margin-bottom: 30px;"></div>
+        <!-- Legend layout -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Data labels</button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-layout" style="width:250px;">
+            <div style="display:flex; align-items:center; margin-bottom:15px;">
+              <label style="flex:1; font-weight:bold; font-size:15px; margin:0;">Layout</label>
+              <select id="odorant-legend-layout-select" style="width:70%;">
+                <option value="row">Continuous text</option>
+                <option value="columns-1">1 column</option>
+                <option value="columns-2">2 columns</option>
+                <option value="columns-3">3 columns</option>
+                <option value="columns-4">4 columns</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <label style="flex:1; font-size:15px; margin:0;">Sorting</label>
+              <button id="odorant-toggleLegendSorting" class="btn btn-primary" style="width:70%;">Vertically</button>
+            </div>
+          </div>
         </div>
+
+        <!-- Color by -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            Color by
+          </button>
+          <div class="dropdown-menu dropdown-menu-side">
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Class">Class</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Ligand type">Ligand type</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Receptor family">Receptor family</button>
+            <button type="button" class="btn btn-outline-primary btn-block GPCRome-colorby-btn" data-wheel="odorant" data-value="Sense">Sense</button>
+          </div>
+        </div>
+
+        <!-- Download -->
+        <div class="dropdown">
+          <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            <span class="glyphicon glyphicon-download"></span> Download
+          </button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-download">
+            <button type="button" class="btn btn-primary btn-block" onclick="saveSvg(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant.svg');">SVG</button>
+            <button type="button" class="btn btn-primary btn-block" onclick="saveSvgAsPng(document.getElementById('GPCRome_odorant_plot_svg'), 'GPCRome_odorant.png');">PNG</button>
+          </div>
+        </div>
+
       </div>
     </div>
+    <div id="GPCRome_odorant_plot" class="text-center" style="margin-bottom:30px;"></div>
   </div>
 
 </div>
-
-
 {% endblock %}
 
-
 {% block addon_js %}
-<script src="{% static 'home/js/bootstrap-toggle.min.js' %}"></script>
 <script src="{% static 'home/js/d3.min.js' %}"></script>
 <script src="{% static 'home/js/nv.d3.min.js' %}"></script>
 <script src="{% static 'home/js/d3.v4.min.js' %}"></script>
 <script src="{% static 'home/js/saveSvgAsPng.js' %}"></script>
 <script src="{% static 'home/js/saveSvg.js' %}"></script>
 <script src="{% static 'home/js/datamapper.js' %}"></script>
-<script src="{% static 'home/js/popper.min.js' %}"></script>
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
 <script src="{% static 'home/js/spectrum_v1_8_1.js' %}"></script>
 
 <script>
+// Prevent dropdown close on click inside
+$(document).on('click', '.dropdown-menu', function (e) { e.stopPropagation(); });
 
-
-
-var GPCRomeWheelData = {{ GPCRomeData|safe }};
-console.log(GPCRomeWheelData)
-
-var GPCRomes_styling = {
-    DataType: "Text",
-    FontStyle: "Arial",
-    FontsizeGlobal: "11px",
-    FontsizeClass: "20px",
-    showIcon: true,
-    LabelType: "Protein",
-    ShowLegend: true,
-    LegendLayout: { "mode": "row", "columns": "1", "sorted": "Vertically" }
+const wheelData = {
+  classic: {{ GPCRomeData|safe }},
+  odorant: {{ GPCRomeOdorantData|safe }}
 };
 
-let GPCRome_location = "GPCRome_odorant_plot";
-DrawGPCRomeWheel(GPCRomeWheelData, GPCRome_location, GPCRomes_styling);
+console.log(wheelData["classic"])
 
+const ICON_URL = "{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}";
+
+const wheelStyling = {
+  classic: { DataType:"Text", FontStyle:"Arial", FontsizeGlobal:"11px", FontsizeClass:"20px", showIcon:true, LabelType:"Protein", ShowLegend:true, LegendLayout:{mode:"row", columns:1, sorted:"Vertically"}, IconUrl: ICON_URL, ColorBy: "Class" },
+  odorant: { DataType:"Text", FontStyle:"Arial", FontsizeGlobal:"11px", FontsizeClass:"20px", showIcon:true, LabelType:"Protein", ShowLegend:true, LegendLayout:{mode:"row", columns:1, sorted:"Vertically"}, IconUrl: ICON_URL, ColorBy: "Class" }
+};
+
+function generateCategoryColors(categories) {
+  const colors = {};
+  const hueStep = 360 / categories.length;
+  categories.forEach((cat, i) => {
+    const hue = (i * hueStep) % 360;
+    colors[cat] = `hsl(${hue}, 70%, 50%)`; // nice saturated rainbow
+  });
+  return colors;
+}
+
+const RECEPTOR_FAMILIES = [
+  "5-Hydroxytryptamine receptors",
+  "Acetylcholine receptors (muscarinic)",
+  "Adenosine receptors",
+  "ADGRA",
+  "ADGRB",
+  "ADGRC",
+  "ADGRD",
+  "ADGRE",
+  "ADGRF",
+  "ADGRG",
+  "ADGRL",
+  "ADGRV",
+  "Adrenoceptors",
+  "Angiotensin receptors",
+  "Apelin receptors",
+  "Bile acid receptors",
+  "Bombesin receptors",
+  "Bradykinin receptors",
+  "Calcitonin receptors",
+  "Calcium-sensing receptors",
+  "Cannabinoid receptors",
+  "Chemerin receptor",
+  "Chemokine receptors",
+  "Cholecystokinin receptors",
+  "Class A orphans",
+  "Class C Orphans",
+  "Complement peptide receptors",
+  "Corticotropin-releasing factor receptors",
+  "Dopamine receptors",
+  "Endothelin receptors",
+  "Estrogen (G protein-coupled) receptors",
+  "Formylpeptide receptors",
+  "Free fatty acid receptors",
+  "Frizzled",
+  "GABA<sub>B</sub> receptors",
+  "Galanin receptors",
+  "Ghrelin receptors",
+  "Glucagon receptor family",
+  "Glycoprotein hormone receptors",
+  "Gonadotrophin-releasing hormone receptors",
+  "GPR18, GPR55 and GPR119",
+  "Histamine receptors",
+  "Hydroxycarboxylic acid receptors",
+  "Kisspeptin receptors",
+  "Leukotriene receptors",
+  "Lysophospholipid (LPA) receptors",
+  "Lysophospholipid (S1P) receptors",
+  "Melanin-concentrating hormone",
+  "Melanocortin receptors",
+  "Melatonin",
+  "Metabotropic glutamate receptors",
+  "Motilin receptors",
+  "Neuromedin U receptors",
+  "Neuropeptide FF/neuropeptide AF receptors",
+  "Neuropeptide S receptors",
+  "Neuropeptide W/neuropeptide B receptors",
+  "Neuropeptide Y receptors",
+  "Neurotensin receptors",
+  "Opioid receptors",
+  "Opsins",
+  "Orexin receptors",
+  "Other GPCR orphans",
+  "Oxoglutarate receptors",
+  "P2Y receptors",
+  "Parathyroid hormone receptors",
+  "Peptide P518 receptors",
+  "Platelet-activating factor receptors",
+  "Prokineticin receptors",
+  "Prolactin-releasing peptide receptors",
+  "Prostanoid receptors",
+  "Proteinase-activated receptors",
+  "Relaxin family peptide receptors",
+  "Somatostatin receptors",
+  "Succinate receptors",
+  "Tachykinin receptors",
+  "Taste 1 receptors",
+  "Taste 2 receptors",
+  "Thyrotropin-releasing hormone receptors",
+  "Trace amine receptors",
+  "Urotensin receptors",
+  "Vasopressin and oxytocin receptors",
+  "VIP and PACAP receptors"
+];
+
+const coloringSchemes = {
+  "Class": {
+    "A": "#1f77b4",
+    "B1": "#ff7f0e",
+    "B2": "#2ca02c",
+    "C": "#d62728",
+    "F": "#9467bd",
+    "T2": "#17becf",
+    "Classless": "#8c564b"
+  },
+   "Ligand type": {
+    "Adhesion receptors": "#a6cee3",          // Light blue
+    "Alicarboxylic acid receptors": "#1f78b4", // Darker blue
+    "Aminergic receptors": "#e41a1c",         // Red
+    "Amino acid receptors": "#b2df8a",        // Light green
+    "Ion receptors": "#33a02c",               // Dark green
+    "Light receptors": "#fb9a99",             // Pink
+    "Lipid receptors": "#fdbf6f",             // Orange
+    "Melatonin receptors": "#ff7f00",         // Darker orange
+    "Nucleotide receptors": "#cab2d6",        // Lavender
+    "Peptide receptors": "#377eb8",           // Blue
+    "Protein receptors": "#6a3d9a",           // Purple
+    "Steroid receptors": "#ffff99",           // Yellow
+    "Tastant receptors": "#b15928",           // Brown
+    "unknown receptors": "#999999"            // Grey
+  },
+  "Receptor family": generateCategoryColors(RECEPTOR_FAMILIES),
+  "Sense": {
+    "vision": "#ff7f00",
+    "taste": "#377eb8",
+    "odorant": "#4daf4a",
+    "non-sensory": "#33a02c",
+    "unknown": "#cccccc"
+  }
+};
+
+// Add odorant-specific mappings
+const ODORANT_RECEPTOR_FAMILIES = [
+  "Odorant family 1", "Odorant family 2", "Odorant family 3", "Odorant family 4",
+  "Odorant family 5", "Odorant family 6", "Odorant family 7", "Odorant family 8",
+  "Odorant family 9", "Odorant family 10", "Odorant family 11", "Odorant family 12",
+  "Odorant family 13", "Odorant family 14", "Odorant family 51", "Odorant family 52", "Odorant family 56"
+];
+
+const coloringSchemesOdorant = {
+  "Class": {
+    "O1": "#9D4EDD",  // purple
+    "O2": "#2A9D8F"   // teal
+  },
+  "Ligand type": {
+    "Odorant receptors": "#ff7f00" // bright orange
+  },
+  "Receptor family": generateCategoryColors(ODORANT_RECEPTOR_FAMILIES),
+  "Sense": {
+    "odorant": "#4daf4a",
+    "non-sensory": "#999999",
+    "unknown": "#cccccc"
+  }
+};
+
+function applyColoring(type) {
+  const schemeSet = (type === "odorant") ? coloringSchemesOdorant : coloringSchemes;
+  const scheme = schemeSet[wheelStyling[type].ColorBy];
+  if (!scheme) return;
+
+  for (let circleKey in wheelData[type]) {
+    const circle = wheelData[type][circleKey];
+    for (let classKey in circle) {
+      const families = circle[classKey];
+      for (let familyKey in families) {
+        const receptors = families[familyKey];
+        for (let recKey in receptors) {
+          const receptor = receptors[recKey];
+          const categoryValue = receptor[wheelStyling[type].ColorBy];
+          receptor.Color = scheme[categoryValue] || "#ffffff";
+          receptor.Data = categoryValue || "";
+        }
+      }
+    }
+  }
+}
+
+
+function drawWheel(type) {
+  const locationId = (type === "classic") ? "GPCRome_classic_plot" : "GPCRome_odorant_plot";
+  d3v4.select(`#${locationId}`).select("svg").remove();
+  DrawGPCRomeWheel(wheelData[type], locationId, wheelStyling[type]);
+}
+// Track enabled/disabled classes
+let activeClasses = {};
+Object.keys(coloringSchemes["Class"]).forEach(cls => activeClasses[cls] = true);
+
+function initClassColorPickers() {
+  const pickerContainer = document.getElementById("class-color-pickers");
+  pickerContainer.innerHTML = "";
+
+  const classColors = coloringSchemes["Class"];
+
+  Object.keys(classColors).forEach(cls => {
+    const safeId = "picker_" + cls.replace(/\s+/g, "_"); // HTML-safe ID
+    const checkboxId = "check_" + safeId;
+
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.justifyContent = "center";
+    div.style.marginBottom = "10px";
+    div.innerHTML = `
+      <input type="checkbox" id="${checkboxId}" checked style="margin-right: 5px;">
+      <label for="${checkboxId}" style="margin-right: 10px; text-align: center; min-width: 60px;">
+        ${cls}
+      </label>
+      <input type="text" id="${safeId}" />
+    `;
+    pickerContainer.appendChild(div);
+
+    // Initialize picker
+    initializeClassColorPicker(safeId, classColors[cls], cls);
+
+    // Checkbox behavior
+    document.getElementById(checkboxId).addEventListener('change', function () {
+      activeClasses[cls] = this.checked;
+
+      if (!this.checked) {
+        // Disable spectrum and grey out
+        $("#" + safeId).spectrum("disable");
+        $("#" + safeId).css("opacity", "0.5");
+
+        // Remove data + set color to white for all receptors in this class
+        for (let circleKey in wheelData["classic"]) {
+          const circle = wheelData["classic"][circleKey];
+          for (let classKey in circle) {
+            const families = circle[classKey];
+            for (let familyKey in families) {
+              const receptors = families[familyKey];
+              for (let recKey in receptors) {
+                const receptor = receptors[recKey];
+                if (receptor["Class"] === cls) {
+                  receptor.Color = "#ffffff";
+                  receptor.Data = "";
+                }
+              }
+            }
+          }
+        }
+        drawWheel("classic");
+
+      } else {
+        // Re-enable spectrum
+        $("#" + safeId).spectrum("enable");
+        $("#" + safeId).css("opacity", "1");
+
+        // Reapply normal coloring for this class
+        applyColoring("classic");
+        drawWheel("classic");
+      }
+    });
+  });
+}
+
+function initializeClassColorPicker(elementId, start_color, classKey) {
+  $("#" + elementId).spectrum({
+    color: start_color,
+    showPalette: true,
+    showInput: true,
+    preferredFormat: "hex",
+    palette: [
+      ["#000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"],
+      ["#FF00FF", "#00FFFF", "#FFFFFF", "#C0C0C0", "#808080"],
+      ["#800000", "#808000", "#008000", "#800080", "#008080"],
+      ["#000080"]
+    ],
+    change: function(color) {
+      if (activeClasses[classKey]) {
+        coloringSchemes["Class"][classKey] = color.toHexString();
+        if (wheelStyling["classic"].ColorBy === "Class") {
+          applyColoring("classic");
+          drawWheel("classic");
+        }
+      }
+    },
+    move: function(color) {
+      if (activeClasses[classKey]) {
+        coloringSchemes["Class"][classKey] = color.toHexString();
+        if (wheelStyling["classic"].ColorBy === "Class") {
+          applyColoring("classic");
+          drawWheel("classic");
+        }
+      }
+    }
+  });
+}
+
+
+function initControls(type) {
+  // Label button
+  const buttons = document.querySelectorAll(`.GPCRome-label-btn[data-wheel="${type}"]`);
+  buttons.forEach(btn => {
+    btn.addEventListener('click', function () {
+      buttons.forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
+      this.classList.remove('btn-outline-primary');
+      this.classList.add('btn-primary');
+      wheelStyling[type].LabelType = this.dataset.value;
+      drawWheel(type);
+    });
+  });
+  const defaultBtn = document.querySelector(`.GPCRome-label-btn[data-wheel="${type}"][data-value="${wheelStyling[type].LabelType}"]`);
+  if (defaultBtn) { defaultBtn.classList.remove('btn-outline-primary'); defaultBtn.classList.add('btn-primary'); }
+
+  // Color-by buttons
+  const colorButtons = document.querySelectorAll(`.GPCRome-colorby-btn[data-wheel="${type}"]`);
+  colorButtons.forEach(btn => {
+    btn.addEventListener('click', function () {
+      colorButtons.forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
+      this.classList.remove('btn-outline-primary');
+      this.classList.add('btn-primary');
+      wheelStyling[type].ColorBy = this.dataset.value;
+      applyColoring(type);
+      drawWheel(type);
+    });
+  });
+  const defaultColorBtn = document.querySelector(`.GPCRome-colorby-btn[data-wheel="${type}"][data-value="${wheelStyling[type].ColorBy}"]`);
+  if (defaultColorBtn) { defaultColorBtn.classList.remove('btn-outline-primary'); defaultColorBtn.classList.add('btn-primary'); }
+
+  // Icon button
+  document.getElementById(`${type}-toggleIcon`).addEventListener('click', function() {
+    const st = wheelStyling[type]; st.showIcon = !st.showIcon;
+    this.textContent = st.showIcon ? 'Shown' : 'Hidden';
+    this.classList.toggle('btn-success', st.showIcon);
+    this.classList.toggle('btn-danger', !st.showIcon);
+    drawWheel(type);
+  });
+
+  // legend button
+  document.getElementById(`${type}-toggleLegend`).addEventListener('click', function() {
+    const st = wheelStyling[type]; st.ShowLegend = !st.ShowLegend;
+    this.textContent = st.ShowLegend ? 'Shown' : 'Hidden';
+    this.classList.toggle('btn-success', st.ShowLegend);
+    this.classList.toggle('btn-danger', !st.ShowLegend);
+    drawWheel(type);
+  });
+
+  $(`#${type}-legend-layout-select`).select2({ minimumResultsForSearch: Infinity, dropdownAutoWidth: true })
+    .on('change', function() {
+      const v = this.value;
+      if (v === 'row') { wheelStyling[type].LegendLayout = {mode:'row', columns:1, sorted:'Vertically'}; }
+      else if (v.startsWith('columns')) { wheelStyling[type].LegendLayout = {mode:'columns', columns:parseInt(v.split('-')[1], 10), sorted:'Vertically'}; }
+      drawWheel(type);
+    });
+
+  document.getElementById(`${type}-toggleLegendSorting`).addEventListener('click', function() {
+    const st = wheelStyling[type];
+    st.LegendLayout.sorted = (st.LegendLayout.sorted === 'Vertically') ? 'Horizontally' : 'Vertically';
+    this.textContent = st.LegendLayout.sorted;
+    drawWheel(type);
+  });
+}
+
+$(function () {
+  applyColoring("classic");
+  drawWheel("classic");
+  initControls("classic");
+  initClassColorPickers();
+
+  applyColoring("odorant");
+  initControls("odorant");
+  $('a[href="#GPCRomewheel_odorant_tab"]').on('shown.bs.tab', function () {
+    applyColoring("odorant");
+    drawWheel("odorant");
+  });
+});
 
 </script>
-
 {% endblock %}

@@ -404,15 +404,16 @@ class DataMapperHome(TemplateView):
                 elif Class in ["Class T2 (Taste 2)", "Other GPCRs"]:
                     GPCRome_dict["Circle_5"].setdefault(renamed_class, {}).update(ligand_types)
 
-            # Remove the ligand type layer
+            # Flatten ligand_type layer and add Ligand type to each receptor
             for circle in GPCRome_dict:
                 for class_name in list(GPCRome_dict[circle].keys()):
                     new_structure = {}
 
-                    for ligand_type in list(GPCRome_dict[circle][class_name].keys()):
-                        for receptor_family, receptors in GPCRome_dict[circle][class_name][ligand_type].items():
+                    for ligand_type, families in GPCRome_dict[circle][class_name].items():
+                        for receptor_family, receptors in families.items():
+                            for receptor_name, receptor_data in receptors.items():
+                                receptor_data["Ligand type"] = ligand_type
                             new_structure[receptor_family] = receptors
-
                     # Replace the old structure with the flattened one
                     GPCRome_dict[circle][class_name] = new_structure
             # Final return (renamed and sorted into circles)
@@ -478,12 +479,14 @@ class DataMapperHome(TemplateView):
 
                     GPCRome_dict["Circle_4"].setdefault(renamed_class, {}).update(renamed_ligand_types)
 
-            # Flatten ligand_type layer (remove ligand type level)
+            # Flatten ligand_type layer and add Ligand type to each receptor
             for circle in GPCRome_dict:
                 for class_name in list(GPCRome_dict[circle].keys()):
                     new_structure = {}
-                    for ligand_type in GPCRome_dict[circle][class_name]:
-                        for receptor_family, receptors in GPCRome_dict[circle][class_name][ligand_type].items():
+                    for ligand_type, families in GPCRome_dict[circle][class_name].items():
+                        for receptor_family, receptors in families.items():
+                            for receptor_name, receptor_data in receptors.items():
+                                receptor_data["Ligand type"] = ligand_type
                             new_structure[receptor_family] = receptors
                     GPCRome_dict[circle][class_name] = new_structure
 

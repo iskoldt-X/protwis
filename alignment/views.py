@@ -44,6 +44,7 @@ import xlsxwriter
 from xlsxwriter.utility import xl_range_abs
 import xlrd
 import re
+import pandas as pd
 
 strain_re = re.compile(r'\bstrain\b', flags=re.I)
 class_fungal_re = re.compile(r'(\(Ste2-like)(\s+)(fungal)(\s+)(pheromone\))', flags=re.I)
@@ -503,6 +504,8 @@ def render_alignment_excel(request):
 
     return response
 
+render_class_similarity_csv_matrix_urls = ['human_only_without_classless', 'human_only_with_classless','all_without_classless','all_with_classless'] # look this up to see where it is used.
+
 def retrieve_class_similarity_matrix(output_type='html',classless=False,human_only=False):
     cross_class_similarities = OrderedDict()
     class_representative_species_list = ClassRepresentativeSpecies.objects.all().prefetch_related()
@@ -740,8 +743,6 @@ def retrieve_class_similarity_matrix(output_type='html',classless=False,human_on
         return (cross_class_similarity_matrix,selected_parent_gpcr_families_names,cross_class_similarities_xls)
     else:
         return (cross_class_similarity_matrix,selected_parent_gpcr_families_names)
-
-render_class_similarity_csv_matrix_urls = ['human_only_without_classless', 'human_only_with_classless','all_without_classless','all_with_classless']
 
 def render_class_similarity_matrix(request):
     r_human_only_without_classless = retrieve_class_similarity_matrix(classless=False,human_only=True)
@@ -1041,54 +1042,171 @@ def render_class_similarity_xlsx_matrix(request):
     response['Content-Disposition'] = "attachment; filename=" + site_title(request)["site_title"] + "_similaritymatrix.xlsx"
     return response
 
-
 class ClassesAndCounts(TemplateView):
     template_name = 'class_similarity/ClassesAndCounts.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        data_folder = 'protein_data'
+        file_name = 'Ligand type update plus sense column.xlsx'
+        file_path = os.path.join(settings.DATA_DIR, data_folder, file_name)
+
+        try:
+            df = pd.read_excel(file_path)
+        except FileNotFoundError:
+            context['error'] = f"File not found: {file_path}"
+            return context
+
+        df.columns = df.columns.str.strip().str.replace("\n", " ")
+
+        # symbol -> ([Excel class names], GRAFS family, display name, fixed sensory value or None)
+        mapping = {
+            "A": (["Class A (Rhodopsin)"], "Rhodopsin", "Rhodopsin", None),
+            "B1": (["Class B1 (Secretin)"], "Secretin", "Secretin", None),
+            "B2": (["Class B2 (Adhesion)"], "Adhesion", "Adhesion", None),
+            "C": (["Class C (Glutamate)"], "Glutamate", "Glutamate", None),
+            "D": (["Class D (Fungal pheromone)"], "- (fungal)", "Fungal pheromone", None),
+            "E": (["Class E (Yeast cAMP)"], "- (yeast)", "Yeast cAMP", "2"),  # fixed value
+            "F": (["Class F (Frizzled)"], "Frizzled/Taste2", "Frizzled", None),
+            "T2": (["Class T2 (Taste 2)"], "Frizzled/Taste2", "Taste 2", None),
+            "OR": (["Class O1 (fish-like odorant)", "Class O2 (tetrapod specific odorant)"], "Rhodopsin", "Odorant (not olfactory)", None),
+            "V?": (["Class V? (Vomeronasal/pheromone?)"], "- (non-functional in human)", "Vomeronasal or pheromone?", "5"),  # fixed value
+            "Cl?": (["Other GPCRs"], "-", "Classless", None),
+        }
+
+        table_data = []
+
+        for symbol, (class_names, grafs_family, display_name, fixed_sensory) in mapping.items():
+            class_df = df[df["Class"].isin(class_names)]
+
+            # counts
+            receptor_families_count = class_df["Receptor family"].nunique()
+            members_total_count = class_df["GPCRs (UniProt)"].nunique()
+            non_sensory_count = (class_df["Sense"] == "non-sensory").sum()
+
+            if fixed_sensory is not None:
+                sensory_str = fixed_sensory
+            else:
+                sensory_counts = []
+                for sense_type in ["vision", "taste", "odorant"]:
+                    count = (class_df["Sense"] == sense_type).sum()
+                    if count > 0:
+                        sensory_counts.append(f"{count} {sense_type}")
+                sensory_str = ", ".join(sensory_counts)
+
+            orphan_count = (class_df["Sense"] == "unknown").sum()
+
+            # entries for popups
+            entries = {
+                "receptor_families": sorted(class_df["Receptor family"].dropna().unique().tolist()),
+                "members_total": class_df[["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
+                                    .drop_duplicates().to_dict(orient="records"),
+                "members_non_sensory": class_df[class_df["Sense"] == "non-sensory"]
+                                        [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
+                                        .drop_duplicates().to_dict(orient="records"),
+                "members_sensory": class_df[class_df["Sense"].isin(["vision", "taste", "odorant"])]
+                                    [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
+                                    .drop_duplicates().to_dict(orient="records"),
+                "orphan": class_df[class_df["Sense"] == "unknown"]
+                           [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
+                           .drop_duplicates().to_dict(orient="records"),
+            }
+
+            row = {
+                "symbol": symbol,
+                "class_name": display_name,
+                "grafs_family": grafs_family,
+                "receptor_families_count": int(receptor_families_count),
+                "members_total_count": int(members_total_count),
+                "members_non_sensory_count": int(non_sensory_count),
+                "members_sensory_count": sensory_str if sensory_str else 0,
+                "orphan_count": int(orphan_count),
+                "entries": entries,
+            }
+
+            table_data.append(row)
+
+        # split into human vs non-human
+        nonhuman_symbols = ["D", "E", "V?"]
+        context["human_table_data"] = [row for row in table_data if row["symbol"] not in nonhuman_symbols]
+        context["nonhuman_table_data"] = [row for row in table_data if row["symbol"] in nonhuman_symbols]
+
         return context
 
 class ClassificationWheel(TemplateView):
     template_name = 'class_similarity/ClassificationWheel.html'
 
-    
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        def update_gpcr_structure(wheelstructure):
-            DARK_BLUE = "#2A9D8F"
-            DARK_PURPLE = "#9D4EDD"
+        # --- Step 1: Load Excel metadata ---
 
-            data = wheelstructure.get("Data", {})
+        data_folder = 'protein_data'
+        file_name = 'Ligand type update plus sense column.xlsx'
+        file_path = os.path.join(settings.DATA_DIR, data_folder, file_name)
+        df = pd.read_excel(file_path)
 
-            # Circles 1–3: update all receptors to O2 (tetrapod specific odorant)
-            for i in range(1, 4):
-                circle_key = f"Circle_{i}"
-                circle = data.get(circle_key, {})
-                for class_key, families in circle.items():
-                    for family_key, receptors in families.items():
-                        for receptor_key, receptor in receptors.items():
-                            receptor["Data"] = "O2 (tetrapod specific odorant)"
-                            receptor["Color"] = DARK_BLUE
+        # Clean column names
+        df.columns = df.columns.str.strip().str.replace("\n", " ")
 
-            # Circle 4: update all receptors to O1 (fish-like odorant)
-            circle = data.get("Circle_4", {})
-            for class_key, families in circle.items():
-                for family_key, receptors in families.items():
-                    for receptor_key, receptor in receptors.items():
-                        receptor["Data"] = "O1 (fish-like odorant)"
-                        receptor["Color"] = DARK_PURPLE
+        # Build a lookup dict by UniProt entry name
+        meta_lookup = {}
+        for _, row in df.iterrows():
+            entry = str(row["GPCRs (UniProt)"]).strip()
+            if entry:
+                meta_lookup[entry] = {
+                    "Class": row.get("Class", ""),
+                    "Ligand type": row.get("Ligand type", ""),
+                    "Receptor family": row.get("Receptor family", ""),
+                    "Sense": row.get("Sense", "")
+                }
 
+        # --- Step 2: Helper to inject metadata into wheel structure ---
+        def enrich_wheel_with_metadata(wheelstructure):
+            def recurse(node, current_class=None):
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        if isinstance(v, dict):
+                            # If we're inside a Circle_X, the keys here are actual classes (A, B1, etc.)
+                            if k.startswith("Circle_"):
+                                recurse(v, current_class=None)  # reset class at start of a circle
+                            elif current_class is None and not "EntryName" in v:
+                                # This k is the class code (A, B1, etc.)
+                                recurse(v, current_class=k)
+                            elif "EntryName" in v:
+                                entry_code = v["EntryName"]
+                                meta = meta_lookup.get(entry_code, {})
+                                v.update(meta)
+
+                                # Add the class from one level above (A, B1, etc.)
+                                v["Class"] = current_class
+
+                                if "Color" not in v:
+                                    v["Color"] = "#FFFFFF"
+                                if "Data" not in v:
+                                    v["Data"] = ""
+                            else:
+                                recurse(v, current_class=current_class)
+                elif isinstance(node, list):
+                    for item in node:
+                        recurse(item, current_class=current_class)
+
+            recurse(wheelstructure.get("Data", {}))
             return wheelstructure
 
-        
-        wheelstructure = DataMapperHome.GenerateGPCRomeDataStructure(data_type="Odorant")
-        
-        updated_wheelstructure = update_gpcr_structure(wheelstructure)
-        
-        context['GPCRomeData'] = json.dumps(updated_wheelstructure['Data'])
+
+        # --- Step 3: Build the wheels ---
+        odorant_wheel = DataMapperHome.GenerateGPCRomeDataStructure(data_type="Odorant")
+        classic_wheel = DataMapperHome.GenerateGPCRomeDataStructure(data_type="Classic")
+
+        # Inject metadata into both
+        updated_odorant = enrich_wheel_with_metadata(odorant_wheel)
+        updated_classic = enrich_wheel_with_metadata(classic_wheel)
+
+        # --- Step 4: Pass to template ---
+        context['GPCRomeData'] = json.dumps(updated_classic['Data'])
+        context['GPCRomeOdorantData'] = json.dumps(updated_odorant['Data'])
 
         return context
     

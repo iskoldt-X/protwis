@@ -1,0 +1,306 @@
+{% extends "home/base.html" %}
+{% load static %}
+{% load utils %}
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Alignment Class Similarity Matrix — HTML + JavaScript (DataTables)</title>
+
+  <!--
+    ======= Styles =======
+    Replace the hrefs below with your local bundle paths if you already ship
+    DataTables + extensions as NewDrugsBrowser_datatables.min.css/js.
+  -->
+  <link rel="stylesheet" href="home/css/NewDrugsBrowser_datatables.min.css" type="text/css"/>
+
+  <style>
+    /* Carry over your original sticky + axis styles */
+    .header{ position: sticky; top: 45px; }
+    .headcol{ position: sticky; left: 45px; top: auto; }
+
+    .header_col{ border-top-color: #fff !important; border-left-color: #fff !important; border-bottom-color: #fff !important; background-color: #fff !important; vertical-align: middle !important; z-index: 500 !important; }
+    .header_row{ border-top-color: #fff !important; border-left-color: #fff !important; border-right-color: #fff !important; background-color: #fff !important; vertical-align: middle !important; z-index: 499 !important; }
+    .axis{ position: sticky; top: 0; border-top-color: #fff !important; border-left-color: #fff !important; border-bottom-color: #fff !important; border-right-color: #fff !important; background-color: #fff !important; vertical-align: middle !important; text-align: center !important; }
+    .axis_h{ position: sticky; top: 0; left: 50%; }
+    .axis_v{ position: sticky; left: 0; top: 50%; }
+
+    .rotate{ background-color: #fff !important; transform: rotate(-90deg); -webkit-transform: rotate(-90deg); -moz-transform: rotate(-90deg); -ms-transform: rotate(-90deg); -o-transform: rotate(-90deg);
+      /* IE <=9 legacy */ filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3); }
+
+    /* DataTables helpers */
+    table.dataTable thead th, table.dataTable tbody td { white-space: nowrap; }
+    table.dataTable { width: 100% !important; }
+
+    /* Make the table container scrollable so FixedHeader/FixedColumns can do their thing */
+    .matrix-wrap { position: relative; padding-bottom: 30px; }
+
+    /* Optional: tiny numeric cells */
+    .matrix td { text-align: center; vertical-align: middle; font-size: 16px; }
+    .matrix th.info { vertical-align: middle; }
+
+    /* Let Buttons sit above the table header */
+    .dt-buttons { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid" style="margin-top:15px;">
+    <!-- Tabs (built from hList) -->
+    <ul id="matrix-tabs" class="nav nav-tabs"></ul>
+
+    <div id="matrix-tab-content" class="tab-content"></div>
+  </div>
+
+  <!--
+    ======= Data =======
+    Option A) Inline JSON (drop your backend-exported arrays right here)
+      - Keep shapes identical to your Django context: m_list, p_list, csv_list, h_list
+    Option B) Serve JSON files at /data/*.json and this page will fetch them.
+  -->
+  <script id="matrix-data" type="application/json">[]</script>
+  <script id="plist-data" type="application/json">[]</script>
+  <script id="csv-data" type="application/json">[]</script>
+  <script id="hlist-data" type="application/json">[]</script>
+
+  <!--
+    Expected shapes (documentary):
+    h_list: ["Tab A", "Tab B", ...]
+
+    m_list: [
+      {
+        "A": {"name":"Protein A","species":"<i>Homo sapiens</i>","values":[["100","-",[],[]],["83","+",[["X","Y"]],[["x1","y1"]]]]},
+        "B": {"name":"Protein B","species":"<i>Mus musculus</i>","values":[["83","+",[["X","Z"]],[["x2","z2"]]],["100","-",[],[]]]}
+      },
+      ... (one such object per tab)
+    ]
+
+    csv_list: [ {"classless":"0","human_only":"0"}, ... ] one per tab (only used for width hints here)
+    p_list:   (unused here but kept for parity)
+  -->
+
+  <!-- ======= Scripts ======= -->
+
+  <!-- Your DataTables bundle (includes: DataTables 2.0.1 + Buttons 3.0.0 + ColVis 3.0.0 + FixedColumns 5.0.0 + FixedHeader 4.0.0 + Responsive 3.0.0 + Select 2.0.0) -->
+  <script src="home/js/NewDrugsBrowser_datatables.min.js"></script>
+  <!-- If your bundle does NOT include JSZip and you want Excel export, also include: -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script>
+    // ---------- Utility: robustly get JSON from <script type="application/json"> or from /data/*.json ----------
+    function readInlineJSON(id){
+      var el = document.getElementById(id);
+      if(!el) return null;
+      try { return JSON.parse(el.textContent || "null"); } catch(e){ console.warn("Failed to parse", id, e); return null; }
+    }
+
+    function fetchJSONOrInline(url, inlineId){
+      return fetch(url, {cache:'no-store'}).then(r=> r.ok ? r.json() : Promise.reject()).catch(()=> readInlineJSON(inlineId) || []);
+    }
+
+    // ---------- Build tabs + tables ----------
+    function buildUI(hList, mList, csvList){
+      var $tabs = $("#matrix-tabs");
+      var $content = $("#matrix-tab-content");
+      $tabs.empty();
+      $content.empty();
+
+      hList.forEach(function(title, idx){
+        var tabId = "alignment_class_similarity_matrix_tab" + (idx+1);
+        var active = idx === 0 ? " class=\"active\"" : "";
+        $tabs.append('<li'+active+'><a href="#'+tabId+'" data-toggle="tab">'+title+'</a></li>');
+
+        var $pane = $('<div id="'+tabId+'" class="tab-pane fade'+(idx===0?' in active':'')+'"></div>');
+        var $wrap = $('<div class="matrix-wrap" style="padding-top:10px; font-size:11px; white-space:nowrap;"></div>');
+
+        // Buttons container (DataTables buttons will be moved here)
+        var $buttonsHolder = $('<div class="dt-buttons-holder"></div>');
+
+        // Optional legacy dropdown (kept for similar look; exports handled by DataTables Buttons)
+        var $legacy = $(
+          '<div class="btn-group" style="margin-right:8px;">\
+            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">\
+              <span class="glyphicon glyphicon-download"></span> Download <span class="caret"></span>\
+            </button>\
+            <ul class="dropdown-menu">\
+              <li><a href="#" class="export-excel">Excel spreadsheet (xlsx)</a></li>\
+              <li><a href="#" class="export-csv">Spreadsheet (csv)</a></li>\
+            </ul>\
+          </div>'
+        );
+
+        // Build table skeleton
+        var tableId = "alignment_class_similarity_matrix_table_" + (idx+1);
+        var $table = $('<table id="'+tableId+'" class="table table-bordered table-condensed table-fixed matrix display nowrap"></table>');
+
+        // Construct THEAD and TBODY from mList[idx]
+        var m = mList[idx] || {};
+        var keys = Object.keys(m);
+        var n = keys.length;
+
+        var $thead = $('<thead></thead>');
+        var $theadRow1 = $('<tr></tr>');
+        var $theadRow2 = $('<tr class="header"></tr>');
+
+        // Axis header row (kept for look; doesn’t span TBODY in DataTables)
+        $theadRow1.append('<th rowspan="2" class="axis axis_v"><h5 class="rotate">Similarity (%)</h5></th>');
+        $theadRow1.append('<th colspan="'+(n+1)+'" class="axis axis_h"><h5>Identity (%)</h5></th>');
+
+        // Empty corner + column headers
+        $theadRow2.append('<th class="header header_col header_row" style="border-top-color:#fff; border-left-color:#fff;" scope="col"></th>');
+        keys.forEach(function(k){
+          var v = m[k];
+          var headerHtml = v && v.species ? '<div data-html="true" data-toggle="popover" data-trigger="hover focus" data-placement="bottom" data-content="'+escapeHtml(v.species)+'">'+v.name+'</div>' : v.name || '';
+          $theadRow2.append('<th class="info text-center header_row" scope="col">'+ headerHtml +'</th>');
+        });
+
+        $thead.append($theadRow1).append($theadRow2);
+        $table.append($thead);
+
+        var $tbody = $('<tbody></tbody>');
+        keys.forEach(function(rowKey, i){
+          var v = m[rowKey];
+          var $tr = $('<tr></tr>');
+
+          var rowHeaderHtml = v && v.species ? '<div data-html="true" data-toggle="popover" data-trigger="hover focus" data-placement="right" data-content="'+escapeHtml(v.species)+'">'+v.name+'</div>' : v.name || '';
+          $tr.append('<th class="info headcol header_col" scope="row">'+rowHeaderHtml+'</th>');
+
+          (v.values || []).forEach(function(col, j){
+            var val = (col && col[0] != null) ? String(col[0]) : '';
+            var hasPopover = col && col[1] !== '-';
+            var klass = (i >= j) ? 'color-set1' : (i <= j ? 'color-set2' : '');
+            var cellHtml = val;
+            if(hasPopover){
+              var content = buildPairPopoverContent(col);
+              cellHtml = '<div data-html="true" data-toggle="popover" data-trigger="hover focus" data-placement="bottom" data-content="'+escapeHtml(content)+'">'+val+'</div>';
+            }
+            $tr.append('<td class="h4 text-center '+klass+'">'+cellHtml+'</td>');
+          });
+          $tbody.append($tr);
+        });
+        $table.append($tbody);
+
+        $wrap.append($legacy).append($buttonsHolder).append($table);
+        $pane.append($wrap);
+        $content.append($pane);
+
+        // Initialize DataTables for this tab’s table
+        var dt = $('#'+tableId).DataTable({
+          paging: false,
+          searching: false,
+          info: false,
+          ordering: false,
+          fixedHeader: true,
+          scrollX: true,
+          scrollY: '60vh',
+          scrollCollapse: true,
+          fixedColumns: { leftColumns: 1 },
+          responsive: true,
+          select: false,
+          dom: 'Bfrtip',
+          buttons: [
+            { extend: 'excelHtml5', title: 'alignment_class_similarity_matrix_'+(idx+1) },
+            { extend: 'csvHtml5',   title: 'alignment_class_similarity_matrix_'+(idx+1) },
+            { extend: 'colvis',     text: 'Columns' }
+          ],
+          drawCallback: function(){ applyGrayscale(document.getElementById(tableId)); initPopovers(document.getElementById(tabId)); }
+        });
+
+        // Wire legacy dropdown to the DT buttons for a similar UX
+        $legacy.find('a.export-excel').on('click', function(e){ e.preventDefault(); dt.button('.buttons-excel').trigger(); });
+        $legacy.find('a.export-csv').on('click',   function(e){ e.preventDefault(); dt.button('.buttons-csv').trigger();   });
+
+        // First render
+        applyGrayscale(document.getElementById(tableId));
+        initPopovers(document.getElementById(tabId));
+      });
+    }
+
+    // ---------- Helpers ----------
+    function escapeHtml(html){
+      return String(html)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function buildPairPopoverContent(col){
+      var iuphar = (col && Array.isArray(col[2])) ? col[2] : [];
+      var uni    = (col && Array.isArray(col[3])) ? col[3] : [];
+      var html = '<b>IUPHAR names:</b><br>';
+      for(var k=0;k<iuphar.length;k++){
+        html += escapeHtml(iuphar[k][0]) + ' vs ' + escapeHtml(iuphar[k][1]);
+        if(k !== iuphar.length-1) html += '<br>';
+      }
+      html += '<br><b>UniProtKB entry names:</b><br>';
+      for(var j=0;j<uni.length;j++){
+        html += escapeHtml(uni[j][0]) + ' vs ' + escapeHtml(uni[j][1]);
+        if(j !== uni.length-1) html += '<br>';
+      }
+      return html;
+    }
+
+    function initPopovers(root){
+      // Bootstrap 3 popovers
+      $(root).find("[data-toggle='popover']").popover({ container: 'body', html: true });
+    }
+
+    // Simple grayscale heatmap across numeric cells. If you need two separate scales for
+    // color-set1 vs color-set2, split the query and run twice.
+    function applyGrayscale(tableEl){
+      var $cells = $(tableEl).find('tbody td');
+      var values = [];
+      $cells.each(function(){
+        var t = $(this).text().trim();
+        var num = parseFloat(t);
+        if(!isNaN(num)) values.push(num);
+      });
+      if(values.length === 0) return;
+      var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+      var range = (max - min) || 1;
+
+      $cells.each(function(){
+        var $td = $(this);
+        var t = $td.text().trim();
+        var num = parseFloat(t);
+        if(isNaN(num)) return;
+        var f = (num - min) / range; // 0..1
+        var shade = Math.round(255 - f * 160); // 255 -> 95
+        var bg = 'rgb('+shade+','+shade+','+shade+')';
+        var fg = (shade < 140) ? '#fff' : '#000';
+        $td.css({backgroundColor: bg, color: fg});
+      });
+    }
+
+    // ---------- Boot ----------
+    (function(){
+      // Try to fetch from /data/*.json; fallback to inline <script> JSONs
+      Promise.all([
+        fetchJSONOrInline('/data/matrix-data.json', 'matrix-data'),
+        fetchJSONOrInline('/data/plist-data.json',  'plist-data'),
+        fetchJSONOrInline('/data/csv-data.json',    'csv-data'),
+        fetchJSONOrInline('/data/hlist-data.json',  'hlist-data')
+      ]).then(function(all){
+        var mList = all[0] || [];
+        var pList = all[1] || [];
+        var csvList = all[2] || [];
+        var hList = all[3] || [];
+
+        // Fallbacks if hList is empty
+        if(!hList.length && mList.length){
+          hList = mList.map(function(_, i){ return 'Tab '+(i+1); });
+        }
+
+        buildUI(hList, mList, csvList);
+      }).catch(function(err){
+        console.error(err);
+        // As a last resort, build an empty shell
+        buildUI([], [], []);
+      });
+    })();
+  </script>
+</body>
+</html>

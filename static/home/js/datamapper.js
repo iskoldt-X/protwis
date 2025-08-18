@@ -2949,34 +2949,33 @@ function DrawGPCRomeWheel(Data, location, GPCRome_styling) {
     .attr("xmlns", "http://www.w3.org/2000/svg")  // Add the SVG namespace
     .attr("xmlns:xlink", "http://www.w3.org/1999/xlink");  // Add the xlink namespace for images
 
-    // Get the image URL from the data-attribute
-    const imageUrl = document.getElementById("image-container").getAttribute("data-image-url");
+    // Prefer a URL passed via styling; fallback to DOM data-attr; otherwise no icon.
+    const imgContainer = document.getElementById("image-container");
+    const imageUrl =
+    GPCRome_styling.IconUrl ||
+    (imgContainer ? imgContainer.getAttribute("data-image-url") : null);
 
-    if (showIcon) {
+    if (showIcon && imageUrl) {
         var img = new Image();
-        img.crossOrigin = "Anonymous";  // Ensure cross-origin handling
+        img.crossOrigin = "Anonymous";
         img.src = imageUrl;
-
         img.onload = function() {
             var canvas = document.createElement('canvas');
             canvas.width = img.width;
             canvas.height = img.height;
             var context = canvas.getContext('2d');
             context.drawImage(img, 0, 0);
-
-            // Convert the image to a base64-encoded string
             var dataUrl = canvas.toDataURL('image/png');
-
-            // Append the image to the SVG using 'xlink:href' (D3 v4 compatible)
             svg.append("image")
-                .attr("xlink:href", dataUrl)  // Use 'xlink:href' for D3 v4 compatibility
-                .attr("x", 0)  // Top-left corner
-                .attr("y", -30)  // Top-left corner
-                .attr("width", 230)  // Set width for the image
-                .attr("height", 230)  // Set height for the image
-                .attr("class", "toggle-image");  // Add a class to control visibility
+            .attr("xlink:href", dataUrl)
+            .attr("x", 0)
+            .attr("y", -30)
+            .attr("width", 230)
+            .attr("height", 230)
+            .attr("class", "toggle-image");
         };
     }
+
     // If there is 5 circles ()
     if (Object.keys(Data).length === 5) {
         Draw_a_GPCRome(Data.Circle_1, 0, 440, dimensions)
@@ -3657,8 +3656,10 @@ function DrawGPCRomeWheel(Data, location, GPCRome_styling) {
                 function extractColorData(obj) {
                     if (typeof obj !== "object" || obj === null) return;
                     if ("Color" in obj && "Data" in obj) {
-                        const pairKey = `${obj.Color}|||${obj.Data}`;
-                        legendItems.add(pairKey);
+                        if (obj.Data !== null && obj.Data !== "") {  // ignore null/empty
+                            const pairKey = `${obj.Color}|||${obj.Data}`;
+                            legendItems.add(pairKey);
+                        }
                     }
                     for (const key in obj) {
                         extractColorData(obj[key]);
@@ -3749,8 +3750,10 @@ function DrawGPCRomeWheel(Data, location, GPCRome_styling) {
                 function extractColorData(obj) {
                     if (typeof obj !== "object" || obj === null) return;
                     if ("Color" in obj && "Data" in obj) {
-                        const pairKey = `${obj.Color}|||${obj.Data}`;
-                        legendItems.add(pairKey);
+                        if (obj.Data !== null && obj.Data !== "") {  // ignore null/empty
+                            const pairKey = `${obj.Color}|||${obj.Data}`;
+                            legendItems.add(pairKey);
+                        }
                     }
                     for (const key in obj) {
                         extractColorData(obj[key]);
