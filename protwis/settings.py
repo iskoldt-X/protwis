@@ -211,3 +211,7 @@ CACHES = {
 # So, have to switch from CoreAPI to OpenAPI. Next line will work for now.
 # Uncomment when needed.
 # REST_FRAMEWORK = { 'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema' }
+
+
+DATA_DIR = '/Users/nht435/GitHub/gpcr'
+BUILD_CACHE_DIR = DATA_DIR + '/cache'

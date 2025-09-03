@@ -1,3 +1,4 @@
+# Protein-Protein Interaction Analysis, change it later
 from contactnetwork.residue import *
 from Bio.PDB.Polypeptide import *
 from contactnetwork.models import *
