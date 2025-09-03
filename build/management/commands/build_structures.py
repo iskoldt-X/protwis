@@ -107,6 +107,9 @@ class Command(BaseBuild):
     # source file directory
     pdb_data_dir = os.sep.join([settings.DATA_DIR, 'structure_data', 'pdbs'])
 
+    # interaction yaml files directory
+    schrodinger_interaction_dir = getattr(settings, 'SCHRODINGER_INTERACTIONS_DIR', None)
+
     ### USE below to fix seg ends
     xtal_seg_end_file = os.sep.join([settings.DATA_DIR, 'structure_data', 'annotation', 'mod_xtal_segends.yaml'])
     with open(xtal_seg_end_file, 'r') as f:
@@ -146,6 +149,9 @@ class Command(BaseBuild):
             except Exception as msg:
                 print(msg)
                 self.logger.error(msg)
+
+        if not self.schrodinger_interaction_dir:
+            self.logger.error("SCHRODINGER_INTERACTIONS_DIR is not defined in settings. Cannot process Schrödinger interactions.")
 
         if options['skip_cn']:
             self.run_contactnetwork=False
@@ -1280,6 +1286,7 @@ class Command(BaseBuild):
             return
 
     @staticmethod
+    
     def parsecalculation(pdb_id, data, ligand_name, debug=True, ignore_ligand_preset=False):
         module_dir = '/tmp/interactions'
         web_resource = WebResource.objects.get(slug='pdb')
@@ -1897,34 +1904,153 @@ class Command(BaseBuild):
 
             for ligand in ligands:
                 if ligand['type'].strip() in ['small molecule', 'protein', 'peptide'] and ligand['in_structure']:
-                    try:
-                        current = time.time()
-                        peptide_chain = ""
-                        if ligand['chain']!='':
-                            peptide_chain = ligand['chain']
-                        # mypath = '/tmp/interactions/results/' + sd['pdb'] + '/output'
-                        # if not os.path.isdir(mypath):
-                        #     #Only run calcs, if not already in temp
-                        # runcalculation(sd['pdb'],peptide_chain)
-                        data_results = runcalculation_2022(sd['pdb'], peptide_chain)
-                        if 'NAG' in data_results:
-                            del data_results['NAG']
-                        self.parsecalculation(sd['pdb'], data_results, ligand['name'], False)
-                        end = time.time()
-                        diff = round(end - current,1)
-                        print('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                        self.logger.info('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                    except Exception as msg:
-                        print(msg)
-                        # print(traceback.format_exc())
-                        print('ERROR WITH INTERACTIONS {}'.format(sd['pdb']))
-                        self.logger.error('Error parsing interactions output for {}'.format(sd['pdb']))
 
-                        self.interaction_errors.append(s)
 
-                        # print('{} done'.format(sd['pdb']))
+##################### Entering the new schrodinger interaction pipeline ######################
+                    if ligand["type"].strip() == "small molecule":
+                        self.logger.info(
+                            f"Attempting Schrödinger interaction pipeline for small molecule {ligand['name']} in {sd['pdb']}"
+                        )
+
+                        # Before calling process_schrodinger_interactions, we need:
+                        # 1. The current Structure object `s` (already available in this scope)
+                        # 2. The Ligand Django object `l_obj` corresponding to `ligand` (the dict item)
+                        # 3. The ligand's PDB HET code (which is `ligand['name']`)
+                        # 4. The PDB ID string (`sd['pdb']`)
+
+                        # The creation/retrieval of the Ligand object `l_obj` and the
+                        # StructureLigandInteraction object `sli_obj` happens *outside*
+                        # this specific 'if/else' block for interactions in the original code.
+                        # We need to ensure that when `process_schrodinger_interactions` is called,
+                        # the `StructureLigandInteraction` object for `s` and `l_obj`
+                        # has already been created (or fetched) and its `pdb_reference` is set correctly.
+                        # The `main_func` has a loop just above this interaction block that does:
+                        #   l = get_or_create_ligand(...)
+                        #   i, created = StructureLigandInteraction.objects.get_or_create(structure=s, ligand=l, ...)
+                        # We must ensure `l` and `i` (or their equivalents) are correctly passed or accessible.
+
+                        # Assuming `l_obj_for_schrodinger` is the correct Ligand model instance
+                        # for the current `ligand` dict. This part is critical.
+                        # The original code structure might mean that `l` (Ligand object) is defined
+                        # in an outer loop or just before the original interaction calculation block.
+
+                        # We need to find the `Ligand` object that corresponds to `ligand['name']`.
+                        # The original code creates/gets `l` using `get_or_create_ligand`.
+                        # We should rely on that `l` being available or re-fetch it carefully.
+
+                        # Let's assume `l` (the Ligand Django object) is correctly in scope here from the
+                        # block of code that handles ligand creation/retrieval using get_or_create_ligand
+                        # which is usually placed *before* the interaction calculation loop.
+                        # If `l` is not in scope, we'd need to fetch it based on `ligand['name']` (HET code).
+
+                        # Let's try to get the Ligand object based on the HET code:
+                        current_ligand_db_obj = None
+                        try:
+                            if ligand["name"] and ligand["name"] != "pep" and ligand["name"] != "apo":
+                                # Assuming ligand['name'] is the PDB HET code and stored in Ligand.pdbe
+                                current_ligand_db_obj = Ligand.objects.get(pdbe=ligand["name"].upper())
+                            else:
+                                self.logger.info(
+                                    f"Ligand {ligand['name']} in {sd['pdb']} is not a standard HET code for small molecule processing via Schrodinger. Skipping new pipeline for it."
+                                )
+                                # This ligand will then fall through to the 'else' block if it matches peptide/protein types.
+                                # If it's a small molecule with a non-standard name like 'apo', and we *don't* want it
+                                # to go to the old pipeline either, we might need another 'continue' here or more specific logic.
+                                # For now, let it fall through. If it's 'apo' and type 'small molecule', it would hit the `else`.
+                                # To prevent 'apo' or 'None' named small molecules from hitting the old pipeline:
+                                if (
+                                    ligand["name"] == "apo" or ligand["name"] == "None"
+                                ):  # or other special names
+                                    self.logger.info(
+                                        f"Skipping special ligand {ligand['name']} for all interaction processing."
+                                    )
+                                    continue  # Skip to next ligand in ligands_from_sd
+
+                        except Ligand.DoesNotExist:
+                            self.logger.error(
+                                f"Ligand with PDB HET code {ligand['name']} not found in DB for structure {sd['pdb']}. Cannot use Schrödinger pipeline."
+                            )
+                            # To make it fall back to the old pipeline (if desired for missing ligand in DB):
+                            # current_ligand_db_obj = None # ensure it's None
+                            # Or, to strictly skip if not in DB:
+                            # continue
+                        except Ligand.MultipleObjectsReturned:
+                            self.logger.error(
+                                f"Multiple Ligands for PDB HET code {ligand['name']} found in DB for structure {sd['pdb']}. Ambiguous. Cannot use Schrödinger pipeline."
+                            )
+                            # continue
+
+                        if current_ligand_db_obj:
+                            # Call the new function. It returns True on success, False on file/parse error.
+                            schrodinger_success = self.process_schrodinger_interactions(
+                                current_structure_obj=s,  # 's' is the Structure object
+                                current_ligand_db_obj=current_ligand_db_obj,  # The Ligand model instance
+                                ligand_pdb_het_code=ligand["name"],  # The HET code string
+                                pdb_code_str=sd["pdb"],  # The PDB ID string
+                            )
+
+                            if not schrodinger_success:
+                                self.logger.warning(
+                                    f"Schrödinger pipeline failed for {sd['pdb']} with ligand {ligand['name']}. Falling back to old calculation method."
+                                )
+                                # Perform old calculation for this specific small molecule if Schrodinger failed
+                                try:
+                                    current = time.time()
+                                    # peptide_chain for small molecules is usually empty
+                                    data_results = runcalculation_2022(
+                                        sd["pdb"], ""
+                                    )  # peptide_chain is empty for small molecules
+                                    if "NAG" in data_results and ligand["name"].upper() != "NAG":
+                                        del data_results["NAG"]
+                                    self.parsecalculation(sd["pdb"], data_results, ligand["name"], False)
+                                    end = time.time()
+                                    diff = round(end - current, 1)
+                                    self.logger.info(
+                                        f"Fallback old interaction calculation for {s.protein_conformation.protein.entry_name} with {ligand['name']} done in {diff}s."
+                                    )
+                                except Exception as msg_fallback:
+                                    self.logger.error(
+                                        f"Error in fallback old interaction calculation for {sd['pdb']}, ligand {ligand['name']}: {msg_fallback}",
+                                        exc_info=True,
+                                    )
+                                    self.interaction_errors.append(s)
+                        # else: if current_ligand_db_obj is None due to earlier error, it effectively skips Schrodinger for this ligand.
+                        # The original `else` block below will then handle it if it's a peptide/protein.
+                        # If it was a small molecule but `current_ligand_db_obj` couldn't be found, it won't be processed by new or old,
+                        # unless we explicitly make it fall through.
+                        # The current logic will try Schrodinger, if that fails (or ligand obj not found), it then implicitly skips old pipeline for this SM
+                        # unless we add specific fallback. My added `if not schrodinger_success:` block implements this fallback.
+
+                    ##################### Leaving the new schrodinger interaction pipeline #####################
+                    else:
+                        try:
+                            current = time.time()
+                            peptide_chain = ""
+                            if ligand['chain']!='':
+                                peptide_chain = ligand['chain']
+                            # mypath = '/tmp/interactions/results/' + sd['pdb'] + '/output'
+                            # if not os.path.isdir(mypath):
+                            #     #Only run calcs, if not already in temp
+                            # runcalculation(sd['pdb'],peptide_chain)
+                            data_results = runcalculation_2022(sd['pdb'], peptide_chain)
+                            if 'NAG' in data_results:
+                                del data_results['NAG']
+                            self.parsecalculation(sd['pdb'], data_results, ligand['name'], False)
+                            end = time.time()
+                            diff = round(end - current,1)
+                            print('Interaction calculations done for {}. {} seconds.'.format(
+                                        s.protein_conformation.protein.entry_name, diff))
+                            self.logger.info('Interaction calculations done for {}. {} seconds.'.format(
+                                        s.protein_conformation.protein.entry_name, diff))
+                        except Exception as msg:
+                            print(msg)
+                            # print(traceback.format_exc())
+                            print('ERROR WITH INTERACTIONS {}'.format(sd['pdb']))
+                            self.logger.error('Error parsing interactions output for {}'.format(sd['pdb']))
+
+                            self.interaction_errors.append(s)
+
+                            # print('{} done'.format(sd['pdb']))
 
             s.build_check = True
             s.save()

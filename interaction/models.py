@@ -1,6 +1,7 @@
 from django.db import models
 
 
+
 class ResidueFragmentInteraction(models.Model):
 
     structure_ligand_pair = models.ForeignKey('StructureLigandInteraction', on_delete=models.CASCADE)
@@ -34,6 +35,7 @@ class ResidueFragmentInteraction(models.Model):
         return "{}_{}_{}_{}_{}.pdb".format(generic_num.replace('.','_'), res_name, prot_entry_name, pdb_code, interaction)
 
 
+
 class ResidueFragmentInteractionType(models.Model):
     slug = models.SlugField(max_length=40, unique=True)
     name = models.CharField(max_length=100)
@@ -45,6 +47,7 @@ class ResidueFragmentInteractionType(models.Model):
 
     class Meta():
         db_table = 'interaction_type_residue_fragment'
+
 
 
 class StructureLigandInteraction(models.Model):

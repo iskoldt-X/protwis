@@ -76,6 +76,7 @@ hydrophob_radius = 4.5
 pdb_dir = os.sep.join([settings.DATA_DIR, 'structure_data', 'pdbs'])
 
 #RETURN THE DICTIONARY RESULTS
+
 def runcalculation_2022(pdbname, peptide="", file_input=False):
     output = calculate_interactions(pdbname, None, peptide, file_input)
     return output
