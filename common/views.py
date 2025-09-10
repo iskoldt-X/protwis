@@ -7,11 +7,13 @@ from django.conf import settings
 from django.db.models import Count, Case, When, Min, Q
 from django.core.cache import cache
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.views.decorators.http import require_GET
 
 from common import definitions
 Alignment = getattr(__import__('common.alignment_' + settings.SITE_NAME, fromlist=['Alignment']), 'Alignment')
 
 from common.selection import SimpleSelection, Selection, SelectionItem
+from common.models import Publication
 from ligand.models import AssayExperiment, BiasedData, BalancedLigands
 from structure.models import Structure, StructureModel, StructureComplexModel
 from protein.models import Protein, ProteinFamily, ProteinSegment, Species, ProteinSource, ProteinSet, ProteinCouplings
@@ -2897,3 +2899,24 @@ def TargetTableData(request):
     """
 
     return HttpResponse(getTargetTable())
+
+@require_GET
+def get_reference(request):
+    ''' View of the getReference() ajax function that returns a formatted html content with publication reference(s)
+    '''
+    keys = request.GET.get('keys').split('|')  # get the keys and splits on | if there are multiple
+
+    # Publication db query on the web_link index field, reverse ordered by year
+    pubs = Publication.objects.filter(web_link__index__in=keys).order_by('-year').prefetch_related('web_link', 'web_link__web_resource', 'journal')
+
+    # preparing formatted html content of references
+    html_content = ""
+    for pub in pubs:
+        url = pub.web_link.web_resource.url.replace("$index", pub.web_link.index)
+        html_content += f'<p style="text-align:left;"><b>{pub.title}</b><br>{pub.authors}<br><a href="{url}" target="_blank">{pub.journal.name}, {pub.year}</a></p>'
+
+    # returning with JsonResponse
+    return JsonResponse({
+        'html': html_content,
+        'message': f"Data received for keys: {keys}"
+    }, safe=False)

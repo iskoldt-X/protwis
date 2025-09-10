@@ -18,9 +18,17 @@ class Command(BaseCommand):
     logger = logging.getLogger(__name__)
     rcsb_search_url = "https://search.rcsb.org/rcsbsearch/v2/query"
     rcsb_fasta_url = "https://www.rcsb.org/fasta"
-    months = 2
+
+    def add_arguments(self, parser):
+        parser.add_argument('-m', '--months',
+            dest='months',
+            help='Number of months to check back',
+            type=int,
+            action='store',
+            default=2)
 
     def handle(self, *args, **options):
+        self.months = options['months']
         self.run()
 
     def run(self):

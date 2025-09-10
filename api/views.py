@@ -55,7 +55,7 @@ class ProteinDetail(generics.RetrieveAPIView):
     \n{entry_name} is a protein identifier from Uniprot, e.g. adrb2_human
     """
 
-    queryset = Protein.objects.filter(sequence_type__slug="wt").prefetch_related('family', 'species', 'source', 'residue_numbering_scheme', 'genes')
+    queryset = Protein.objects.filter(sequence_type__slug="wt").prefetch_related('family', 'species', 'source', 'residue_numbering_scheme', 'genes', 'family__parent__parent__parent')
     serializer_class = ProteinSerializer
     lookup_field = 'entry_name'
 

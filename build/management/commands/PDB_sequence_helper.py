@@ -5,14 +5,14 @@ This module contains helper functions for extracting, aligning, and analyzing
 GPCR structure sequences (PDB vs. wild-type) in the GPCRdb/Protwis project.
 It includes:
 
-1. **Sequence Extraction & Distance Calculation**  
+1. **Sequence Extraction & Distance Calculation**
    - `generate_seq_and_distances_from_pdb_text()`: Parse raw PDB text (from the DB),
      build the amino acid sequence for a specified chain, and compute CA–CA distances.
    - `distances_stats()`: Compute mean, standard deviation, and identify outlier CA–CA
      distances, which often reveal potential misalignment or unusual structural
      features.
 
-2. **Alignment & Alignment Corrections**  
+2. **Alignment & Alignment Corrections**
    - `pre_align_modifications()`: Applies custom sequence slicing/trimming for
      certain known tricky PDB codes. We shouldn't need this for the PairwiseAligner.
    - `decide_penalty()`: Chooses gap/mismatch scores for local alignment, depending
@@ -22,7 +22,7 @@ It includes:
    - `format_local_alignment_pairwise2_blocks()`: Reconstructs pairwise2‐like
      alignment strings from the PairwiseAligner blocks.
 
-3. **Misalignment Detection & Fixing**  
+3. **Misalignment Detection & Fixing**
    - `detect_alignment_mistakes_and_reposition()`: Identifies suspicious “misplaced”
      chunks near gaps and moves them to a more appropriate place in the alignment.
      This is a one-pass fix that can address repeated motifs and duplicated segments
@@ -30,20 +30,20 @@ It includes:
 
 Typical Workflow
 ----------------
-1) **Sequence + Distance Extraction**  
-   - Use `generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain)` 
+1) **Sequence + Distance Extraction**
+   - Use `generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain)`
      to get `pdb_seq` plus a list of CA–CA distances.
 
-2) **Outlier Detection**  
+2) **Outlier Detection**
    - Pass the distances to `distances_stats()` to identify positions that deviate
      significantly from expected values (the "outlier_indexes").
 
-3) **Alignment**  
+3) **Alignment**
    - Run `run_pairwisealigner(pdb_code, wt_seq, pdb_seq)` to obtain two alignment
      strings (`ref_seq`, `temp_seq`) and a mapping (`pdb_map`) from the raw PDB
      indices to alignment positions.
 
-4) **Misalignment Fix**  
+4) **Misalignment Fix**
    - Call `detect_alignment_mistakes_and_reposition(...)` with the alignment plus
      the outlier indexes. This will detect a suspicious chunk near a gap and move
      it to the left edge of the gap if appropriate.
@@ -65,16 +65,20 @@ import numpy as np
 #     preferred_chain = preferred_chain.split(',')[0]
 
 
-def generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain="A"):
+def generate_seq_and_distances_from_pdb_text(
+    pdb_text, preferred_chain="A", residues_to_remove=None
+):
     """
     Extracts a protein sequence and computes C-alpha (CA) distances from a raw PDB string.
+    Optionally removes specified residues before processing.
 
     This function:
       1. Parses the provided PDB text with Biopython's PDBParser.
       2. Selects the specified chain (`preferred_chain`).
-      3. Iterates over standard residues (skipping heteroatoms/water).
-      4. Builds the amino-acid sequence (single-letter codes).
-      5. Computes successive CA–CA distances, or inserts `None` if CA is missing.
+      3. If `residues_to_remove` is provided, detaches those residues from the chain.
+      4. Iterates over standard residues (skipping heteroatoms/water).
+      5. Builds the amino-acid sequence (single-letter codes).
+      6. Computes successive CA–CA distances, or inserts `None` if CA is missing.
 
     Parameters
     ----------
@@ -82,6 +86,9 @@ def generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain="A"):
         Full PDB content as a single string (e.g., from `structure.pdb_data.pdb`).
     preferred_chain : str, optional
         The chain identifier to parse, by default 'A'.
+    residues_to_remove : list of int, optional
+        A list of PDB residue sequence numbers to remove from the chain before
+        generating the sequence and distances.
 
     Returns
     -------
@@ -105,11 +112,22 @@ def generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain="A"):
         raise ValueError(f"Preferred chain '{preferred_chain}' not found.")
 
     chain = biopython_structure[preferred_chain]
-    sequence = []
-    distances = []
-    prev_ca = None
 
-    # 3. Iterate over residues in the chain
+    # 3. *** NEW: Remove specified residues ***
+    if residues_to_remove:
+        # PDB residue ID is a tuple: (hetero_flag, sequence_number, insertion_code)
+        # We only care about the sequence_number, assuming standard residues.
+        ids_to_remove = [res_id for res_id in residues_to_remove]
+
+        # We must collect IDs first then detach, to avoid modifying the list while iterating
+        residue_ids_in_chain = [res.get_id() for res in chain]
+
+        for res_id_tuple in residue_ids_in_chain:
+            # res_id_tuple is like (' ', 25, ' ')
+            if res_id_tuple[1] in ids_to_remove:
+                chain.detach_child(res_id_tuple)
+
+    # 4. Iterate over residues in the modified chain
     sequence = ""
     distances = []
     prev_ca = None
@@ -127,19 +145,22 @@ def generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain="A"):
             aa = "X"  # Unknown amino acid
         sequence += aa
 
+        # First residue has no preceding one, so distance is None
+        if prev_ca is None:
+            distances.append(None)
         # For subsequent residues, compute distance or use placeholder
-        if "CA" in residue and prev_ca is not None:
+        elif "CA" in residue:
             current_ca = residue["CA"].get_vector()
             distances.append((current_ca - prev_ca).norm())
-            prev_ca = current_ca
         else:
             # Insert placeholder for missing distance
             distances.append(None)
-            # Update prev_ca if current residue has a CA, otherwise reset
-            if "CA" in residue:
-                prev_ca = residue["CA"].get_vector()
-            else:
-                prev_ca = None
+
+        # Update prev_ca for the next iteration
+        if "CA" in residue:
+            prev_ca = residue["CA"].get_vector()
+        else:
+            prev_ca = None
 
     return sequence, distances
 
@@ -424,8 +445,7 @@ def format_local_alignment_pairwise2_blocks(
         out_tmp_chunk = "-" * (len(leadA) - len(leadB)) + leadB
         append_pdb_chunk(out_tmp_chunk)
     elif len(leadB) > len(leadA):
-        out_ref_chunk = "-" * len(leadB)
-        out_ref.append(out_ref_chunk)
+        out_ref.append("-" * (len(leadB) - len(leadA)) + leadA)
         append_pdb_chunk(leadB)
     else:
         # same length
@@ -444,9 +464,9 @@ def format_local_alignment_pairwise2_blocks(
         # Append gap region
         if len(gapA) > len(gapB):
             out_ref.append(gapA)
-            append_pdb_chunk("-" * len(gapA))
+            append_pdb_chunk("-" * (len(gapA) - len(gapB)) + gapB)
         elif len(gapB) > len(gapA):
-            out_ref.append("-" * len(gapB))
+            out_ref.append("-" * (len(gapB) - len(gapA)) + gapA)
             append_pdb_chunk(gapB)
         else:
             # same length
@@ -484,7 +504,7 @@ def format_local_alignment_pairwise2_blocks(
         out_ref.append(tailA)
         append_pdb_chunk(tailB + "-" * (len(tailA) - len(tailB)))
     elif len(tailB) > len(tailA):
-        out_ref.append("-" * len(tailB))
+        out_ref.append("-" * (len(tailB) - len(tailA)) + tailA)
         append_pdb_chunk(tailB)
     else:
         # same length

@@ -258,3 +258,24 @@ function prepareExportTable(clonedTable) {
     return clonedTable;
   }
 }
+
+/**
+ * Ajax call for populating reference modal after clicking reference icons in the menu system
+ * @param {string} keys multiple keys separated by |
+ */
+function getReference(keys, callback) {
+  $.ajax({
+    url: '/common/getreference/',
+    data: { keys: keys },
+    type: 'GET',
+    async: true,
+    dataType: 'json',
+    success: function(data) {
+      callback(data.html);  // pass HTML to the callback
+    },
+    error: function(xhr, status, error) {
+      console.error("AJAX Error:", xhr.responseText, error);
+      callback("");  // still call back with empty string on error
+    }
+  });
+}

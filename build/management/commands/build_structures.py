@@ -404,6 +404,17 @@ class Command(BaseBuild):
             print('parent_seq-pdb_seq length',len(parent_seq),'pdb_seq',len(seq))
             print(parent_seq)
             print(seq)
+
+        # =================================================================================
+        # === START OF ALIGNMENT SECTION ==================================================
+        # =================================================================================
+
+        # ---------------------------------------------------------------------------------
+        # --- [LEGACY PIPELINE] Current alignment method using pairwise2 and manual fixes -
+        # ---------------------------------------------------------------------------------
+        # NOTE FOR FUTURE REFACTORING: This entire block can be replaced by the 
+        # "NEW AUTOMATED PIPELINE" block below.
+        
         #align WT with structure seq -- make gaps penalties big, so to avoid too much overfitting
 
         if structure.pdb_code.index=='6U1N':
@@ -731,31 +742,68 @@ class Command(BaseBuild):
         elif structure.pdb_code.index=='9IVM':
             temp_seq = temp_seq[:105]+'S'+temp_seq[105:111]+temp_seq[112:]
 
-        # New code block for automatic alignment fixes using space information from the pdb, starts here
-        # parent_seq is the wt_seq, 
-        # ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+        # --- [END OF LEGACY PIPELINE] ---
+
+        # ---------------------------------------------------------------------------------
+        # --- [NEW AUTOMATED PIPELINE] - Future replacement for the legacy block above ---
+        # ---------------------------------------------------------------------------------
+        # TO ENABLE THIS NEW PIPELINE:
+        #   1. UNCOMMENT this entire block.
+        #   2. COMMENT OUT or DELETE the entire "[LEGACY PIPELINE]" block above,
+        #      which includes all `pairwise2` calls and the large `if/elif` chain
+        #      of manual fixes.
+        # ---------------------------------------------------------------------------------
+        
+        # # New code block for automatic alignment fixes using space information from the pdb, starts here
+        # # parent_seq is the wt_seq from the context of this method.
+        
+        # # ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 
         # pdb_code = structure.pdb_code.index
-        # wt_seq = parent_seq
+        # wt_seq = parent_seq  # Use the already prepared WT sequence
         # pdb_text = structure.pdb_data.pdb
-        # pdb_seq, distances = generate_seq_and_distances_from_pdb_text(pdb_text, preferred_chain)
-        # ref_seq, temp_seq, pdb_map = run_pairwisealigner(pdb_code, wt_seq, pdb_seq)
-        # outlier_indexes = distances_stats(distances)
-        # fixed_temp_seq = detect_alignment_mistakes_and_reposition(
-        #     pdb_code,
-        #     wt_seq, 
-        #     pdb_seq, 
-        #     ref_seq, 
-        #     temp_seq, 
-        #     pdb_map, 
-        #     distances, 
-        #     outlier_indexes, 
-        #     aanumber=3  # or however many residues you want to look back
+
+        # # 'removed' list (for fusion proteins) is already calculated above.
+        # # We pass it to our helper to get a clean PDB sequence.
+        # pdb_seq, distances = generate_seq_and_distances_from_pdb_text(
+        #     pdb_text, preferred_chain, residues_to_remove=removed
         # )
 
-        # ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
-        # fixed_temp_seq is the corrected temp_seq from this method
-        # New code block for automatic alignment fixes using space information from the pdb, ends here
+        # # Get initial alignment and residue mapping
+        # initial_ref_seq, initial_temp_seq, pdb_map = run_pairwisealigner(
+        #     pdb_code, wt_seq, pdb_seq
+        # )
+
+        # # Find outliers which might indicate misalignments
+        # outlier_indexes = distances_stats(distances)
+
+        # # Attempt to automatically fix misalignments based on outliers and gaps
+        # # The function returns the final, corrected alignment string for the PDB sequence.
+        # fixed_temp_seq = detect_alignment_mistakes_and_reposition(
+        #     pdb_code,
+        #     wt_seq,
+        #     pdb_seq,
+        #     initial_ref_seq,
+        #     initial_temp_seq,
+        #     pdb_map,
+        #     distances,
+        #     outlier_indexes,
+        #     aanumber=3,
+        # )
+
+        # # Assign the final, corrected alignment strings to be used by the rest of the function.
+        # ref_seq = initial_ref_seq
+        # temp_seq = fixed_temp_seq
+
+
+        # # ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+        # # New code block for automatic alignment fixes using space information from the pdb, ends here
+        # # --- [END OF NEW AUTOMATED PIPELINE] ---
+
+        
+        # =================================================================================
+        # === END OF ALIGNMENT SECTION ====================================================
+        # =================================================================================
 
 
         for i, r in enumerate(ref_seq, 1): #loop over alignment to create lookups (track pos)

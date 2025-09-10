@@ -86,22 +86,66 @@
 <!-- Comply with GDPR Minified Cookie Consent from https://github.com/osano/cookieconsent -->
 <script src="{% static 'home/js/gpcrdb.js' %}"></script>
 <script src="{% static 'home/js/cookieconsent.min.js' %}"></script>
+<script src="{% static 'home/js/colors-pastel.js' %}"></script>
 
 <script type="text/javascript">
     $(document).ready(function () {
         $('[data-submenu]').submenupicker();
 
-        // Enable hover open/close on parent menu items in navbar
-        $('.navbar .dropdown').hover(function() {
-          $(this).find('.dropdown-menu').first().stop(true, true).delay(250).slideDown();
-        }, function() {
-          $(this).find('.dropdown-menu').first().stop(true, true).delay(100).slideUp();
+        // Dropdown menu animations
+        let closeTimeout;
+        let currentDropdown = null;
+
+        $('.navbar .dropdown').on('mouseenter', function () {
+            clearTimeout(closeTimeout);
+
+            // If hovering a new dropdown, close the previous one immediately
+            if (currentDropdown && currentDropdown[0] !== $(this)[0]) {
+                currentDropdown.find('.dropdown-menu').first().stop(true, true).slideUp(200);
+            }
+
+            // Open the new one
+            currentDropdown = $(this);
+            currentDropdown.find('.dropdown-menu').first().stop(true, true).delay(150).slideDown();
+        });
+
+        $('.navbar .dropdown').on('mouseleave', function () {
+            const $this = $(this);
+
+            closeTimeout = setTimeout(() => {
+                // Only close if this dropdown is still the current one
+                if (currentDropdown && currentDropdown[0] === $this[0]) {
+                $this.find('.dropdown-menu').first().stop(true, true).slideUp();
+                currentDropdown = null;
+                }
+            }, 600); // Grace period for accidental hover out
         });
 
         // Enable click on parent menu items in navbar
         $('.navbar .dropdown > a').click(function(){
           location.href = this.href;
         });
+
+        // Assigning colors to .refLink elements based on matching first member of the 'keys' value of .refLink button element
+        var colordict = new Array;
+        var refs = $('.refLink');
+
+        for (let i=0; i<refs.length; i++) {
+            var keys = $(refs[i]).attr('keys');
+            if (keys.includes("|")) {
+                var first_key = keys.split("|")[0];
+            } else {
+                var first_key = keys;
+            }
+            if (first_key in colordict){
+                $(refs[i]).find('span').css('color',colordict[first_key]);
+            } else if (first_key!==""){
+                $(refs[i]).find('span').css('color',colors[i]);
+                colordict[first_key] = colors[i];
+            } else {
+                $(refs[i]).find('span').css('color',"black");
+            }
+        };
     });
 </script>
 
@@ -134,11 +178,40 @@
 
     $('.refLink').click(function (e) {
         e.preventDefault();
-        url = $(this).attr('url');
-        window.open(url);
+        $('#ref-modal').remove();  // clean up any old modals
+
+        const keys = $(this).attr('keys');
+
+        // Now we use the callback form
+        getReference(keys, function(text) {
+            if (text.length === 0) {
+            return;
+            }
+
+            const modalHtml = `
+            <div id="ref-modal">
+                <div id="ref-modal-content">
+                <span id="ref-modal-close-btn">&times;</span>
+                ${text}
+                </div>
+            </div>
+            `;
+
+            $('body').append(modalHtml);
+
+            // Close modal logic
+            $('#ref-modal, #ref-modal-close-btn').click(function () {
+            $('#ref-modal').remove();
+            });
+
+            $('#ref-modal-content').click(function (e) {
+            e.stopPropagation();
+            });
+        });
     });
 
     $('.refLink').tooltip();
+
 </script>
 
 <!-- Include custom ajax functions -->
