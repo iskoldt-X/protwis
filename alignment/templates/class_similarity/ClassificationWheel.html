@@ -9,8 +9,10 @@
 <link rel="stylesheet" href="{% static 'home/css/Spectrum_1_8_1.css' %}" type="text/css" />
 
 <style>
-/* Generic dropdown look */
-.dropdown-menu-side {
+/* =========================
+   Generic dropdown look
+   ========================= */
+.dropdown-menu-side{
   position: absolute;
   left: 100%;
   margin-left: 5px;
@@ -18,14 +20,18 @@
   padding: 10px 15px;
 }
 
-/* Per-dropdown vertical alignment */
-.dropdown-menu-align-names   { transform: translateY(-35%); }
-.dropdown-menu-align-legend  { transform: translateY(-27%); }
-.dropdown-menu-align-layout  { transform: translateY(-43%); }
-.dropdown-menu-align-download{ transform: translateY(-49%); }
+/* Per-dropdown vertical alignment (keep your offsets) */
+.dropdown-menu-align-names      { transform: translateY(-34%); }
+.dropdown-menu-align-legend     { transform: translateY(-26%); }
+.dropdown-menu-align-layout     { transform: translateY(-41%); }
+.dropdown-menu-align-colorby    { transform: translateY(-26%); }
+.dropdown-menu-align-customize   { transform: translateY(-14%); } /* note: matches your HTML spelling */
+.dropdown-menu-align-download   { transform: translateY(-48%); }
 
-/* Select2 polish */
-.select2-container--default .select2-selection--single {
+/* =========================
+   Select2 polish
+   ========================= */
+.select2-container--default .select2-selection--single{
   height: 38px;
   padding: 6px 10px;
   border: 1px solid #ccc;
@@ -33,15 +39,121 @@
   line-height: 24px;
   font-size: 14px;
 }
-.select2-container--default .select2-selection--single .select2-selection__rendered {
+.select2-container--default .select2-selection--single .select2-selection__rendered{
   line-height: 24px;
   padding-left: 0;
   text-align: center;
   width: 100%;
 }
-.select2-container--default .select2-results__option {
+.select2-container--default .select2-results__option{
   text-align: center;
 }
+
+/* =========================
+   Customize colors dropdown
+   ========================= */
+.customize-menu{
+  /* column sizes used by header + rows */
+  --check-col: 24px;
+  --picker-col: 45px;
+  --gap: 10px;
+
+  width: 350px;          /* JS will override per scheme */
+  max-width: 90vw;
+  max-height: 60vh;      /* cap height; scroll only when needed */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* allow shrinking below Bootstrap's default min-width */
+.customize-menu.dropdown-menu{
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
+/* ---- Header ---- */
+.customize-menu .panel-header{
+  position: static;           /* not sticky */
+  background: #fff;
+  padding: 4px 0 8px 0;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* 3-col grid helper (header can use this) */
+.customize-menu .panel-grid{
+  display: grid;
+  grid-template-columns: var(--check-col) 1fr var(--picker-col);
+  align-items: center;
+  column-gap: var(--gap);
+}
+
+/* Title spans name+picker columns and is optically centered
+   despite unequal left/right columns */
+.customize-menu .header-title{
+  grid-column: 2 / span 2;
+  text-align: center;
+  font-weight: 600;
+  transform: translateX(calc((var(--picker-col) - var(--check-col)) / -2));
+}
+
+/* ---- List ---- */
+.color-grid{ display: block; }
+
+/* Row: [checkbox] [label] [picker] */
+.color-item{
+  display: grid;
+  grid-template-columns: var(--check-col) 1fr var(--picker-col);
+  align-items: center;
+  column-gap: var(--gap);
+  padding: 4px 0;
+  min-height: 28px;
+  border-bottom: 1px dashed #eee;
+}
+.color-item:last-child{ border-bottom: none; }
+
+/* Label wraps neatly */
+.color-item .color-label{
+  margin: 0;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* Spectrum trigger (clickable box) */
+.color-item .sp-replacer{
+  width: var(--picker-col);
+  box-sizing: border-box;
+  height: 28px;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 24px;
+}
+
+/* Small preview square */
+.color-item .sp-preview{
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+/* Tiny caret text (or hide if preferred) */
+.color-item .sp-replacer .sp-dd{
+  font-size: 10px; /* or: display:none; */
+}
+
+/* Checkbox alignment */
+.color-item input[type="checkbox"]{
+  margin: 2px 0 0 0;
+  justify-self: start;
+}
+
+/* Make Spectrum popup float above the dropdown */
+.sp-container{ z-index: 2000 !important; }
+
 </style>
 {% endblock %}
 
@@ -113,7 +225,7 @@
           <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
             Color by
           </button>
-          <div class="dropdown-menu dropdown-menu-side">
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-colorby">
             <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Class">Class</button>
             <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Ligand type">Ligand type</button>
             <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="classic" data-value="Receptor family">Receptor family</button>
@@ -121,13 +233,13 @@
           </div>
         </div>
 
-        <!-- Customize Class Colors -->
-        <div class="dropdown">
-          <button class="btn btn-warning dropdown-toggle" type="button" data-toggle="dropdown">
-            Customize Class Colors
+        <!-- Customize colors (CLASSIC) -->
+        <div class="dropdown" >
+          <button class="btn btn-primary btn-block" type="button" data-toggle="dropdown">
+            Customize colors
           </button>
-          <div class="dropdown-menu p-3" style="min-width:200px;">
-            <div id="class-color-pickers"></div>
+          <div class="dropdown-menu p-3 customize-menu dropdown-menu-align-customize">
+            <div id="classic-color-pickers"></div>
           </div>
         </div>
 
@@ -206,9 +318,17 @@
           </button>
           <div class="dropdown-menu dropdown-menu-side">
             <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Class">Class</button>
-            <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Ligand type">Ligand type</button>
             <button type="button" class="btn btn-outline-primary btn-block mb-1 GPCRome-colorby-btn" data-wheel="odorant" data-value="Receptor family">Receptor family</button>
-            <button type="button" class="btn btn-outline-primary btn-block GPCRome-colorby-btn" data-wheel="odorant" data-value="Sense">Sense</button>
+          </div>
+        </div>
+
+        <!-- Customize colors (ODORANT) -->
+        <div class="dropdown">
+          <button class="btn btn-primary btn-block" type="button" data-toggle="dropdown">
+            Customize colors
+          </button>
+          <div class="dropdown-menu p-3 customize-menu">
+            <div id="odorant-color-pickers"></div>
           </div>
         </div>
 
@@ -249,8 +369,6 @@ const wheelData = {
   classic: {{ GPCRomeData|safe }},
   odorant: {{ GPCRomeOdorantData|safe }}
 };
-
-console.log(wheelData["classic"])
 
 const ICON_URL = "{% static 'home/images/DataMapper/DataMapper_GPCRome_icon_legend.png' %}";
 
@@ -403,38 +521,40 @@ const coloringSchemesOdorant = {
     "O1": "#9D4EDD",  // purple
     "O2": "#2A9D8F"   // teal
   },
-  "Ligand type": {
-    "Odorant receptors": "#ff7f00" // bright orange
-  },
   "Receptor family": generateCategoryColors(ODORANT_RECEPTOR_FAMILIES),
-  "Sense": {
-    "odorant": "#4daf4a",
-    "non-sensory": "#999999",
-    "unknown": "#cccccc"
-  }
 };
 
 function applyColoring(type) {
   const schemeSet = (type === "odorant") ? coloringSchemesOdorant : coloringSchemes;
-  const scheme = schemeSet[wheelStyling[type].ColorBy];
+  const colorBy = wheelStyling[type].ColorBy;
+  const scheme = schemeSet[colorBy];
   if (!scheme) return;
 
-  for (let circleKey in wheelData[type]) {
+  const enabledMap = (activeCategories[type] && activeCategories[type][colorBy]) || {};
+
+  for (const circleKey in wheelData[type]) {
     const circle = wheelData[type][circleKey];
-    for (let classKey in circle) {
+    for (const classKey in circle) {
       const families = circle[classKey];
-      for (let familyKey in families) {
+      for (const familyKey in families) {
         const receptors = families[familyKey];
-        for (let recKey in receptors) {
+        for (const recKey in receptors) {
           const receptor = receptors[recKey];
-          const categoryValue = receptor[wheelStyling[type].ColorBy];
-          receptor.Color = scheme[categoryValue] || "#ffffff";
+          const categoryValue = receptor[colorBy];
+
+          // Always keep data so the wheel can render even if everything is "off"
           receptor.Data = categoryValue || "";
+
+          // Only change the color when disabled
+          const enabled = enabledMap[categoryValue] !== false; // default true
+          receptor.Color = enabled ? (scheme[categoryValue] || "#ffffff") : "#ffffff";
         }
       }
     }
   }
 }
+
+
 
 
 function drawWheel(type) {
@@ -442,111 +562,192 @@ function drawWheel(type) {
   d3v4.select(`#${locationId}`).select("svg").remove();
   DrawGPCRomeWheel(wheelData[type], locationId, wheelStyling[type]);
 }
-// Track enabled/disabled classes
-let activeClasses = {};
-Object.keys(coloringSchemes["Class"]).forEach(cls => activeClasses[cls] = true);
+// Tracks enable/disable per wheel and per scheme (Class, Ligand type, etc.)
+const activeCategories = {
+  classic: {},
+  odorant: {}
+};
 
-function initClassColorPickers() {
-  const pickerContainer = document.getElementById("class-color-pickers");
-  pickerContainer.innerHTML = "";
-
-  const classColors = coloringSchemes["Class"];
-
-  Object.keys(classColors).forEach(cls => {
-    const safeId = "picker_" + cls.replace(/\s+/g, "_"); // HTML-safe ID
-    const checkboxId = "check_" + safeId;
-
-    const div = document.createElement("div");
-    div.style.display = "flex";
-    div.style.alignItems = "center";
-    div.style.justifyContent = "center";
-    div.style.marginBottom = "10px";
-    div.innerHTML = `
-      <input type="checkbox" id="${checkboxId}" checked style="margin-right: 5px;">
-      <label for="${checkboxId}" style="margin-right: 10px; text-align: center; min-width: 60px;">
-        ${cls}
-      </label>
-      <input type="text" id="${safeId}" />
-    `;
-    pickerContainer.appendChild(div);
-
-    // Initialize picker
-    initializeClassColorPicker(safeId, classColors[cls], cls);
-
-    // Checkbox behavior
-    document.getElementById(checkboxId).addEventListener('change', function () {
-      activeClasses[cls] = this.checked;
-
-      if (!this.checked) {
-        // Disable spectrum and grey out
-        $("#" + safeId).spectrum("disable");
-        $("#" + safeId).css("opacity", "0.5");
-
-        // Remove data + set color to white for all receptors in this class
-        for (let circleKey in wheelData["classic"]) {
-          const circle = wheelData["classic"][circleKey];
-          for (let classKey in circle) {
-            const families = circle[classKey];
-            for (let familyKey in families) {
-              const receptors = families[familyKey];
-              for (let recKey in receptors) {
-                const receptor = receptors[recKey];
-                if (receptor["Class"] === cls) {
-                  receptor.Color = "#ffffff";
-                  receptor.Data = "";
-                }
-              }
-            }
-          }
+// Initialize enable-state for every category in every scheme (both wheels)
+function initActiveCategories() {
+  ["classic", "odorant"].forEach(type => {
+    const schemeSet = (type === "odorant") ? coloringSchemesOdorant : coloringSchemes;
+    Object.keys(schemeSet).forEach(schemeName => {
+      if (!activeCategories[type][schemeName]) activeCategories[type][schemeName] = {};
+      Object.keys(schemeSet[schemeName]).forEach(category => {
+        if (activeCategories[type][schemeName][category] === undefined) {
+          activeCategories[type][schemeName][category] = true;
         }
-        drawWheel("classic");
-
-      } else {
-        // Re-enable spectrum
-        $("#" + safeId).spectrum("enable");
-        $("#" + safeId).css("opacity", "1");
-
-        // Reapply normal coloring for this class
-        applyColoring("classic");
-        drawWheel("classic");
-      }
+      });
     });
   });
 }
 
-function initializeClassColorPicker(elementId, start_color, classKey) {
-  $("#" + elementId).spectrum({
-    color: start_color,
+const customizeMenuWidths = {
+  "Class": 200,
+  "Ligand type": 350,
+  "Receptor family": 350,
+  "Sense": 230
+};
+
+// Build the customize panel for the current ColorBy on a given wheel & container
+function initCustomizeColorPickers(type, containerId) {
+  const pickerContainer = document.getElementById(containerId);
+  if (!pickerContainer) return;
+
+  const colorBy = wheelStyling[type].ColorBy;
+
+  // Per-scheme width
+  const menuEl = pickerContainer.closest(".customize-menu");
+  if (menuEl) {
+    const w = customizeMenuWidths[colorBy] || 350;
+    menuEl.style.width = w + "px";
+    menuEl.style.minWidth = w + "px";
+  }
+
+  const schemeSet = (type === "odorant") ? coloringSchemesOdorant : coloringSchemes;
+  const scheme = schemeSet[colorBy];
+  if (!scheme) { pickerContainer.innerHTML = "<em>No categories</em>"; return; }
+
+  // Ensure enable-state exists
+  if (!activeCategories[type][colorBy]) activeCategories[type][colorBy] = {};
+  Object.keys(scheme).forEach(cat => {
+    if (activeCategories[type][colorBy][cat] === undefined) {
+      activeCategories[type][colorBy][cat] = true;
+    }
+  });
+
+  const safeColorBy = colorBy.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  // Header (checkbox aligns with rows; title spans name+picker columns)
+  pickerContainer.innerHTML = `
+    <div class="panel-header panel-grid">
+      <input type="checkbox" id="${containerId}-selectall" aria-label="Toggle all">
+      <div class="header-title">${colorBy}</div>
+    </div>
+    <div class="color-grid" id="${containerId}-grid"></div>
+  `;
+  const grid = document.getElementById(`${containerId}-grid`);
+  const selectAllEl = document.getElementById(`${containerId}-selectall`);
+
+  // Master checkbox state updater
+  function updateMasterCheckbox() {
+    const vals = Object.values(activeCategories[type][colorBy] || {});
+    const all  = vals.length > 0 && vals.every(Boolean);
+    const none = vals.length > 0 && vals.every(v => !v);
+    selectAllEl.checked = all;
+    selectAllEl.indeterminate = !all && !none;
+  }
+
+  // Build rows
+  Object.keys(scheme).forEach(category => {
+    const safeCategory = category.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const safeId = `${type}_${safeColorBy}_picker_${safeCategory}`;
+    const checkboxId = `check_${safeId}`;
+
+    const item = document.createElement("div");
+    item.className = "color-item";
+    item.innerHTML = `
+      <input type="checkbox" id="${checkboxId}" ${activeCategories[type][colorBy][category] ? "checked" : ""}>
+      <label for="${checkboxId}" class="color-label">${category}</label>
+      <input type="text" id="${safeId}">
+    `;
+    grid.appendChild(item);
+
+    initializeGenericColorPicker({
+      elementId: safeId,
+      startColor: scheme[category],
+      wheelType: type,
+      schemeName: colorBy,
+      categoryKey: category
+    });
+
+    document.getElementById(checkboxId).addEventListener("change", function () {
+      activeCategories[type][colorBy][category] = this.checked;
+
+      const $inp = $("#" + safeId);
+      if (this.checked) {
+        $inp.spectrum("enable").css("opacity", "1");
+      } else {
+        $inp.spectrum("disable").css("opacity", "0.5");
+      }
+
+      applyColoring(type);
+      drawWheel(type);
+      updateMasterCheckbox();
+    });
+
+    if (!activeCategories[type][colorBy][category]) {
+      $("#" + safeId).spectrum("disable").css("opacity", "0.5");
+    }
+  });
+
+  // Master toggle
+  selectAllEl.addEventListener("change", function () {
+    const makeChecked = this.checked; // clicking clears indeterminate
+    Object.keys(activeCategories[type][colorBy]).forEach(category => {
+      activeCategories[type][colorBy][category] = makeChecked;
+
+      const safeCategory = category.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const safeId = `${type}_${safeColorBy}_picker_${safeCategory}`;
+
+      const rowBox = document.getElementById(`check_${safeId}`);
+      if (rowBox) rowBox.checked = makeChecked;
+
+      const $inp = $("#" + safeId);
+      if (makeChecked) { $inp.spectrum("enable").css("opacity","1"); }
+      else { $inp.spectrum("disable").css("opacity","0.5"); }
+    });
+
+    applyColoring(type);
+    drawWheel(type);
+    updateMasterCheckbox();
+  });
+
+  updateMasterCheckbox();
+}
+
+
+// Spectrum init (shared)
+function initializeGenericColorPicker({ elementId, startColor, wheelType, schemeName, categoryKey }) {
+  const $input = $("#" + elementId);
+  const appendTarget = $input.closest(".customize-menu");   // <— NEW
+
+  $input.spectrum({
+    color: startColor,
     showPalette: true,
     showInput: true,
+    showButtons: false,                 // <— trims popup height
     preferredFormat: "hex",
+    appendTo: 'body',             
     palette: [
       ["#000", "#FF0000", "#00FF00", "#0000FF", "#FFFF00"],
       ["#FF00FF", "#00FFFF", "#FFFFFF", "#C0C0C0", "#808080"],
       ["#800000", "#808000", "#008000", "#800080", "#008080"],
       ["#000080"]
     ],
-    change: function(color) {
-      if (activeClasses[classKey]) {
-        coloringSchemes["Class"][classKey] = color.toHexString();
-        if (wheelStyling["classic"].ColorBy === "Class") {
-          applyColoring("classic");
-          drawWheel("classic");
+    change: function (color) {
+      if (activeCategories[wheelType][schemeName][categoryKey]) {
+        const schemeSet = (wheelType === "odorant") ? coloringSchemesOdorant : coloringSchemes;
+        schemeSet[schemeName][categoryKey] = color.toHexString();
+        if (wheelStyling[wheelType].ColorBy === schemeName) {
+          applyColoring(wheelType);
+          drawWheel(wheelType);
         }
       }
     },
-    move: function(color) {
-      if (activeClasses[classKey]) {
-        coloringSchemes["Class"][classKey] = color.toHexString();
-        if (wheelStyling["classic"].ColorBy === "Class") {
-          applyColoring("classic");
-          drawWheel("classic");
+    move: function (color) {
+      if (activeCategories[wheelType][schemeName][categoryKey]) {
+        const schemeSet = (wheelType === "odorant") ? coloringSchemesOdorant : coloringSchemes;
+        schemeSet[schemeName][categoryKey] = color.toHexString();
+        if (wheelStyling[wheelType].ColorBy === schemeName) {
+          applyColoring(wheelType);
+          drawWheel(wheelType);
         }
       }
     }
   });
 }
-
 
 function initControls(type) {
   // Label button
@@ -571,10 +772,16 @@ function initControls(type) {
       this.classList.remove('btn-outline-primary');
       this.classList.add('btn-primary');
       wheelStyling[type].ColorBy = this.dataset.value;
+
       applyColoring(type);
       drawWheel(type);
+
+      // Rebuild the corresponding customize panel
+      const containerId = (type === "classic") ? "classic-color-pickers" : "odorant-color-pickers";
+      initCustomizeColorPickers(type, containerId);
     });
   });
+
   const defaultColorBtn = document.querySelector(`.GPCRome-colorby-btn[data-wheel="${type}"][data-value="${wheelStyling[type].ColorBy}"]`);
   if (defaultColorBtn) { defaultColorBtn.classList.remove('btn-outline-primary'); defaultColorBtn.classList.add('btn-primary'); }
 
@@ -613,18 +820,29 @@ function initControls(type) {
 }
 
 $(function () {
+  initActiveCategories();
+
+  // CLASSIC
   applyColoring("classic");
   drawWheel("classic");
   initControls("classic");
-  initClassColorPickers();
+  initCustomizeColorPickers("classic", "classic-color-pickers");
 
+  // ODORANT
   applyColoring("odorant");
   initControls("odorant");
+  // Build its customize panel now (even if the tab is hidden)
+  initCustomizeColorPickers("odorant", "odorant-color-pickers");
+
+  // When Odorant tab becomes visible, ensure it draws once
   $('a[href="#GPCRomewheel_odorant_tab"]').on('shown.bs.tab', function () {
     applyColoring("odorant");
     drawWheel("odorant");
+    // Optional: rebuild to be safe if user changed "Color by" while hidden
+    initCustomizeColorPickers("odorant", "odorant-color-pickers");
   });
 });
+
 
 </script>
 {% endblock %}

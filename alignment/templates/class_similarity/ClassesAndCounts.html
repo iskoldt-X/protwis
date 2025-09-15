@@ -100,9 +100,11 @@
 {% block addon_js %}
 <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function () {
     var dataHuman = {{ human_table_data|safe }};
     var dataNonHuman = {{ nonhuman_table_data|safe }};
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
     function renderPopupCell(count, entries, title) {
         if (!count || count === 0) return "0";
