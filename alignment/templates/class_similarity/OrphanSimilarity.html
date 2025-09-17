@@ -3,53 +3,60 @@
 {% load utils %}
 
 {% block addon_css %}
-  <!-- Select2 CSS (you can swap to your own static if you have it) -->
-  <!-- <link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css"> -->
-  <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
-  <link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+<style type="text/css">
+.page-wrap { padding: 8px 0 16px; }
+.title-center { text-align: center; margin-bottom: 8px; }
 
-  <style type="text/css">
-    .page-wrap { padding: 8px 0 16px; }
-    .title-center { text-align: center; margin-bottom: 8px; }
+/* Controls (Select2) */
+.controls-wrap { display:flex; justify-content:center; }
+.controls {
+  width:33%; min-width:320px; max-width:640px;
+  display:flex; flex-direction:column; gap:8px; align-items:stretch;
+  margin:12px 0 8px; text-align:center;
+}
+.select2-container{ width:100% !important; }
+.loading{ display:none; font-size:12px; } .loading.show{ display:inline-block; }
 
-    /* Center label + dropdown; block ~1/3 page width */
-    .controls-wrap { display: flex; justify-content: center; }
-    .controls {
-      width: 33%;
-      min-width: 320px;
-      max-width: 640px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: stretch;
-      margin: 12px 0 8px;
-      text-align: center;
-    }
-    .select2-container { width: 100% !important; }
+/* DataTable base */
+table.dataTable{ font-size:12px; table-layout:auto; width:100%; }
+table.dataTable tbody tr:hover{ background:#fafafa; }
+.border-left{ border-left:1px solid #cccccc !important; }
+.muted{ color:#666; font-size:11px; }
 
-    /* Taller Select2 dropdown w/ scroll */
-    .custom-dropdown { max-height: 500px !important; overflow-y: auto !important; }
-    .custom-dropdown .select2-results__options { max-height: 450px !important; overflow-y: auto !important; }
-    .select2-search__field::placeholder { text-align: center; }
+/* ── HEADERS ─────────────────────────────────────────────────────────────── */
 
-    .loading { display: none; font-size: 12px; }
-    .loading.show { display: inline-block; }
+thead tr:last-child th .dt-column-title{ display:inline-block; text-align:center; padding-left:24px; margin:0; line-height:1.2em; white-space:normal; }
+thead tr:last-child th .dt-column-order{ margin-right:-12px; }
 
-    /* DataTables polish */
-    .border-left { border-left: 1px solid #cccccc !important; }
-    table.dataTable { font-size: 12px; table-layout: auto; width: 100%; }
-    th .dt-column-order { margin-right: -12px; } /* nudge sort arrow right */
-    th .dt-column-title {
-      display: inline-block; text-align: center; padding-left: 24px; margin: 0;
-      line-height: 1.2em; white-space: normal;
-    }
+/* Superheader: no padding */
+thead tr:nth-child(2) th .dt-column-title{ padding-left:0 !important; }
 
-    /* Sticky first column (optional; only matters when table can scroll horizontally) */
-    .sticky-column { position: sticky; left: 0; z-index: 1; background: white; border-right: 1px solid #cccccc; }
-    table.dataTable thead th.sticky-column { z-index: 2; background: white; }
+/* Only the GPCRdb header should have no left padding */
+thead tr:last-child th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
+/* (fallback if you ever drop the class) */
+thead tr:last-child th:first-child .dt-column-title{ padding-left:0 !important; }
 
-    table.dataTable tbody tr:hover { background: #fafafa; }
-  </style>
+/* GPCRdb icon header: no padding + fixed narrow width */
+th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
+th.gpcrdb-col, td.gpcrdb-col{ width:50px; min-width:50px; max-width:50px; text-align:center; }
+
+/* ── Expand-on-hover cells ───────────────────────────────────────────────── */
+td.expand_1line{
+  max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative;
+}
+td.expand_1line .expanded{ display:none; white-space:normal; }
+td.expand_1line:hover{ overflow:visible; white-space:normal; }
+td.expand_1line:hover .collapsed{ display:none; }
+td.expand_1line:hover .expanded{ display:inline; }
+
+/* 80% width table, centered */
+.table-80{ width:80%; margin:0 auto; }
+@media (max-width:1200px){ .table-80{ width:95%; } }
+
+</style>
 {% endblock %}
 
 {% block content %}
@@ -63,31 +70,41 @@
       <span id="loading" class="loading">Loading…</span>
     </div>
   </div>
-
+  <div class="table-80">
   <table id="simTable" class="display compact" style="width:100%">
     <thead>
-      <!-- Dummy Header Row for Complex Header Fix -->
-        <tr>
-            <td colspan="7" style="text-align: center" data-dt-order="disable"></td>
-        </tr>
+      <!-- dummy header for styling -->
+       <tr>
+          <td colspan="11" style="text-align: center" data-dt-order="disable"></td>
+      </tr>
       <!-- Super header row -->
       <tr style="font-size: 14px; white-space: nowrap;">
-        <th colspan="5" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
-        <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">SEQUENCE&nbsp;SIMILARITY</th>
+        <th colspan="4" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
+        <th colspan="3" class="border-left" style="text-align:center;" data-dt-order="disable">CLASSIFICATION</th>
+        <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">SEQUENCE</th>
+        <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">PHYSIOLOGICAL&nbsp;LIGAND</th>
       </tr>
       <!-- Column header row -->
       <tr>
-        <th class="sticky-column" style="text-align: center;">Gene</th>
-        <th style="text-align: center;">Protein</th>
-        <th style="text-align: center;">Receptor family</th>
-        <th style="text-align: center;">Ligand type</th>
-        <th style="text-align: center;">Class</th>
-        <th class="border-left" style="text-align: center;">Similarity</th>
-        <th style="text-align: center;">Identity</th>
+        <th style="text-align:center;" data-dt-order="disable">GPCRdb</th>
+        <th style="text-align:center;">Gene</th>
+        <th style="text-align:center;">UniProt</th>
+        <th style="text-align:center;">IUPHAR</th>
+
+        <th class="border-left" style="text-align:center;">Receptor family</th>
+        <th style="text-align:center;">Ligand type</th>
+        <th style="text-align:center;">Class</th>
+
+        <th class="border-left" style="text-align:center;">Similarity</th>
+        <th style="text-align:center;">Identity</th>
+
+        <th class="border-left" style="text-align:center;">Name</th>
+        <th style="text-align:center;">Type</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
+  </div>
 </div>
 {% endblock %}
 
@@ -96,10 +113,9 @@
   <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
 
   <script>
-    // Injected by the view; list of orphans shaped for Select2
+    // Injected by the view
     const ORPHANS = {{ orphans_select2|safe }};
 
-    // CSRF (GET only here, but kept for future)
     function getCookie(name) {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; ${name}=`);
@@ -107,13 +123,11 @@
     }
     const csrftoken = getCookie('csrftoken');
 
-    // Custom matcher: search by name and entry_name, case-insensitive,
-    // treating spaces/underscores as equivalent.
+    // Select2 matcher (name + entry_name; case/underscore tolerant)
     function orphanMatcher(params, data) {
       const term = (params.term || '').trim();
       if (!term) return data;
       const q = term.toLowerCase();
-
       const fields = [data.text, data.name, data.entry_name].filter(Boolean).map(String);
       const variants = new Set();
       for (const f of fields) {
@@ -122,138 +136,178 @@
         variants.add(s.replace(/\s+/g, '_'));
         variants.add(s.replace(/_/g, ' '));
       }
-      for (const v of variants) {
-        if (v.indexOf(q) !== -1) return data;
-      }
+      for (const v of variants) { if (v.indexOf(q) !== -1) return data; }
       return null;
     }
 
-    // Select2 (local data; tall dropdown)
     $('#orphanSelect').select2({
       data: ORPHANS,
       placeholder: 'Type to search orphan receptors…',
       allowClear: true,
       width: '100%',
-      dropdownCssClass: 'custom-dropdown',
       minimumInputLength: 0,
       matcher: orphanMatcher,
-      escapeMarkup: function (m) { return m; },
-      templateResult: function (item) {
+      escapeMarkup: m => m,
+      templateResult: item => {
         if (!item.id) return item.text;
         const entry = item.entry_name ? `<div class="muted">${item.entry_name}</div>` : '';
         return $(`<div><strong>${item.name || item.text}</strong>${entry}</div>`);
       },
-      templateSelection: function (item) {
-        return `<span>${item.name || item.text || ''}</span>`;
-      }
+      templateSelection: item => `<span>${item.name || item.text || ''}</span>`
     });
 
-    // DataTables column definitions (center everything; add border-left on Similarity)
-    const columnDefs = [
-      { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" },
-      { targets: [5], className: "border-left" },                // Similarity col
-      { targets: [0], className: "sticky-column" }                // Gene col sticky (optional)
-    ];
+    // ===== SAME RENDER HELPERS AS STRUCTURE BROWSER ============================
+    function expand1LineRender(d, type) {
+      const decode = (s) => { const div = document.createElement('div'); div.innerHTML = s || ''; return div.textContent || div.innerText || ''; };
+      const toItems = (val) => {
+        if (val == null) return [];
+        if (Array.isArray(val)) {
+          return val.map(x => typeof x === 'string' ? x : (x?.name ?? x?.text ?? x?.label ?? ''))
+                    .map(s => decode(s).trim()).filter(Boolean);
+        }
+        const s = String(val).trim();
+        if (!s || s === '-') return [];
+        const dec = decode(s.replace(/<br\s*\/?>/gi, '\n'));
+        return dec.split(/\n+/).map(t => t.trim()).filter(Boolean);
+      };
+      const items = toItems(d);
+      if (type === 'filter' || type === 'sort') return items.join('|');
+      if (type && type !== 'display') return items.join('\n');
+      if (!items.length) return '-';
+      const first = items[0], more = items.length - 1, hint = more > 0 ? ` <span class="muted">(+${more} more)</span>` : '';
+      const expanded = items.join('<br>');
+      return (
+        '<span class="expand_1line">' +
+          '<span class="collapsed">'+ first + hint +'</span>' +
+          '<span class="expanded">'+  expanded +'</span>' +
+        '</span>'
+      );
+    }
 
-    // Columns w/ renderers like your other page
+    function expandFirstThenHoverLinkList(d, type, hrefBuilder, { showCountHint = true } = {}) {
+      const arr = Array.isArray(d) ? d.filter(x => x && (x.name || x.id != null)) : [];
+      if (type && type !== 'display') return arr.map(x => x.name || '').join('\n');
+      if (!arr.length) return (type === 'display' ? '-' : '');
+      const first = arr[0];
+      const firstHref = (first.id != null && first.id !== '-' && first.id !== '')
+        ? (hrefBuilder ? hrefBuilder(first.id, first) : `https://gpcrdb.org/ligand/${first.id}/info`)
+        : null;
+      const collapsed = firstHref
+        ? `<a href="${firstHref}" target="_blank" rel="noopener">${first.name || ''}</a>`
+        : (first.name || '');
+      const more = arr.length - 1;
+      const hint = (showCountHint && more > 0) ? ` <span class="muted">(+${more} more)</span>` : '';
+      const expanded = arr.map(x => {
+        const nm = x.name || '';
+        if (x.id == null || x.id === '' || x.id === '-') return nm;
+        const href = hrefBuilder ? hrefBuilder(x.id, x) : `https://gpcrdb.org/ligand/${x.id}/info`;
+        return `<a href="${href}" target="_blank" rel="noopener">${nm}</a>`;
+      }).join('<br>');
+      return (
+        '<span class="expand_1line">' +
+          '<span class="collapsed">'+ collapsed + hint +'</span>' +
+          '<span class="expanded">'+  expanded +'</span>' +
+        '</span>'
+      );
+    }
+    // ==========================================================================
+
+    // Columns (unchanged)
     const columns = [
-      { // Gene (entry_name): uppercase, strip "_human" (case-insensitive), link to protein page
-        data: 'entry_name',
-        width: "10%",
-        render: function (data, type) {
-          if (!data) return '—';
-          const original = data;
-          const transformed = data.replace(/_human$/i, '').toUpperCase();
-          if (type === 'display') {
-            return '<a href="/protein/' + original + '/" target="_blank" rel="noopener">' + transformed + '</a>';
-          } else if (type === 'filter') {
-            return transformed;
-          }
-          return data; // keep raw for sort
+      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"8%", render:function(d,t){ if(t!=='display') return d||''; return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : ''; } },
+      { data: 'Gene', width: "7%", defaultContent: '-' },
+      {
+        data: 'entry_name', width: "9%",
+        render: function (d, t, r) {
+          if (!d) return (t === 'display' ? '—' : '');
+          const geneCode = d.split('_')[0].toUpperCase();
+          if (t !== 'display') return d;
+          return r && r.uniprot_link
+            ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>`
+            : geneCode;
         }
       },
-      { // Protein name: drop the word "receptor"
-        data: 'name',
-        width: "15%",
-        render: function (data, type) {
-          if (data == null) return '—';
-          return (type === 'display' || type === 'filter') ? data.replace(/receptor/gi, '').trim() : data;
+      {
+        data: 'iuphar_name', width: "9%",
+        render: function (d, t, r) {
+          if (t !== 'display') return d;
+          const txt = (d || '—').replace(/receptor/gi, '').trim();
+          return (r && r.iuphar_link)
+            ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>`
+            : txt;
         }
       },
-      { // Receptor family: drop trailing "receptors"
-        data: 'family',
-        width: "15%",
-        className: "receptor-width",
-        render: function (data, type) {
-          if (data == null) return '—';
-          return (type === 'display' || type === 'filter') ? data.replace(/receptors/gi, '').trim() : data;
+      {
+        data: 'family', width: "10%",
+        render: function (d, t) { if (d == null) return '—'; return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').trim() : d; }
+      },
+      { data: 'ligand_type', width: "8%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
+      {
+        data: 'class', width: "3%",
+        render: function (d, t) {
+          if (d == null) return '—';
+          if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim();
+          return d;
         }
       },
-      { data: 'ligand_type', width: "15%" },
-      { // Class: remove "Class " prefix and anything in parentheses
-        data: 'class',
-        width: "10%",
-        render: function (data, type) {
-          if (data == null) return '—';
-          if (type === 'display' || type === 'filter') {
-            return data.split(' (')[0].replace(/Class\s*/i, '').trim();
-          }
-          return data;
-        }
+      { data: 'similarity', width: "10%" },
+      { data: 'identity',   width: "9%" },
+      {
+        data: 'endo_ligands', width: "15%",
+        render: function (d, t) { return expandFirstThenHoverLinkList(d, t, id => `https://gpcrdb.org/ligand/${id}/info`, { showCountHint: true }); }
       },
-      { data: 'similarity', width: "10%" },  // Similarity (border-left added via columnDefs)
-      { data: 'identity',   width: "10%" }   // Identity
+      {
+        data: 'endo_type', width: "10%",
+        render: function (d, t) { return expand1LineRender(d, t); }
+      }
     ];
 
-    // Init DataTable (10 rows only; no paging/search UI)
+    // Column defs:
+    // - center all headers/cells
+    // - draw left borders at group boundaries
+    // - add TD class "expand_1line" to the *cells* of the two expandable columns (indexes 9, 10)
+    const columnDefs = [
+      { targets: "_all", className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand" },
+      { targets: [4, 7, 9], className: "border-left" },
+      { targets: [9, 10], createdCell: function (td) { td.classList.add('expand_1line'); } }
+    ];
+
+    // DataTable init
     const table = new DataTable('#simTable', {
       paging: false,
       searching: false,
-      info: false,
-      fixedHeader: true,
-      order: [[5, 'desc'], [6, 'desc']], // similarity desc, identity desc
+      info: true,
+      fixedHeader: false,
+      order: [[7, 'desc'], [8, 'desc']], // similarity desc, identity desc
       columns: columns,
-      columnDefs: columnDefs
+      columnDefs: columnDefs,
+      scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
+      scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
     });
 
-    function setLoading(on) {
-      document.getElementById('loading').classList.toggle('show', !!on);
-    }
+    setTimeout(() => table.columns.adjust(), 0);
+    $(window).on('resize.simTable', () => table.columns.adjust());
+    table.on('draw', () => table.columns.adjust());
+
+    function setLoading(on) { document.getElementById('loading').classList.toggle('show', !!on); }
 
     function loadTop10(refId) {
-      if (!refId) {
-        table.clear().draw();
-        return;
-      }
+      if (!refId) { table.clear().draw(); return; }
       setLoading(true);
       $.ajax({
         url: "{% url 'api-similarity' %}",
         method: "GET",
         data: { ref: refId },
         headers: { 'X-CSRFToken': csrftoken },
-        success: function(resp) {
-          table.clear().rows.add(resp.results || []).draw();
-        },
-        error: function() {
-          table.clear().draw();
-          alert('Failed to load similarity data.');
-        },
-        complete: function() {
-          setLoading(false);
-        }
+        success: function(resp) { table.clear().rows.add(resp.results || []).draw(); },
+        error: function() { table.clear().draw(); alert('Failed to load similarity data.'); },
+        complete: function() { setLoading(false); }
       });
     }
 
-    // Load on select / clear
-    $('#orphanSelect').on('select2:select', function (e) {
-      const item = e.params.data || {};
-      loadTop10(item.id);
-    });
-    $('#orphanSelect').on('select2:clear', function () {
-      loadTop10(null);
-    });
+    $('#orphanSelect').on('select2:select', function (e) { loadTop10((e.params.data || {}).id); });
+    $('#orphanSelect').on('select2:clear',  function ()   { loadTop10(null); });
 
-    // Auto-select first orphan
     if (ORPHANS.length > 0) {
       const first = ORPHANS[0];
       $('#orphanSelect').val(first.id).trigger('change');

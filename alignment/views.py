@@ -2,14 +2,13 @@
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.generic import TemplateView
-from django.db.models import Q, F, Case, When, IntegerField
+from django.db.models import Q, F, Case, When, IntegerField, Prefetch
 from django.core.cache import cache
 from django.core.cache import caches
 from django.utils.html import escape
 from django.core.files.base import File
 from django.http import JsonResponse
 from django.views import View
-from django.db.models import Q, F, Case, When, IntegerField
 
 try:
     cache_alignment = caches['alignments']
@@ -19,21 +18,21 @@ except:
 from alignment.functions import get_proteins_from_selection
 from common import definitions
 from common.selection import Selection, SelectionItem
-from common.views import AbsTargetSelection, AbsTargetSelectionTable
-from common.views import AbsSegmentSelection
-from common.views import AbsMiscSelection
+from common.views import AbsTargetSelection, AbsTargetSelectionTable, AbsSegmentSelection, AbsMiscSelection
 from structure.functions import BlastSearch
 from protwis.context_processors import site_title
 
 # from common.alignment_SITE_NAME import Alignment
 Alignment = getattr(__import__('common.alignment_' + settings.SITE_NAME, fromlist=['Alignment']), 'Alignment')
-from protein.models import Protein, ProteinSegment, ProteinFamily, ProteinSet
+from protein.models import Protein, ProteinSegment, ProteinFamily, ProteinSet, Gene
 from residue.models import ResidueNumberingScheme, ResiduePositionSet
 from alignment.models import ClassSimilarity, ClassSimilarityTie, ClassSimilarityType, ClassRepresentativeSpecies
 from seqsign.sequence_signature import SequenceSignature, signature_score_excel
 from protein.models import CLASSLESS_PARENT_GPCR_SLUGS
 from mapper.views import DataMapperHome
 from alignment.models import ReceptorSimilarity
+from common.models import WebLink
+from ligand.models import Endogenous_GTP
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -49,6 +48,7 @@ from xlsxwriter.utility import xl_range_abs
 import xlrd
 import re
 import pandas as pd
+from string import Template
 
 strain_re = re.compile(r'\bstrain\b', flags=re.I)
 class_fungal_re = re.compile(r'(\(Ste2-like)(\s+)(fungal)(\s+)(pheromone\))', flags=re.I)
@@ -1255,17 +1255,29 @@ class OrphanSimilarity(TemplateView):
     
 class SimilarityTopAPI(View):
     """
-    GET /api/similarity/?ref=<protein_id>
-    Returns top 10 most similar; handles (ref=ID or target=ID) symmetrically.
+    GET /class_similarity/api/similarity?ref=<protein_id>
+
+    Rule:
+      1) Sort ALL neighbors by similarity (desc) – do NOT use identity.
+      2) Compute the cutoff from the 10th **liganded** row (or the last liganded row if <10 exist).
+         Keep **all** liganded rows with similarity >= cutoff (ties included).
+      3) Also include **orphan** rows with similarity >= the same cutoff.
+      4) If there are NO liganded rows, fall back to the 10th overall row (or last) as cutoff.
+
+    Returns each row with:
+      Gene (primary M2M gene, position=0), entry_name, links (GPCRdb/UniProt/IUPHAR),
+      family/ligand_type/class, similarity & identity, endogenous ligands (id/name) + types.
     """
     def get(self, request):
+        from string import Template
         ref_raw = request.GET.get('ref')
         try:
             ref_id = int(ref_raw)
         except (TypeError, ValueError):
             return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
 
-        qs = (
+        # 1) All neighbors sorted by similarity only (no identity in ordering)
+        pairs_qs = (
             ReceptorSimilarity.objects
             .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
             .annotate(
@@ -1275,29 +1287,140 @@ class SimilarityTopAPI(View):
                     output_field=IntegerField(),
                 )
             )
-            .order_by('-similarity', '-identity')[:10]
+            .order_by('-similarity')   # <— identity NOT used
+            .values('other_id', 'similarity', 'identity')
         )
+        pairs = list(pairs_qs)
+        if not pairs:
+            return JsonResponse({"results": []})
 
-        other_ids = [row.other_id for row in qs]
-        proteins = (
+        other_ids_all = [p['other_id'] for p in pairs]
+
+        # 2) For cutoff we only need to know who is orphan. Fetch ligand type name cheaply.
+        LT_ORPHAN = 'Orphan receptors'
+        lt_map = dict(
             Protein.objects
-            .select_related('family__parent__parent__parent')
-            .in_bulk(other_ids)
+                   .filter(id__in=other_ids_all)
+                   .values_list('id', 'family__parent__parent__name')   # ligand type name
         )
+        def is_orphan(pid):
+            return (lt_map.get(pid) or '').strip().lower() == LT_ORPHAN.lower()
 
+        liganded_rows = [p for p in pairs if not is_orphan(p['other_id'])]
+
+        # 3) Compute the similarity cutoff from liganded rows; if none, fall back to overall.
+        if liganded_rows:
+            if len(liganded_rows) >= 10:
+                cutoff = liganded_rows[9]['similarity']  # 10th liganded row
+            else:
+                cutoff = liganded_rows[-1]['similarity'] # last liganded row
+        else:
+            # No liganded hits: use overall 10th (or last) similarity as cutoff
+            cutoff = pairs[min(9, len(pairs) - 1)]['similarity']
+
+        # 4) Keep everyone (liganded + orphan) with similarity >= cutoff
+        kept = [p for p in pairs if p['similarity'] >= cutoff]
+        kept_ids = [p['other_id'] for p in kept]
+
+        # 5) Fetch full protein meta only for kept ids
+        gtop_links_qs = WebLink.objects.select_related('web_resource').filter(web_resource__slug='gtop')
+        proteins_qs = (
+            Protein.objects
+            .filter(id__in=kept_ids)
+            .select_related('family__parent__parent__parent')
+            .prefetch_related(
+                Prefetch('genes',
+                         queryset=Gene.objects.filter(position=0),
+                         to_attr='primary_genes_self'),
+                Prefetch('web_links',
+                         queryset=gtop_links_qs,
+                         to_attr='gtop_links_self'),
+            )
+        )
+        proteins = {p.id: p for p in proteins_qs}
+
+        # 6) Batch endogenous ligands for kept ids
+        endo_qs = (
+            Endogenous_GTP.objects
+            .filter(receptor_id__in=kept_ids)
+            .select_related('ligand', 'ligand__ligand_type')
+        )
+        endo_by_receptor = {}
+        for e in endo_qs:
+            if e.ligand:
+                endo_by_receptor.setdefault(e.receptor_id, []).append(e)
+
+        # helpers
+        def clean_iuphar_name(nm):
+            if not nm:
+                return "-"
+            s = nm.replace("receptor", "").replace("-adrenoceptor", "").replace("<i>", "").replace("</i>", "").strip()
+            return s or "-"
+
+        def build_gtop_url(wl):
+            try:
+                return Template(wl.web_resource.url).substitute(index=wl.index)
+            except Exception:
+                return None
+
+        sim_map = {p['other_id']: p['similarity'] for p in kept}
+        idn_map = {p['other_id']: p['identity']   for p in kept}
+
+        # 7) Build results in similarity-desc order
         results = []
-        for row in qs:
-            p = proteins.get(row.other_id)
+        for row in kept:
+            pid = row['other_id']
+            p = proteins.get(pid)
+            if not p:
+                continue
+
+            # Gene: primary (position=0) or fallback to entry code
+            gene_name = p.primary_genes_self[0].name if getattr(p, 'primary_genes_self', None) else (
+                (p.entry_name.split('_')[0].upper()) if p.entry_name else "-"
+            )
+
+            entry_name  = p.entry_name or None
+            gpcrdb_link = f"/protein/{entry_name}" if entry_name else "-"
+            uniprot_link = f"https://www.uniprot.org/uniprot/{p.accession}" if p.accession else None
+
+            wl_self = p.gtop_links_self[0] if getattr(p, 'gtop_links_self', None) else None
+            iuphar_link = build_gtop_url(wl_self) if wl_self else None
+            iuphar_name = clean_iuphar_name(p.name)
+
+            family_name = getattr(getattr(p.family, "parent", None), "name", None)
+            ligand_type = getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None)
+            clazz       = getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None)
+
+            # endogenous ligands (dedup by ligand.id)
+            lig_items = endo_by_receptor.get(pid, [])
+            seen, endo_ligands, lig_types = set(), [], set()
+            for e in lig_items:
+                lig = e.ligand
+                if not lig:
+                    continue
+                if lig.id not in seen:
+                    seen.add(lig.id)
+                    endo_ligands.append({"id": lig.id, "name": lig.name})
+                if lig.ligand_type:
+                    lig_types.add(lig.ligand_type.name)
+            endo_type = "<br>".join(sorted(lig_types)) if lig_types else "-"
+
             results.append({
-                "other_id": row.other_id,
-                "entry_name": getattr(p, "entry_name", None),
-                "name": getattr(p, "name", None),
-                "family": getattr(getattr(p.family, "parent", None), "name", None),
-                "ligand_type": getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None),
-                "class": getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None),
-                "similarity": row.similarity,
-                "identity": row.identity,
+                "other_id": pid,
+                "Gene": gene_name,
+                "entry_name": entry_name,
+                "gpcrdb_link": gpcrdb_link,
+                "uniprot_link": uniprot_link,
+                "iuphar_name": iuphar_name,
+                "iuphar_link": iuphar_link,
+                "family": family_name,
+                "ligand_type": ligand_type,
+                "class": clazz,
+                "similarity": sim_map.get(pid, 0),
+                "identity": idn_map.get(pid, 0),
+                "endo_ligands": endo_ligands,
+                "endo_type": endo_type,
             })
 
+        # already in similarity desc because `kept` was built from `pairs` order
         return JsonResponse({"results": results})
-    
