@@ -4,8 +4,6 @@ from django.views.decorators.cache import cache_page
 
 from alignment import views
 
-
-
 urlpatterns = [
     url(r'^targetselection', (views.TargetSelection.as_view()), name='targetselection'),
     url(r'^gproteinselection', (views.TargetSelectionGprotein.as_view()), name='targetselectiongprot'),
@@ -26,5 +24,6 @@ urlpatterns = [
     url(r'class_similarity_matrix/xlsx', views.render_class_similarity_xlsx_matrix, name='class_similarity_csv_matrix'),
     url(r'^class_similarity/ClassesAndCounts', views.ClassesAndCounts.as_view(), name='ClassesAndCounts'),
     url(r'^class_similarity/ClassificationWheel', views.ClassificationWheel.as_view(), name='ClassificationWheel'),
-    url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity')
+    url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity'),
+    url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity')
 ]

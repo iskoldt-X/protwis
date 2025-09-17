@@ -1109,30 +1109,42 @@ class Alignment:
             protein_name = "[" + protein.protein.species.common_name + "] " + protein.protein.name
             self.similarity_matrix[protein_key] = {'name': protein_name, 'values': [None] * len(self.proteins)}
 
+        def _to_int_percent(x):
+            # Accept float, int, or string; treat missing/NaN/blank as 0
+            if x is None:
+                return 0
+            try:
+                # already numeric?
+                if isinstance(x, (int, float)):
+                    if isinstance(x, float) and (x != x):  # NaN check
+                        return 0
+                    return int(round(x))
+                # string-like
+                s = str(x).strip()
+                if s == '' or s.lower() in ('nan', 'none'):
+                    return 0
+                return int(round(float(s)))
+            except Exception:
+                return 0
+
         # similarity comparisons
         for i, protein in enumerate(self.proteins):
             protein_key = protein.protein.entry_name
             self.similarity_matrix[protein_key]['values'][i] = ['-', '-']
 
-            for k in range(i+1, len(self.proteins)):
+            for k in range(i + 1, len(self.proteins)):
                 # calculate identity, similarity and similarity score to the reference
                 calc_values = self.pairwise_similarity(self.proteins[i], self.proteins[k])
 
                 # Similarity
-                value = calc_values[1].strip()
-                if int(value) < 10:
-                    color_class = 0
-                else:
-                    color_class = str(value)[:-1]
-                self.similarity_matrix[self.proteins[k].protein.entry_name]['values'][i] = [value, color_class]
+                sim_val = _to_int_percent(calc_values[1])
+                sim_color = 0 if sim_val < 10 else sim_val // 10
+                self.similarity_matrix[self.proteins[k].protein.entry_name]['values'][i] = [sim_val, sim_color]
 
                 # Identity
-                value = calc_values[0].strip()
-                if int(value) < 10:
-                    color_class = 0
-                else:
-                    color_class = str(value)[:-1]
-                self.similarity_matrix[protein_key]['values'][k] = [value, color_class]
+                id_val = _to_int_percent(calc_values[0])
+                id_color = 0 if id_val < 10 else id_val // 10
+                self.similarity_matrix[protein_key]['values'][k] = [id_val, id_color]
 
     def calculate_zscales(self, from_stats = False):
         """Calculate Z-scales distribution for current alignment set."""

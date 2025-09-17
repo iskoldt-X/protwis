@@ -3,23 +3,261 @@
 {% load utils %}
 
 {% block addon_css %}
-<style>
-  /* Css block for styling */
-</style>
+  <!-- Select2 CSS (you can swap to your own static if you have it) -->
+  <!-- <link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css"> -->
+  <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+  <link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+
+  <style type="text/css">
+    .page-wrap { padding: 8px 0 16px; }
+    .title-center { text-align: center; margin-bottom: 8px; }
+
+    /* Center label + dropdown; block ~1/3 page width */
+    .controls-wrap { display: flex; justify-content: center; }
+    .controls {
+      width: 33%;
+      min-width: 320px;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+      margin: 12px 0 8px;
+      text-align: center;
+    }
+    .select2-container { width: 100% !important; }
+
+    /* Taller Select2 dropdown w/ scroll */
+    .custom-dropdown { max-height: 500px !important; overflow-y: auto !important; }
+    .custom-dropdown .select2-results__options { max-height: 450px !important; overflow-y: auto !important; }
+    .select2-search__field::placeholder { text-align: center; }
+
+    .loading { display: none; font-size: 12px; }
+    .loading.show { display: inline-block; }
+
+    /* DataTables polish */
+    .border-left { border-left: 1px solid #cccccc !important; }
+    table.dataTable { font-size: 12px; table-layout: auto; width: 100%; }
+    th .dt-column-order { margin-right: -12px; } /* nudge sort arrow right */
+    th .dt-column-title {
+      display: inline-block; text-align: center; padding-left: 24px; margin: 0;
+      line-height: 1.2em; white-space: normal;
+    }
+
+    /* Sticky first column (optional; only matters when table can scroll horizontally) */
+    .sticky-column { position: sticky; left: 0; z-index: 1; background: white; border-right: 1px solid #cccccc; }
+    table.dataTable thead th.sticky-column { z-index: 2; background: white; }
+
+    table.dataTable tbody tr:hover { background: #fafafa; }
+  </style>
 {% endblock %}
-
-
 
 {% block content %}
+<div class="page-wrap">
+  <h3 class="title-center">Orphan receptor similarity</h3>
 
-<h3>Oprhan similarity content</h3>
+  <div class="controls-wrap">
+    <div class="controls">
+      <label for="orphanSelect"><strong>Choose orphan:</strong></label>
+      <select id="orphanSelect"></select>
+      <span id="loading" class="loading">Loading…</span>
+    </div>
+  </div>
 
+  <table id="simTable" class="display compact" style="width:100%">
+    <thead>
+      <!-- Dummy Header Row for Complex Header Fix -->
+        <tr>
+            <td colspan="7" style="text-align: center" data-dt-order="disable"></td>
+        </tr>
+      <!-- Super header row -->
+      <tr style="font-size: 14px; white-space: nowrap;">
+        <th colspan="5" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
+        <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">SEQUENCE&nbsp;SIMILARITY</th>
+      </tr>
+      <!-- Column header row -->
+      <tr>
+        <th class="sticky-column" style="text-align: center;">Gene</th>
+        <th style="text-align: center;">Protein</th>
+        <th style="text-align: center;">Receptor family</th>
+        <th style="text-align: center;">Ligand type</th>
+        <th style="text-align: center;">Class</th>
+        <th class="border-left" style="text-align: center;">Similarity</th>
+        <th style="text-align: center;">Identity</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 {% endblock %}
 
-
 {% block addon_js %}
-<script>
-  // Javascript block
-</script>
+  <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+  <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
 
+  <script>
+    // Injected by the view; list of orphans shaped for Select2
+    const ORPHANS = {{ orphans_select2|safe }};
+
+    // CSRF (GET only here, but kept for future)
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // Custom matcher: search by name and entry_name, case-insensitive,
+    // treating spaces/underscores as equivalent.
+    function orphanMatcher(params, data) {
+      const term = (params.term || '').trim();
+      if (!term) return data;
+      const q = term.toLowerCase();
+
+      const fields = [data.text, data.name, data.entry_name].filter(Boolean).map(String);
+      const variants = new Set();
+      for (const f of fields) {
+        const s = f.toLowerCase();
+        variants.add(s);
+        variants.add(s.replace(/\s+/g, '_'));
+        variants.add(s.replace(/_/g, ' '));
+      }
+      for (const v of variants) {
+        if (v.indexOf(q) !== -1) return data;
+      }
+      return null;
+    }
+
+    // Select2 (local data; tall dropdown)
+    $('#orphanSelect').select2({
+      data: ORPHANS,
+      placeholder: 'Type to search orphan receptors…',
+      allowClear: true,
+      width: '100%',
+      dropdownCssClass: 'custom-dropdown',
+      minimumInputLength: 0,
+      matcher: orphanMatcher,
+      escapeMarkup: function (m) { return m; },
+      templateResult: function (item) {
+        if (!item.id) return item.text;
+        const entry = item.entry_name ? `<div class="muted">${item.entry_name}</div>` : '';
+        return $(`<div><strong>${item.name || item.text}</strong>${entry}</div>`);
+      },
+      templateSelection: function (item) {
+        return `<span>${item.name || item.text || ''}</span>`;
+      }
+    });
+
+    // DataTables column definitions (center everything; add border-left on Similarity)
+    const columnDefs = [
+      { className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand", targets: "_all" },
+      { targets: [5], className: "border-left" },                // Similarity col
+      { targets: [0], className: "sticky-column" }                // Gene col sticky (optional)
+    ];
+
+    // Columns w/ renderers like your other page
+    const columns = [
+      { // Gene (entry_name): uppercase, strip "_human" (case-insensitive), link to protein page
+        data: 'entry_name',
+        width: "10%",
+        render: function (data, type) {
+          if (!data) return '—';
+          const original = data;
+          const transformed = data.replace(/_human$/i, '').toUpperCase();
+          if (type === 'display') {
+            return '<a href="/protein/' + original + '/" target="_blank" rel="noopener">' + transformed + '</a>';
+          } else if (type === 'filter') {
+            return transformed;
+          }
+          return data; // keep raw for sort
+        }
+      },
+      { // Protein name: drop the word "receptor"
+        data: 'name',
+        width: "15%",
+        render: function (data, type) {
+          if (data == null) return '—';
+          return (type === 'display' || type === 'filter') ? data.replace(/receptor/gi, '').trim() : data;
+        }
+      },
+      { // Receptor family: drop trailing "receptors"
+        data: 'family',
+        width: "15%",
+        className: "receptor-width",
+        render: function (data, type) {
+          if (data == null) return '—';
+          return (type === 'display' || type === 'filter') ? data.replace(/receptors/gi, '').trim() : data;
+        }
+      },
+      { data: 'ligand_type', width: "15%" },
+      { // Class: remove "Class " prefix and anything in parentheses
+        data: 'class',
+        width: "10%",
+        render: function (data, type) {
+          if (data == null) return '—';
+          if (type === 'display' || type === 'filter') {
+            return data.split(' (')[0].replace(/Class\s*/i, '').trim();
+          }
+          return data;
+        }
+      },
+      { data: 'similarity', width: "10%" },  // Similarity (border-left added via columnDefs)
+      { data: 'identity',   width: "10%" }   // Identity
+    ];
+
+    // Init DataTable (10 rows only; no paging/search UI)
+    const table = new DataTable('#simTable', {
+      paging: false,
+      searching: false,
+      info: false,
+      fixedHeader: true,
+      order: [[5, 'desc'], [6, 'desc']], // similarity desc, identity desc
+      columns: columns,
+      columnDefs: columnDefs
+    });
+
+    function setLoading(on) {
+      document.getElementById('loading').classList.toggle('show', !!on);
+    }
+
+    function loadTop10(refId) {
+      if (!refId) {
+        table.clear().draw();
+        return;
+      }
+      setLoading(true);
+      $.ajax({
+        url: "{% url 'api-similarity' %}",
+        method: "GET",
+        data: { ref: refId },
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function(resp) {
+          table.clear().rows.add(resp.results || []).draw();
+        },
+        error: function() {
+          table.clear().draw();
+          alert('Failed to load similarity data.');
+        },
+        complete: function() {
+          setLoading(false);
+        }
+      });
+    }
+
+    // Load on select / clear
+    $('#orphanSelect').on('select2:select', function (e) {
+      const item = e.params.data || {};
+      loadTop10(item.id);
+    });
+    $('#orphanSelect').on('select2:clear', function () {
+      loadTop10(null);
+    });
+
+    // Auto-select first orphan
+    if (ORPHANS.length > 0) {
+      const first = ORPHANS[0];
+      $('#orphanSelect').val(first.id).trigger('change');
+      loadTop10(first.id);
+    }
+  </script>
 {% endblock %}

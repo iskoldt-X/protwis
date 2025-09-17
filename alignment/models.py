@@ -1,7 +1,5 @@
-from django.db import models
-from django.db import connection
+from django.db import models, connection
 from enum import IntEnum
-
 
 # Create your models here.
 
@@ -74,4 +72,43 @@ class ClassSimilarityTie(models.Model):
         for key,value in ClassSimilarityType.choices():
             key2value[key] = value
         return str(self.protein1)+" vs "+str(self.protein2)+": "+key2value[self.type]
+
+class CustomReceptorSimilarityManager(models.Manager):
+    def truncate_table(self):
+        with connection.cursor() as cursor:
+            cursor.execute(f'TRUNCATE TABLE "{self.model._meta.db_table}" CASCADE')
+
+class ReceptorSimilarity(models.Model):
+    # rename DB columns to 'ref' and 'target'
+    protein_ref    = models.ForeignKey(
+        'protein.Protein',
+        on_delete=models.CASCADE,
+        related_name='receptor_similarity_as_ref',
+        db_column='ref',
+        db_index=True,
+    )
+    protein_target = models.ForeignKey(
+        'protein.Protein',
+        on_delete=models.CASCADE,
+        related_name='receptor_similarity_as_target',
+        db_column='target',
+        db_index=True,
+    )
+    identity   = models.PositiveSmallIntegerField()
+    similarity = models.PositiveSmallIntegerField()
+
+    objects = models.Manager()
+    custom_objects = CustomReceptorSimilarityManager()
+
+    class Meta:
+        db_table = 'alignment_receptorsimilarity'
+        constraints = [
+            models.UniqueConstraint(fields=['protein_ref', 'protein_target'],
+                                    name='uniq_receptor_similarity_pair'),
+            models.CheckConstraint(check=~models.Q(protein_ref=models.F('protein_target')),
+                                   name='check_ref_ne_target'),
+        ]
+
+    def __str__(self):
+        return f'{self.protein_ref} vs {self.protein_target}: sim={self.similarity} id={self.identity}'
 

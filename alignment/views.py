@@ -2,11 +2,14 @@
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.generic import TemplateView
-from django.db.models import Case, When
+from django.db.models import Q, F, Case, When, IntegerField
 from django.core.cache import cache
 from django.core.cache import caches
 from django.utils.html import escape
 from django.core.files.base import File
+from django.http import JsonResponse
+from django.views import View
+from django.db.models import Q, F, Case, When, IntegerField
 
 try:
     cache_alignment = caches['alignments']
@@ -30,6 +33,7 @@ from alignment.models import ClassSimilarity, ClassSimilarityTie, ClassSimilarit
 from seqsign.sequence_signature import SequenceSignature, signature_score_excel
 from protein.models import CLASSLESS_PARENT_GPCR_SLUGS
 from mapper.views import DataMapperHome
+from alignment.models import ReceptorSimilarity
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -1215,5 +1219,85 @@ class OrphanSimilarity(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        # Build the orphan list once and embed it (93 items ≈ perfect for local Select2)
+        orphans = (
+            Protein.objects
+            .filter(
+                parent_id__isnull=True,
+                species_id=1,
+                family__parent__parent__name__iexact='Orphan receptors',
+            )
+            .select_related('family__parent__parent__parent')
+            .annotate(
+                family_name=F('family__parent__name'),
+                ligand_type=F('family__parent__parent__name'),
+                clazz=F('family__parent__parent__parent__name'),  # see note below
+            )
+            .values('id', 'entry_name', 'name', 'family_name', 'ligand_type', 'clazz')
+            .order_by('entry_name')
+        )
+
+        # Shape for Select2: use only "name" as the visible text.
+        context['orphans_select2'] = json.dumps([
+            {
+                "id": p["id"],
+                "text": p["name"],                 # <- Select2 label and search text
+                "entry_name": p["entry_name"],     # extra fields for your UI
+                "name": p["name"],
+                "family": p["family_name"],
+                "ligand_type": p["ligand_type"],
+                "class": p["clazz"],               # map clazz -> "class" for the client
+            }
+            for p in orphans
+        ])
         return context
+    
+class SimilarityTopAPI(View):
+    """
+    GET /api/similarity/?ref=<protein_id>
+    Returns top 10 most similar; handles (ref=ID or target=ID) symmetrically.
+    """
+    def get(self, request):
+        ref_raw = request.GET.get('ref')
+        try:
+            ref_id = int(ref_raw)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
+
+        qs = (
+            ReceptorSimilarity.objects
+            .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+            .annotate(
+                other_id=Case(
+                    When(protein_ref_id=ref_id, then=F('protein_target_id')),
+                    default=F('protein_ref_id'),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('-similarity', '-identity')[:10]
+        )
+
+        other_ids = [row.other_id for row in qs]
+        proteins = (
+            Protein.objects
+            .select_related('family__parent__parent__parent')
+            .in_bulk(other_ids)
+        )
+
+        results = []
+        for row in qs:
+            p = proteins.get(row.other_id)
+            results.append({
+                "other_id": row.other_id,
+                "entry_name": getattr(p, "entry_name", None),
+                "name": getattr(p, "name", None),
+                "family": getattr(getattr(p.family, "parent", None), "name", None),
+                "ligand_type": getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None),
+                "class": getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None),
+                "similarity": row.similarity,
+                "identity": row.identity,
+            })
+
+        return JsonResponse({"results": results})
     
