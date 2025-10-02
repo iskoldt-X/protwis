@@ -13,12 +13,31 @@
 /* Controls (Select2) */
 .controls-wrap { display:flex; justify-content:center; }
 .controls {
-  width:33%; min-width:320px; max-width:640px;
+  width:40%; min-width:320px; max-width:640px;
   display:flex; flex-direction:column; gap:8px; align-items:stretch;
   margin:12px 0 8px; text-align:center;
 }
 .select2-container{ width:100% !important; }
 .loading{ display:none; font-size:12px; } .loading.show{ display:inline-block; }
+
+/* Select2 result as a 3-col grid */
+.select2-results__option .s2-row{
+  display:grid;
+  grid-template-columns: 1fr 0.8fr 0.8fr; /* GtoPdb | UniProt | Gene */
+  gap:12px; align-items:center;
+}
+.select2-results__option .s2-row > div{ text-align:center; }   /* center cells */
+.select2-results__option .s2-col-muted{ color:#666; font-size:11px; }
+
+/* Header row inserted on open (keep proper case; center cells) */
+.select2-dropdown .s2-head{
+  display:grid;
+  grid-template-columns: 1fr 0.8fr 0.8fr;
+  gap:12px; padding:6px 10px;
+  font-size:11px;
+  color:#666; border-bottom:1px solid #eee;
+}
+.select2-dropdown .s2-head > div{ text-align:center; }
 
 /* DataTable base */
 table.dataTable{ font-size:12px; table-layout:auto; width:100%; }
@@ -37,7 +56,11 @@ thead tr:nth-child(2) th .dt-column-title{ padding-left:0 !important; }
 /* Only the GPCRdb header should have no left padding */
 thead tr:last-child th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
 /* (fallback if you ever drop the class) */
-thead tr:last-child th:first-child .dt-column-title{ padding-left:0 !important; }
+/* Only GPCRdb gets no left padding, regardless of position */
+thead tr:last-child th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
+
+/* Ensure the first column has normal padding unless it's gpcrdb-col */
+thead tr:last-child th:first-child:not(.gpcrdb-col) .dt-column-title{ padding-left:24px !important; }
 
 /* GPCRdb icon header: no padding + fixed narrow width */
 th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
@@ -56,6 +79,20 @@ td.expand_1line:hover .expanded{ display:inline; }
 .table-80{ width:80%; margin:0 auto; }
 @media (max-width:1200px){ .table-80{ width:95%; } }
 
+#simTable td { transition: background-color 120ms ease-in-out, color 120ms ease-in-out; }
+
+#btnDownload[disabled]{
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.btn-toggle {
+  min-width: 125px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
 </style>
 {% endblock %}
 
@@ -66,11 +103,15 @@ td.expand_1line:hover .expanded{ display:inline; }
   <div class="controls-wrap">
     <div class="controls">
       <label for="orphanSelect"><strong>Choose orphan:</strong></label>
-      <select id="orphanSelect"></select>
-      <span id="loading" class="loading">Loading…</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="orphanSelect" style="flex:1 1 auto;"></select>
+          <button id="toggleOrphans" type="button" class="btn btn-success btn-toggle">Include orphans</button>
+          <button id="btnDownload" type="button" class="btn btn-primary" disabled>Download</button>
+        </div>
+        <span id="loading" class="loading">Loading…</span>
     </div>
   </div>
-  <div class="table-80">
+  <div id="simWrap" class="table-80" style="display:none;">
   <table id="simTable" class="display compact" style="width:100%">
     <thead>
       <!-- dummy header for styling -->
@@ -79,24 +120,24 @@ td.expand_1line:hover .expanded{ display:inline; }
       </tr>
       <!-- Super header row -->
       <tr style="font-size: 14px; white-space: nowrap;">
-        <th colspan="4" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
+        <th colspan="2" style="text-align:center;" data-dt-order="disable">SEQUENCE</th>
+        <th colspan="4" class="border-left" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
         <th colspan="3" class="border-left" style="text-align:center;" data-dt-order="disable">CLASSIFICATION</th>
-        <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">SEQUENCE</th>
         <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">PHYSIOLOGICAL&nbsp;LIGAND</th>
       </tr>
       <!-- Column header row -->
       <tr>
-        <th style="text-align:center;" data-dt-order="disable">GPCRdb</th>
-        <th style="text-align:center;">Gene</th>
+        <th style="text-align:center;">Similarity (%)</th>
+        <th style="text-align:center;">Identity (%)</th>
+
+        <th class="border-left" style="text-align:center;" data-dt-order="disable">GPCRdb</th>
+        <th style="text-align:center;">GtoPdb</th>
         <th style="text-align:center;">UniProt</th>
-        <th style="text-align:center;">IUPHAR</th>
+        <th style="text-align:center;">Gene</th>
 
         <th class="border-left" style="text-align:center;">Receptor family</th>
         <th style="text-align:center;">Ligand type</th>
-        <th style="text-align:center;">Class</th>
-
-        <th class="border-left" style="text-align:center;">Similarity</th>
-        <th style="text-align:center;">Identity</th>
+        <th style="text-align:center;">Class</th>        
 
         <th class="border-left" style="text-align:center;">Name</th>
         <th style="text-align:center;">Type</th>
@@ -111,6 +152,7 @@ td.expand_1line:hover .expanded{ display:inline; }
 {% block addon_js %}
   <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
   <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
+  <script src="{% static 'home/js/xlsx.full.min.js' %}"></script>
 
   <script>
     // Injected by the view
@@ -123,23 +165,59 @@ td.expand_1line:hover .expanded{ display:inline; }
     }
     const csrftoken = getCookie('csrftoken');
 
-    // Select2 matcher (name + entry_name; case/underscore tolerant)
-    function orphanMatcher(params, data) {
-      const term = (params.term || '').trim();
+    // Case/underscore tolerant substring matcher across GtoPdb name, entry_name, gene
+    function orphanMatcher(params, data){
+      const term = (params.term || '').trim().toLowerCase();
       if (!term) return data;
-      const q = term.toLowerCase();
-      const fields = [data.text, data.name, data.entry_name].filter(Boolean).map(String);
-      const variants = new Set();
-      for (const f of fields) {
+
+      const fields = [
+        data.text,          // trimmed GtoPdb name (also data.name)
+        data.name,          // same as above, but keep for safety
+        data.entry_name,    // UniProt-style entry code
+        data.gene           // <-- requires view to provide "gene"
+      ].filter(Boolean).map(String);
+
+      const bag = [];
+      for (const f of fields){
         const s = f.toLowerCase();
-        variants.add(s);
-        variants.add(s.replace(/\s+/g, '_'));
-        variants.add(s.replace(/_/g, ' '));
+        bag.push(s, s.replace(/\s+/g,'_'), s.replace(/_/g,' '));
       }
-      for (const v of variants) { if (v.indexOf(q) !== -1) return data; }
-      return null;
+      return bag.some(v => v.includes(term)) ? data : null;
     }
 
+    // 3-column result row
+    function tmplResult(item){
+      if (!item.id) return item.text;
+      const gtop = item.name || item.text || '—';
+      const unip = item.entry_name || '—';
+      const gene = item.gene || '—';
+      return $(`
+        <div class="s2-row">
+          <div>${gtop}</div>
+          <div class="s2-col-muted">${unip}</div>
+          <div>${gene}</div>
+        </div>
+      `);
+    }
+
+    // Compact one-liner once selected
+    function tmplSelection(item){
+      const parts = [item.name || item.text || '', item.entry_name || '', item.gene || '']
+                    .filter(Boolean);
+      return `<span>${parts.join(' | ')}</span>`;
+    }
+
+    // Natural (human) sort by GtoPdb name
+    const s2Collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+    function s2NaturalSorter(results) {
+      // results is an array of items already filtered by matcher
+      return results.sort((a, b) =>
+        s2Collator.compare(a.name || a.text || '', b.name || b.text || '')
+      );
+    }
+
+    // Init Select2 with new templates
     $('#orphanSelect').select2({
       data: ORPHANS,
       placeholder: 'Type to search orphan receptors…',
@@ -148,12 +226,24 @@ td.expand_1line:hover .expanded{ display:inline; }
       minimumInputLength: 0,
       matcher: orphanMatcher,
       escapeMarkup: m => m,
-      templateResult: item => {
-        if (!item.id) return item.text;
-        const entry = item.entry_name ? `<div class="muted">${item.entry_name}</div>` : '';
-        return $(`<div><strong>${item.name || item.text}</strong>${entry}</div>`);
-      },
-      templateSelection: item => `<span>${item.name || item.text || ''}</span>`
+      templateResult: tmplResult,
+      templateSelection: tmplSelection,
+      sorter: s2NaturalSorter
+    });
+
+    // Insert a header row when dropdown opens (avoid duplicates)
+    // Header with proper casing
+    $('#orphanSelect').on('select2:open', () => {
+      const $dd = $('.select2-container .select2-dropdown');
+      if ($dd.find('.s2-head').length === 0){
+        $dd.prepend($(`
+          <div class="s2-head">
+            <div>GtoPdb</div>
+            <div>UniProt</div>
+            <div>Gene</div>
+          </div>
+        `));
+      }
     });
 
     // ===== SAME RENDER HELPERS AS STRUCTURE BROWSER ============================
@@ -210,108 +300,308 @@ td.expand_1line:hover .expanded{ display:inline; }
         '</span>'
       );
     }
-    // ==========================================================================
 
-    // Columns (unchanged)
-    const columns = [
-      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"8%", render:function(d,t){ if(t!=='display') return d||''; return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : ''; } },
-      { data: 'Gene', width: "7%", defaultContent: '-' },
-      {
-        data: 'entry_name', width: "9%",
-        render: function (d, t, r) {
-          if (!d) return (t === 'display' ? '—' : '');
-          const geneCode = d.split('_')[0].toUpperCase();
-          if (t !== 'display') return d;
-          return r && r.uniprot_link
-            ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>`
-            : geneCode;
-        }
-      },
-      {
-        data: 'iuphar_name', width: "9%",
-        render: function (d, t, r) {
-          if (t !== 'display') return d;
-          const txt = (d || '—').replace(/receptor/gi, '').trim();
-          return (r && r.iuphar_link)
-            ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>`
-            : txt;
-        }
-      },
-      {
-        data: 'family', width: "10%",
-        render: function (d, t) { if (d == null) return '—'; return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').trim() : d; }
-      },
-      { data: 'ligand_type', width: "8%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
-      {
-        data: 'class', width: "3%",
-        render: function (d, t) {
-          if (d == null) return '—';
-          if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim();
-          return d;
-        }
-      },
-      { data: 'similarity', width: "10%" },
-      { data: 'identity',   width: "9%" },
-      {
-        data: 'endo_ligands', width: "15%",
-        render: function (d, t) { return expandFirstThenHoverLinkList(d, t, id => `https://gpcrdb.org/ligand/${id}/info`, { showCountHint: true }); }
-      },
-      {
-        data: 'endo_type', width: "10%",
-        render: function (d, t) { return expand1LineRender(d, t); }
-      }
+    // Orphan filter state: false => include (default), true => exclude
+    let excludeOrphans = false;
+
+    // cache the last API payload
+    let LAST_ROWS = [];
+
+    // return rows based on current toggle
+    function filteredRows(){
+      if (!excludeOrphans) return LAST_ROWS;
+      return LAST_ROWS.filter(r => !/orphan/i.test(String(r.ligand_type || '')));
+    }
+    // Toggle button behavior
+    const $toggle = $('#toggleOrphans');
+    function updateToggleUI(){
+      $toggle
+        .removeClass('btn-success btn-danger')
+        .addClass(excludeOrphans ? 'btn-danger' : 'btn-success')
+        .text(excludeOrphans ? 'Exclude orphans' : 'Include orphans');
+    }
+
+    function setRangesFrom(rows){
+      const sVals = rows.map(r => Number(r.similarity)).filter(Number.isFinite);
+      const iVals = rows.map(r => Number(r.identity)).filter(Number.isFinite);
+      SIM_MIN = sVals.length ? Math.min(...sVals) : null;
+      SIM_MAX = sVals.length ? Math.max(...sVals) : null;
+      ID_MIN  = iVals.length ? Math.min(...iVals) : null;
+      ID_MAX  = iVals.length ? Math.max(...iVals) : null;
+    }
+
+    function repaintHeat(){
+      table.cells(null, 0).every(function(){ applyHeat(this.node(), this.data(), SIM_MIN, SIM_MAX); });
+      table.cells(null, 1).every(function(){ applyHeat(this.node(), this.data(), ID_MIN,  ID_MAX ); });
+    }
+
+    $toggle.on('click', function(){
+      excludeOrphans = !excludeOrphans;
+      updateToggleUI();
+
+      const rowsToShow = filteredRows();
+      setRangesFrom(rowsToShow);     // <-- recompute from visible set
+      table.clear().rows.add(rowsToShow).draw(false);
+      repaintHeat();
+      setDownloadEnabled(rowsToShow.length > 0); // <— add this
+    });
+
+    // Initialize button state
+    updateToggleUI();
+
+    // =========== Download excel ===============================================
+    // Enable/disable download button based on whether the table has rows visible
+    function setDownloadEnabled(on){
+      document.getElementById('btnDownload').disabled = !on;
+    }
+
+    // Excel column letter helper (0->A, 10->K, etc.)
+    function xlCol(n){
+      let s = '';
+      n++;
+      while(n){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    }
+
+    // Build the super-header row + merges for this table (K = 11 cols)
+    function buildSuperHeaderAndMerges(){
+      // SEQUENCE(2) | RECEPTOR(6) | CLASSIFICATION(3) | PHYSIOLOGICAL LIGAND(2)
+      const groupRow = [
+        'SEQUENCE','',
+        'RECEPTOR','','','','','',
+        'CLASSIFICATION','','',
+        'PHYSIOLOGICAL LIGAND',''
+      ];
+      const merges = [
+        { s:{r:0,c:0}, e:{r:0,c:1} },  // A1:B1
+        { s:{r:0,c:2}, e:{r:0,c:7} },  // C1:H1 (6 cols)
+        { s:{r:0,c:8}, e:{r:0,c:10} }, // I1:K1
+        { s:{r:0,c:11}, e:{r:0,c:12} } // L1:M1
+      ];
+      return { groupRow, merges };
+    }
+
+    // Column header row (2nd header line)
+    const EXPORT_TITLES = [
+      'Similarity (%)','Identity (%)',
+      'GPCRdb',
+      'GtoPdb','GtoPdb link',
+      'UniProt','UniProt link',
+      'Gene',
+      'Receptor family','Ligand type','Class',
+      'Name','Type'
     ];
 
-    // Column defs:
-    // - center all headers/cells
-    // - draw left borders at group boundaries
-    // - add TD class "expand_1line" to the *cells* of the two expandable columns (indexes 9, 10)
+    // Take a row object (as returned by your API) and map to export cells
+    function mapRowForExport(r){
+        // GPCRdb absolute link (your existing logic)
+        const gpcrdb = r.gpcrdb_link
+          ? (r.gpcrdb_link.startsWith('http') ? r.gpcrdb_link
+            : (r.gpcrdb_link.startsWith('/') ? 'https://gpcrdb.org' + r.gpcrdb_link
+            : 'https://gpcrdb.org/' + r.gpcrdb_link.replace(/^\/+/,'')))
+          : '';
+
+        // GtoPdb (text + link)
+        const gtopText = (r.iuphar_name || '').replace(/receptor/gi,'').trim();
+        const gtopLink = r.iuphar_link || '';
+
+        // UniProt (text shown is gene code from entry_name) + link
+        const uniText = (r.entry_name || '').split('_')[0].toUpperCase() || '';
+        const uniLink = r.uniprot_link || '';
+
+        // Classification cleanups
+        const fam  = (r.family || '').replace(/receptors/gi,'').replace(/Other GPCR orphans/gi,'Classless Orphans').trim();
+        const ltyp = (r.ligand_type || '').replace(/receptors/gi,'').trim();
+        const cls  = (r.class || '').split(' (')[0].replace(/Class\s*/i,'').replace(/Other GPCRs\s*/i,'Classless').trim() || (r.class || '');
+
+        // Physiological ligands/text
+        const endoNames = Array.isArray(r.endo_ligands) && r.endo_ligands.length
+          ? r.endo_ligands.map(x => x.name).join('; ')
+          : (r.endo_ligands || '-');
+        const endoType = (typeof r.endo_type === 'string')
+          ? r.endo_type.replace(/<br\s*\/?>/gi,'\n')
+          : (r.endo_type ?? '');
+
+        return [
+          r.similarity ?? '',
+          r.identity ?? '',
+          gpcrdb,
+          gtopText,  gtopLink,   // NEW column
+          uniText,   uniLink,    // NEW column
+          r.Gene || '',
+          fam || '',
+          ltyp || '',
+          cls || '',
+          endoNames,
+          endoType
+        ];
+      }
+
+    // Build and download the workbook for “what you see”
+    function exportSimXlsx(){
+      const seenRows = table.rows({ order:'applied' }).data().toArray(); // current order/visible
+      if (!seenRows.length){ alert('No rows to export.'); return; }
+
+      const { groupRow, merges } = buildSuperHeaderAndMerges();
+      const body = seenRows.map(mapRowForExport);
+
+      const aoa = [groupRow, EXPORT_TITLES, ...body];
+      const ws  = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Apply merges for the super-header row
+      ws['!merges'] = merges;
+
+      // Nice-ish column widths
+      ws['!cols'] = EXPORT_TITLES.map((h, j) => {
+        const maxLen = Math.max(String(h||'').length, ...body.map(r => String(r[j]||'').length));
+        return { wch: Math.min(Math.max(10, maxLen + 2), 60) };
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Similarity');
+
+      // Name file with current orphan + mode
+      const sel = $('#orphanSelect').select2('data');
+      const who = (sel && sel[0] && (sel[0].name || sel[0].text)) ? String(sel[0].name || sel[0].text).split('|')[0].trim() : 'orphan';
+      const mode = document.getElementById('toggleOrphans').classList.contains('btn-exclude') ? 'no-orphans' : 'all';
+      const stamp = new Date().toISOString().slice(0,10);
+      const safe = s => String(s).replace(/[^A-Za-z0-9._-]+/g, '_');
+      const fname = `GPCRdb_similarity_${safe(who)}_${mode}_${stamp}.xlsx`;
+
+      XLSX.writeFile(wb, fname);
+    }
+
+
+    // ==========================================================================
+
+    // ===== Heatmap helpers for Similarity / Identity ONLY (with white text on dark) =====
+    let SIM_MIN = null, SIM_MAX = null;
+    let ID_MIN  = null, ID_MAX  = null;
+
+    // map value -> { bg, fg }; lighter for low, darker for high
+    function greyFor(val, min, max){
+      if (!isFinite(val) || min == null || max == null || min === max) return { bg:'', fg:'' };
+      const t = Math.max(0, Math.min(1, (val - min) / (max - min)));
+      // Shade range: 245 (very light) -> 95 (dark-ish)
+      const g = Math.round(245 - t * (245 - 95));
+      const bg = `rgb(${g}, ${g}, ${g})`;
+      // Switch to white text on darker greys (threshold ~140 feels right)
+      const fg = (g <= 140) ? 'white' : '';
+      return { bg, fg };
+    }
+
+    function applyHeat(td, val, min, max){
+      const { bg, fg } = greyFor(Number(val), min, max);
+      td.style.backgroundColor = bg || '';
+      td.style.color = fg || ''; // reset to default when not dark
+    }
+
+    // Columns 
+    const columns = [
+      { data: 'similarity', width: "10%" },   // heatmap target
+      { data: 'identity',   width: "9%"  },   // heatmap target
+      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"6%", render:function(d,t){ if(t!=='display') return d||''; return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : ''; } },
+      { data: 'iuphar_name', width: "9%", render: function (d, t, r) { if (t !== 'display') return d; const txt = (d || '—').replace(/receptor/gi, '').trim(); return (r && r.iuphar_link) ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>` : txt; } },
+      { data: 'entry_name', width: "9%", render: function (d, t, r) { if (!d) return (t === 'display' ? '—' : ''); const geneCode = d.split('_')[0].toUpperCase(); if (t !== 'display') return d; return r && r.uniprot_link ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>` : geneCode; } },
+      { data: 'Gene', width: "7%", defaultContent: '-' },
+      { data: 'family', width: "10%", render: function (d, t) { if (d == null) return '—'; return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').replace(/Other GPCR orphans/gi, 'Classless Orphans').trim() : d; } },
+      { data: 'ligand_type', width: "8%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
+      { data: 'class', width: "3%", render: function (d, t) { if (d == null) return '—'; if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim(); return d; } },
+      { data: 'endo_ligands', width: "15%", render: function (d, t) { return expandFirstThenHoverLinkList(d, t, id => `https://gpcrdb.org/ligand/${id}/info`, { showCountHint: true }); } },
+      { data: 'endo_type', width: "10%", render: function (d, t) { return expand1LineRender(d, t); } }
+    ];
+
+    // add createdCell hooks for similarity/identity (columns 7, 8)
     const columnDefs = [
       { targets: "_all", className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand" },
-      { targets: [4, 7, 9], className: "border-left" },
+      { targets: [2, 6, 9], className: "border-left" },  // updated group borders
+      { targets: 0, createdCell: function(td, cellData){ applyHeat(td, cellData, SIM_MIN, SIM_MAX); } }, // Similarity
+      { targets: 1, createdCell: function(td, cellData){ applyHeat(td, cellData, ID_MIN,  ID_MAX ); } }, // Identity
       { targets: [9, 10], createdCell: function (td) { td.classList.add('expand_1line'); } }
     ];
 
-    // DataTable init
     const table = new DataTable('#simTable', {
       paging: false,
       searching: false,
       info: true,
       fixedHeader: false,
-      order: [[7, 'desc'], [8, 'desc']], // similarity desc, identity desc
+      order: [[0, 'desc'], [1, 'desc']],
       columns: columns,
       columnDefs: columnDefs,
-      scrollY: "50vh",                // Enable vertical scrolling with a height of 50% of the viewport
-      scrollCollapse: true,           // Allow the table to collapse vertically if data is less than `scrollY`
+      scrollY: "50vh",
+      scrollCollapse: true,
     });
 
     setTimeout(() => table.columns.adjust(), 0);
     $(window).on('resize.simTable', () => table.columns.adjust());
     table.on('draw', () => table.columns.adjust());
 
-    function setLoading(on) { document.getElementById('loading').classList.toggle('show', !!on); }
+    /* ===== integrate with your loader ===== */
+    function setSimWrapVisible(on){
+      const el = document.getElementById('simWrap');
+      if (!el) return;
+      el.style.display = on ? '' : 'none';
+      if (on) { setTimeout(() => table.columns.adjust(), 0); }
+    }
+    function setLoading(on){ document.getElementById('loading').classList.toggle('show', !!on); }
 
-    function loadTop10(refId) {
-      if (!refId) { table.clear().draw(); return; }
+    function loadTop10(refId){
+      if (!refId){
+        table.clear().draw();
+        SIM_MIN = SIM_MAX = ID_MIN = ID_MAX = null;   // reset ranges when empty
+        setSimWrapVisible(false);
+        setDownloadEnabled(false);
+        return;
+      }
       setLoading(true);
       $.ajax({
         url: "{% url 'api-similarity' %}",
         method: "GET",
         data: { ref: refId },
         headers: { 'X-CSRFToken': csrftoken },
-        success: function(resp) { table.clear().rows.add(resp.results || []).draw(); },
-        error: function() { table.clear().draw(); alert('Failed to load similarity data.'); },
-        complete: function() { setLoading(false); }
+        success: function(resp){
+          // 1) stash everything
+          LAST_ROWS = resp.results || [];
+
+          // 2) decide what we’ll show (respect current toggle)
+          const rowsToShow = filteredRows();
+
+          // 3) ranges from what’s visible right now
+          setRangesFrom(rowsToShow);
+
+          // 4) render & paint
+          table.clear().rows.add(rowsToShow).draw(false);
+          repaintHeat();
+
+          setSimWrapVisible(true);
+          setDownloadEnabled(table.rows().data().length > 0);
+        },
+        error: function(){
+          table.clear().draw();
+          SIM_MIN = SIM_MAX = ID_MIN = ID_MAX = null;
+          setSimWrapVisible(false);
+          setDownloadEnabled(false);
+          alert('Failed to load similarity data.');
+        },
+        complete: function(){ setLoading(false); }
       });
     }
 
-    $('#orphanSelect').on('select2:select', function (e) { loadTop10((e.params.data || {}).id); });
-    $('#orphanSelect').on('select2:clear',  function ()   { loadTop10(null); });
+    // events (unchanged)
+    $('#orphanSelect').on('select2:select', function (e){ loadTop10((e.params.data || {}).id); });
+    $('#orphanSelect').on('select2:clear',  function ()  { loadTop10(null); });
 
-    if (ORPHANS.length > 0) {
-      const first = ORPHANS[0];
-      $('#orphanSelect').val(first.id).trigger('change');
-      loadTop10(first.id);
-    }
+    // start empty and hidden
+    $('#orphanSelect').val(null).trigger('change');
+    setSimWrapVisible(false);
+
+    // Click = export
+    document.getElementById('btnDownload').addEventListener('click', exportSimXlsx);
+
+    // Keep the button enabled state in sync with the table
+    table.on('draw', function(){
+      setDownloadEnabled(table.rows({ order:'applied' }).data().length > 0);
+    });
+
   </script>
 {% endblock %}

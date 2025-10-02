@@ -1,6 +1,7 @@
 from build.management.commands.base_build import Command as BaseBuild
 
 from django.db.models import F, Q
+from django.db.models.functions import Substr
 
 from protein.models import Protein, ProteinSegment, ProteinFamily, Species, CLASSLESS_PARENT_GPCR_SLUGS
 from alignment.models import ReceptorSimilarity
@@ -141,20 +142,42 @@ class Command(BaseBuild):
             Q(proteinfamily='GPCR') & (Q(slug__regex='TM[1-7]') | Q(slug='H8'))
         )
 
-        # build per-class protein lists
+        # ===== cache top-level class families by slug prefix ('001', '002', ...) =====
+        root = ProteinFamily.objects.get(slug='000')
+        top_class_fams = ProteinFamily.objects.filter(parent_id=root.id, slug__regex=r'^\d{3}$')
+        TOP_CLASS_BY_PREFIX = {pf.slug: pf for pf in top_class_fams}  # e.g. {'001': <PF Class A>, ...}
+
+        def top_class_family_for(protein):
+            """
+            Return the top-level class ProteinFamily for a Protein,
+            using the first chunk of its family.slug.
+            """
+            fam = protein.family
+            if not fam or not fam.slug:
+                return None
+            prefix = fam.slug.split('_', 1)[0]  # '001_...' -> '001'
+            return TOP_CLASS_BY_PREFIX.get(prefix)
+
+        # ===== IMPORTANT: when building your per-class protein lists, add select_related('family') =====
         human_map, human_counts = {}, {}
         for fam in human_parent_gpcr_families:
-            qs = Protein.objects.annotate(family_slug=F('family__slug')) \
-                                .filter(species=human_species, family_slug__startswith=fam.slug) \
-                                .exclude(accession=None).order_by('family_slug', 'entry_name')
+            qs = (Protein.objects
+                    .annotate(family_slug=F('family__slug'))
+                    .filter(species=human_species, family_slug__startswith=fam.slug)
+                    .exclude(accession=None)
+                    .order_by('family_slug', 'entry_name')
+                    .select_related('family'))  # <--- so we can use family.slug without extra queries
             human_map[fam] = list(qs)
             human_counts[fam] = len(qs)
 
         yeast_map, yeast_counts = {}, {}
         for fam in yeast_non_human:
-            qs = Protein.objects.annotate(family_slug=F('family__slug')) \
-                                .filter(species=yeast_species, family_slug__startswith=fam.slug) \
-                                .exclude(accession=None).order_by('family_slug', 'entry_name')
+            qs = (Protein.objects
+                    .annotate(family_slug=F('family__slug'))
+                    .filter(species=yeast_species, family_slug__startswith=fam.slug)
+                    .exclude(accession=None)
+                    .order_by('family_slug', 'entry_name')
+                    .select_related('family'))  # <--- same here
             yeast_map[fam] = list(qs)
             yeast_counts[fam] = len(qs)
 
@@ -270,11 +293,18 @@ class Command(BaseBuild):
                                     id_val = int(cs_alignment.similarity_matrix[p1.entry_name]['values'][pos_i][0])
 
                                     ref, tgt = (p1, p2) if a < b else (p2, p1)
+
+                                    # compute top-level classes from family.slug prefix map
+                                    ref_cls = top_class_family_for(ref)
+                                    tgt_cls = top_class_family_for(tgt)
+
                                     to_create.append(ReceptorSimilarity(
                                         protein_ref=ref,
                                         protein_target=tgt,
                                         identity=id_val,
-                                        similarity=sim_val
+                                        similarity=sim_val,
+                                        ref_class=ref_cls,
+                                        target_class=tgt_cls,
                                     ))
                                     seen_pairs.add(pair_key)
 

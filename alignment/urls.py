@@ -25,5 +25,7 @@ urlpatterns = [
     url(r'^class_similarity/ClassesAndCounts', views.ClassesAndCounts.as_view(), name='ClassesAndCounts'),
     url(r'^class_similarity/ClassificationWheel', views.ClassificationWheel.as_view(), name='ClassificationWheel'),
     url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity'),
+    url(r'^class_similarity/CrossClassSimilarity', views.CrossClassSimilarity.as_view(), name='CrossClassSimilarity'),
+    url(r'^class_similarity/OrhanSimilarityClustering', views.OrhanSimilarityClustering.as_view(), name='OrhanSimilarityClustering'),
     url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity')
 ]

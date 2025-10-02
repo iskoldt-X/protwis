@@ -1,0 +1,591 @@
+{% extends "home/base.html" %}
+{% load static %}
+{% load utils %}
+
+{% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+
+<style>
+/* ===========================================================
+   Cross-class similarity — Styles
+   =========================================================== */
+
+/* --- Page layout / headings --- */
+.page-wrap { padding: 8px 0 16px; }
+.title-center { text-align: center; margin-bottom: 8px; }
+
+/* Toolbar above the heatmap */
+.ccs-toolbar-inline{ display:flex; align-items:center; gap:10px; margin: 4px 10px 0; }
+
+/* Axis wrapper (space for rotated Y label) */
+.ccs-axis-wrap{ position: relative; width: 100%; margin: 0 auto; padding-left: 44px; }
+
+/* Axis badges */
+.ccs-axis-badge{ display:inline-block; padding:6px 10px; font-size:18px; line-height:1.1; border-radius:12px; border:1px solid #bbb; color:#000; }
+.ccs-badge-id{ background:#baeec2; }   /* Identity mid green */
+.ccs-badge-sim{ background:#bad4ee; }  /* Similarity mid blue */
+
+/* Axis labels */
+.axis-label-x{ text-align:center; margin-bottom:10px; }
+.axis-label-y{
+  position:absolute; left:0; top:58%;
+  transform:rotate(-90deg) translateX(-50%);
+  transform-origin:left top; white-space:nowrap;
+}
+
+/* Heatmap container */
+.ccs-scroller{
+  position:relative;            /* needed for overlay & flyout anchoring */
+  overflow-x:visible; overflow-y:auto;
+  border:1px solid #eee; border-radius:8px; background:#fff; max-width:100%;
+}
+
+/* Heatmap base table */
+#ccsTable{ width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+#ccsTable th, #ccsTable td{
+  text-align:center; padding:.5rem; vertical-align:middle;
+  border:1px solid #ddd; white-space:normal; line-height:1.2;
+  overflow-wrap:anywhere; hyphens:auto; word-break:break-word;
+}
+#ccsTable th small.ccs-sub{ color:#6c757d; font-weight:500; }
+
+/* Heatmap cell backgrounds (set via JS) */
+td.cell-sim{ background:var(--ccs-bg, #f4f9ff); } /* lower = similarity */
+td.cell-id { background:var(--ccs-bg, #f4fff4); } /* upper = identity */
+td.cell-empty{ background:#fff; color:#aaa; }
+
+/* Subtle hover outline */
+#ccsTable td.cell-id:hover, #ccsTable td.cell-sim:hover{
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.55);
+}
+
+/* Clickable heat cells (for stasis lock) */
+#ccsTable td.cell-id, #ccsTable td.cell-sim{ cursor: pointer; }
+
+/* Scope badge */
+.ccs-scope-badge{ display:inline-block; font-size:14.5px; padding:6px 10px; line-height:1.1; border-radius:12px; vertical-align:middle; }
+
+/* Responsive tweaks */
+@media (max-width:640px){
+  .ccs-axis-wrap{ padding-left:0; }
+  .axis-label-y{ position:static; transform:none; display:block; text-align:center; margin:8px 0 12px; }
+  #ccsTable{ font-size:.9rem; }
+}
+
+/* --- Flyout (DataTables skin, no inner scroll) --- */
+.ccs-fly{
+  position:absolute; z-index:2000; background:#fff; color:#111;
+  border:1px solid #cfcfcf; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.18);
+  width:780px; max-width:calc(100% - 48px);
+  display:none; overflow:hidden;
+  pointer-events:none;   /* not interactive while hovering */
+  user-select:none;
+}
+/* When locked, the tooltip becomes interactive */
+.ccs-fly.locked{ pointer-events:auto; }
+
+/* Flyout table base */
+#ccsFlyTable{ width:100%; border-collapse:separate; border-spacing:0; }
+#ccsFlyTable thead th, #ccsFlyTable tbody td{ text-align:center; white-space:nowrap; }
+
+/* Header: DataTables-like */
+#ccsFlyTable thead th{
+  background:#f6f6f6; font-weight:600; color:#222;
+  border:0; border-bottom:1px solid #000; padding:.5rem .6rem;
+}
+
+/* Body: compact grid */
+#ccsFlyTable tbody td{
+  border:1px solid #e6e6e6; border-left:0; border-top:0;
+  padding:.45rem .55rem; vertical-align:middle;
+}
+#ccsFlyTable tbody tr td:first-child{ border-left:1px solid #e6e6e6; }
+
+/* Zebra rows */
+#ccsFlyTable tbody tr:nth-child(odd) td{ background:#fafafa; }
+
+/* Strong divider after Id (%) */
+#ccsFlyTable thead th.divider, #ccsFlyTable tbody td.divider{ border-right:1px solid #000 !important; }
+
+/* Links & icons */
+#ccsFlyTable a{ color:#0b63c0; text-decoration:none; }
+#ccsFlyTable a:hover{ text-decoration:underline; }
+#ccsFlyTable .ccs-ico img{ width:12px; height:12px; opacity:.95; vertical-align:middle; }
+#ccsFlyTable .muted{ color:#8a8f96; }
+
+/* --- Overlay (only over the scroller) --- */
+.ccs-overlay{
+  position:absolute; inset:0;
+  background:rgba(0,0,0,.35);
+  z-index:1995;                   /* below flyout (2000) */
+  display:none;
+}
+.ccs-overlay.active{ display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <h3 class="title-center">Cross-class similarity</h3>
+
+  <div class="ccs-axis-wrap">
+    <!-- Toolbar -->
+    <div class="ccs-toolbar-inline">
+      <div class="dropdown">
+        <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Data scope</button>
+        <div class="dropdown-menu">
+          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="human">Human only</button>
+          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="human-classless">Human only (incl. Classless)</button>
+          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="all">All (including non-human)</button>
+          <button type="button" class="btn btn-outline-primary btn-block ccs-filter-btn" data-filter="all-classless">All (including non-human &amp; Classless)</button>
+        </div>
+      </div>
+      <span id="ccsScopeBadge" class="label label-default ccs-scope-badge" style="margin-left:6px;">Human only</span>
+    </div>
+
+    <!-- Axis badges -->
+    <div class="axis-label-x"><span class="ccs-axis-badge ccs-badge-id">Identity (%)</span></div>
+    <div class="axis-label-y"><span class="ccs-axis-badge ccs-badge-sim">Similarity (%)</span></div>
+
+    <!-- Heatmap + flyout + overlay -->
+    <div class="ccs-scroller">
+      <table id="ccsTable" class="display compact"><thead></thead><tbody></tbody></table>
+
+      <!-- Flyout tooltip (single reusable instance) -->
+      <div id="ccsFly" class="ccs-fly">
+        <table id="ccsFlyTable" class="display compact hover nowrap stripe" style="width:100%">
+          <thead>
+            <tr>
+              <th>Sim (%)</th>
+              <th class="divider">Id (%)</th>
+              <th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>
+              <th></th>
+              <th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Dim overlay (only over the scroller) -->
+      <div id="ccsOverlay" class="ccs-overlay"></div>
+    </div>
+  </div>
+
+  <div id="ccsEmpty" class="title-center" style="display:none;color:#888;">No data.</div>
+</div>
+{% endblock %}
+
+{% block addon_js %}
+<script>
+  /* Django-provided data + static URL */
+  var classes = {{ classes|safe }};
+  var matrix  = {{ matrix_json|safe }};
+  const GPCRDB_ICON_URL = "{% static 'home/logo/gpcr/main.png' %}";
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+
+  /* ===========================================================
+     DOM cache + constants
+     =========================================================== */
+  var axisWrap    = document.querySelector('.ccs-axis-wrap');
+  var empty       = document.getElementById('ccsEmpty');
+  var table       = document.getElementById('ccsTable');
+  var thead       = table.querySelector('thead');
+  var tbody       = table.querySelector('tbody');
+  var scopeBadge  = document.getElementById('ccsScopeBadge');
+  var scroller    = document.querySelector('.ccs-scroller');
+
+  var ccsFly  = document.getElementById('ccsFly');
+  var ccsDT   = null;             // DataTables instance (when available)
+  var overlay = document.getElementById('ccsOverlay');
+
+  var flyAnchor = null;           // cell element that opened the flyout
+  var isLocked  = false;          // stasis lock state
+
+  // Default flyout ordering: Id ↓, Sim ↓, left GtoPdb ↑
+  const CCS_FLY_DEFAULT_ORDER = [[1, 'desc'], [0, 'desc'], [3, 'asc']];
+  const FLY_MAX_WIDTH_PX = 780;
+
+  // Keep scope dropdown open when clicking inside
+  if (window.jQuery) {
+    jQuery(document).on('click', '.dropdown-menu', function (e) { e.stopPropagation(); });
+  }
+
+  /* ===========================================================
+     Utilities
+     =========================================================== */
+  function clearTable(){
+    thead.innerHTML=''; tbody.innerHTML='';
+    var cg=table.querySelector('colgroup'); if(cg) cg.remove();
+  }
+  function twoLineLabel(raw){
+    if (!raw) return '';
+    var s = String(raw).replace(/^\s*class\s+/i, '');
+    var m = s.match(/^(.*?)(\s*\(([^)]+)\))\s*$/);
+    if (!m) return s;
+    return m[1].trim() + '<br><small class="ccs-sub">(' + m[3].trim() + ')</small>';
+  }
+  function isClassless(name){ return /\(Classless\)\s*$/i.test(name); }
+  function isNonHuman(name){ return /\bClass D1\b/i.test(name); }
+
+  // Place Class D1 (non-human) between C and F when present
+  function desiredOrderIndices(){
+    var idxs = Array.from({length: classes.length}, (_,i)=>i);
+    var d1 = classes.findIndex(n=>/\bClass D1\b/i.test(n));
+    if (d1 === -1) return idxs;
+    var c = classes.findIndex(n=>/\bClass C\b/i.test(n));
+    var f = classes.findIndex(n=>/\bClass F\b/i.test(n));
+    idxs = idxs.filter(i=>i!==d1);
+    if (c !== -1){ var posC = idxs.indexOf(c); if (posC !== -1){ idxs.splice(posC+1,0,d1); return idxs; } }
+    if (f !== -1){ var posF = idxs.indexOf(f); if (posF !== -1){ idxs.splice(posF,0,d1); return idxs; } }
+    idxs.push(d1); return idxs;
+  }
+  var baseOrder = desiredOrderIndices();
+
+  // Ranges for heat coloring (upper=Id, lower=Sim)
+  function computeHeatRanges(indices){
+    var idMin=Infinity,idMax=-Infinity, simMin=Infinity,simMax=-Infinity;
+    function readVal(i,j,isUpper){
+      var a=isUpper?Math.min(i,j):Math.max(i,j);
+      var b=isUpper?Math.max(i,j):Math.min(i,j);
+      var cell=(matrix[a]&&matrix[a][b])||{}; return cell.value;
+    }
+    for (var r=0;r<indices.length;r++){
+      for (var c=0;c<indices.length;c++){
+        if (r===c) continue;
+        var i=indices[r], j=indices[c], isU=r<c, v=readVal(i,j,isU);
+        if (v==null) continue;
+        if (isU){ idMin=Math.min(idMin,v); idMax=Math.max(idMax,v); }
+        else    { simMin=Math.min(simMin,v); simMax=Math.max(simMax,v); }
+      }
+    }
+    if (idMin===Infinity){ idMin=null; idMax=null; }
+    if (simMin===Infinity){ simMin=null; simMax=null; }
+    return { id:{min:idMin,max:idMax}, sim:{min:simMin,max:simMax} };
+  }
+  // Map value → HSL background (greens for Id, blues for Sim)
+  function shade(val, range, kind){
+    if (val==null || !range || range.min==null || range.max==null) return null;
+    var t = (range.max===range.min)?0.6:(val-range.min)/(range.max-range.min);
+    t = Math.max(0, Math.min(1,t));
+    var hue = (kind==='id')?130:210, sat=60, L_hi=96, L_lo=70;
+    var L = L_hi - t*(L_hi-L_lo);
+    return 'hsl('+hue+','+sat+'%,'+L+'%)';
+  }
+
+  // HTML helpers for flyout
+  function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function allowSubsOnly(htmlish){ return esc(htmlish||'').replace(/&lt;(\/?)sub&gt;/gi,'<$1sub>'); }
+  function linkOrDash(url,label){ return url?('<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(label)+'</a>'):'<span class="muted">—</span>'; }
+  function linkGtoPdbHtml(url,labelHtml){ return url?('<a href="'+esc(url)+'" target="_blank" rel="noopener">'+allowSubsOnly(labelHtml)+'</a>'):'<span class="muted">—</span>'; }
+  function valOrDash(s){ return s?esc(s):'<span class="muted">—</span>'; }
+  function iconLinkOrDash(url){ return url?('<a class="ccs-ico" href="'+esc(url)+'" target="_blank" rel="noopener" title="Open in GPCRdb"><img src="'+esc(GPCRDB_ICON_URL)+'" alt="GPCRdb"></a>'):'<span class="muted">—</span>'; }
+
+  // Close any open dropdowns (works with/without Bootstrap)
+  function closeAllDropdowns(){
+    if (window.jQuery && jQuery.fn && jQuery.fn.dropdown){
+      try { jQuery('.dropdown.show .dropdown-toggle, .dropdown.open .dropdown-toggle').dropdown('toggle'); } catch(e){}
+    }
+    document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    document.querySelectorAll('.dropdown.show, .dropdown.open').forEach(d => d.classList.remove('show','open'));
+    document.querySelectorAll('.dropdown-toggle[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded','false'));
+  }
+
+  /* ===========================================================
+     Flyout: DataTables init + overlay lock
+     =========================================================== */
+
+  // Initialize DataTables for flyout if available (idempotent)
+  function initFlyDTIfPossible(){
+    if (!window.jQuery || !jQuery.fn || !jQuery.fn.dataTable) return false;
+    if (jQuery.fn.dataTable.isDataTable('#ccsFlyTable')) {
+      ccsDT = jQuery('#ccsFlyTable').DataTable();
+      return true;
+    }
+    ccsDT = jQuery('#ccsFlyTable').DataTable({
+      dom:'t', paging:false, ordering:true, searching:false, info:false,
+      autoWidth:false, deferRender:true, orderClasses:false,
+      order: CCS_FLY_DEFAULT_ORDER,
+      columnDefs: [
+        {
+          targets:[0,1], // Sim, Id — numeric sort
+          render:function(data, type){
+            if (type === 'sort' || type === 'type') {
+              var n = (data === '' || data == null) ? NaN : parseFloat(data);
+              return isNaN(n) ? -Infinity : n;
+            }
+            return data;
+          }
+        },
+        { targets:1, className:'divider' },                 // black vertical rule after Id
+        { targets:6, orderable:false, searchable:false }    // 'vs' spacer
+      ]
+    });
+    return true;
+  }
+
+  // Position flyout around the anchor cell
+  function positionFlyout(cellEl, rowsCount){
+    var cont = scroller.getBoundingClientRect();
+    var cell = cellEl.getBoundingClientRect();
+
+    var W = Math.min(FLY_MAX_WIDTH_PX, cont.width - 24);
+    ccsFly.style.width = W + 'px';
+
+    var rightSpace = cont.right - cell.right;
+    var leftSpace  = cell.left  - cont.left;
+
+    var place;
+    if (rightSpace >= W + 12) place = 'right';
+    else if (leftSpace >= W + 12) place = 'left';
+    else {
+      var tr  = cellEl.closest('tr');
+      var tbd = tr && tr.parentNode;
+      var idx = tbd ? Array.prototype.indexOf.call(tbd.children, tr) : 0;
+      var mid = Math.floor(((rowsCount||1)-1)/2);
+      place = (idx <= mid) ? 'bottom' : 'top';
+    }
+
+    var top, left;
+    if (place==='right'){
+      top  = cell.top  - cont.top - 6;
+      left = cell.right - cont.left + 8;
+    } else if (place==='left'){
+      top  = cell.top  - cont.top - 6;
+      left = cell.left - cont.left - 8 - W;
+    } else if (place==='top'){
+      top  = cell.top  - cont.top - 8 - ccsFly.offsetHeight;
+      left = (cell.left + cell.right)/2 - cont.left - W/2;
+    } else { // bottom
+      top  = cell.bottom - cont.top + 8;
+      left = (cell.left + cell.right)/2 - cont.left - W/2;
+    }
+
+    var minLeft = 8, maxLeft = cont.width - 8 - W;
+    left = Math.max(minLeft, Math.min(maxLeft, left));
+    ccsFly.style.left = left + 'px';
+
+    var h = ccsFly.offsetHeight;
+    var minTop = 8, maxTop = cont.height - 8 - h;
+    ccsFly.style.top = Math.max(minTop, Math.min(maxTop, top)) + 'px';
+  }
+
+  // Overlay helpers (Esc & click-to-close)
+  function onEscClose(e){ if (e.key === 'Escape') unlockFlyout(); }
+  function showOverlay(){ if (overlay) overlay.classList.add('active'); }
+  function hideOverlay(){ if (overlay) overlay.classList.remove('active'); }
+
+  function lockFlyout(){
+    if (!ccsFly) return;
+    isLocked = true;
+    ccsFly.classList.add('locked');
+    showOverlay();
+    flyAnchor = null; // prevent auto-hide on mouseleave
+    document.addEventListener('keydown', onEscClose);
+  }
+  function unlockFlyout(){
+    isLocked = false;
+    if (ccsFly) ccsFly.classList.remove('locked');
+    hideOverlay();
+    document.removeEventListener('keydown', onEscClose);
+    hideFlyout(true); // force hide even if locked
+  }
+  if (overlay && !overlay._wired){
+    overlay.addEventListener('click', unlockFlyout);
+    overlay._wired = true;
+  }
+
+  // Hide flyout (guarded while locked)
+  function hideFlyout(force){
+    if (!ccsFly) return;
+    if (isLocked && !force) return;
+    ccsFly.style.display = 'none';
+    flyAnchor = null;
+  }
+  function hideFlyoutIfAnchor(el){ if (flyAnchor === el) hideFlyout(); }
+
+  // Fallback sorting when DataTables isn’t present
+  function sortItemsForFlyout(items){
+    return items.slice().sort(function(a, b){
+      var ida = Number(a && a.identity), idb = Number(b && b.identity);
+      if (idb !== ida) return (isNaN(idb)?-Infinity:idb) - (isNaN(ida)?-Infinity:ida);
+      var sma = Number(a && a.similarity), smb = Number(b && b.similarity);
+      if (smb !== sma) return (isNaN(smb)?-Infinity:smb) - (isNaN(sma)?-Infinity:sma);
+      var la = (a && a.ref && a.ref.display_name) ? a.ref.display_name : '';
+      var lb = (b && b.ref && b.ref.display_name) ? b.ref.display_name : '';
+      return la.localeCompare(lb, undefined, { numeric:true, sensitivity:'base' });
+    });
+  }
+
+  // Convert API items → row arrays for DataTables
+  function rowsFromItems(items){
+    return items.map(function(it){
+      var L = it.ref || {}, R = it.target || {};
+      var sim = (typeof it.similarity === 'number') ? it.similarity : '';
+      var idn = (typeof it.identity   === 'number') ? it.identity   : '';
+      return [
+        sim, idn,
+        iconLinkOrDash(L.gpcrdb_link),
+        linkGtoPdbHtml(L.gtopdb_link, L.display_name || 'Open'),
+        linkOrDash(L.uniprot_link, L.uniprot || 'Open'),
+        valOrDash(L.gene),
+        'vs',
+        iconLinkOrDash(R.gpcrdb_link),
+        linkGtoPdbHtml(R.gtopdb_link, R.display_name || 'Open'),
+        linkOrDash(R.uniprot_link, R.uniprot || 'Open'),
+        valOrDash(R.gene)
+      ];
+    });
+  }
+
+  // Open + populate flyout for a given cell
+  function openFlyoutForCell(cellEl, items, rowsCount){
+    if (!ccsFly) return;
+
+    // Initialize DataTables if/when available
+    if (!ccsDT) initFlyDTIfPossible();
+
+    if (ccsDT){
+      ccsDT.clear().rows.add(rowsFromItems(items));
+      ccsDT.order(CCS_FLY_DEFAULT_ORDER).draw();
+    } else {
+      // Fallback: manual sort and inject HTML
+      var sorted = sortItemsForFlyout(items);
+      var tb = document.querySelector('#ccsFlyTable tbody');
+      tb.innerHTML = rowsFromItems(sorted).map(function(cols){
+        return '<tr>' + cols.map(function(c,i){
+          return '<td'+(i===1?' class="divider"':'')+'>' + c + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    }
+
+    flyAnchor = cellEl;
+    ccsFly.style.display = 'block';
+    positionFlyout(cellEl, rowsCount);
+  }
+
+  // Hide on scroll/resize (ignored when locked)
+  (scroller || window).addEventListener('scroll', hideFlyout, { passive:true });
+  window.addEventListener('resize', hideFlyout, { passive:true });
+
+  /* ===========================================================
+     Heatmap render
+     =========================================================== */
+  if (!Array.isArray(classes) || !Array.isArray(matrix) || !classes.length) {
+    if (axisWrap) axisWrap.style.display='none';
+    if (empty) empty.style.display='';
+    return;
+  }
+
+  function renderTable(indices){
+    clearTable();
+    hideFlyout();
+
+    if (!indices.length) { axisWrap.style.display='none'; empty.style.display=''; return; }
+    axisWrap.style.display=''; empty.style.display='none';
+
+    var ranges = computeHeatRanges(indices);
+
+    // Equal widths via colgroup (corner + N)
+    var totalCols = 1 + indices.length;
+    var cg = document.createElement('colgroup');
+    for (var i=0;i<totalCols;i++){
+      var col=document.createElement('col'); col.style.width=(100/totalCols)+'%'; cg.appendChild(col);
+    }
+    table.insertBefore(cg, table.firstChild);
+
+    // THEAD
+    var trHead=document.createElement('tr');
+    var thCorner=document.createElement('th'); thCorner.textContent='Classes'; trHead.appendChild(thCorner);
+    indices.forEach(function(j){ var th=document.createElement('th'); th.innerHTML=twoLineLabel(classes[j]); trHead.appendChild(th); });
+    thead.appendChild(trHead);
+
+    // TBODY
+    indices.forEach(function(origI, rIdx){
+      var tr=document.createElement('tr');
+
+      var thRow=document.createElement('th'); thRow.innerHTML=twoLineLabel(classes[origI]); tr.appendChild(thRow);
+
+      indices.forEach(function(origJ, cIdx){
+        var td=document.createElement('td');
+
+        if (rIdx===cIdx){
+          td.className='cell-empty'; td.textContent='';
+        } else {
+          var isUpper = rIdx < cIdx;  // upper=identity, lower=similarity
+          var lookI   = isUpper ? Math.min(origI, origJ) : Math.max(origI, origJ);
+          var lookJ   = isUpper ? Math.max(origI, origJ) : Math.min(origI, origJ);
+
+          var cell = (matrix[lookI] && matrix[lookI][lookJ]) || {};
+          var val  = cell.value;
+
+          if (val==null){
+            td.className='cell-empty'; td.textContent='—';
+          } else {
+            td.textContent = val;
+            td.className   = isUpper ? 'cell-id' : 'cell-sim';
+            var color = shade(val, isUpper ? ranges.id : ranges.sim, isUpper ? 'id' : 'sim');
+            if (color) td.style.setProperty('--ccs-bg', color);
+
+            // Hover preview; click to lock + make interactive
+            if (Array.isArray(cell.items) && cell.items.length){
+              td.addEventListener('mouseenter', function(){ openFlyoutForCell(td, cell.items, indices.length); });
+              td.addEventListener('mouseleave', function(){ hideFlyoutIfAnchor(td); });
+              td.addEventListener('click', function(e){
+                closeAllDropdowns();                         // tidy UI
+                openFlyoutForCell(td, cell.items, indices.length);
+                lockFlyout();
+                e.stopPropagation();
+              });
+            }
+          }
+        }
+
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* ===========================================================
+     Scope filter
+     =========================================================== */
+  function indicesForScope(scope){
+    var allowed=[];
+    baseOrder.forEach(function(i){
+      var name=classes[i], clsless=isClassless(name), nonhuman=isNonHuman(name);
+      if (scope==='human'){ if (!nonhuman && !clsless) allowed.push(i); }
+      else if (scope==='human-classless'){ if (!nonhuman) allowed.push(i); }
+      else if (scope==='all'){ if (!clsless) allowed.push(i); }
+      else if (scope==='all-classless'){ allowed.push(i); }
+    });
+    return allowed;
+  }
+
+  // Wire scope dropdown
+  var filterButtons=document.querySelectorAll('.ccs-filter-btn');
+  filterButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      filterButtons.forEach(function(b){ b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
+      this.classList.remove('btn-outline-primary'); this.classList.add('btn-primary');
+      var scope=this.getAttribute('data-filter'); renderTable(indicesForScope(scope));
+      var label=this.textContent.trim(); if (scopeBadge) scopeBadge.textContent=label;
+      hideFlyout();
+    });
+  });
+
+  /* ===========================================================
+     Initial render
+     =========================================================== */
+  var initialScope='human';
+  var initialBtn=document.querySelector('.ccs-filter-btn[data-filter="'+initialScope+'"]');
+  if (initialBtn){ initialBtn.classList.remove('btn-outline-primary'); initialBtn.classList.add('btn-primary'); }
+  renderTable(indicesForScope(initialScope));
+
+});
+</script>
+{% endblock %}

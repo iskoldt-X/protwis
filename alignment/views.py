@@ -2,7 +2,8 @@
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.generic import TemplateView
-from django.db.models import Q, F, Case, When, IntegerField, Prefetch
+from django.db.models import Q, F, Case, When, IntegerField, Prefetch, Max
+from django.db.models.functions import Least, Greatest
 from django.core.cache import cache
 from django.core.cache import caches
 from django.utils.html import escape
@@ -34,7 +35,7 @@ from alignment.models import ReceptorSimilarity
 from common.models import WebLink
 from ligand.models import Endogenous_GTP
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
 import hashlib
 import inspect
@@ -1076,7 +1077,7 @@ class ClassesAndCounts(TemplateView):
             "T2": (["Class T2 (Taste 2)"], "Frizzled/Taste2", "Taste 2", None),
             "OR": (["Class O1 (fish-like odorant)", "Class O2 (tetrapod specific odorant)"], "Rhodopsin", "Odorant (not olfactory)", None),
             "V?": (["Class V? (Vomeronasal/pheromone?)"], "- (non-functional in human)", "Vomeronasal or pheromone?", "5"),  # fixed value
-            "Cl?": (["Other GPCRs"], "-", "Classless", None),
+            "Cl": (["Other GPCRs"], "-", "Classless", None),
         }
 
         table_data = []
@@ -1220,37 +1221,45 @@ class OrphanSimilarity(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Build the orphan list once and embed it (93 items ≈ perfect for local Select2)
-        orphans = (
+        def clean_gtop_name(nm):
+            if not nm:
+                return "-"
+            s = (nm
+                 .replace("receptor", "")
+                 .replace("-adrenoceptor", "")
+                 .replace("<i>", "").replace("</i>", "")
+                 .strip())
+            return s or "-"
+
+        orphans_qs = (
             Protein.objects
             .filter(
                 parent_id__isnull=True,
                 species_id=1,
                 family__parent__parent__name__iexact='Orphan receptors',
             )
-            .select_related('family__parent__parent__parent')
-            .annotate(
-                family_name=F('family__parent__name'),
-                ligand_type=F('family__parent__parent__name'),
-                clazz=F('family__parent__parent__parent__name'),  # see note below
+            .prefetch_related(
+                Prefetch('genes',
+                         queryset=Gene.objects.filter(position=0),
+                         to_attr='primary_genes_self')
             )
-            .values('id', 'entry_name', 'name', 'family_name', 'ligand_type', 'clazz')
             .order_by('entry_name')
         )
 
-        # Shape for Select2: use only "name" as the visible text.
-        context['orphans_select2'] = json.dumps([
-            {
-                "id": p["id"],
-                "text": p["name"],                 # <- Select2 label and search text
-                "entry_name": p["entry_name"],     # extra fields for your UI
-                "name": p["name"],
-                "family": p["family_name"],
-                "ligand_type": p["ligand_type"],
-                "class": p["clazz"],               # map clazz -> "class" for the client
-            }
-            for p in orphans
-        ])
+        data = []
+        for p in orphans_qs:
+            gene = (p.primary_genes_self[0].name
+                    if getattr(p, 'primary_genes_self', None)
+                    else (p.entry_name.split('_')[0].upper() if p.entry_name else "-"))
+            data.append({
+                "id": p.id,
+                "text": clean_gtop_name(p.name),
+                "name": clean_gtop_name(p.name),
+                "entry_name": p.entry_name,
+                "gene": gene,
+            })
+
+        context['orphans_select2'] = json.dumps(data)
         return context
     
 class SimilarityTopAPI(View):
@@ -1424,3 +1433,502 @@ class SimilarityTopAPI(View):
 
         # already in similarity desc because `kept` was built from `pairs` order
         return JsonResponse({"results": results})
+
+class CrossClassSimilarity(TemplateView):
+    template_name = 'class_similarity/CrossClassSimilarity.html'
+
+    # Core fixed classes (original order)
+    CLASS_ORDER = [
+        "Class A (Rhodopsin)",
+        "Class B1 (Secretin)",
+        "Class B2 (Adhesion)",
+        "Class C (Glutamate)",
+        "Class F (Frizzled)",
+        "Class O1 (fish-like odorant)",
+        "Class O2 (tetrapod specific odorant)",
+        "Class T2 (Taste 2)",
+    ]
+
+    # Map display names -> top-level family slug codes
+    CLASS_CODE_BY_NAME = {
+        "Class A (Rhodopsin)": "001",
+        "Class B1 (Secretin)": "002",
+        "Class B2 (Adhesion)": "003",
+        "Class C (Glutamate)": "004",
+        "Class F (Frizzled)":  "006",
+        "Class O1 (fish-like odorant)": "007",
+        "Class O2 (tetrapod specific odorant)": "008",
+        "Class T2 (Taste 2)": "009",
+    }
+
+    # Treat D1 as a single-protein group
+    EXTRA_GROUPS = [
+        {
+            "display": "Class D1 (Ste2-like fungal pheromone)",
+            "kind": "protein",
+            "entry_name": "ste2_yeast",
+        }
+    ]
+
+    # Five single-protein “Classless” items as separate groups (display order)
+    SINGLE_PROTEIN_LABELS = ["GPR107", "GPR137", "TPRA1", "GPR143", "GPR157"]
+
+    # Exact entry_name per label (case-insensitive)
+    SINGLE_PROTEIN_ENTRYNAMES = {
+        "GPR107": "gp107_human",
+        "GPR137": "g137a_human",
+        "TPRA1":  "tpra1_human",
+        "GPR143": "gp143_human",
+        "GPR157": "gp157_human",
+    }
+
+    # ---------- helpers ----------
+    @staticmethod
+    def clean_name(nm: str) -> str:
+        if not nm:
+            return "-"
+        return (nm.replace("receptor", "")
+                  .replace("-adrenoceptor", "")
+                  .replace("<i>", "").replace("</i>", "")
+                  .strip()) or "-"
+
+    @staticmethod
+    def primary_gene_of(p: 'Protein') -> str:
+        if getattr(p, "primary_genes_self", None):
+            return p.primary_genes_self[0].name
+        if p.entry_name:
+            return p.entry_name.split("_")[0].upper()
+        return "-"
+
+    def build_gtop_url(self, wl):
+        try:
+            return Template(wl.web_resource.url).substitute(index=wl.index)
+        except Exception:
+            return None
+
+    def pack_hover(self, p: 'Protein') -> dict:
+        """Return per-protein metadata for the tooltip."""
+        wl = p.gtop_links_self[0] if getattr(p, "gtop_links_self", None) else None
+        return {
+            "display_name": self.clean_name(p.name),                 # single cleaned display name
+            "gtopdb_link": self.build_gtop_url(wl) or "",            # IUPHAR/GtoPdb
+            "uniprot": p.entry_name or "",
+            "gene": self.primary_gene_of(p),
+            "gpcrdb_link": f"/protein/{p.entry_name}" if p.entry_name else "",
+            "uniprot_link": (f"https://www.uniprot.org/uniprot/{getattr(p, 'accession', '')}"
+                             if getattr(p, "accession", None) else ""),
+        }
+
+    # ---- resolvers
+    def _resolve_family_ids(self, slug_codes):
+        qs = ProteinFamily.objects.filter(slug__in=slug_codes).only('id', 'slug', 'name')
+        return {f.slug: f.id for f in qs}
+
+    def _fetch_by_entry_names(self, entry_names_lower):
+        if not entry_names_lower:
+            return {}
+        qs = (Protein.objects
+              .filter(entry_name__in=entry_names_lower)
+              .only('id', 'entry_name', 'name', 'accession'))
+        return {(p.entry_name or "").lower(): p for p in qs}
+
+    def _resolve_single_proteins(self):
+        """Resolve SINGLE_PROTEIN_LABELS by entry_name first, then primary gene."""
+        wanted_lc = {
+            lbl: (self.SINGLE_PROTEIN_ENTRYNAMES.get(lbl) or "").lower()
+            for lbl in self.SINGLE_PROTEIN_LABELS
+        }
+        entry_to_label = {en: lbl for lbl, en in wanted_lc.items() if en}
+
+        found = {}
+        if entry_to_label:
+            by_en = self._fetch_by_entry_names(list(entry_to_label.keys()))
+            for en, prot in by_en.items():
+                lbl = entry_to_label.get(en)
+                if lbl:
+                    found[lbl] = prot
+
+        missing = [lbl for lbl in self.SINGLE_PROTEIN_LABELS if lbl not in found]
+        if missing:
+            wanted_genes = set(missing)
+            gene_qs = (
+                Protein.objects
+                .prefetch_related(
+                    Prefetch('genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self')
+                )
+                .only('id', 'entry_name', 'name', 'accession')
+            )
+            for p in gene_qs:
+                g = self.primary_gene_of(p)
+                if g in wanted_genes and g not in found:
+                    found[g] = p
+        return found
+
+    # ---- main
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # 1) Build display list
+        base_names   = list(self.CLASS_ORDER)
+        extra_names  = [g["display"] for g in self.EXTRA_GROUPS]
+        single_names = [f"{lab} (Classless)" for lab in self.SINGLE_PROTEIN_LABELS]
+        display_names = base_names + extra_names + single_names
+
+        # 2) Resolve base class families for fast class↔class aggregation
+        code_to_famid = self._resolve_family_ids(list(self.CLASS_CODE_BY_NAME.values()))
+        name_to_famid = {
+            name: code_to_famid[self.CLASS_CODE_BY_NAME[name]]
+            for name in self.CLASS_ORDER
+            if self.CLASS_CODE_BY_NAME[name] in code_to_famid
+        }
+        allowed_class_ids = list(name_to_famid.values())
+
+        # 3) Resolve the extra protein groups
+        extra_needed_entry_names = [
+            g["entry_name"].lower()
+            for g in self.EXTRA_GROUPS
+            if g.get("kind") == "protein" and g.get("entry_name")
+        ]
+        extra_by_en = self._fetch_by_entry_names(extra_needed_entry_names)
+        extra_proteins_by_display = {}
+        for g in self.EXTRA_GROUPS:
+            if g.get("kind") == "protein" and g.get("entry_name"):
+                prot = extra_by_en.get(g["entry_name"].lower())
+                if prot:
+                    extra_proteins_by_display[g["display"]] = prot
+
+        # 4) Resolve the 5 classless singles
+        resolved_singles = self._resolve_single_proteins()
+        classless_name_to_protein = {}
+        for lab in self.SINGLE_PROTEIN_LABELS:
+            key = f"{lab} (Classless)"
+            p = resolved_singles.get(lab)
+            if p:
+                classless_name_to_protein[key] = p
+
+        # 5) Final groups (skip unresolved safely)
+        groups = []
+        for name in display_names:
+            if name in name_to_famid:
+                groups.append({"display": name, "kind": "class", "id": name_to_famid[name]})
+            elif name in extra_proteins_by_display:
+                groups.append({"display": name, "kind": "protein", "id": extra_proteins_by_display[name].id})
+            elif name in classless_name_to_protein:
+                groups.append({"display": name, "kind": "protein", "id": classless_name_to_protein[name].id})
+        n = len(groups)
+
+        # ------------------------------ OPTIMIZED AGGREGATION ------------------------------
+        # A) class↔class maxima (2 queries)
+        base_pairs = (
+            ReceptorSimilarity.objects
+            .filter(ref_class_id__in=allowed_class_ids, target_class_id__in=allowed_class_ids)
+            .annotate(
+                pair_a=Least('ref_class_id', 'target_class_id'),
+                pair_b=Greatest('ref_class_id', 'target_class_id'),
+            )
+            .values('pair_a', 'pair_b')
+        )
+        cc_max = {
+            (row['pair_a'], row['pair_b']): (row['max_id'], row['max_sim'])
+            for row in base_pairs.annotate(
+                max_id=Max('identity'),
+                max_sim=Max('similarity')
+            )
+        }
+
+        # B) class↔protein maxima (1 query)
+        protein_ids = [g['id'] for g in groups if g['kind'] == 'protein']
+        cp_max = {}
+        if allowed_class_ids and protein_ids:
+            qs_cp = (
+                ReceptorSimilarity.objects
+                .filter(
+                    (Q(ref_class_id__in=allowed_class_ids, protein_target_id__in=protein_ids)) |
+                    (Q(target_class_id__in=allowed_class_ids, protein_ref_id__in=protein_ids))
+                )
+                .annotate(
+                    canon_class_id=Case(
+                        When(ref_class_id__in=allowed_class_ids, then='ref_class_id'),
+                        default='target_class_id',
+                        output_field=IntegerField()
+                    ),
+                    canon_protein_id=Case(
+                        When(protein_target_id__in=protein_ids, then='protein_target_id'),
+                        default='protein_ref_id',
+                        output_field=IntegerField()
+                    ),
+                )
+                .values('canon_class_id', 'canon_protein_id')
+                .annotate(
+                    max_id=Max('identity'),
+                    max_sim=Max('similarity')
+                )
+            )
+            cp_max = {
+                (row['canon_class_id'], row['canon_protein_id']): (row['max_id'], row['max_sim'])
+                for row in qs_cp
+            }
+
+        # C) protein↔protein maxima (1 query)
+        pp_max = {}
+        if len(protein_ids) >= 2:
+            qs_pp = (
+                ReceptorSimilarity.objects
+                .filter(protein_ref_id__in=protein_ids, protein_target_id__in=protein_ids)
+                .annotate(
+                    pair_a=Least('protein_ref_id', 'protein_target_id'),
+                    pair_b=Greatest('protein_ref_id', 'protein_target_id'),
+                )
+                .values('pair_a', 'pair_b')
+                .annotate(
+                    max_id=Max('identity'),
+                    max_sim=Max('similarity')
+                )
+            )
+            pp_max = {
+                (row['pair_a'], row['pair_b']): (row['max_id'], row['max_sim'])
+                for row in qs_pp
+            }
+
+        # 6) Build value-only matrix first
+        matrix = [[None for _ in range(n)] for _ in range(n)]
+
+        def best_for(a, b, metric):
+            if a['kind'] == 'class' and b['kind'] == 'class':
+                key = (min(a['id'], b['id']), max(a['id'], b['id']))
+                tup = cc_max.get(key)
+            elif a['kind'] == 'class' and b['kind'] == 'protein':
+                tup = cp_max.get((a['id'], b['id']))
+            elif a['kind'] == 'protein' and b['kind'] == 'class':
+                tup = cp_max.get((b['id'], a['id']))
+            else:
+                key = (min(a['id'], b['id']), max(a['id'], b['id']))
+                tup = pp_max.get(key)
+            if not tup:
+                return None
+            return tup[0] if metric == 'identity' else tup[1]
+
+        # Collect tie fetch specs so we can pull them in big batches later
+        tie_specs = []
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    matrix[i][j] = None
+                    continue
+                a, b = groups[i], groups[j]
+                metric = 'identity' if i < j else 'similarity'
+                best = best_for(a, b, metric)
+                matrix[i][j] = {"value": int(best) if best is not None else None,
+                                "type": metric,
+                                "items": []}
+                if best is not None:
+                    if a['kind'] == 'class' and b['kind'] == 'class':
+                        tie_specs.append(('cc', (min(a['id'], b['id']), max(a['id'], b['id'])), metric, int(best)))
+                    elif a['kind'] == 'class' and b['kind'] == 'protein':
+                        tie_specs.append(('cp', (a['id'], b['id']), metric, int(best)))
+                    elif a['kind'] == 'protein' and b['kind'] == 'class':
+                        tie_specs.append(('cp', (b['id'], a['id']), metric, int(best)))
+                    else:
+                        tie_specs.append(('pp', (min(a['id'], b['id']), max(a['id'], b['id'])), metric, int(best)))
+
+        # 7) Batch-fetch tie rows (kept separate per metric to avoid mixing)
+        def bucket_specs(specs):
+            buckets = defaultdict(list)
+            for kind, ids, metric, best in specs:
+                buckets[(kind, metric)].append((ids, best))
+            return buckets
+
+        buckets = bucket_specs(tie_specs)
+
+        # Collectors: dict-of-dicts keyed by metric
+        cc_ties = {'identity': defaultdict(list), 'similarity': defaultdict(list)}
+        cp_ties = {'identity': defaultdict(list), 'similarity': defaultdict(list)}
+        pp_ties = {'identity': defaultdict(list), 'similarity': defaultdict(list)}
+
+        # weblink prefetch (GtoPdb)
+        gtop_links_qs = WebLink.objects.select_related('web_resource').filter(web_resource__slug='gtop')
+
+        def fetch_cc(metric):
+            pairs = buckets.get(('cc', metric), [])
+            if not pairs:
+                return
+            q = Q()
+            for (a_id, b_id), best in pairs:
+                cond = (Q(ref_class_id=a_id, target_class_id=b_id) |
+                        Q(ref_class_id=b_id, target_class_id=a_id))
+                cond &= Q(**{metric: best})
+                q |= cond
+            if not q.children:
+                return
+            rows = (
+                ReceptorSimilarity.objects
+                .filter(q)
+                .select_related('protein_ref', 'protein_target')
+                .only(
+                    'identity', 'similarity',
+                    'protein_ref__id', 'protein_ref__entry_name', 'protein_ref__name', 'protein_ref__accession',
+                    'protein_target__id', 'protein_target__entry_name', 'protein_target__name', 'protein_target__accession',
+                    'ref_class_id', 'target_class_id'
+                )
+                .prefetch_related(
+                    Prefetch('protein_ref__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_target__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_ref__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                    Prefetch('protein_target__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                )
+            )
+            for r in rows:
+                a = min(r.ref_class_id, r.target_class_id)
+                b = max(r.ref_class_id, r.target_class_id)
+                cc_ties[metric][(a, b)].append(r)
+
+        def fetch_cp(metric):
+            pairs = buckets.get(('cp', metric), [])
+            if not pairs:
+                return
+            q = Q()
+            for (cls_id, prot_id), best in pairs:
+                cond = (
+                    Q(ref_class_id=cls_id, protein_target_id=prot_id) |
+                    Q(target_class_id=cls_id, protein_ref_id=prot_id)
+                )
+                cond &= Q(**{metric: best})
+                q |= cond
+            if not q.children:
+                return
+            rows = (
+                ReceptorSimilarity.objects
+                .filter(q)
+                .select_related('protein_ref', 'protein_target')
+                .only(
+                    'identity', 'similarity',
+                    'protein_ref__id', 'protein_ref__entry_name', 'protein_ref__name', 'protein_ref__accession',
+                    'protein_target__id', 'protein_target__entry_name', 'protein_target__name', 'protein_target__accession',
+                    'ref_class_id', 'target_class_id', 'protein_ref_id', 'protein_target_id'
+                )
+                .prefetch_related(
+                    Prefetch('protein_ref__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_target__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_ref__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                    Prefetch('protein_target__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                )
+            )
+            for r in rows:
+                if r.ref_class_id is not None and r.protein_target_id is not None:
+                    key = (r.ref_class_id, r.protein_target_id)
+                else:
+                    key = (r.target_class_id, r.protein_ref_id)
+                cp_ties[metric][key].append(r)
+
+        def fetch_pp(metric):
+            pairs = buckets.get(('pp', metric), [])
+            if not pairs:
+                return
+            q = Q()
+            for (a_id, b_id), best in pairs:
+                cond = (
+                    Q(protein_ref_id=a_id, protein_target_id=b_id) |
+                    Q(protein_ref_id=b_id, protein_target_id=a_id)
+                )
+                cond &= Q(**{metric: best})
+                q |= cond
+            if not q.children:
+                return
+            rows = (
+                ReceptorSimilarity.objects
+                .filter(q)
+                .select_related('protein_ref', 'protein_target')
+                .only(
+                    'identity', 'similarity',
+                    'protein_ref__id', 'protein_ref__entry_name', 'protein_ref__name', 'protein_ref__accession',
+                    'protein_target__id', 'protein_target__entry_name', 'protein_target__name', 'protein_target__accession',
+                    'protein_ref_id', 'protein_target_id'
+                )
+                .prefetch_related(
+                    Prefetch('protein_ref__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_target__genes',
+                             queryset=Gene.objects.filter(position=0),
+                             to_attr='primary_genes_self'),
+                    Prefetch('protein_ref__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                    Prefetch('protein_target__web_links',
+                             queryset=gtop_links_qs,
+                             to_attr='gtop_links_self'),
+                )
+            )
+            for r in rows:
+                a = min(r.protein_ref_id, r.protein_target_id)
+                b = max(r.protein_ref_id, r.protein_target_id)
+                pp_ties[metric][(a, b)].append(r)
+
+        # Execute the 6 batched tie fetches
+        for m in ('identity', 'similarity'):
+            fetch_cc(m)
+            fetch_cp(m)
+            fetch_pp(m)
+
+        # 8) Fill items for tooltips (include identity & similarity per row)
+        def pack_rows(rows):
+            return [{
+                "ref":     self.pack_hover(r.protein_ref),
+                "target":  self.pack_hover(r.protein_target),
+                "identity": r.identity,
+                "similarity": r.similarity,
+            } for r in rows]
+
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    continue
+                a, b = groups[i], groups[j]
+                metric = matrix[i][j]["type"]            # 'identity' for upper, 'similarity' for lower
+                val = matrix[i][j]["value"]
+                if val is None:
+                    continue
+
+                if a['kind'] == 'class' and b['kind'] == 'class':
+                    key = (min(a['id'], b['id']), max(a['id'], b['id']))
+                    rows = cc_ties[metric].get(key, [])
+                elif a['kind'] == 'class' and b['kind'] == 'protein':
+                    rows = cp_ties[metric].get((a['id'], b['id']), [])
+                elif a['kind'] == 'protein' and b['kind'] == 'class':
+                    rows = cp_ties[metric].get((b['id'], a['id']), [])
+                else:
+                    key = (min(a['id'], b['id']), max(a['id'], b['id']))
+                    rows = pp_ties[metric].get(key, [])
+
+                matrix[i][j]["items"] = pack_rows(rows)
+
+        # 9) Context
+        context["classes"] = [g["display"] for g in groups]
+        context["matrix_json"] = json.dumps(matrix)
+        return context
+
+class OrhanSimilarityClustering(TemplateView):
+    template_name = 'class_similarity/OrhanSimilarityClustering.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        return context

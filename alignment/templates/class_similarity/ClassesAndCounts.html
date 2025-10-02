@@ -3,94 +3,143 @@
 
 {% block addon_css %}
 <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+
 <style>
+/* Cells aligned center on both tables */
 #gpcrTable th, #gpcrTable td,
-#nonHumanGpcrTable th, #nonHumanGpcrTable td {
-    text-align: center;
-    vertical-align: middle;
-}
-.popup-cell {
-    color: #007bff;
-    cursor: pointer;
-    text-decoration: underline;
-}
-.popup-cell:hover {
-    color: #0056b3;
+#receptorFamiliesTable th, #receptorFamiliesTable td, #receptorFamiliesTable_wrapper .dt-scroll-head th {
+  text-align: center;
+  vertical-align: middle;
 }
 
-.wide-modal {
-    min-width: 75% !important;
+/* Clickable counts */
+.popup-cell { color: #007bff; cursor: pointer; text-decoration: underline; }
+.popup-cell:hover { color: #0056b3; }
+
+/* Modal width */
+.wide-modal { min-width: 75% !important; }
+
+/* Layout: two columns using Bootstrap's grid; tiny helper gap */
+.tables-two-col { margin-left: -12px; margin-right: -12px; }
+.tables-two-col .col-md-6 { padding-left: 12px; padding-right: 12px; }
+
+/* Legend under each table */
+.table-legend { margin-top: 10px; font-size: 14px; }
+
+/* Right table: we’ll pull the scroll block up via JS */
+.rf-table-holder .dataTables_scroll { transition: margin-top 0.15s; }
+
+/* Optional: subtle line above the scroll body for separation */
+.dataTables_scrollBody { border-top: 1px solid #ddd; }
+
+.rf-table-holder { margin-top: -42px; }
+
+/* Hide the whole tables area until both DTs are ready */
+.hidden-until-ready {
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.hidden-until-ready.ready {
+  opacity: 1;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="table-responsive">
-  <h4>Human GPCRs</h4>
-  <table id="gpcrTable" class="table table-bordered table-striped table-hover" style="width:100%">
-    <thead>
-      <tr>
-        <th>Class symbol</th>
-        <th>Class</th>
-        <th>GRAFS Family</th>
-        <th>Receptor families</th>
-        <th>Members total</th>
-        <th>Members non-sensory</th>
-        <th>Members sensory</th>
-        <th>Orphan</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+<div id="tables-shell" class="hidden-until-ready">
+  <div class="row tables-two-col" style="margin-top: 20px;">
 
-<div class="table-legend mt-3" style="margin-top: 10px; font-size: 14px; max-width: 100%;">
-  <p>
-    More information can be found on 
-    <a href="https://www.guidetopharmacology.org/GRAC/FamilyDisplayForward?familyId=694&familyType=GPCR" target="_blank" rel="noopener noreferrer">this page</a>. 
-    Each GPCR class also has receptor families based on shared endogenous ligand 
-    (classes A, B1, B2, C and F) or sequence similarity (classes D, E, OR, T2 and V). 
-    These are too many to list here but are included in the receptor classification 
-    information/selection across GPCRdb data and tools. Receptors and receptor families 
-    are named by the nomenclature committee of the International Union of Pharmacology and 
-    are available in their database 
-    <a href="https://www.guidetopharmacology.org/GRAC/ReceptorFamiliesForward?type=GPCR" target="_blank" rel="noopener noreferrer">Guide to Pharmacology</a>.
-  </p>
-</div>
+    <!-- LEFT: Human GPCR classes -->
+    <div class="col-md-6">
+      <h4>Human GPCR Classes</h4>
 
-<div class="table-responsive mt-5">
-  <h4>Non-human GPCRs</h4>
-  <table id="nonHumanGpcrTable" class="table table-bordered table-striped table-hover" style="width:100%">
-    <thead>
-      <tr>
-        <th>Class symbol</th>
-        <th>Class</th>
-        <th>Receptor families</th>
-        <th>Members total</th>
-        <th>Members non-sensory</th>
-        <th>Members sensory</th>
-        <th>Orphan</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<!-- Modal -->
-<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog wide-modal" role="document" style="max-width:80%;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title" id="detailsModalLabel"></h4>
-      </div>
-      <div class="modal-body">
-        <table id="detailsTable" class="table table-striped table-bordered" style="width:100%">
-          <thead><tr id="detailsHeader"></tr></thead>
+      <div class="table-responsive">
+        <table id="gpcrTable" class="table table-bordered table-striped table-hover" style="width:100%">
+          <thead>
+            <!-- Super header row -->
+            <tr class="super-header">
+              <th colspan="3">CLASSES</th>
+              <th colspan="4">GPCRs</th>
+            </tr>
+            <!-- Actual column headers -->
+            <tr>
+              <th>Symbol</th>
+              <th>Class</th>
+              <th>GRAFS Family</th>
+              <th>All</th>
+              <th>Non-sensory</th>
+              <th>Sensory</th>
+              <th>Orphan</th>
+            </tr>
+          </thead>
           <tbody></tbody>
         </table>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+
+      <!-- Legend for LEFT table -->
+      <div class="table-legend">
+        <p>
+          More information can be found on
+          <a href="https://www.guidetopharmacology.org/GRAC/FamilyDisplayForward?familyId=694&familyType=GPCR" target="_blank" rel="noopener noreferrer">this page</a>.
+          Each GPCR class also has receptor families based on shared endogenous ligand
+          (classes A, B1, B2, C and F) or sequence similarity (classes D, E, OR, T2 and V).
+          These are too many to list here but are included in the receptor classification
+          information/selection across GPCRdb data and tools. Receptors and receptor families
+          are named by the nomenclature committee of the International Union of Pharmacology and
+          are available in their database
+          <a href="https://www.guidetopharmacology.org/GRAC/ReceptorFamiliesForward?type=GPCR" target="_blank" rel="noopener noreferrer">Guide to Pharmacology</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- RIGHT: Receptor families table -->
+    <div class="col-md-6">
+      <h4>Receptor families by class</h4>
+
+      <!-- Holder so JS can adjust the DT scroller margin/height locally -->
+      <div class="rf-table-holder">
+        <div class="table-responsive">
+          <table id="receptorFamiliesTable" class="table table-bordered table-striped table-hover" style="width:100%">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Class</th>
+                <th>Receptor family</th>
+                <th>GPCRs</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Legend for RIGHT table -->
+      <div class="table-legend">
+        <p>
+          “Members” shows the count of GPCRs belonging to each receptor family within a class.
+          Click a number to see the list of GPCRs (gene names) and their attributes in the modal.
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog wide-modal" role="document" style="max-width:80%;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="detailsModalLabel"></h4>
+        </div>
+        <div class="modal-body">
+          <table id="detailsTable" class="table table-striped table-bordered" style="width:100%">
+            <thead><tr id="detailsHeader"></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -99,121 +148,261 @@
 
 {% block addon_js %}
 <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
+
 <script>
-    var dataHuman = {{ human_table_data|safe }};
-    var dataNonHuman = {{ nonhuman_table_data|safe }};
+  var dataHuman = {{ human_table_data|safe }};
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
-    function renderPopupCell(count, entries, title) {
-        if (!count || count === 0) return "0";
-        return `<span class="popup-cell"
-                     data-title="${title}"
-                     data-entries='${JSON.stringify(entries)}'>
-                    ${count}
-                </span>`;
+  /* --- ready gate --- */
+  var leftReady = false, rightReady = false;
+  function revealIfReady() {
+    if (leftReady && rightReady) {
+      requestAnimationFrame(function(){
+        document.getElementById('tables-shell').classList.add('ready');
+      });
     }
+  }
 
-    $('#gpcrTable').DataTable({
-        data: dataHuman,
-        columns: [
-            { data: "symbol" },
-            { data: "class_name" },
-            { data: "grafs_family" },
-            {
-                data: "receptor_families_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.receptor_families,"Receptor families"); }
-            },
-            {
-                data: "members_total_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_total,"Members total"); }
-            },
-            {
-                data: "members_non_sensory_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_non_sensory,"Members non-sensory"); }
-            },
-            {
-                data: "members_sensory_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_sensory,"Members sensory"); }
-            },
-            {
-                data: "orphan_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.orphan,"Orphan"); }
-            }
-        ],
-        paging: false, searching: false, ordering: false, info: false, responsive: true
+  /* ------- helpers ------- */
+  function renderPopupCell(count, entries, title) {
+    if (!count || count === 0) return "0";
+    return '<span class="popup-cell"'
+         + ' data-title="' + String(title || '').replace(/"/g,'&quot;') + '"'
+         + " data-entries='" + JSON.stringify(entries || []).replace(/'/g,"&#39;") + "'>"
+         + (count + "")
+         + '</span>';
+  }
+
+  // Natural / human-friendly compare: "2" < "10", case-insensitive
+function naturalCompare(a, b) {
+  if (a == null) a = "";
+  if (b == null) b = "";
+  a = String(a).trim().toLowerCase();
+  b = String(b).trim().toLowerCase();
+
+  const ax = a.match(/\d+|\D+/g) || [];
+  const bx = b.match(/\d+|\D+/g) || [];
+  const len = Math.max(ax.length, bx.length);
+
+  for (let i = 0; i < len; i++) {
+    const at = ax[i], bt = bx[i];
+    if (at === undefined) return -1;
+    if (bt === undefined) return 1;
+
+    const an = /^\d+$/.test(at);
+    const bn = /^\d+$/.test(bt);
+    if (an && bn) {
+      const ai = parseInt(at, 10), bi = parseInt(bt, 10);
+      if (ai !== bi) return ai - bi;
+    } else if (at !== bt) {
+      return at.localeCompare(bt, undefined, { sensitivity: 'base' });
+    }
+  }
+  return 0;
+}
+
+
+const FAMILY_RENAMES = {
+  "Other GPCR orphans": "Classless Orphans"
+};
+
+function normalizeFamilyName(f) {
+  if (f == null) return "Unknown";
+  const n = String(f).trim();
+  return FAMILY_RENAMES[n] || n;
+}
+
+// Preserve left table order; sort families naturally within each class
+function buildReceptorFamilyRows(humanRows){
+  const rows = [];
+  (humanRows || []).forEach(row => {
+    const symbol = row.symbol || "—";
+    const cls = row.class_name || symbol || "Unknown";
+    const members = (row.entries && row.entries.members_total) ? row.entries.members_total : [];
+
+    // Group by (renamed) receptor family, and also fix the label inside each entry
+    const byFamily = {};
+    members.forEach(m => {
+      const fam = normalizeFamilyName(m["Receptor family"]);
+      const mFixed = Object.assign({}, m, { "Receptor family": fam }); // modal sees renamed label
+      if (!byFamily[fam]) byFamily[fam] = [];
+      byFamily[fam].push(mFixed);
     });
 
-    $('#nonHumanGpcrTable').DataTable({
-        data: dataNonHuman,
-        columns: [
-            { data: "symbol" },
-            { data: "class_name" },
-            {
-                data: "receptor_families_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.receptor_families,"Receptor families"); }
-            },
-            {
-                data: "members_total_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_total,"Members total"); }
-            },
-            {
-                data: "members_non_sensory_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_non_sensory,"Members non-sensory"); }
-            },
-            {
-                data: "members_sensory_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.members_sensory,"Members sensory"); }
-            },
-            {
-                data: "orphan_count",
-                render: function(d,t,row){ return renderPopupCell(d,row.entries.orphan,"Orphan"); }
-            }
-        ],
-        paging: false, searching: false, ordering: false, info: false, responsive: true
+    // Natural-sort families (you already have naturalCompare). Keep "Unknown/-/empty" last.
+    const families = Object.keys(byFamily).sort((a, b) => {
+      const unkA = !a || a === "-" || a.toLowerCase() === "unknown";
+      const unkB = !b || b === "-" || b.toLowerCase() === "unknown";
+      if (unkA && !unkB) return 1;
+      if (!unkA && unkB) return -1;
+      return naturalCompare(a, b);
     });
 
-    // popup modal
-    $(document).on("click", ".popup-cell", function () {
-        var title = $(this).data("title");
-        var entries = $(this).data("entries");
-        if (typeof entries === "string") {
-            try { entries = JSON.parse(entries); } catch(e) { entries = []; }
-        }
-        if (!entries || entries.length === 0) return;
-
-        $("#detailsModalLabel").text(title);
-
-        if ($.fn.DataTable.isDataTable("#detailsTable")) {
-            $('#detailsTable').DataTable().clear().destroy();
-        }
-        $("#detailsHeader").empty();
-
-        if (title === "Receptor families") {
-            $("#detailsHeader").append("<th>Receptor family</th>");
-            $('#detailsTable').DataTable({
-                data: entries.map(e => [e]),
-                columns: [{ title: "Receptor family" }],
-                pageLength: 10
-            });
-        } else {
-            const cols = ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"];
-            cols.forEach(c => $("#detailsHeader").append(`<th>${c}</th>`));
-            $('#detailsTable').DataTable({
-                data: entries.map(e => [
-                    e["GPCRs (Gene name)"],
-                    e["Receptor family"],
-                    e["Ligand type"],
-                    e["Sense"]
-                ]),
-                columns: cols.map(c => ({ title: c })),
-                pageLength: 10
-            });
-        }
-
-        $("#detailsModal").modal("show");
+    families.forEach(fam => {
+      const list = byFamily[fam];
+      rows.push({
+        symbol: symbol,
+        class_name: cls,
+        receptor_family: fam,   // renamed value appears in the table
+        members_count: list.length,
+        entries: list           // entries have renamed "Receptor family" for the modal
+      });
     });
+  });
+  return rows;
+}
+
+
+
+  /* ------- Left table ------- */
+  $('#gpcrTable').DataTable({
+    data: dataHuman,
+    columns: [
+      { data: "symbol" },
+      { data: "class_name" },
+      { data: "grafs_family" },
+      { data: "members_total_count",
+        render: function(d,t,row){ return renderPopupCell(d,row.entries.members_total,"Members total"); } },
+      { data: "members_non_sensory_count",
+        render: function(d,t,row){ return renderPopupCell(d,row.entries.members_non_sensory,"Members non-sensory"); } },
+      { data: "members_sensory_count",
+        render: function(d,t,row){ return renderPopupCell(d,row.entries.members_sensory,"Members sensory"); } },
+      { data: "orphan_count",
+        render: function(d,t,row){ return renderPopupCell(d,row.entries.orphan,"Orphan"); } }
+    ],
+    paging: false, searching: false, ordering: false, info: false,
+    responsive: true, orderCellsTop: true, autoWidth: false,
+    initComplete: function(){ leftReady = true; revealIfReady(); }
+  });
+
+  /* ------- Right table ------- */
+  const receptorFamilyRows = buildReceptorFamilyRows(dataHuman);
+
+  // 1) Attach init event BEFORE creating the table (guaranteed to fire)
+  $('#receptorFamiliesTable').on('init.dt', function (e, settings) {
+    var api = new $.fn.dataTable.Api(settings);
+    setRightScrollerHeight(api);
+  });
+
+  // 2) Create the right DT (keep your manual pull-up via margin-top:-42px)
+  var rightDT = $('#receptorFamiliesTable').DataTable({
+    data: receptorFamilyRows,
+    columns: [
+      { data: "symbol",          title: "Symbol" },
+      { data: "class_name",      title: "Class"  },
+      { data: "receptor_family", title: "Receptor family" },
+      {
+        data: "members_count",
+        title: "GPCRs",
+        render: function(d,t,row){
+          return renderPopupCell(d, row.entries, row.receptor_family + ' GPCRs');
+        }
+      }
+    ],
+    paging: false,
+    searching: true,
+    ordering: false,            // <- lock the order (we pre-sorted the data)
+    info: false,
+    responsive: true,
+    autoWidth: false,
+    scrollY: 300,               // overridden by your height sync
+    scrollCollapse: true,
+    layout: { topEnd: 'search' },
+    language: { search: "Search:" },
+    initComplete: function(){
+      var api = this.api();
+      setRightScrollerHeight(api);
+
+      // mark ready after sizing done
+      rightReady = true;
+      revealIfReady();
+    }
+  });
+
+
+
+  // 3) Keep in sync on resize/zoom
+  $(window).on('resize orientationchange', function(){
+    var api = rightDT ? rightDT.settings()[0].oInstance.api() : null;
+    if (api) setRightScrollerHeight(api);
+  });
+
+  // 4) Height sync: make right scroller = left *tbody* height (DT2 + legacy safe)
+  // 4) Height sync: right scrollBody = left (tbody + header row), excluding super-header
+function setRightScrollerHeight(api){
+  if (!api) return;
+
+  var $left = $('#gpcrTable');
+
+  // Content height (tbody only)
+  var bodyH = $left.find('tbody').outerHeight(true) || 0;
+
+  // Header height = the non-super header row only
+  var $thead = $left.find('thead');
+  var $super = $thead.find('tr.super-header').first();
+  var $main  = $thead.find('tr').not('.super-header').first();
+
+  var headerH = 0;
+  if ($main.length) {
+    headerH = $main.outerHeight(true) || 0;
+  } else {
+    // Fallback: total thead minus super-header
+    var theadH = $thead.outerHeight(true) || 0;
+    var superH = $super.outerHeight(true) || 0;
+    headerH = Math.max(0, theadH - superH);
+  }
+
+  // Optional tiny nudge for borders/subpixel rounding
+  var borderFix = 1;
+
+  var targetH = bodyH + headerH + borderFix;
+  if (!targetH || targetH < 200) targetH = 200;
+
+  // Apply to RIGHT table's scroll body (DT2 + legacy selectors)
+  var $container  = $(api.table().container());
+  var $scrollBody = $container.find('.dt-scroll-body, .dataTables_scrollBody');
+
+  if ($scrollBody.length) {
+    $scrollBody.css({
+      height:   targetH + 'px',
+      maxHeight:targetH + 'px'
+    });
+    api.columns.adjust().draw(false);
+  }
+}
+
+
+
+  /* ------- Modal ------- */
+  $(document).on("click", ".popup-cell", function () {
+    var title = $(this).data("title");
+    var entries = $(this).data("entries");
+    if (typeof entries === "string") { try { entries = JSON.parse(entries); } catch(e) { entries = []; } }
+    if (!entries || entries.length === 0) return;
+
+    $("#detailsModalLabel").text(title);
+
+    if ($.fn.DataTable.isDataTable("#detailsTable")) {
+      $('#detailsTable').DataTable().clear().destroy();
+    }
+    $("#detailsHeader").empty();
+
+    const cols = ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"];
+    cols.forEach(function(c){ $("#detailsHeader").append('<th>'+c+'</th>'); });
+
+    $('#detailsTable').DataTable({
+      data: entries.map(function(e){
+        return [ e["GPCRs (Gene name)"], e["Receptor family"], e["Ligand type"], e["Sense"] ];
+      }),
+      columns: cols.map(function(c){ return { title: c }; }),
+      pageLength: 10, autoWidth: false
+    });
+
+    $("#detailsModal").modal("show");
+  });
+
 });
 </script>
 {% endblock %}
