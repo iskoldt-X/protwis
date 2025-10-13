@@ -11,48 +11,138 @@
    =========================================================== */
 
 /* --- Page layout / headings --- */
-.page-wrap { padding: 8px 0 16px; }
+.page-wrap { padding: 8px 0 16px; margin-top: 20px; }
 .title-center { text-align: center; margin-bottom: 8px; }
 
 /* Toolbar above the heatmap */
-.ccs-toolbar-inline{ display:flex; align-items:center; gap:10px; margin: 4px 10px 0; }
+.ccs-toolbar-inline{ display:flex; align-items:center; gap:10px; margin: 10px 10px 20px; }
 
-/* Axis wrapper (space for rotated Y label) */
-.ccs-axis-wrap{ position: relative; width: 100%; margin: 0 auto; padding-left: 44px; }
+/* Fixed width for the data scope toggle button */
+#ccsScopeToggle{
+  min-width: 230px;
+  text-align: center;
+  white-space: nowrap;
+}
 
-/* Axis badges */
+/* Axis wrapper (scope width clamp) */
+.ccs-axis-wrap{ position: relative; width: 100%; margin: 0 auto; --ccs-maxw: 100%; display: grid; row-gap: 12px;}
+.ccs-axis-wrap.scope-human{ --ccs-maxw: 60%; }
+.ccs-axis-wrap.scope-human-classless{ --ccs-maxw: 100%; }
+
+/* Badges look */
 .ccs-axis-badge{ display:inline-block; padding:6px 10px; font-size:18px; line-height:1.1; border-radius:12px; border:1px solid #bbb; color:#000; }
 .ccs-badge-id{ background:#baeec2; }   /* Identity mid green */
 .ccs-badge-sim{ background:#bad4ee; }  /* Similarity mid blue */
 
-/* Axis labels */
-.axis-label-x{ text-align:center; margin-bottom:10px; }
-.axis-label-y{
-  position:absolute; left:0; top:58%;
-  transform:rotate(-90deg) translateX(-50%);
-  transform-origin:left top; white-space:nowrap;
+/* ====== Capture area (for export) ====== */
+.ccs-capture{ display:flex; justify-content:center; }
+.ccs-capture-inner{
+  position:relative;
+  display:inline-block;   /* shrink-wrap to contents */
+  background:#fff;
+  padding-left: 44px;     /* room for the rotated Y badge */
+}
+
+/* Badges are positioned *inside* the inner wrapper */
+.axis-label-x,
+.axis-label-y { position: absolute; z-index: 2; }
+
+/* vertical Y badge styling stays the same */
+.axis-label-y .ccs-axis-badge{
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display:inline-block;
 }
 
 /* Heatmap container */
 .ccs-scroller{
-  position:relative;            /* needed for overlay & flyout anchoring */
-  overflow-x:visible; overflow-y:auto;
+  position:relative;
+  width: fit-content;
+  max-width: var(--ccs-maxw);
+  margin: 0 auto;
+  overflow-x: auto;
+  overflow-y: auto;
   border:1px solid #eee; border-radius:8px; background:#fff; max-width:100%;
 }
 
-/* Heatmap base table */
-#ccsTable{ width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+/* ====== Fixed-size squares + table base ====== */
+:root{
+  /* preset these however you like */
+  --ccs-cell: 80px;            /* width & height of data cells and header cells */
+  --ccs-row-header-w: 80px;    /* width of the left label column */
+  --ccs-empty-bg: #fff;        /* fixed blank background (white) */
+
+  /* heatmap text presets (main table only) */
+  --ccs-num-fs: 14px;          /* numbers in data cells */
+  --ccs-num-fw: 550;           /* 400 normal, 700 bold */
+
+  /* header typography (two lines) */
+  --ccs-head1-fs: 16px;        /* main header line (e.g., “Class A”) */
+  --ccs-head2-fs: 12px;        /* second line inside <small.ccs-sub> (e.g., “(Rhodopsin)”) */
+}
+
+/* HUMAN ONLY — larger layout */
+.ccs-axis-wrap.scope-human {
+  --ccs-cell: 100px;
+  --ccs-row-header-w: 100px;
+  --ccs-num-fs: 15px;
+  --ccs-head1-fs: 18px;
+  --ccs-head2-fs: 14px;
+}
+
+/* HUMAN + CLASSLESS — compact layout */
+.ccs-axis-wrap.scope-human-classless {
+  --ccs-cell: 80px;
+  --ccs-row-header-w: 80px;
+  --ccs-num-fs: 13px;
+  --ccs-head1-fs: 15px;
+  --ccs-head2-fs: 11px;
+}
+
+#ccsTable{
+  width: auto;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Fixed squares for all table cells */
 #ccsTable th, #ccsTable td{
-  text-align:center; padding:.5rem; vertical-align:middle;
-  border:1px solid #ddd; white-space:normal; line-height:1.2;
+  width: var(--ccs-cell);
+  height: var(--ccs-cell);
+  padding: 6px;
+  text-align:center; vertical-align:middle;
+  border:1px solid #ddd;
+  line-height:1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
   overflow-wrap:anywhere; hyphens:auto; word-break:break-word;
 }
-#ccsTable th small.ccs-sub{ color:#6c757d; font-weight:500; }
+
+/* Numbers styling (data cells only) */
+#ccsTable td{
+  font-size: var(--ccs-num-fs);
+  font-weight: var(--ccs-num-fw);
+}
+
+/* Header font sizes (corner + row/col headers) */
+#ccsTable th{ font-size: var(--ccs-head1-fs); }
+
+/* Left label column width override */
+#ccsTable th:first-child{ width: var(--ccs-row-header-w); }
+
+/* Two-line label subtext */
+#ccsTable th small.ccs-sub{
+  font-size: var(--ccs-head2-fs);
+  color:#6c757d;
+  font-weight:500;
+}
 
 /* Heatmap cell backgrounds (set via JS) */
 td.cell-sim{ background:var(--ccs-bg, #f4f9ff); } /* lower = similarity */
 td.cell-id { background:var(--ccs-bg, #f4fff4); } /* upper = identity */
-td.cell-empty{ background:#fff; color:#aaa; }
+td.cell-empty{ background: var(--ccs-empty-bg); color:#888; }
 
 /* Subtle hover outline */
 #ccsTable td.cell-id:hover, #ccsTable td.cell-sim:hover{
@@ -62,13 +152,9 @@ td.cell-empty{ background:#fff; color:#aaa; }
 /* Clickable heat cells (for stasis lock) */
 #ccsTable td.cell-id, #ccsTable td.cell-sim{ cursor: pointer; }
 
-/* Scope badge */
-.ccs-scope-badge{ display:inline-block; font-size:14.5px; padding:6px 10px; line-height:1.1; border-radius:12px; vertical-align:middle; }
-
 /* Responsive tweaks */
 @media (max-width:640px){
-  .ccs-axis-wrap{ padding-left:0; }
-  .axis-label-y{ position:static; transform:none; display:block; text-align:center; margin:8px 0 12px; }
+  .ccs-capture-inner{ padding-left: 0; }
   #ccsTable{ font-size:.9rem; }
 }
 
@@ -78,17 +164,16 @@ td.cell-empty{ background:#fff; color:#aaa; }
   border:1px solid #cfcfcf; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.18);
   width:780px; max-width:calc(100% - 48px);
   display:none; overflow:hidden;
-  pointer-events:none;   /* not interactive while hovering */
+  pointer-events:none;
   user-select:none;
 }
-/* When locked, the tooltip becomes interactive */
 .ccs-fly.locked{ pointer-events:auto; }
 
 /* Flyout table base */
 #ccsFlyTable{ width:100%; border-collapse:separate; border-spacing:0; }
 #ccsFlyTable thead th, #ccsFlyTable tbody td{ text-align:center; white-space:nowrap; }
 
-/* Header: DataTables-like */
+/* Header: DataTables-like (base) */
 #ccsFlyTable thead th{
   background:#f6f6f6; font-weight:600; color:#222;
   border:0; border-bottom:1px solid #000; padding:.5rem .6rem;
@@ -104,65 +189,129 @@ td.cell-empty{ background:#fff; color:#aaa; }
 /* Zebra rows */
 #ccsFlyTable tbody tr:nth-child(odd) td{ background:#fafafa; }
 
-/* Strong divider after Id (%) */
-#ccsFlyTable thead th.divider, #ccsFlyTable tbody td.divider{ border-right:1px solid #000 !important; }
+/* ---------- Flyout header layout (metrics split over two rows) ---------- */
+#ccsFlyTable thead tr.ccs-super th.metric-cap{
+  border-bottom: none !important;
+  vertical-align: bottom;
+  padding-bottom: .2rem;
+  font-weight: 600;
+  text-align: center;
+  width: 56px;
+  min-width: 48px;
+}
+#ccsFlyTable thead tr.ccs-super th.group-cap{
+  border-bottom: 1px solid #000 !important;
+  text-align: center;
+}
+#ccsFlyTable thead tr.metric-row th.metric-unit{
+  vertical-align: top;
+  padding-top: .15rem;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+  width: 56px;
+  min-width: 48px;
+}
 
-/* Links & icons */
+/* Vertical dividers */
+#ccsFlyTable thead tr.ccs-super th:nth-child(2),
+#ccsFlyTable thead tr.metric-row th:nth-child(2),
+#ccsFlyTable tbody td:nth-child(2),
+#ccsFlyTable thead tr.ccs-super th:nth-child(3),
+#ccsFlyTable thead tr.metric-row th:nth-child(6),
+#ccsFlyTable tbody td:nth-child(6){
+  border-right: 1px solid #000 !important;
+}
+
+/* Compact icons inside flyout cells */
+#ccsFlyTable .ccs-ico img{ width:12px; height:12px; opacity:.95; vertical-align:middle; }
+
+/* Links & muted text */
 #ccsFlyTable a{ color:#0b63c0; text-decoration:none; }
 #ccsFlyTable a:hover{ text-decoration:underline; }
-#ccsFlyTable .ccs-ico img{ width:12px; height:12px; opacity:.95; vertical-align:middle; }
 #ccsFlyTable .muted{ color:#8a8f96; }
 
 /* --- Overlay (only over the scroller) --- */
-.ccs-overlay{
-  position:absolute; inset:0;
-  background:rgba(0,0,0,.35);
-  z-index:1995;                   /* below flyout (2000) */
-  display:none;
-}
+.ccs-overlay{ position:absolute; inset:0; background:rgba(0,0,0,.35); z-index:1995; display:none; }
 .ccs-overlay.active{ display:block; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-wrap">
-  <h3 class="title-center">Cross-class similarity</h3>
-
   <div class="ccs-axis-wrap">
     <!-- Toolbar -->
     <div class="ccs-toolbar-inline">
+      <button id="ccsScopeToggle" type="button" class="btn btn-primary">
+        Human only
+      </button>
+
       <div class="dropdown">
-        <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Data scope</button>
+        <button class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
+          Download
+        </button>
         <div class="dropdown-menu">
-          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="human">Human only</button>
-          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="human-classless">Human only (incl. Classless)</button>
-          <button type="button" class="btn btn-outline-primary btn-block mb-1 ccs-filter-btn" data-filter="all">All (including non-human)</button>
-          <button type="button" class="btn btn-outline-primary btn-block ccs-filter-btn" data-filter="all-classless">All (including non-human &amp; Classless)</button>
+          <!-- table-only (generic) -->
+          <button class="dropdown-item"
+                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'png', scale:3 })">
+            PNG (table only)
+          </button>
+          <button class="dropdown-item"
+                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'jpg', quality:0.95, scale:3 })">
+            JPG (table only)
+          </button>
+          <button class="dropdown-item"
+                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'pdf', scale:3 })">
+            PDF (table only)
+          </button>
+          <button class="dropdown-item"
+                  onclick="DataTablesSVG.export('#ccsTable','ccs-table')">
+            SVG (vector, table only)
+          </button>
+
+          <div class="dropdown-divider"></div>
+
+          <!-- table + badges (page-specific composer) -->
+          <button class="dropdown-item"
+                  onclick="CCSDownload.withBadges('png', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:'#ffffff' })">
+            PNG (with badges)
+          </button>
+          <button class="dropdown-item"
+                  onclick="CCSDownload.withBadges('png', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null })">
+            PNG (with badges, transparent padding)
+          </button>
+          <button class="dropdown-item"
+                  onclick="CCSDownload.withBadges('jpg', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', /* JPG ignores transparency */ quality:0.95 })">
+            JPG (with badges)
+          </button>
+          <button class="dropdown-item"
+                  onclick="CCSDownload.withBadges('pdf', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null /* transparent PNG embedded */ })">
+            PDF (with badges)
+          </button>
         </div>
       </div>
-      <span id="ccsScopeBadge" class="label label-default ccs-scope-badge" style="margin-left:6px;">Human only</span>
     </div>
 
-    <!-- Axis badges -->
-    <div class="axis-label-x"><span class="ccs-axis-badge ccs-badge-id">Identity (%)</span></div>
-    <div class="axis-label-y"><span class="ccs-axis-badge ccs-badge-sim">Similarity (%)</span></div>
+    <!-- ===== Axis labels + table ===== -->
+    <!-- Axis badges (keep these) -->
+    <div class="axis-label-x">
+      <span class="ccs-axis-badge ccs-badge-id">Identity (%)</span>
+    </div>
+    <div class="axis-label-y">
+      <span class="ccs-axis-badge ccs-badge-sim">Similarity (%)</span>
+    </div>
 
-    <!-- Heatmap + flyout + overlay -->
+    <!-- Heatmap table + flyout + overlay -->
     <div class="ccs-scroller">
-      <table id="ccsTable" class="display compact"><thead></thead><tbody></tbody></table>
+      <table id="ccsTable" class="display compact">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
 
       <!-- Flyout tooltip (single reusable instance) -->
       <div id="ccsFly" class="ccs-fly">
         <table id="ccsFlyTable" class="display compact hover nowrap stripe" style="width:100%">
-          <thead>
-            <tr>
-              <th>Sim (%)</th>
-              <th class="divider">Id (%)</th>
-              <th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>
-              <th></th>
-              <th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>
-            </tr>
-          </thead>
+          <thead></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -177,6 +326,13 @@ td.cell-empty{ background:#fff; color:#aaa; }
 {% endblock %}
 
 {% block addon_js %}
+
+<script src="{% static 'home/js/html2canvas.min.js' %}"></script>
+<script src="{% static 'home/js/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'home/js/DataTablesImage.js' %}"></script>
+<script src="{% static 'home/js/DataTablesSVG.js' %}"></script>
+<script src="{% static 'home/js/CCSDownloadCompose.js' %}"></script>
+
 <script>
   /* Django-provided data + static URL */
   var classes = {{ classes|safe }};
@@ -195,8 +351,9 @@ document.addEventListener('DOMContentLoaded', function(){
   var table       = document.getElementById('ccsTable');
   var thead       = table.querySelector('thead');
   var tbody       = table.querySelector('tbody');
-  var scopeBadge  = document.getElementById('ccsScopeBadge');
   var scroller    = document.querySelector('.ccs-scroller');
+
+  var scopeToggle = document.getElementById('ccsScopeToggle');
 
   var ccsFly  = document.getElementById('ccsFly');
   var ccsDT   = null;             // DataTables instance (when available)
@@ -205,14 +362,13 @@ document.addEventListener('DOMContentLoaded', function(){
   var flyAnchor = null;           // cell element that opened the flyout
   var isLocked  = false;          // stasis lock state
 
-  // Default flyout ordering: Id ↓, Sim ↓, left GtoPdb ↑
-  const CCS_FLY_DEFAULT_ORDER = [[1, 'desc'], [0, 'desc'], [3, 'asc']];
-  const FLY_MAX_WIDTH_PX = 780;
+  var currentRanges = null;   // { id:{min,max}, sim:{min,max} } from the main heatmap
+  var lastFlyIdFirst = null;  // remember which metric is first in the flyout (for DT redraws)
 
-  // Keep scope dropdown open when clicking inside
-  if (window.jQuery) {
-    jQuery(document).on('click', '.dropdown-menu', function (e) { e.stopPropagation(); });
-  }
+  var currentScope = 'human';
+  var showDashInBlanks = true;    // fixed: blanks show hyphen
+
+  const FLY_MAX_WIDTH_PX = 780;
 
   /* ===========================================================
      Utilities
@@ -229,23 +385,11 @@ document.addEventListener('DOMContentLoaded', function(){
     return m[1].trim() + '<br><small class="ccs-sub">(' + m[3].trim() + ')</small>';
   }
   function isClassless(name){ return /\(Classless\)\s*$/i.test(name); }
-  function isNonHuman(name){ return /\bClass D1\b/i.test(name); }
+  function flatClassLabel(raw){ return String(raw || '').replace(/^\s*Class\s+/i, ''); }
 
-  // Place Class D1 (non-human) between C and F when present
-  function desiredOrderIndices(){
-    var idxs = Array.from({length: classes.length}, (_,i)=>i);
-    var d1 = classes.findIndex(n=>/\bClass D1\b/i.test(n));
-    if (d1 === -1) return idxs;
-    var c = classes.findIndex(n=>/\bClass C\b/i.test(n));
-    var f = classes.findIndex(n=>/\bClass F\b/i.test(n));
-    idxs = idxs.filter(i=>i!==d1);
-    if (c !== -1){ var posC = idxs.indexOf(c); if (posC !== -1){ idxs.splice(posC+1,0,d1); return idxs; } }
-    if (f !== -1){ var posF = idxs.indexOf(f); if (posF !== -1){ idxs.splice(posF,0,d1); return idxs; } }
-    idxs.push(d1); return idxs;
-  }
-  var baseOrder = desiredOrderIndices();
+  var baseOrder = Array.from({length: classes.length}, (_, i) => i);
 
-  // Ranges for heat coloring (upper=Id, lower=Sim)
+  // Value ranges for heat coloring (upper=Id, lower=Sim)
   function computeHeatRanges(indices){
     var idMin=Infinity,idMax=-Infinity, simMin=Infinity,simMax=-Infinity;
     function readVal(i,j,isUpper){
@@ -266,7 +410,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (simMin===Infinity){ simMin=null; simMax=null; }
     return { id:{min:idMin,max:idMax}, sim:{min:simMin,max:simMax} };
   }
-  // Map value → HSL background (greens for Id, blues for Sim)
   function shade(val, range, kind){
     if (val==null || !range || range.min==null || range.max==null) return null;
     var t = (range.max===range.min)?0.6:(val-range.min)/(range.max-range.min);
@@ -284,21 +427,9 @@ document.addEventListener('DOMContentLoaded', function(){
   function valOrDash(s){ return s?esc(s):'<span class="muted">—</span>'; }
   function iconLinkOrDash(url){ return url?('<a class="ccs-ico" href="'+esc(url)+'" target="_blank" rel="noopener" title="Open in GPCRdb"><img src="'+esc(GPCRDB_ICON_URL)+'" alt="GPCRdb"></a>'):'<span class="muted">—</span>'; }
 
-  // Close any open dropdowns (works with/without Bootstrap)
-  function closeAllDropdowns(){
-    if (window.jQuery && jQuery.fn && jQuery.fn.dropdown){
-      try { jQuery('.dropdown.show .dropdown-toggle, .dropdown.open .dropdown-toggle').dropdown('toggle'); } catch(e){}
-    }
-    document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
-    document.querySelectorAll('.dropdown.show, .dropdown.open').forEach(d => d.classList.remove('show','open'));
-    document.querySelectorAll('.dropdown-toggle[aria-expanded="true"]').forEach(t => t.setAttribute('aria-expanded','false'));
-  }
-
   /* ===========================================================
      Flyout: DataTables init + overlay lock
      =========================================================== */
-
-  // Initialize DataTables for flyout if available (idempotent)
   function initFlyDTIfPossible(){
     if (!window.jQuery || !jQuery.fn || !jQuery.fn.dataTable) return false;
     if (jQuery.fn.dataTable.isDataTable('#ccsFlyTable')) {
@@ -308,10 +439,10 @@ document.addEventListener('DOMContentLoaded', function(){
     ccsDT = jQuery('#ccsFlyTable').DataTable({
       dom:'t', paging:false, ordering:true, searching:false, info:false,
       autoWidth:false, deferRender:true, orderClasses:false,
-      order: CCS_FLY_DEFAULT_ORDER,
+      order: [[0,'desc'], [1,'desc'], [3,'asc']],
       columnDefs: [
         {
-          targets:[0,1], // Sim, Id — numeric sort
+          targets:[0,1], // metrics numeric
           render:function(data, type){
             if (type === 'sort' || type === 'type') {
               var n = (data === '' || data == null) ? NaN : parseFloat(data);
@@ -320,9 +451,12 @@ document.addEventListener('DOMContentLoaded', function(){
             return data;
           }
         },
-        { targets:1, className:'divider' },                 // black vertical rule after Id
-        { targets:6, orderable:false, searchable:false }    // 'vs' spacer
+        { targets: 1, className: 'divider' }, // after metric #2
+        { targets: 5, className: 'divider' }  // after left group
       ]
+    });
+    jQuery('#ccsFlyTable').on('draw.dt', function(){
+      if (lastFlyIdFirst != null) colorFlyMetrics(lastFlyIdFirst);
     });
     return true;
   }
@@ -383,7 +517,7 @@ document.addEventListener('DOMContentLoaded', function(){
     isLocked = true;
     ccsFly.classList.add('locked');
     showOverlay();
-    flyAnchor = null; // prevent auto-hide on mouseleave
+    flyAnchor = null;
     document.addEventListener('keydown', onEscClose);
   }
   function unlockFlyout(){
@@ -391,14 +525,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ccsFly) ccsFly.classList.remove('locked');
     hideOverlay();
     document.removeEventListener('keydown', onEscClose);
-    hideFlyout(true); // force hide even if locked
+    hideFlyout(true);
   }
   if (overlay && !overlay._wired){
     overlay.addEventListener('click', unlockFlyout);
     overlay._wired = true;
   }
 
-  // Hide flyout (guarded while locked)
   function hideFlyout(force){
     if (!ccsFly) return;
     if (isLocked && !force) return;
@@ -407,32 +540,23 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function hideFlyoutIfAnchor(el){ if (flyAnchor === el) hideFlyout(); }
 
-  // Fallback sorting when DataTables isn’t present
-  function sortItemsForFlyout(items){
-    return items.slice().sort(function(a, b){
-      var ida = Number(a && a.identity), idb = Number(b && b.identity);
-      if (idb !== ida) return (isNaN(idb)?-Infinity:idb) - (isNaN(ida)?-Infinity:ida);
-      var sma = Number(a && a.similarity), smb = Number(b && b.similarity);
-      if (smb !== sma) return (isNaN(smb)?-Infinity:smb) - (isNaN(sma)?-Infinity:sma);
-      var la = (a && a.ref && a.ref.display_name) ? a.ref.display_name : '';
-      var lb = (b && b.ref && b.ref.display_name) ? b.ref.display_name : '';
-      return la.localeCompare(lb, undefined, { numeric:true, sensitivity:'base' });
-    });
-  }
-
   // Convert API items → row arrays for DataTables
-  function rowsFromItems(items){
+  function rowsFromItems(items, opts){
+    var idFirst = !!(opts && opts.idFirst);
     return items.map(function(it){
       var L = it.ref || {}, R = it.target || {};
       var sim = (typeof it.similarity === 'number') ? it.similarity : '';
       var idn = (typeof it.identity   === 'number') ? it.identity   : '';
+
+      var m0 = idFirst ? idn : sim;
+      var m1 = idFirst ? sim : idn;
+
       return [
-        sim, idn,
+        m0, m1,
         iconLinkOrDash(L.gpcrdb_link),
         linkGtoPdbHtml(L.gtopdb_link, L.display_name || 'Open'),
         linkOrDash(L.uniprot_link, L.uniprot || 'Open'),
         valOrDash(L.gene),
-        'vs',
         iconLinkOrDash(R.gpcrdb_link),
         linkGtoPdbHtml(R.gtopdb_link, R.display_name || 'Open'),
         linkOrDash(R.uniprot_link, R.uniprot || 'Open'),
@@ -441,25 +565,79 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
+  function setFlyHeaders(leftLabel, rightLabel, idFirst){
+    var thead = document.querySelector('#ccsFlyTable thead');
+    if (!thead) return;
+
+    var L = esc(flatClassLabel(leftLabel));
+    var R = esc(flatClassLabel(rightLabel));
+
+    var m0Title = idFirst ? 'ID'  : 'SIM';
+    var m1Title = idFirst ? 'SIM' : 'ID';
+
+    var superRow =
+      '<tr class="ccs-super">' +
+        '<th class="metric-cap">' + m0Title + '</th>' +
+        '<th class="metric-cap">' + m1Title + '</th>' +
+        '<th class="group-cap" colspan="4">' + L + '</th>' +
+        '<th class="group-cap" colspan="4">' + R + '</th>' +
+      '</tr>';
+
+    var baseRow =
+      '<tr class="metric-row">' +
+        '<th class="metric-unit">(%)</th>' +
+        '<th class="metric-unit">(%)</th>' +
+        '<th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>' +
+        '<th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>' +
+      '</tr>';
+
+    thead.innerHTML = superRow + baseRow;
+  }
+
   // Open + populate flyout for a given cell
-  function openFlyoutForCell(cellEl, items, rowsCount){
+  function openFlyoutForCell(cellEl, items, rowsCount, opts){
     if (!ccsFly) return;
 
-    // Initialize DataTables if/when available
+    var idFirst    = !!(opts && opts.idFirst);
+    var leftTitle  = (opts && opts.leftLabel)  || '';
+    var rightTitle = (opts && opts.rightLabel) || '';
+
+    setFlyHeaders(leftTitle, rightTitle, idFirst);
+
     if (!ccsDT) initFlyDTIfPossible();
 
+    var defaultOrder = [[0,'desc'], [1,'desc'], [3,'asc']];
+
     if (ccsDT){
-      ccsDT.clear().rows.add(rowsFromItems(items));
-      ccsDT.order(CCS_FLY_DEFAULT_ORDER).draw();
+      ccsDT.clear().rows.add(rowsFromItems(items, { idFirst:idFirst }));
+      ccsDT.order(defaultOrder).draw(false);
+
+      lastFlyIdFirst = idFirst;
+      colorFlyMetrics(idFirst);
     } else {
-      // Fallback: manual sort and inject HTML
-      var sorted = sortItemsForFlyout(items);
+      var sorted = items.slice().sort(function(a,b){
+        var a0 = idFirst ? Number(a.identity)   : Number(a.similarity);
+        var b0 = idFirst ? Number(b.identity)   : Number(b.similarity);
+        if ((b0||-Infinity) !== (a0||-Infinity)) return (b0||-Infinity) - (a0||-Infinity);
+        var a1 = idFirst ? Number(a.similarity) : Number(a.identity);
+        var b1 = idFirst ? Number(b.similarity) : Number(b.identity);
+        if ((b1||-Infinity) !== (a1||-Infinity)) return (b1||-Infinity) - (a1||-Infinity);
+        var la = (a && a.ref && a.ref.display_name) ? a.ref.display_name : '';
+        var lb = (b && b.ref && b.ref.display_name) ? b.ref.display_name : '';
+        return la.localeCompare(lb, undefined, { numeric:true, sensitivity:'base' });
+      });
+
       var tb = document.querySelector('#ccsFlyTable tbody');
-      tb.innerHTML = rowsFromItems(sorted).map(function(cols){
-        return '<tr>' + cols.map(function(c,i){
-          return '<td'+(i===1?' class="divider"':'')+'>' + c + '</td>';
+      tb.innerHTML = sorted.map(function(it){
+        var row = rowsFromItems([it], { idFirst:idFirst })[0];
+        return '<tr>' + row.map(function(c,i){
+          var cls = (i===1 || i===5) ? ' class="divider"' : '';
+          return '<td'+cls+'>' + c + '</td>';
         }).join('') + '</tr>';
       }).join('');
+
+      lastFlyIdFirst = idFirst;
+      colorFlyMetrics(idFirst);
     }
 
     flyAnchor = cellEl;
@@ -467,9 +645,95 @@ document.addEventListener('DOMContentLoaded', function(){
     positionFlyout(cellEl, rowsCount);
   }
 
-  // Hide on scroll/resize (ignored when locked)
+  function colorFlyMetrics(idFirst){
+    if (!currentRanges) return;
+    var tb = document.querySelector('#ccsFlyTable tbody');
+    if (!tb) return;
+
+    var kind0 = idFirst ? 'id'  : 'sim';
+    var kind1 = idFirst ? 'sim' : 'id';
+
+    Array.prototype.forEach.call(tb.rows, function(tr){
+      var c0 = tr.cells[0], c1 = tr.cells[1];
+      if (!c0 || !c1) return;
+
+      var v0 = parseFloat((c0.textContent || '').replace(/[^\d.+-]/g,''));
+      var v1 = parseFloat((c1.textContent || '').replace(/[^\d.+-]/g,''));
+
+      var bg0 = isNaN(v0) ? null : shade(v0, currentRanges[kind0], kind0);
+      var bg1 = isNaN(v1) ? null : shade(v1, currentRanges[kind1], kind1);
+
+      c0.style.background = bg0 || '';
+      c1.style.background = bg1 || '';
+    });
+  }
+
+  /* ===========================================================
+     Scope helpers (toggle)
+     =========================================================== */
+  function applyScopeWidth(scope){
+    axisWrap.classList.remove('scope-human', 'scope-human-classless');
+    if (scope === 'human') axisWrap.classList.add('scope-human');
+    else if (scope === 'human-classless') axisWrap.classList.add('scope-human-classless');
+  }
+
+  function indicesForScope(scope){
+    var allowed=[];
+    baseOrder.forEach(function(i){
+      var name=classes[i], clsless=isClassless(name);
+      if (scope==='human'){ if (!clsless) allowed.push(i); }
+      else if (scope==='human-classless'){ allowed.push(i); }
+    });
+    return allowed;
+  }
+
+  // New badge positioning (inside capture box)
+  function positionBadges(){
+    var container = document.querySelector('.ccs-axis-wrap');
+    var scroller  = document.querySelector('.ccs-scroller');
+    var xWrap = document.querySelector('.axis-label-x');
+    var yWrap = document.querySelector('.axis-label-y');
+    if (!container || !scroller || !xWrap || !yWrap) return;
+
+    var xBadge = xWrap.querySelector('.ccs-axis-badge');
+    var yBadge = yWrap.querySelector('.ccs-axis-badge');
+    if (!xBadge || !yBadge) return;
+
+    // rects relative to viewport
+    var cRect = container.getBoundingClientRect();
+    var sRect = scroller.getBoundingClientRect();
+
+    // convert scroller rect to container-local coordinates
+    var sLeft = sRect.left - cRect.left;
+    var sTop  = sRect.top  - cRect.top;
+
+    // X badge: centered above the scroller
+    var gapX = 8;
+    xWrap.style.left = sLeft + 'px';
+    xWrap.style.top  = (sTop - xBadge.offsetHeight - gapX) + 'px';
+    xWrap.style.width = scroller.offsetWidth + 'px';
+    xWrap.style.textAlign = 'center';
+
+    // Y badge: vertically centered to the left of the scroller
+    var gapY = 10;
+    var yH = yBadge.offsetHeight;
+    yWrap.style.top  = (sTop + (scroller.offsetHeight - yH)/2) + 'px';
+    yWrap.style.left = (sLeft - yBadge.offsetWidth - gapY) + 'px';
+  }
+
+  // Toggle button behavior
+  scopeToggle.addEventListener('click', function(){
+    currentScope = (currentScope === 'human') ? 'human-classless' : 'human';
+    scopeToggle.textContent = (currentScope === 'human') ? 'Human only' : 'Human only (incl. Classless)';
+    renderTable(indicesForScope(currentScope));
+    applyScopeWidth(currentScope);
+    positionBadges();  // badges may shift with width clamp
+  });
+
+  // Hide flyout on scroll/resize (ignored when locked)
   (scroller || window).addEventListener('scroll', hideFlyout, { passive:true });
   window.addEventListener('resize', hideFlyout, { passive:true });
+  window.addEventListener('resize', positionBadges, { passive:true });
 
   /* ===========================================================
      Heatmap render
@@ -488,32 +752,49 @@ document.addEventListener('DOMContentLoaded', function(){
     axisWrap.style.display=''; empty.style.display='none';
 
     var ranges = computeHeatRanges(indices);
+    currentRanges = ranges;
 
-    // Equal widths via colgroup (corner + N)
+    // Fixed widths via colgroup (corner + N)
     var totalCols = 1 + indices.length;
     var cg = document.createElement('colgroup');
-    for (var i=0;i<totalCols;i++){
-      var col=document.createElement('col'); col.style.width=(100/totalCols)+'%'; cg.appendChild(col);
+
+    var col0 = document.createElement('col');
+    col0.style.width = 'var(--ccs-row-header-w)';
+    cg.appendChild(col0);
+
+    for (var i = 1; i < totalCols; i++){
+      var col = document.createElement('col');
+      col.style.width = 'var(--ccs-cell)';
+      cg.appendChild(col);
     }
     table.insertBefore(cg, table.firstChild);
 
     // THEAD
-    var trHead=document.createElement('tr');
-    var thCorner=document.createElement('th'); thCorner.textContent='Classes'; trHead.appendChild(thCorner);
-    indices.forEach(function(j){ var th=document.createElement('th'); th.innerHTML=twoLineLabel(classes[j]); trHead.appendChild(th); });
+    var trHead = document.createElement('tr');
+    var thCorner = document.createElement('th');
+    thCorner.textContent = 'Classes';
+    trHead.appendChild(thCorner);
+    indices.forEach(function(j){
+      var th = document.createElement('th');
+      th.innerHTML = twoLineLabel(classes[j]);
+      trHead.appendChild(th);
+    });
     thead.appendChild(trHead);
 
     // TBODY
     indices.forEach(function(origI, rIdx){
-      var tr=document.createElement('tr');
+      var tr = document.createElement('tr');
 
-      var thRow=document.createElement('th'); thRow.innerHTML=twoLineLabel(classes[origI]); tr.appendChild(thRow);
+      var thRow = document.createElement('th');
+      thRow.innerHTML = twoLineLabel(classes[origI]);
+      tr.appendChild(thRow);
 
       indices.forEach(function(origJ, cIdx){
-        var td=document.createElement('td');
+        var td = document.createElement('td');
 
-        if (rIdx===cIdx){
-          td.className='cell-empty'; td.textContent='';
+        if (rIdx === cIdx){
+          td.className = 'cell-empty';
+          td.textContent = showDashInBlanks ? '—' : '';
         } else {
           var isUpper = rIdx < cIdx;  // upper=identity, lower=similarity
           var lookI   = isUpper ? Math.min(origI, origJ) : Math.max(origI, origJ);
@@ -522,24 +803,35 @@ document.addEventListener('DOMContentLoaded', function(){
           var cell = (matrix[lookI] && matrix[lookI][lookJ]) || {};
           var val  = cell.value;
 
-          if (val==null){
-            td.className='cell-empty'; td.textContent='—';
+          if (val == null){
+            td.className = 'cell-empty';
+            td.textContent = showDashInBlanks ? '—' : '';
           } else {
             td.textContent = val;
             td.className   = isUpper ? 'cell-id' : 'cell-sim';
             var color = shade(val, isUpper ? ranges.id : ranges.sim, isUpper ? 'id' : 'sim');
             if (color) td.style.setProperty('--ccs-bg', color);
 
-            // Hover preview; click to lock + make interactive
             if (Array.isArray(cell.items) && cell.items.length){
-              td.addEventListener('mouseenter', function(){ openFlyoutForCell(td, cell.items, indices.length); });
-              td.addEventListener('mouseleave', function(){ hideFlyoutIfAnchor(td); });
-              td.addEventListener('click', function(e){
-                closeAllDropdowns();                         // tidy UI
-                openFlyoutForCell(td, cell.items, indices.length);
-                lockFlyout();
-                e.stopPropagation();
-              });
+              (function(tdRef, itemsRef, isUpperRef, labI, labJ){
+                var leftHeader  = isUpperRef ? labI : labJ;
+                var rightHeader = isUpperRef ? labJ : labI;
+
+                var opts = {
+                  idFirst:    !!isUpperRef,   // upper triangle -> Identity first; lower -> Sim first
+                  leftLabel:  flatClassLabel(leftHeader),
+                  rightLabel: flatClassLabel(rightHeader)
+                };
+                tdRef.addEventListener('mouseenter', function(){
+                  openFlyoutForCell(tdRef, itemsRef, indices.length, opts);
+                });
+                tdRef.addEventListener('mouseleave', function(){ hideFlyoutIfAnchor(tdRef); });
+                tdRef.addEventListener('click', function(e){
+                  openFlyoutForCell(tdRef, itemsRef, indices.length, opts);
+                  lockFlyout();
+                  e.stopPropagation();
+                });
+              })(td, cell.items, isUpper, classes[origI], classes[origJ]);
             }
           }
         }
@@ -549,43 +841,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
       tbody.appendChild(tr);
     });
-  }
 
-  /* ===========================================================
-     Scope filter
-     =========================================================== */
-  function indicesForScope(scope){
-    var allowed=[];
-    baseOrder.forEach(function(i){
-      var name=classes[i], clsless=isClassless(name), nonhuman=isNonHuman(name);
-      if (scope==='human'){ if (!nonhuman && !clsless) allowed.push(i); }
-      else if (scope==='human-classless'){ if (!nonhuman) allowed.push(i); }
-      else if (scope==='all'){ if (!clsless) allowed.push(i); }
-      else if (scope==='all-classless'){ allowed.push(i); }
-    });
-    return allowed;
+    // (Re)position badges once the table has dimensions
+    positionBadges();
   }
-
-  // Wire scope dropdown
-  var filterButtons=document.querySelectorAll('.ccs-filter-btn');
-  filterButtons.forEach(function(btn){
-    btn.addEventListener('click', function(){
-      filterButtons.forEach(function(b){ b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
-      this.classList.remove('btn-outline-primary'); this.classList.add('btn-primary');
-      var scope=this.getAttribute('data-filter'); renderTable(indicesForScope(scope));
-      var label=this.textContent.trim(); if (scopeBadge) scopeBadge.textContent=label;
-      hideFlyout();
-    });
-  });
 
   /* ===========================================================
      Initial render
      =========================================================== */
-  var initialScope='human';
-  var initialBtn=document.querySelector('.ccs-filter-btn[data-filter="'+initialScope+'"]');
-  if (initialBtn){ initialBtn.classList.remove('btn-outline-primary'); initialBtn.classList.add('btn-primary'); }
-  renderTable(indicesForScope(initialScope));
-
+  renderTable(indicesForScope(currentScope));
+  applyScopeWidth(currentScope);
+  positionBadges();
 });
 </script>
 {% endblock %}

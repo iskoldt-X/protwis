@@ -98,11 +98,9 @@ td.expand_1line:hover .expanded{ display:inline; }
 
 {% block content %}
 <div class="page-wrap">
-  <h3 class="title-center">Orphan receptor similarity</h3>
 
   <div class="controls-wrap">
     <div class="controls">
-      <label for="orphanSelect"><strong>Choose orphan:</strong></label>
         <div style="display:flex; gap:8px; align-items:center;">
           <select id="orphanSelect" style="flex:1 1 auto;"></select>
           <button id="toggleOrphans" type="button" class="btn btn-success btn-toggle">Include orphans</button>
@@ -120,15 +118,15 @@ td.expand_1line:hover .expanded{ display:inline; }
       </tr>
       <!-- Super header row -->
       <tr style="font-size: 14px; white-space: nowrap;">
-        <th colspan="2" style="text-align:center;" data-dt-order="disable">SEQUENCE</th>
+        <th colspan="2" style="text-align:center;" data-dt-order="disable"></th>
         <th colspan="4" class="border-left" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
         <th colspan="3" class="border-left" style="text-align:center;" data-dt-order="disable">CLASSIFICATION</th>
         <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">PHYSIOLOGICAL&nbsp;LIGAND</th>
       </tr>
       <!-- Column header row -->
       <tr>
-        <th style="text-align:center;">Similarity (%)</th>
-        <th style="text-align:center;">Identity (%)</th>
+        <th style="text-align:center;">Sim (%)</th>
+        <th style="text-align:center;">Id (%)</th>
 
         <th class="border-left" style="text-align:center;" data-dt-order="disable">GPCRdb</th>
         <th style="text-align:center;">GtoPdb</th>
@@ -498,15 +496,15 @@ td.expand_1line:hover .expanded{ display:inline; }
 
     // Columns 
     const columns = [
-      { data: 'similarity', width: "10%" },   // heatmap target
-      { data: 'identity',   width: "9%"  },   // heatmap target
-      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"6%", render:function(d,t){ if(t!=='display') return d||''; return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : ''; } },
-      { data: 'iuphar_name', width: "9%", render: function (d, t, r) { if (t !== 'display') return d; const txt = (d || '—').replace(/receptor/gi, '').trim(); return (r && r.iuphar_link) ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>` : txt; } },
-      { data: 'entry_name', width: "9%", render: function (d, t, r) { if (!d) return (t === 'display' ? '—' : ''); const geneCode = d.split('_')[0].toUpperCase(); if (t !== 'display') return d; return r && r.uniprot_link ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>` : geneCode; } },
-      { data: 'Gene', width: "7%", defaultContent: '-' },
-      { data: 'family', width: "10%", render: function (d, t) { if (d == null) return '—'; return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').replace(/Other GPCR orphans/gi, 'Classless Orphans').trim() : d; } },
-      { data: 'ligand_type', width: "8%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
-      { data: 'class', width: "3%", render: function (d, t) { if (d == null) return '—'; if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim(); return d; } },
+      { data: 'similarity', width: "5%" },   // heatmap target
+      { data: 'identity',   width: "5%"  },   // heatmap target
+      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"5%", render:function(d,t){ if(t!=='display') return d||''; return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : ''; } },
+      { data: 'iuphar_name', width: "10%", render: function (d, t, r) { if (t !== 'display') return d; const txt = (d || '—').replace(/receptor/gi, '').trim(); return (r && r.iuphar_link) ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>` : txt; } },
+      { data: 'entry_name', width: "10%", render: function (d, t, r) { if (!d) return (t === 'display' ? '—' : ''); const geneCode = d.split('_')[0].toUpperCase(); if (t !== 'display') return d; return r && r.uniprot_link ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>` : geneCode; } },
+      { data: 'Gene', width: "10%", defaultContent: '-' },
+      { data: 'family', width: "15%", render: function (d, t) { if (d == null) return '—'; return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').replace(/Other GPCR orphans/gi, 'Classless Orphans').trim() : d; } },
+      { data: 'ligand_type', width: "10%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
+      { data: 'class', width: "5%", render: function (d, t) { if (d == null) return '—'; if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim(); return d; } },
       { data: 'endo_ligands', width: "15%", render: function (d, t) { return expandFirstThenHoverLinkList(d, t, id => `https://gpcrdb.org/ligand/${id}/info`, { showCountHint: true }); } },
       { data: 'endo_type', width: "10%", render: function (d, t) { return expand1LineRender(d, t); } }
     ];

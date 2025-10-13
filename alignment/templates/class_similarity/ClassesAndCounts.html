@@ -59,7 +59,7 @@
             <!-- Super header row -->
             <tr class="super-header">
               <th colspan="3">CLASSES</th>
-              <th colspan="4">GPCRs</th>
+              <th colspan="4">RECEPTORS</th>
             </tr>
             <!-- Actual column headers -->
             <tr>
@@ -102,9 +102,8 @@
           <table id="receptorFamiliesTable" class="table table-bordered table-striped table-hover" style="width:100%">
             <thead>
               <tr>
-                <th>Symbol</th>
-                <th>Class</th>
                 <th>Receptor family</th>
+                <th>Class</th>
                 <th>GPCRs</th>
               </tr>
             </thead>
@@ -290,9 +289,8 @@ function buildReceptorFamilyRows(humanRows){
   var rightDT = $('#receptorFamiliesTable').DataTable({
     data: receptorFamilyRows,
     columns: [
-      { data: "symbol",          title: "Symbol" },
-      { data: "class_name",      title: "Class"  },
       { data: "receptor_family", title: "Receptor family" },
+      { data: "symbol",          title: "Class" },
       {
         data: "members_count",
         title: "GPCRs",

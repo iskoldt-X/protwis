@@ -1444,8 +1444,8 @@ class CrossClassSimilarity(TemplateView):
         "Class B2 (Adhesion)",
         "Class C (Glutamate)",
         "Class F (Frizzled)",
-        "Class O1 (fish-like odorant)",
-        "Class O2 (tetrapod specific odorant)",
+        "Class O1 (fish-like)",
+        "Class O2 (tetrapod specific)",
         "Class T2 (Taste 2)",
     ]
 
@@ -1456,19 +1456,10 @@ class CrossClassSimilarity(TemplateView):
         "Class B2 (Adhesion)": "003",
         "Class C (Glutamate)": "004",
         "Class F (Frizzled)":  "006",
-        "Class O1 (fish-like odorant)": "007",
-        "Class O2 (tetrapod specific odorant)": "008",
+        "Class O1 (fish-like)": "007",
+        "Class O2 (tetrapod specific)": "008",
         "Class T2 (Taste 2)": "009",
     }
-
-    # Treat D1 as a single-protein group
-    EXTRA_GROUPS = [
-        {
-            "display": "Class D1 (Ste2-like fungal pheromone)",
-            "kind": "protein",
-            "entry_name": "ste2_yeast",
-        }
-    ]
 
     # Five single-protein “Classless” items as separate groups (display order)
     SINGLE_PROTEIN_LABELS = ["GPR107", "GPR137", "TPRA1", "GPR143", "GPR157"]
@@ -1510,8 +1501,8 @@ class CrossClassSimilarity(TemplateView):
         """Return per-protein metadata for the tooltip."""
         wl = p.gtop_links_self[0] if getattr(p, "gtop_links_self", None) else None
         return {
-            "display_name": self.clean_name(p.name),                 # single cleaned display name
-            "gtopdb_link": self.build_gtop_url(wl) or "",            # IUPHAR/GtoPdb
+            "display_name": self.clean_name(p.name),
+            "gtopdb_link": self.build_gtop_url(wl) or "",
             "uniprot": p.entry_name or "",
             "gene": self.primary_gene_of(p),
             "gpcrdb_link": f"/protein/{p.entry_name}" if p.entry_name else "",
@@ -1570,11 +1561,10 @@ class CrossClassSimilarity(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # 1) Build display list
+        # 1) Build display list (no extra/non-human groups)
         base_names   = list(self.CLASS_ORDER)
-        extra_names  = [g["display"] for g in self.EXTRA_GROUPS]
         single_names = [f"{lab} (Classless)" for lab in self.SINGLE_PROTEIN_LABELS]
-        display_names = base_names + extra_names + single_names
+        display_names = base_names + single_names
 
         # 2) Resolve base class families for fast class↔class aggregation
         code_to_famid = self._resolve_family_ids(list(self.CLASS_CODE_BY_NAME.values()))
@@ -1585,21 +1575,7 @@ class CrossClassSimilarity(TemplateView):
         }
         allowed_class_ids = list(name_to_famid.values())
 
-        # 3) Resolve the extra protein groups
-        extra_needed_entry_names = [
-            g["entry_name"].lower()
-            for g in self.EXTRA_GROUPS
-            if g.get("kind") == "protein" and g.get("entry_name")
-        ]
-        extra_by_en = self._fetch_by_entry_names(extra_needed_entry_names)
-        extra_proteins_by_display = {}
-        for g in self.EXTRA_GROUPS:
-            if g.get("kind") == "protein" and g.get("entry_name"):
-                prot = extra_by_en.get(g["entry_name"].lower())
-                if prot:
-                    extra_proteins_by_display[g["display"]] = prot
-
-        # 4) Resolve the 5 classless singles
+        # 3) Resolve the 5 classless singles
         resolved_singles = self._resolve_single_proteins()
         classless_name_to_protein = {}
         for lab in self.SINGLE_PROTEIN_LABELS:
@@ -1608,13 +1584,11 @@ class CrossClassSimilarity(TemplateView):
             if p:
                 classless_name_to_protein[key] = p
 
-        # 5) Final groups (skip unresolved safely)
+        # 4) Final groups (skip unresolved safely)
         groups = []
         for name in display_names:
             if name in name_to_famid:
                 groups.append({"display": name, "kind": "class", "id": name_to_famid[name]})
-            elif name in extra_proteins_by_display:
-                groups.append({"display": name, "kind": "protein", "id": extra_proteins_by_display[name].id})
             elif name in classless_name_to_protein:
                 groups.append({"display": name, "kind": "protein", "id": classless_name_to_protein[name].id})
         n = len(groups)
@@ -1692,7 +1666,7 @@ class CrossClassSimilarity(TemplateView):
                 for row in qs_pp
             }
 
-        # 6) Build value-only matrix first
+        # 5) Build value-only matrix
         matrix = [[None for _ in range(n)] for _ in range(n)]
 
         def best_for(a, b, metric):
@@ -1733,7 +1707,7 @@ class CrossClassSimilarity(TemplateView):
                     else:
                         tie_specs.append(('pp', (min(a['id'], b['id']), max(a['id'], b['id'])), metric, int(best)))
 
-        # 7) Batch-fetch tie rows (kept separate per metric to avoid mixing)
+        # 6) Batch-fetch tie rows (kept separate per metric to avoid mixing)
         def bucket_specs(specs):
             buckets = defaultdict(list)
             for kind, ids, metric, best in specs:
@@ -1888,7 +1862,7 @@ class CrossClassSimilarity(TemplateView):
             fetch_cp(m)
             fetch_pp(m)
 
-        # 8) Fill items for tooltips (include identity & similarity per row)
+        # 7) Fill items for tooltips (include identity & similarity per row)
         def pack_rows(rows):
             return [{
                 "ref":     self.pack_hover(r.protein_ref),
@@ -1920,7 +1894,7 @@ class CrossClassSimilarity(TemplateView):
 
                 matrix[i][j]["items"] = pack_rows(rows)
 
-        # 9) Context
+        # 8) Context
         context["classes"] = [g["display"] for g in groups]
         context["matrix_json"] = json.dumps(matrix)
         return context
