@@ -4,13 +4,10 @@
  * Export or render a single DOM element (e.g., a <table>) with a tight crop.
  *
  * Usage:
- *   // Download directly
- *   DataTablesImage.export('#ccsTable','ccs-table',{ format:'png', scale:3 })
+ *   DataTablesImage.export('#ccsTable','ccs-table',{ format:'png', scale:3, filename:'MyFile.png' })
+ *   const canvas = await DataTablesImage.render('#ccsTable', { scale:3 });
  *
- *   // Get a canvas without downloading (for custom composition)
- *   const canvas = await DataTablesImage.render('#ccsTable', { scale:3, background:'#fff' });
- *
- * Depends on: html2canvas, jsPDF (UMD for PDF only)
+ * Depends on: html2canvas
  */
 
 (function (global) {
@@ -28,14 +25,27 @@
     a.remove();
   }
 
-  function makeFilename(base, ext) {
+  function basenameFromSelector(selector, fallback) {
+    if (typeof selector === 'string') {
+      const m = selector.match(/#([\w-]+)/);
+      if (m && m[1]) return m[1];
+    }
+    return fallback || 'table';
+  }
+
+  function stamped(base, ext) {
     const d = new Date(), pad = n => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_` +
                   `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-    return `${base || 'table'}-${stamp}.${ext}`;
+    return `${base}-${stamp}.${ext}`;
   }
 
-  // Temporarily relax the immediate parent's overflow so html2canvas can paint full content
+  function resolveFilename(selector, baseName, ext, explicit) {
+    if (explicit) return explicit; // honor explicit filename
+    const base = (baseName && String(baseName).trim()) || basenameFromSelector(selector, 'table');
+    return stamped(base, ext);
+  }
+
   function loosenOverflow(el) {
     const parent = el && el.parentElement;
     if (!parent) return () => {};
@@ -60,24 +70,16 @@
     };
   }
 
-  /**
-   * Render only (no download). Returns a canvas tightly cropped to the element.
-   * @param {string|HTMLElement} selector
-   * @param {{scale?:number, background?:string}} opts
-   * @returns {Promise<HTMLCanvasElement>}
-   */
   async function renderElement(selector, opts) {
     const options = Object.assign(
       { scale: Math.max(2, (window.devicePixelRatio || 1) * 2), background: '#ffffff' },
       opts || {}
     );
-
     const el = (typeof selector === 'string') ? document.querySelector(selector) : selector;
     if (!el) throw new Error('DataTablesImage.render: selector not found: ' + selector);
 
     const restore = loosenOverflow(el);
-    await new Promise(r => requestAnimationFrame(r)); // let layout settle
-
+    await new Promise(r => requestAnimationFrame(r));
     const canvas = await html2canvas(el, {
       backgroundColor: options.background,
       useCORS: true,
@@ -85,47 +87,28 @@
       scrollX: 0,
       scrollY: 0
     });
-
     restore();
     return canvas;
   }
 
-  /**
-   * Render and download as PNG/JPG/PDF.
-   * @param {string|HTMLElement} selector
-   * @param {string} baseName
-   * @param {{format?:'png'|'jpg'|'jpeg'|'pdf', quality?:number, scale?:number}} opts
-   */
   async function exportElement(selector, baseName, opts) {
     const options = Object.assign(
-      { format: 'png', quality: 0.92, scale: Math.max(2, (window.devicePixelRatio || 1) * 2) },
+      { format: 'png', quality: 0.92, scale: Math.max(2, (window.devicePixelRatio || 1) * 2), background:'#ffffff', filename:null },
       opts || {}
     );
     const fmt = String(options.format || 'png').toLowerCase();
-
-    const canvas = await renderElement(selector, { scale: options.scale, background: '#ffffff' });
-    const filename = makeFilename(baseName, fmt);
+    const canvas = await renderElement(selector, { scale: options.scale, background: options.background });
+    const filename = resolveFilename(selector, baseName, fmt, options.filename);
 
     if (fmt === 'png') {
       triggerDownload(canvas.toDataURL('image/png'), filename);
     } else if (fmt === 'jpg' || fmt === 'jpeg') {
       triggerDownload(canvas.toDataURL('image/jpeg', options.quality), filename);
-    } else if (fmt === 'pdf') {
-      if (typeof window.jspdf === 'undefined') {
-        console.error('DataTablesImage.export: jsPDF is required for PDF output.');
-        return;
-      }
-      const { jsPDF } = window.jspdf;
-      const w = canvas.width, h = canvas.height;
-      const pdf = new jsPDF({ orientation: (w >= h) ? 'l' : 'p', unit: 'pt', format: [w, h] });
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
-      pdf.save(filename);
     } else {
-      console.error('DataTablesImage.export: unsupported format:', fmt);
+      console.error('DataTablesImage.export: unsupported format (use png/jpg):', fmt);
     }
   }
 
-  // Public API
   global.DataTablesImage = {
     render: renderElement,
     export: exportElement

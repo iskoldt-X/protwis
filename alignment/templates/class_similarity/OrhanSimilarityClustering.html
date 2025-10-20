@@ -3,17 +3,445 @@
 {% load utils %}
 
 {% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/BusyLoad.css' %}" type="text/css">
 <style>
-.page-wrap { padding: 8px 0 16px; }
-.title-center { text-align: center; margin-bottom: 8px; }
+  .page-wrap { padding: 8px 0 16px; }
+
+  .controls-wrap { display:flex; justify-content:center; }
+  .controls {
+    width: 60%;
+    min-width: 720px;
+    max-width: 1400px;
+    display:flex; flex-direction:column; gap:8px; align-items:stretch;
+    margin:12px 0 8px; text-align:center;
+  }
+  .toolbar { display:flex; gap:8px; align-items:center; justify-content:center; }
+  .orphan-select { flex: 1 1 520px; min-width: 420px; max-width: 720px; }
+  .select2-container{ width:100% !important; }
+
+  /* Plot area wrapper that BusyLoad attaches to */
+  .plot-stage {
+    width: 60%;
+    min-width: 720px;
+    max-width: 1400px;
+    margin: 18px auto 40px;
+    position: relative;   /* overlay positioning target */
+  }
+  /* While loading, keep some height so overlay centers */
+  .plot-stage.loading { min-height: 240px; }
+
+  /* Plot container is hidden until we have data */
+  #plotWrap { display: none; }
+  #plotContainer_cluster { width: 100%; height: 70vh; min-height: 520px; }
+
+  /* Side dropdown for "Color by" */
+  .dropdown-menu-side{
+    position: absolute;
+    left: 100%;
+    margin-left: 6px;
+    min-width: 190px;
+    padding: 10px 12px;
+  }
+  .dropdown-menu-align-colorby { transform: translateY(-10%); }
+  .dropdown-menu-side .btn { margin-bottom:6px; }
+  .dropdown-menu-side .btn:last-child{ margin-bottom:0; }
+
+  /* Tiny toast (top-right) */
+  .toast-wrap {
+    position: fixed; right: 16px; top: 16px; z-index: 2000;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .toast-wrap .alert { pointer-events: auto; margin: 0; padding: 8px 12px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-wrap">
-  <h3 class="title-center">Orphan cluster similarity</h3>
+  <div class="controls-wrap">
+    <div class="controls">
+      <div class="toolbar">
+        <select id="orphanSelect" class="orphan-select"></select>
+
+        <div class="dropdown">
+          <button id="colorByToggle" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            Color by
+          </button>
+          <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-colorby text-center">
+            <button type="button" class="btn btn-primary btn-block mb-1 colorby-item" data-mode="Class">Class</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 colorby-item" data-mode="Ligand type">Ligand type</button>
+            <button type="button" class="btn btn-outline-primary btn-block mb-1 colorby-item" data-mode="Receptor family">Receptor family</button>
+            <button type="button" class="btn btn-outline-primary btn-block colorby-item" data-mode="Gradient">Gradient (vs ref)</button>
+          </div>
+        </div>
+
+        <button id="btnDownload" type="button" class="btn btn-primary" disabled>Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage container used for BusyLoad overlay -->
+  <div id="plotStage" class="plot-stage" aria-busy="false" aria-live="polite">
+    <div id="plotWrap">
+      <div id="plotContainer_cluster"></div>
+    </div>
+  </div>
 </div>
+
+<!-- Toast container -->
+<div id="toasts" class="toast-wrap" aria-live="polite" aria-atomic="true"></div>
 {% endblock %}
 
 {% block addon_js %}
+  <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+  <script src="{% static 'home/js/plotly_v1_58_5.js' %}"></script>
+  <script src="{% static 'home/js/BusyLoad.js' %}"></script>
+
+  <script>
+    // Data from the view
+    const ORPHANS = {{ orphans_select2|safe }};
+
+    // --- Helpers -------------------------------------------------------------
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // Simple toast (Bootstrap-like)
+    function showToast(msg, kind="info", timeout=3500){
+      const wrap = document.getElementById('toasts');
+      const div = document.createElement('div');
+      div.className = `alert alert-${kind} alert-dismissible fade in`;
+      div.role = "alert";
+      div.innerHTML = `
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        ${msg}
+      `;
+      wrap.appendChild(div);
+      // auto close
+      setTimeout(() => {
+        try { div.parentNode && wrap.removeChild(div); } catch(e){}
+      }, timeout);
+    }
+
+    // Enable/disable top controls together
+    function setControlsEnabled(enabled){
+      const colorBtn = document.getElementById('colorByToggle');
+      const dlBtn = document.getElementById('btnDownload');
+      colorBtn.disabled = !enabled;
+      dlBtn.disabled = !enabled;
+      // also gray out dropdown items when disabled
+      const items = document.querySelectorAll('.dropdown-menu .colorby-item');
+      items.forEach(btn => btn.disabled = !enabled);
+    }
+
+    // Busy overlay
+    function showBusy(text){
+      const st = document.getElementById('plotStage');
+      st.classList.add('loading');
+      st.setAttribute('aria-busy', 'true');
+      setControlsEnabled(false);
+      $("#plotStage").busyLoad("show", {
+        spinner: "accordion",
+        text: text || "Computing embedding...",
+        textPosition: "bottom",
+        textMargin: "1rem",
+        color: "black",
+        background: "rgba(255,255,255,0.88)",
+        fontSize: "1.2rem"
+      });
+    }
+    function hideBusy(){
+      $("#plotStage").busyLoad("hide");
+      $("#plotStage .busy-load-container").remove(); // safety
+      const st = document.getElementById('plotStage');
+      st.classList.remove('loading');
+      st.setAttribute('aria-busy', 'false');
+      setControlsEnabled(true);
+      requestAnimationFrame(() => {
+        try { Plotly.Plots.resize('plotContainer_cluster'); } catch(e){}
+      });
+    }
+
+    // --- Select2 -------------------------------------------------------------
+    function orphanMatcher(params, data){
+      const term = (params.term || '').trim().toLowerCase();
+      if (!term) return data;
+      const fields = [data.text, data.name, data.entry_name, data.gene]
+        .filter(Boolean).map(String);
+      const bag = [];
+      for (const f of fields){
+        const s = f.toLowerCase();
+        bag.push(s, s.replace(/\s+/g,'_'), s.replace(/_/g,' '));
+      }
+      return bag.some(v => v.includes(term)) ? data : null;
+    }
+    function tmplResult(item){
+      if (!item.id) return item.text;
+      const gtop = item.name || item.text || '—';
+      const unip = item.entry_name || '—';
+      const gene = item.gene || '—';
+      return $(`
+        <div class="s2-row" style="display:grid;grid-template-columns:1fr 0.8fr 0.8fr;gap:12px;align-items:center;">
+          <div style="text-align:center;">${gtop}</div>
+          <div style="text-align:center;color:#666;font-size:11px;">${unip}</div>
+          <div style="text-align:center;">${gene}</div>
+        </div>
+      `);
+    }
+    function tmplSelection(item){
+      const parts = [item.name || item.text || '', item.entry_name || '', item.gene || ''].filter(Boolean);
+      return `<span>${parts.join(' | ')}</span>`;
+    }
+    const s2Collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    function s2NaturalSorter(results) {
+      return results.sort((a, b) => s2Collator.compare(a.name || a.text || '', b.name || b.text || ''));
+    }
+    $('#orphanSelect').select2({
+      data: ORPHANS,
+      placeholder: 'Type to search orphan receptors…',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 0,
+      matcher: orphanMatcher,
+      escapeMarkup: m => m,
+      templateResult: tmplResult,
+      templateSelection: tmplSelection,
+      sorter: s2NaturalSorter
+    });
+    // keep dropdowns from closing on inner clicks
+    $(document).on('click', '.dropdown-menu', function (e) { e.stopPropagation(); });
+
+    $('#orphanSelect').on('select2:open', () => {
+      const $dd = $('.select2-container .select2-dropdown');
+      if ($dd.find('.s2-head').length === 0){
+        $dd.prepend($(`
+          <div class="s2-head" style="display:grid;grid-template-columns:1fr 0.8fr 0.8fr;gap:12px;padding:6px 10px;font-size:11px;color:#666;border-bottom:1px solid #eee;">
+            <div style="text-align:center;">GtoPdb</div>
+            <div style="text-align:center;">UniProt</div>
+            <div style="text-align:center;">Gene</div>
+          </div>
+        `));
+      }
+    });
+
+    // --- Color / rendering ---------------------------------------------------
+    let CURRENT_COLOR_MODE = 'Class';
+    let REF_LABEL = 'Reference';
+
+    const palette = [
+      '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+      '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+      '#393b79','#e7969c','#98df8a','#ffbb78','#9edae5',
+      '#c5b0d5','#f7b6d2','#dbdb8d','#c49c94','#17a2b8'
+    ];
+    function uniqueSorted(values){
+      return Array.from(new Set(values)).filter(v => v != null && v !== '').sort();
+    }
+
+    function buildTraces(points, mode){
+      const refPts = points.filter(p => p.is_ref);
+      const others = points.filter(p => !p.is_ref);
+
+      const traceRef = {
+        x: refPts.map(p => p.x),
+        y: refPts.map(p => p.y),
+        mode: 'markers',
+        type: 'scatter',
+        hoverinfo: 'text',
+        text: refPts.map(() => `${REF_LABEL}`),
+        marker: { size: 16, symbol: 'diamond', line: { width: 2, color: '#000' }, color: '#fff' },
+        name: REF_LABEL,
+        showlegend: (mode !== 'Gradient')
+      };
+
+      if (mode === 'Class' || mode === 'Ligand type' || mode === 'Receptor family'){
+        const key = mode;
+        const raw = others.map(p => (p[key] === 'Other GPCRs' && key === 'Class') ? 'Classless' : (p[key] || '—'));
+        const cats = uniqueSorted(raw);
+        const cmap = new Map(cats.map((c,i) => [c, palette[i % palette.length]]));
+
+        const series = cats.map(cat => {
+          const pts = others.filter(p => ((p[key] === 'Other GPCRs' && key === 'Class') ? 'Classless' : (p[key] || '—')) === cat);
+          return {
+            x: pts.map(p => p.x),
+            y: pts.map(p => p.y),
+            mode: 'markers',
+            type: 'scatter',
+            hoverinfo: 'text',
+            text: pts.map(p => {
+              const sim = (p.fill != null) ? `; ${REF_LABEL} SIM: ${p.fill.toFixed(1)}%` : '';
+              return `${(p.label||'').toUpperCase()}<br>${key}: ${cat}${sim}`;
+            }),
+            marker: { size: 9, symbol: 'circle', line: { width: 0.5, color: '#000' }, color: cmap.get(cat) },
+            name: cat,
+            showlegend: true
+          };
+        });
+        return [...series, traceRef];
+      }
+
+      if (mode === 'Gradient'){
+        return [{
+          x: others.map(p => p.x),
+          y: others.map(p => p.y),
+          mode: 'markers',
+          type: 'scatter',
+          hoverinfo: 'text',
+          text: others.map(p =>
+            `${(p.label||'').toUpperCase()}<br>${REF_LABEL} SIM: ${p.fill != null ? p.fill.toFixed(1) + '%' : '–'}`
+          ),
+          marker: {
+            size: 9,
+            symbol: 'circle',
+            line: { width: 0.5, color: '#000' },
+            color: others.map(p => p.fill ?? null),
+            colorscale: 'RdBu',
+            reversescale: true,
+            colorbar: { title: { text: `${REF_LABEL} SIM (%)` }, thickness: 16, len: 0.6 }
+          },
+          showlegend: false
+        }, traceRef];
+      }
+
+      return [traceRef];
+    }
+
+    function renderPlot(points){
+      const wrap = document.getElementById('plotWrap');
+
+      if (!Array.isArray(points) || points.length === 0){
+        try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+        wrap.style.display = 'none';
+        document.getElementById('btnDownload').disabled = true;
+        return;
+      }
+
+      // Make visible before rendering (important for sizing)
+      wrap.style.display = 'block';
+
+      const traces = buildTraces(points, CURRENT_COLOR_MODE);
+      const layout = {
+        xaxis: { visible: false, showgrid: false, scaleanchor: 'y' },
+        yaxis: { visible: false, showgrid: false },
+        hovermode: 'closest',
+        showlegend: true,
+        legend: { x: 1.02, xanchor: 'left', y: 0.5, orientation: 'v' },
+        plot_bgcolor: '#FFFFFF',
+        paper_bgcolor: '#FFFFFF',
+        autosize: true,
+        margin: { l: 40, r: 160, t: 10, b: 40 }
+      };
+
+      Plotly.react('plotContainer_cluster', traces, layout, { displayModeBar: true, responsive: true });
+
+      requestAnimationFrame(() => {
+        try { Plotly.Plots.resize('plotContainer_cluster'); } catch(e){}
+      });
+
+      document.getElementById('btnDownload').disabled = false;
+    }
+
+    window.addEventListener('resize', () => {
+      try { Plotly.Plots.resize('plotContainer_cluster'); } catch(e){}
+    });
+
+    function setActiveColorBy(mode){
+      CURRENT_COLOR_MODE = mode;
+      const $items = $('.colorby-item');
+      $items.removeClass('btn-primary active').addClass('btn-outline-primary');
+      $items.filter(`[data-mode="${mode}"]`).removeClass('btn-outline-primary').addClass('btn-primary active');
+      if (window.__LAST_POINTS__) renderPlot(window.__LAST_POINTS__);
+    }
+    $('.colorby-item').on('click', function(){ setActiveColorBy(this.getAttribute('data-mode') || 'Class'); });
+
+    function downloadPlot(){
+      const el = document.getElementById('plotContainer_cluster');
+      const rect = el.getBoundingClientRect();
+      Plotly.toImage(el, { format: 'png', height: Math.round(rect.height), width: Math.round(rect.width), scale: 3 })
+        .then(function (dataUrl) {
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          const sel = $('#orphanSelect').select2('data');
+          const who = (sel && sel[0] && (sel[0].name || sel[0].text)) ? String(sel[0].name || sel[0].text).split('|')[0].trim() : 'orphan';
+          const stamp = new Date().toISOString().slice(0,10);
+          const safe = s => String(s).replace(/[^A-Za-z0-9._-]+/g, '_');
+          link.download = `GPCRdb_orphan_embedding_${safe(who)}_${CURRENT_COLOR_MODE}_${stamp}.png`;
+          document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        })
+        .catch(err => {
+          console.error('Export failed:', err);
+          showToast('Export failed. Try again after changing selection.', 'warning');
+        });
+    }
+    document.getElementById('btnDownload').addEventListener('click', downloadPlot);
+
+    // --- API ---------------------------------------------------------------
+    function loadEmbedding(refId, topN = 50){
+      if (!refId){
+        try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+        document.getElementById('plotWrap').style.display = 'none';
+        document.getElementById('btnDownload').disabled = true;
+        return;
+      }
+
+      // Reset plot area immediately and show spinner
+      try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+      document.getElementById('plotWrap').style.display = 'none';
+      document.getElementById('btnDownload').disabled = true;
+      showBusy("Generating cluster...");
+
+      $.ajax({
+        url: "{% url 'api-embedding' %}",
+        method: "GET",
+        data: { ref: refId, top_n: topN, method: 'tsne', metric: 'identity', exclude_orphans: true },
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function(resp){
+          if (resp && resp.error){
+            console.error('Embedding API error (200):', resp.error, resp);
+            showToast('Embedding error: ' + String(resp.error), 'danger');
+            window.__LAST_POINTS__ = [];
+            document.getElementById('plotWrap').style.display = 'none';
+            document.getElementById('btnDownload').disabled = true;
+            return;
+          }
+          REF_LABEL = (resp && resp.ref && resp.ref.label) ? String(resp.ref.label).toUpperCase() : 'Reference';
+          window.__LAST_POINTS__ = (resp && resp.points) ? resp.points : [];
+
+          // Render first (wrapper is shown inside), spinner is removed in complete
+          renderPlot(window.__LAST_POINTS__);
+        },
+        error: function(xhr, status){
+          let msg = '';
+          try { const j = xhr.responseJSON; if (j && j.error) msg = String(j.error); } catch(e){}
+          if (!msg){
+            const txt = (xhr && xhr.responseText) ? xhr.responseText.trim() : '';
+            if (txt) { console.error('Embedding API error payload:', txt); msg = txt.slice(0, 500); }
+          }
+          const prefix = `Failed to compute embedding (HTTP ${xhr.status || '??'} ${status || ''}).`;
+          showToast(msg ? `${prefix} ${msg}` : prefix, 'danger', 6000);
+          window.__LAST_POINTS__ = [];
+          document.getElementById('plotWrap').style.display = 'none';
+          document.getElementById('btnDownload').disabled = true;
+        },
+        complete: function(){
+          hideBusy();
+        }
+      });
+    }
+
+    // --- Wire up -----------------------------------------------------------
+    $('#orphanSelect').on('select2:select', function (e){ loadEmbedding((e.params.data || {}).id); });
+    $('#orphanSelect').on('select2:clear',  function ()  { loadEmbedding(null); });
+
+    // Initial state
+    $('#orphanSelect').val(null).trigger('change');
+    setActiveColorBy('Class');
+
+    // Optional: if the select already has a value from SSR or a query-param prefill, auto-load
+    // const pre = $('#orphanSelect').val();
+    // if (pre) { loadEmbedding(pre); }
+  </script>
 {% endblock %}

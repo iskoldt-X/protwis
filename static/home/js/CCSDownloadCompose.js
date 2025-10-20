@@ -16,39 +16,47 @@
     return;
   }
 
-  function makeFilename(base, ext) {
+  function basenameFromSelector(selector, fallback) {
+    if (typeof selector === 'string') {
+      const m = selector.match(/#([\w-]+)/);
+      if (m && m[1]) return m[1];
+    }
+    return fallback || 'ccs-heatmap';
+  }
+  function stamped(base, ext) {
     const d = new Date(), pad = n => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_` +
                   `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-    return `${base || 'ccs-heatmap'}-${stamp}.${ext}`;
+    return `${base}-${stamp}.${ext}`;
   }
+  function resolveFilename(tableSelector, baseName, ext, explicit) {
+    if (explicit) return explicit;
+    const base = (baseName && String(baseName).trim()) || basenameFromSelector(tableSelector, 'ccs-heatmap');
+    return stamped(base, ext);
+  }
+
   function triggerDownload(dataUrl, filename) {
     const a = document.createElement('a');
     a.href = dataUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   }
+
   async function captureBadgeCanvas(el, scale, { fixVertical=false } = {}) {
     if (!el) return null;
 
-    // Clone off-screen to avoid mutating the live DOM
     const clone = el.cloneNode(true);
     clone.style.position = 'fixed';
     clone.style.left = '-10000px';
     clone.style.top = '0';
     clone.style.margin = '0';
 
-    // When capturing the Y badge, avoid writing-mode issues in html2canvas:
-    // render it as horizontally-laid-out text rotated -90deg instead.
     if (fixVertical) {
-      // Neutralize original vertical styling
       clone.style.writingMode = 'horizontal-tb';
-      clone.style.transform = 'rotate(-90deg)';       // rotate the whole pill
+      clone.style.transform = 'rotate(-90deg)';
       clone.style.transformOrigin = 'left top';
       clone.style.display = 'inline-block';
     }
 
     document.body.appendChild(clone);
-
-    // Let layout settle before snapshot
     await new Promise(r => requestAnimationFrame(r));
 
     const canvas = await html2canvas(clone, {
@@ -69,44 +77,43 @@
       axisWrapSelector: '.ccs-axis-wrap',
       padTop: 60,
       padLeft: 60,
-      gapX: 8,     // gap between table top and X-badge (visual)
-      gapY: 10,    // gap between table left and Y-badge (visual)
+      gapX: 8,
+      gapY: 10,
       scale: Math.max(2, (window.devicePixelRatio || 1) * 2),
       quality: 0.95,
-      baseName: 'ccs-heatmap',
-
+      baseName: null,        // if null -> derive from table ID
+      filename: null,        // NEW: use this if provided (no timestamp)
       // backgrounds:
-      tableBackground: '#ffffff',   // the table itself stays opaque with this color
-      background: null,             // outer padding: null/'transparent' => transparent; or a CSS color
-      pdfBackground: null           // optional PDF page fill color
+      tableBackground: '#ffffff',
+      background: null,
+      pdfBackground: null
     }, userOpts || {});
 
     const ext = String(format || 'png').toLowerCase();
     const wantsTransparentOuter =
       opts.background === null || String(opts.background).toLowerCase() === 'transparent';
 
-    // 1) Render the table as a canvas (opaque background so table is not transparent)
+    // 1) Render the table
     const tableCanvas = await window.DataTablesImage.render(
       opts.tableSelector,
       { scale: opts.scale, background: opts.tableBackground }
     );
 
-    // 2) Capture the badges as canvases (they naturally have transparent bg in our capture)
+    // 2) Badges
     const axisWrap = document.querySelector(opts.axisWrapSelector);
     const xBadgeEl = axisWrap && axisWrap.querySelector('.axis-label-x .ccs-axis-badge');
     const yBadgeEl = axisWrap && axisWrap.querySelector('.axis-label-y .ccs-axis-badge');
 
-    // NOTE: pass { fixVertical:true } for the Y badge to avoid writing-mode issues in html2canvas
     const [xBadgeCanvas, yBadgeCanvas] = await Promise.all([
       captureBadgeCanvas(xBadgeEl, opts.scale),
       captureBadgeCanvas(yBadgeEl, opts.scale, { fixVertical: true })
     ]);
 
-    // 3) Compute padding so badges fit if they are larger than the requested pad
+    // 3) Padding
     const padTop  = Math.max(opts.padTop,  (xBadgeCanvas ? xBadgeCanvas.height + opts.gapX : 0));
     const padLeft = Math.max(opts.padLeft, (yBadgeCanvas ? yBadgeCanvas.width  + opts.gapY : 0));
 
-    // 4) Compose onto a new canvas
+    // 4) Compose
     const W = padLeft + tableCanvas.width;
     const H = padTop  + tableCanvas.height;
 
@@ -114,7 +121,6 @@
     out.width = W; out.height = H;
     const ctx = out.getContext('2d');
 
-    // Fill outer background only if requested; otherwise keep outer fully transparent
     if (!wantsTransparentOuter) {
       ctx.fillStyle = opts.background || '#ffffff';
       ctx.fillRect(0, 0, W, H);
@@ -122,37 +128,26 @@
       ctx.clearRect(0, 0, W, H);
     }
 
-    // Draw the X badge centered above the table
     if (xBadgeCanvas) {
       const bx = padLeft + Math.round((tableCanvas.width - xBadgeCanvas.width) / 2);
       const by = Math.max(0, padTop - opts.gapX - xBadgeCanvas.height);
       ctx.drawImage(xBadgeCanvas, bx, by);
     }
 
-    // Draw the Y badge to the left, vertically centered to the table
     if (yBadgeCanvas) {
       const bx = Math.max(0, padLeft - opts.gapY - yBadgeCanvas.width);
       const by = padTop + Math.round((tableCanvas.height - yBadgeCanvas.height) / 2);
       ctx.drawImage(yBadgeCanvas, bx, by);
     }
 
-    // Draw the table (already opaque)
     ctx.drawImage(tableCanvas, padLeft, padTop);
 
-    // 5) Save
-    const filename = (function() {
-      const d = new Date(), pad = n => String(n).padStart(2, '0');
-      const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_` +
-                    `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-      return `${opts.baseName}-${stamp}.${ext}`;
-    })();
+    // 5) Filename + save
+    const filename = resolveFilename(opts.tableSelector, opts.baseName, ext, opts.filename);
 
     if (ext === 'png') {
-      // PNG preserves transparency in the outer padding if wantsTransparentOuter === true
-      const url = out.toDataURL('image/png');
-      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      triggerDownload(out.toDataURL('image/png'), filename);
     } else if (ext === 'jpg' || ext === 'jpeg') {
-      // JPEG has no alpha; if outer is transparent, flatten onto white (or a chosen color)
       if (wantsTransparentOuter) {
         const flat = document.createElement('canvas');
         flat.width = W; flat.height = H;
@@ -160,11 +155,9 @@
         fctx.fillStyle = '#ffffff';
         fctx.fillRect(0, 0, W, H);
         fctx.drawImage(out, 0, 0);
-        const url = flat.toDataURL('image/jpeg', opts.quality);
-        const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+        triggerDownload(flat.toDataURL('image/jpeg', opts.quality), filename);
       } else {
-        const url = out.toDataURL('image/jpeg', opts.quality);
-        const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+        triggerDownload(out.toDataURL('image/jpeg', opts.quality), filename);
       }
     } else if (ext === 'pdf') {
       if (typeof window.jspdf === 'undefined') {
@@ -173,13 +166,10 @@
       }
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: (W >= H) ? 'l' : 'p', unit: 'pt', format: [W, H] });
-
-      // Optional PDF page background fill (useful if you want colored page behind transparent PNG)
       if (opts.pdfBackground) {
         pdf.setFillColor(opts.pdfBackground);
         pdf.rect(0, 0, W, H, 'F');
       }
-
       pdf.addImage(out.toDataURL('image/png'), 'PNG', 0, 0, W, H);
       pdf.save(filename);
     } else {
@@ -187,8 +177,6 @@
     }
   }
 
-
-  // public API
   global.CCSDownload = {
     withBadges: composeAndDownload
   };

@@ -14,8 +14,18 @@
 .page-wrap { padding: 8px 0 16px; margin-top: 20px; }
 .title-center { text-align: center; margin-bottom: 8px; }
 
-/* Toolbar above the heatmap */
-.ccs-toolbar-inline{ display:flex; align-items:center; gap:10px; margin: 10px 10px 20px; }
+/* New centering rail — matches .ccs-scroller’s centering */
+.ccs-toolbar-rail{
+  width: fit-content;
+  max-width: var(--ccs-maxw);
+  margin: 14px auto 50px;     /* same “center me” behavior as the table */
+}
+
+/* Keep the inline layout, but remove the old margin hack */
+.ccs-toolbar-inline{
+  display:flex; align-items:center; gap:10px;
+  margin: 0;                   /* was: 10px 10px 50px 5% */
+}
 
 /* Fixed width for the data scope toggle button */
 #ccsScopeToggle{
@@ -234,63 +244,157 @@ td.cell-empty{ background: var(--ccs-empty-bg); color:#888; }
 /* --- Overlay (only over the scroller) --- */
 .ccs-overlay{ position:absolute; inset:0; background:rgba(0,0,0,.35); z-index:1995; display:none; }
 .ccs-overlay.active{ display:block; }
+
+/* Flyout download button: absolute, above the scroller */
+.ccs-fly-dl{
+  position: absolute;
+  z-index: 2100;           /* above the flyout (2000) and overlay (1995) */
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0,0,0,.15);
+}
+
+/* Flyout download dropdown */
+#ccsFlyDownloadMenu {
+  position: absolute;
+  z-index: 2101;
+  min-width: 160px;
+  padding: 10px 12px;
+  display: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,.15);
+}
+#ccsFlyDownloadMenu .btn { margin-bottom: 6px; }
+#ccsFlyDownloadMenu .btn:last-child { margin-bottom: 0; }
+
+/* --- How-to modal --- */
+.ccs-modal-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 3000; display:none;
+}
+.ccs-modal{
+  position: fixed; left: 50%; top: 12%;
+  transform: translateX(-50%);
+  width: min(780px, calc(100% - 40px));
+  background: #fff; color:#111;
+  border:1px solid #cfcfcf; border-radius:10px;
+  box-shadow:0 16px 36px rgba(0,0,0,.25);
+  z-index: 3001; display:none;
+}
+.ccs-modal header{
+  padding: 14px 16px; border-bottom:1px solid #e6e6e6;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.ccs-modal header h3{ margin:0; font-size:18px; font-weight:600; }
+.ccs-modal .ccs-modal-close{
+  border:0; background:transparent; font-size:22px; line-height:1;
+  opacity:.65; cursor:pointer;
+}
+.ccs-modal .ccs-modal-close:hover{ opacity:1; }
+.ccs-modal .ccs-modal-body{ padding: 14px 16px 18px; max-height: 70vh; overflow:auto; }
+.ccs-modal footer{ padding: 10px 16px; border-top:1px solid #e6e6e6; text-align:right; }
+
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-wrap">
+  <!-- How-to Modal -->
+  <div id="ccsHowToBackdrop" class="ccs-modal-backdrop" aria-hidden="true"></div>
+  <div id="ccsHowToModal" class="ccs-modal" role="dialog" aria-modal="true" aria-labelledby="ccsHowToTitle" aria-hidden="true">
+    <header>
+      <h3 id="ccsHowToTitle">How to use this page</h3>
+      <button type="button" class="ccs-modal-close" aria-label="Close">&times;</button>
+    </header>
+    <div class="ccs-modal-body">
+      <!-- TODO: replace with your copy -->
+      <p>This page shows cross-class relationships between GPCR classes.</p>
+      <ul>
+        <li><strong>Green (ID)</strong> = sequence identity (upper triangle).</li>
+        <li><strong>Blue (SIM)</strong> = sequence similarity (lower triangle).</li>
+        <li>Hover any cell to preview pairs; <strong>click</strong> to lock and open detailed <em>flyout</em>.</li>
+        <li>Use the <strong>Download</strong> buttons to export the heatmap or the flyout as JPG/PNG/SVG.</li>
+        <li>“Human only” toggles scope; badges show the axis meaning.</li>
+      </ul>
+      <p>You can tweak the scope, export with badges, and follow links to GPCRdb, GtoPdb, and UniProt.</p>
+    </div>
+    <footer>
+      <button type="button" class="btn btn-primary" id="ccsHowToOk">Got it</button>
+    </footer>
+  </div>
   <div class="ccs-axis-wrap">
     <!-- Toolbar -->
-    <div class="ccs-toolbar-inline">
-      <button id="ccsScopeToggle" type="button" class="btn btn-primary">
-        Human only
-      </button>
-
-      <div class="dropdown">
-        <button class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
-          Download
+    <div class="ccs-toolbar-rail">
+      <div class="ccs-toolbar-inline">
+        <button id="ccsHowToBtn" type="button" class="btn btn-primary">
+          <span class="glyphicon glyphicon-info-sign" style="vertical-align: top; line-height:1.3;"></span>
+          How to
         </button>
-        <div class="dropdown-menu">
-          <!-- table-only (generic) -->
-          <button class="dropdown-item"
-                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'png', scale:3 })">
-            PNG (table only)
-          </button>
-          <button class="dropdown-item"
-                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'jpg', quality:0.95, scale:3 })">
-            JPG (table only)
-          </button>
-          <button class="dropdown-item"
-                  onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'pdf', scale:3 })">
-            PDF (table only)
-          </button>
-          <button class="dropdown-item"
-                  onclick="DataTablesSVG.export('#ccsTable','ccs-table')">
-            SVG (vector, table only)
+        <button id="ccsScopeToggle" type="button" class="btn btn-primary">
+          Human only
+        </button>
+        <div class="dropdown" id="ccsDownloadDropdown" style="position: relative;">
+          <button type="button" class="btn btn-primary dropdown-toggle"
+                  id="DownloadDropdownToggle" style="font-size: 14px;">
+            <span class="glyphicon glyphicon-download" style="vertical-align: top; line-height: 1.3;"></span>
+            Download <span class="caret"></span>
           </button>
 
-          <div class="dropdown-divider"></div>
+          <div class="dropdown-menu"
+              id="DownloadDropdownMenu"
+              style="min-width: 220px; padding: 10px 15px; left: 100%; top: 50%;
+                      margin-left: 8px; position: absolute; transform: translateY(-25%);
+                      display: none;">
 
-          <!-- table + badges (page-specific composer) -->
-          <button class="dropdown-item"
-                  onclick="CCSDownload.withBadges('png', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:'#ffffff' })">
-            PNG (with badges)
-          </button>
-          <button class="dropdown-item"
-                  onclick="CCSDownload.withBadges('png', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null })">
-            PNG (with badges, transparent padding)
-          </button>
-          <button class="dropdown-item"
-                  onclick="CCSDownload.withBadges('jpg', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', /* JPG ignores transparency */ quality:0.95 })">
-            JPG (with badges)
-          </button>
-          <button class="dropdown-item"
-                  onclick="CCSDownload.withBadges('pdf', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null /* transparent PNG embedded */ })">
-            PDF (with badges)
-          </button>
+            <!-- ===== Table only ===== -->
+            <div class="dropdown-item-text text-muted"
+                style="font-weight: 600; font-size: 12px; text-align: center; pointer-events: none; padding: 2px 0 6px;">
+              — Table only —
+            </div>
+
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'jpg', scale:3, filename:'GPCRdb_CrossClass_TableOnly.jpg' })">
+              JPG
+            </button>
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="DataTablesImage.export('#ccsTable','ccs-table',{ format:'png', scale:3, filename:'GPCRdb_CrossClass_TableOnly.png' })">
+              PNG
+            </button>
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="DataTablesSVG.export('#ccsTable','ccs-table',{ filename:'GPCRdb_CrossClass_TableOnly.svg' })">
+              SVG
+            </button>
+
+            <div class="dropdown-divider" style="margin: 10px 0;"></div>
+
+            <!-- ===== With badges ===== -->
+            <div class="dropdown-item-text text-muted"
+                style="font-weight: 600; font-size: 12px; text-align: center; pointer-events: none; padding: 2px 0 6px;">
+              — With badges —
+            </div>
+
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="CCSDownload.withBadges('jpg', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null, quality:0.95, filename:'GPCRdb_CrossClass_WithBadges.jpg' })">
+              JPG
+            </button>
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="CCSDownload.withBadges('png', { scale:3, padTop:60, padLeft:60, tableBackground:'#ffffff', background:null, filename:'GPCRdb_CrossClass_WithBadges.png' })">
+              PNG
+            </button>
+            <button type="button" class="btn btn-primary btn-block"
+                    onclick="DataTablesSVG.exportWithBadges('.ccs-axis-wrap', '#ccsTable', 'ccs-heatmap', { padTop:60, padLeft:60, gapX:8, gapY:10, badgeTighten:40, background:null, filename:'GPCRdb_CrossClass_WithBadges.svg' })">
+              SVG
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Flyout download button (shown only when flyout is locked) -->
+    <button id="ccsFlyDownloadBtn" class="btn btn-primary ccs-fly-dl" style="display:none;">
+      <span class="glyphicon glyphicon-download" style="vertical-align: top; line-height: 1.3;"></span>
+      Download
+    </button>
 
     <!-- ===== Axis labels + table ===== -->
     <!-- Axis badges (keep these) -->
@@ -341,38 +445,33 @@ td.cell-empty{ background: var(--ccs-empty-bg); color:#888; }
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function(){
+document.addEventListener('DOMContentLoaded', function () {
 
-  /* ===========================================================
-     DOM cache + constants
-     =========================================================== */
+  /* ========= DOM cache ========= */
   var axisWrap    = document.querySelector('.ccs-axis-wrap');
   var empty       = document.getElementById('ccsEmpty');
   var table       = document.getElementById('ccsTable');
   var thead       = table.querySelector('thead');
   var tbody       = table.querySelector('tbody');
   var scroller    = document.querySelector('.ccs-scroller');
-
   var scopeToggle = document.getElementById('ccsScopeToggle');
 
-  var ccsFly  = document.getElementById('ccsFly');
-  var ccsDT   = null;             // DataTables instance (when available)
-  var overlay = document.getElementById('ccsOverlay');
+  var ccsFly   = document.getElementById('ccsFly');
+  var ccsDT    = null;
+  var overlay  = document.getElementById('ccsOverlay');
 
-  var flyAnchor = null;           // cell element that opened the flyout
-  var isLocked  = false;          // stasis lock state
+  var flyAnchor = null;
+  var isLocked  = false;
 
-  var currentRanges = null;   // { id:{min,max}, sim:{min,max} } from the main heatmap
-  var lastFlyIdFirst = null;  // remember which metric is first in the flyout (for DT redraws)
+  var currentRanges = null;  // { id:{min,max}, sim:{min,max} }
+  var lastFlyIdFirst = null;
 
   var currentScope = 'human';
-  var showDashInBlanks = true;    // fixed: blanks show hyphen
+  var showDashInBlanks = true;
 
   const FLY_MAX_WIDTH_PX = 780;
 
-  /* ===========================================================
-     Utilities
-     =========================================================== */
+  /* ========= Utilities ========= */
   function clearTable(){
     thead.innerHTML=''; tbody.innerHTML='';
     var cg=table.querySelector('colgroup'); if(cg) cg.remove();
@@ -389,7 +488,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   var baseOrder = Array.from({length: classes.length}, (_, i) => i);
 
-  // Value ranges for heat coloring (upper=Id, lower=Sim)
   function computeHeatRanges(indices){
     var idMin=Infinity,idMax=-Infinity, simMin=Infinity,simMax=-Infinity;
     function readVal(i,j,isUpper){
@@ -419,7 +517,27 @@ document.addEventListener('DOMContentLoaded', function(){
     return 'hsl('+hue+','+sat+'%,'+L+'%)';
   }
 
-  // HTML helpers for flyout
+  /* ========= Main toolbar dropdown (table/badges) ========= */
+  (function(){
+    var toggle = document.getElementById('DownloadDropdownToggle');
+    var menu   = document.getElementById('DownloadDropdownMenu');
+
+    function closeMenu(){ menu.style.display = 'none'; }
+    function openMenu(){ menu.style.display = 'block'; }
+
+    toggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (menu.style.display === 'block') closeMenu(); else openMenu();
+    });
+    document.addEventListener('click', function(e){
+      if (!document.getElementById('ccsDownloadDropdown').contains(e.target)) closeMenu();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') closeMenu();
+    });
+  })();
+
+  /* ========= Flyout helpers ========= */
   function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function allowSubsOnly(htmlish){ return esc(htmlish||'').replace(/&lt;(\/?)sub&gt;/gi,'<$1sub>'); }
   function linkOrDash(url,label){ return url?('<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(label)+'</a>'):'<span class="muted">—</span>'; }
@@ -427,9 +545,6 @@ document.addEventListener('DOMContentLoaded', function(){
   function valOrDash(s){ return s?esc(s):'<span class="muted">—</span>'; }
   function iconLinkOrDash(url){ return url?('<a class="ccs-ico" href="'+esc(url)+'" target="_blank" rel="noopener" title="Open in GPCRdb"><img src="'+esc(GPCRDB_ICON_URL)+'" alt="GPCRdb"></a>'):'<span class="muted">—</span>'; }
 
-  /* ===========================================================
-     Flyout: DataTables init + overlay lock
-     =========================================================== */
   function initFlyDTIfPossible(){
     if (!window.jQuery || !jQuery.fn || !jQuery.fn.dataTable) return false;
     if (jQuery.fn.dataTable.isDataTable('#ccsFlyTable')) {
@@ -441,8 +556,7 @@ document.addEventListener('DOMContentLoaded', function(){
       autoWidth:false, deferRender:true, orderClasses:false,
       order: [[0,'desc'], [1,'desc'], [3,'asc']],
       columnDefs: [
-        {
-          targets:[0,1], // metrics numeric
+        { targets:[0,1],
           render:function(data, type){
             if (type === 'sort' || type === 'type') {
               var n = (data === '' || data == null) ? NaN : parseFloat(data);
@@ -451,8 +565,8 @@ document.addEventListener('DOMContentLoaded', function(){
             return data;
           }
         },
-        { targets: 1, className: 'divider' }, // after metric #2
-        { targets: 5, className: 'divider' }  // after left group
+        { targets: 1, className: 'divider' },
+        { targets: 5, className: 'divider' }
       ]
     });
     jQuery('#ccsFlyTable').on('draw.dt', function(){
@@ -461,7 +575,6 @@ document.addEventListener('DOMContentLoaded', function(){
     return true;
   }
 
-  // Position flyout around the anchor cell
   function positionFlyout(cellEl, rowsCount){
     var cont = scroller.getBoundingClientRect();
     var cell = cellEl.getBoundingClientRect();
@@ -507,11 +620,140 @@ document.addEventListener('DOMContentLoaded', function(){
     ccsFly.style.top = Math.max(minTop, Math.min(maxTop, top)) + 'px';
   }
 
-  // Overlay helpers (Esc & click-to-close)
   function onEscClose(e){ if (e.key === 'Escape') unlockFlyout(); }
   function showOverlay(){ if (overlay) overlay.classList.add('active'); }
   function hideOverlay(){ if (overlay) overlay.classList.remove('active'); }
 
+  // ===== Flyout Download button + menu =====
+  var flyDlBtn = document.getElementById('ccsFlyDownloadBtn');
+  var flyMenu  = null;
+
+  function ensureFlyMenu() {
+    if (flyMenu) return flyMenu;
+    flyMenu = document.createElement('div');
+    flyMenu.id = 'ccsFlyDownloadMenu';
+    flyMenu.className = 'dropdown-menu';
+    flyMenu.innerHTML = `
+      <div class="dropdown-item-text text-muted" style="font-weight:600; font-size:12px; text-align:center; pointer-events:none; padding:2px 0 6px;">
+        — Flyout —
+      </div>
+      <button type="button" class="btn btn-primary btn-block" id="flyDLjpg">JPG</button>
+      <button type="button" class="btn btn-primary btn-block" id="flyDLpng">PNG</button>
+      <button type="button" class="btn btn-primary btn-block" id="flyDLsvg">SVG</button>
+    `;
+    axisWrap.appendChild(flyMenu);
+
+    // Export: JPG
+    flyMenu.querySelector('#flyDLjpg').addEventListener('click', () => {
+      DataTablesImage.export('#ccsFly', 'ccs-fly', {
+        format: 'jpg', scale: 3, quality: 0.95, background: '#ffffff',
+        filename: 'GPCRdb_CrossClass_Flyout.jpg'
+      });
+      hideFlyMenu();
+    });
+    // Export: PNG
+    flyMenu.querySelector('#flyDLpng').addEventListener('click', () => {
+      DataTablesImage.export('#ccsFly', 'ccs-fly', {
+        format: 'png', scale: 3, background: '#ffffff',
+        filename: 'GPCRdb_CrossClass_Flyout.png'
+      });
+      hideFlyMenu();
+    });
+    // SVG (vector) — flyout
+    flyMenu.querySelector('#flyDLsvg').addEventListener('click', async () => {
+      hideFlyMenu();
+      try {
+        await DataTablesSVG.exportFlyout('#ccsFly', '#ccsFlyTable', 'GPCRdb_CrossClass_Flyout', {
+          filename: 'GPCRdb_CrossClass_Flyout.svg'
+        });
+      } catch (e) {
+        console.error('Flyout SVG export failed (vector). Falling back to raster-in-SVG.', e);
+        // Fallback: rasterize then wrap in <svg>
+        try {
+          const canvas = await DataTablesImage.render('#ccsFly', { scale: 3, background: '#ffffff' });
+          const w = canvas.width, h = canvas.height;
+          const url = canvas.toDataURL('image/png');
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+            <image href="${url}" x="0" y="0" width="${w}" height="${h}"/>
+          </svg>`;
+          const blob = new Blob([svg], { type: 'image/svg+xml' });
+          const dl  = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = dl; a.download = 'GPCRdb_CrossClass_Flyout.svg';
+          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(dl);
+        } catch (e2) {
+          console.error('Flyout SVG raster fallback failed:', e2);
+        }
+      }
+    });
+
+    return flyMenu;
+  }
+
+  function positionFlyDownloadBtn(){
+    if (!flyDlBtn || !ccsFly || !axisWrap) return;
+
+    const flyVisible = ccsFly.style.display !== 'none';
+    if (!flyVisible) { flyDlBtn.style.display = 'none'; return; }
+
+    // measure button
+    flyDlBtn.style.visibility = 'hidden';
+    flyDlBtn.style.display = 'block';
+
+    const wrapRect = axisWrap.getBoundingClientRect();
+    const flyRect  = ccsFly.getBoundingClientRect();
+    const gap = 8;
+
+    let left = (flyRect.right - wrapRect.left) - flyDlBtn.offsetWidth;
+    let top  = (flyRect.top   - wrapRect.top)  - flyDlBtn.offsetHeight - gap;
+
+    left = Math.max(8, left);
+    top  = Math.max(8, top);
+
+    flyDlBtn.style.left = left + 'px';
+    flyDlBtn.style.top  = top  + 'px';
+
+    flyDlBtn.style.visibility = isLocked ? 'visible' : 'hidden';
+    if (!isLocked) flyDlBtn.style.display = 'none';
+  }
+
+  function showFlyMenu() {
+    const btn  = flyDlBtn;
+    const menu = ensureFlyMenu();
+    if (!btn || !menu) return;
+
+    menu.style.display = 'block';
+    menu.style.visibility = 'hidden';
+
+    const wrapRect = axisWrap.getBoundingClientRect();
+    const btnRect  = btn.getBoundingClientRect();
+
+    const left = (btnRect.left - wrapRect.left) - menu.offsetWidth - 8; // open to the LEFT
+    const top  = (btnRect.top  - wrapRect.top) + (btn.offsetHeight - menu.offsetHeight) / 2;
+
+    menu.style.left = Math.max(8, left) + 'px';
+    menu.style.top  = Math.max(8, top)  + 'px';
+    menu.style.visibility = 'visible';
+  }
+  function hideFlyMenu(){ if (flyMenu) flyMenu.style.display = 'none'; }
+
+  if (flyDlBtn && !flyDlBtn._wired){
+    flyDlBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const isOpen = flyMenu && flyMenu.style.display === 'block';
+      hideFlyMenu();
+      if (!isOpen) showFlyMenu();
+    });
+    flyDlBtn._wired = true;
+  }
+  // close the mini menu on outside click / Esc
+  document.addEventListener('click', (e) => {
+    if (!flyMenu || flyMenu.style.display !== 'block') return;
+    if (flyMenu.contains(e.target) || (flyDlBtn && flyDlBtn.contains(e.target))) return;
+    hideFlyMenu();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideFlyMenu(); });
+
+  /* ===== Lock / unlock flyout (incl. button+menu lifecycle) ===== */
   function lockFlyout(){
     if (!ccsFly) return;
     isLocked = true;
@@ -519,6 +761,10 @@ document.addEventListener('DOMContentLoaded', function(){
     showOverlay();
     flyAnchor = null;
     document.addEventListener('keydown', onEscClose);
+    if (flyDlBtn){
+      flyDlBtn.style.display = 'block';
+      positionFlyDownloadBtn();
+    }
   }
   function unlockFlyout(){
     isLocked = false;
@@ -526,31 +772,35 @@ document.addEventListener('DOMContentLoaded', function(){
     hideOverlay();
     document.removeEventListener('keydown', onEscClose);
     hideFlyout(true);
+    if (flyDlBtn) flyDlBtn.style.display = 'none';
+    hideFlyMenu();
   }
-  if (overlay && !overlay._wired){
-    overlay.addEventListener('click', unlockFlyout);
-    overlay._wired = true;
-  }
-
   function hideFlyout(force){
     if (!ccsFly) return;
     if (isLocked && !force) return;
     ccsFly.style.display = 'none';
     flyAnchor = null;
+    if (flyDlBtn) flyDlBtn.style.display = 'none';
+    hideFlyMenu();
   }
+
+  // grey overlay click closes again
+  if (overlay && !overlay._wired){
+    overlay.addEventListener('click', unlockFlyout);
+    overlay._wired = true;
+  }
+
   function hideFlyoutIfAnchor(el){ if (flyAnchor === el) hideFlyout(); }
 
-  // Convert API items → row arrays for DataTables
+  /* ========= Populate flyout ========= */
   function rowsFromItems(items, opts){
     var idFirst = !!(opts && opts.idFirst);
     return items.map(function(it){
       var L = it.ref || {}, R = it.target || {};
       var sim = (typeof it.similarity === 'number') ? it.similarity : '';
       var idn = (typeof it.identity   === 'number') ? it.identity   : '';
-
       var m0 = idFirst ? idn : sim;
       var m1 = idFirst ? sim : idn;
-
       return [
         m0, m1,
         iconLinkOrDash(L.gpcrdb_link),
@@ -568,13 +818,10 @@ document.addEventListener('DOMContentLoaded', function(){
   function setFlyHeaders(leftLabel, rightLabel, idFirst){
     var thead = document.querySelector('#ccsFlyTable thead');
     if (!thead) return;
-
     var L = esc(flatClassLabel(leftLabel));
     var R = esc(flatClassLabel(rightLabel));
-
     var m0Title = idFirst ? 'ID'  : 'SIM';
     var m1Title = idFirst ? 'SIM' : 'ID';
-
     var superRow =
       '<tr class="ccs-super">' +
         '<th class="metric-cap">' + m0Title + '</th>' +
@@ -582,7 +829,6 @@ document.addEventListener('DOMContentLoaded', function(){
         '<th class="group-cap" colspan="4">' + L + '</th>' +
         '<th class="group-cap" colspan="4">' + R + '</th>' +
       '</tr>';
-
     var baseRow =
       '<tr class="metric-row">' +
         '<th class="metric-unit">(%)</th>' +
@@ -590,11 +836,9 @@ document.addEventListener('DOMContentLoaded', function(){
         '<th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>' +
         '<th>GPCRdb</th><th>GtoPdb</th><th>UniProt</th><th>Gene</th>' +
       '</tr>';
-
     thead.innerHTML = superRow + baseRow;
   }
 
-  // Open + populate flyout for a given cell
   function openFlyoutForCell(cellEl, items, rowsCount, opts){
     if (!ccsFly) return;
 
@@ -611,7 +855,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ccsDT){
       ccsDT.clear().rows.add(rowsFromItems(items, { idFirst:idFirst }));
       ccsDT.order(defaultOrder).draw(false);
-
       lastFlyIdFirst = idFirst;
       colorFlyMetrics(idFirst);
     } else {
@@ -626,7 +869,6 @@ document.addEventListener('DOMContentLoaded', function(){
         var lb = (b && b.ref && b.ref.display_name) ? b.ref.display_name : '';
         return la.localeCompare(lb, undefined, { numeric:true, sensitivity:'base' });
       });
-
       var tb = document.querySelector('#ccsFlyTable tbody');
       tb.innerHTML = sorted.map(function(it){
         var row = rowsFromItems([it], { idFirst:idFirst })[0];
@@ -635,7 +877,6 @@ document.addEventListener('DOMContentLoaded', function(){
           return '<td'+cls+'>' + c + '</td>';
         }).join('') + '</tr>';
       }).join('');
-
       lastFlyIdFirst = idFirst;
       colorFlyMetrics(idFirst);
     }
@@ -643,6 +884,7 @@ document.addEventListener('DOMContentLoaded', function(){
     flyAnchor = cellEl;
     ccsFly.style.display = 'block';
     positionFlyout(cellEl, rowsCount);
+    positionFlyDownloadBtn();
   }
 
   function colorFlyMetrics(idFirst){
@@ -668,26 +910,20 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
-  /* ===========================================================
-     Scope helpers (toggle)
-     =========================================================== */
+  /* ========= Scope + badges ========= */
   function applyScopeWidth(scope){
     axisWrap.classList.remove('scope-human', 'scope-human-classless');
     if (scope === 'human') axisWrap.classList.add('scope-human');
     else if (scope === 'human-classless') axisWrap.classList.add('scope-human-classless');
   }
-
   function indicesForScope(scope){
-    var allowed=[];
-    baseOrder.forEach(function(i){
+    var allowed=[]; baseOrder.forEach(function(i){
       var name=classes[i], clsless=isClassless(name);
       if (scope==='human'){ if (!clsless) allowed.push(i); }
       else if (scope==='human-classless'){ allowed.push(i); }
     });
     return allowed;
   }
-
-  // New badge positioning (inside capture box)
   function positionBadges(){
     var container = document.querySelector('.ccs-axis-wrap');
     var scroller  = document.querySelector('.ccs-scroller');
@@ -699,45 +935,43 @@ document.addEventListener('DOMContentLoaded', function(){
     var yBadge = yWrap.querySelector('.ccs-axis-badge');
     if (!xBadge || !yBadge) return;
 
-    // rects relative to viewport
     var cRect = container.getBoundingClientRect();
     var sRect = scroller.getBoundingClientRect();
 
-    // convert scroller rect to container-local coordinates
     var sLeft = sRect.left - cRect.left;
     var sTop  = sRect.top  - cRect.top;
 
-    // X badge: centered above the scroller
     var gapX = 8;
     xWrap.style.left = sLeft + 'px';
     xWrap.style.top  = (sTop - xBadge.offsetHeight - gapX) + 'px';
     xWrap.style.width = scroller.offsetWidth + 'px';
     xWrap.style.textAlign = 'center';
 
-    // Y badge: vertically centered to the left of the scroller
     var gapY = 10;
     var yH = yBadge.offsetHeight;
     yWrap.style.top  = (sTop + (scroller.offsetHeight - yH)/2) + 'px';
     yWrap.style.left = (sLeft - yBadge.offsetWidth - gapY) + 'px';
   }
 
-  // Toggle button behavior
   scopeToggle.addEventListener('click', function(){
     currentScope = (currentScope === 'human') ? 'human-classless' : 'human';
     scopeToggle.textContent = (currentScope === 'human') ? 'Human only' : 'Human only (incl. Classless)';
     renderTable(indicesForScope(currentScope));
     applyScopeWidth(currentScope);
-    positionBadges();  // badges may shift with width clamp
+    positionBadges();
   });
 
-  // Hide flyout on scroll/resize (ignored when locked)
-  (scroller || window).addEventListener('scroll', hideFlyout, { passive:true });
-  window.addEventListener('resize', hideFlyout, { passive:true });
-  window.addEventListener('resize', positionBadges, { passive:true });
+  (scroller || window).addEventListener('scroll', function(){
+    hideFlyout();
+    positionFlyDownloadBtn();
+  }, { passive:true });
+  window.addEventListener('resize', function(){
+    hideFlyout();
+    positionBadges();
+    positionFlyDownloadBtn();
+  }, { passive:true });
 
-  /* ===========================================================
-     Heatmap render
-     =========================================================== */
+  /* ========= Render heatmap ========= */
   if (!Array.isArray(classes) || !Array.isArray(matrix) || !classes.length) {
     if (axisWrap) axisWrap.style.display='none';
     if (empty) empty.style.display='';
@@ -754,26 +988,20 @@ document.addEventListener('DOMContentLoaded', function(){
     var ranges = computeHeatRanges(indices);
     currentRanges = ranges;
 
-    // Fixed widths via colgroup (corner + N)
+    // colgroup: corner + N
     var totalCols = 1 + indices.length;
     var cg = document.createElement('colgroup');
-
     var col0 = document.createElement('col');
-    col0.style.width = 'var(--ccs-row-header-w)';
-    cg.appendChild(col0);
-
+    col0.style.width = 'var(--ccs-row-header-w)'; cg.appendChild(col0);
     for (var i = 1; i < totalCols; i++){
       var col = document.createElement('col');
-      col.style.width = 'var(--ccs-cell)';
-      cg.appendChild(col);
+      col.style.width = 'var(--ccs-cell)'; cg.appendChild(col);
     }
     table.insertBefore(cg, table.firstChild);
 
     // THEAD
     var trHead = document.createElement('tr');
-    var thCorner = document.createElement('th');
-    thCorner.textContent = 'Classes';
-    trHead.appendChild(thCorner);
+    var thCorner = document.createElement('th'); thCorner.textContent = 'Classes'; trHead.appendChild(thCorner);
     indices.forEach(function(j){
       var th = document.createElement('th');
       th.innerHTML = twoLineLabel(classes[j]);
@@ -796,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function(){
           td.className = 'cell-empty';
           td.textContent = showDashInBlanks ? '—' : '';
         } else {
-          var isUpper = rIdx < cIdx;  // upper=identity, lower=similarity
+          var isUpper = rIdx < cIdx;
           var lookI   = isUpper ? Math.min(origI, origJ) : Math.max(origI, origJ);
           var lookJ   = isUpper ? Math.max(origI, origJ) : Math.min(origI, origJ);
 
@@ -816,9 +1044,8 @@ document.addEventListener('DOMContentLoaded', function(){
               (function(tdRef, itemsRef, isUpperRef, labI, labJ){
                 var leftHeader  = isUpperRef ? labI : labJ;
                 var rightHeader = isUpperRef ? labJ : labI;
-
                 var opts = {
-                  idFirst:    !!isUpperRef,   // upper triangle -> Identity first; lower -> Sim first
+                  idFirst:    !!isUpperRef,
                   leftLabel:  flatClassLabel(leftHeader),
                   rightLabel: flatClassLabel(rightHeader)
                 };
@@ -842,16 +1069,50 @@ document.addEventListener('DOMContentLoaded', function(){
       tbody.appendChild(tr);
     });
 
-    // (Re)position badges once the table has dimensions
     positionBadges();
+    positionFlyDownloadBtn();
   }
 
-  /* ===========================================================
-     Initial render
-     =========================================================== */
+    /* ========= How-to modal ========= */
+    var howToBtn   = document.getElementById('ccsHowToBtn');
+    var howToModal = document.getElementById('ccsHowToModal');
+    var howToBack  = document.getElementById('ccsHowToBackdrop');
+    var howToClose = howToModal && howToModal.querySelector('.ccs-modal-close');
+    var howToOk    = document.getElementById('ccsHowToOk');
+
+    function openHowTo(){
+      if (!howToModal || !howToBack) return;
+      howToModal.style.display = 'block';
+      howToBack.style.display  = 'block';
+      howToModal.setAttribute('aria-hidden','false');
+      howToBack.setAttribute('aria-hidden','false');
+      // optional: prevent background scroll
+      document.documentElement.style.overflow = 'hidden';
+    }
+    function closeHowTo(){
+      if (!howToModal || !howToBack) return;
+      howToModal.style.display = 'none';
+      howToBack.style.display  = 'none';
+      howToModal.setAttribute('aria-hidden','true');
+      howToBack.setAttribute('aria-hidden','true');
+      document.documentElement.style.overflow = '';
+    }
+
+    if (howToBtn)   howToBtn.addEventListener('click', openHowTo);
+    if (howToBack)  howToBack.addEventListener('click', closeHowTo);
+    if (howToClose) howToClose.addEventListener('click', closeHowTo);
+    if (howToOk)    howToOk.addEventListener('click', closeHowTo);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && howToModal && howToModal.style.display === 'block') closeHowTo();
+    });
+
+
+  /* ========= Initial render ========= */
   renderTable(indicesForScope(currentScope));
   applyScopeWidth(currentScope);
   positionBadges();
+
 });
 </script>
+
 {% endblock %}

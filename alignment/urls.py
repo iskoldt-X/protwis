@@ -27,5 +27,6 @@ urlpatterns = [
     url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity'),
     url(r'^class_similarity/CrossClassSimilarity', views.CrossClassSimilarity.as_view(), name='CrossClassSimilarity'),
     url(r'^class_similarity/OrhanSimilarityClustering', views.OrhanSimilarityClustering.as_view(), name='OrhanSimilarityClustering'),
-    url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity')
+    url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity'),
+    url(r'^class_similarity/api/embedding$', views.SimilarityEmbeddingAPI.as_view(), name='api-embedding')
 ]

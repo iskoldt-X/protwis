@@ -50,6 +50,7 @@ import xlrd
 import re
 import pandas as pd
 from string import Template
+from sklearn.manifold import TSNE
 
 strain_re = re.compile(r'\bstrain\b', flags=re.I)
 class_fungal_re = re.compile(r'(\(Ste2-like)(\s+)(fungal)(\s+)(pheromone\))', flags=re.I)
@@ -1905,4 +1906,245 @@ class OrhanSimilarityClustering(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        def clean_gtop_name(nm):
+            if not nm:
+                return "-"
+            s = (nm
+                 .replace("receptor", "")
+                 .replace("-adrenoceptor", "")
+                 .replace("<i>", "").replace("</i>", "")
+                 .strip())
+            return s or "-"
+
+        orphans_qs = (
+            Protein.objects
+            .filter(
+                parent_id__isnull=True,
+                species_id=1,
+                family__parent__parent__name__iexact='Orphan receptors',
+            )
+            .prefetch_related(
+                Prefetch(
+                    'genes',
+                    queryset=Gene.objects.filter(position=0),
+                    to_attr='primary_genes_self'
+                )
+            )
+            .order_by('entry_name')
+        )
+
+        data = []
+        for p in orphans_qs:
+            gene = (
+                p.primary_genes_self[0].name
+                if getattr(p, 'primary_genes_self', None)
+                else (p.entry_name.split('_')[0].upper() if p.entry_name else "-")
+            )
+            data.append({
+                "id": p.id,
+                "text": clean_gtop_name(p.name),
+                "name": clean_gtop_name(p.name),
+                "entry_name": p.entry_name,
+                "gene": gene,
+            })
+
+        context['orphans_select2'] = json.dumps(data)
         return context
+
+class SimilarityEmbeddingAPI(View):
+    ORPHAN_LT = "Orphan receptors"
+
+    @staticmethod
+    def _truthy(v):
+        return str(v).lower() not in ("", "0", "false", "no", "off", "none")
+
+    @staticmethod
+    def _lab(en):
+        return (en or "").replace("_human", "")
+
+    def get_orphan_ids(self):
+        return set(
+            Protein.objects
+                   .filter(species_id=1,
+                           family__parent__parent__name__iexact=self.ORPHAN_LT)
+                   .values_list("id", flat=True)
+        )
+
+    def get(self, request):
+        # ---- params ----
+        try:
+            ref_id = int(request.GET.get("ref"))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
+
+        top_n = request.GET.get("top_n")
+        try:
+            top_n = int(top_n) if top_n is not None else 50
+        except Exception:
+            top_n = 50
+        top_n = max(10, min(200, top_n))
+
+        method = (request.GET.get("method") or "umap").lower()
+        metric = (request.GET.get("metric") or "identity").lower()
+        if metric not in ("identity", "similarity"):
+            metric = "identity"
+        exclude_orphans = self._truthy(request.GET.get("exclude_orphans", "true"))
+
+        # ---- 1) neighbors of ref (similarity desc) ----
+        pairs = list(
+            ReceptorSimilarity.objects
+            .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+            .annotate(
+                other_id=Case(
+                    When(protein_ref_id=ref_id, then=F("protein_target_id")),
+                    default=F("protein_ref_id"),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("-similarity")
+            .values("other_id", "similarity", "identity")
+        )
+        if not pairs:
+            return JsonResponse({"points": [], "meta": {"note": "No neighbors for ref"}})
+
+        # ---- 2) optionally drop other orphans ----
+        if exclude_orphans:
+            orphan_ids = self.get_orphan_ids()
+            pairs = [p for p in pairs if p["other_id"] not in orphan_ids]
+
+        ranked = pairs[:top_n]
+        if not ranked:
+            return JsonResponse({"points": [], "meta": {"note": "No non-orphan neighbors found"}})
+
+        kept_ids = [ref_id] + [p["other_id"] for p in ranked]
+
+        # ---- 3) protein metadata ----
+        proteins = (
+            Protein.objects
+            .filter(id__in=kept_ids)
+            .select_related("family__parent__parent__parent")
+        )
+        pmap = {p.id: p for p in proteins}
+        if ref_id not in pmap:
+            return JsonResponse({"error": "Reference protein not found"}, status=404)
+
+        labels, ordered_ids = [], []
+        for pid in kept_ids:
+            p = pmap.get(pid)
+            if not p:
+                continue
+            lab = self._lab(p.entry_name or "")
+            if lab and lab not in labels:
+                labels.append(lab)
+                ordered_ids.append(pid)
+
+        N = len(labels)
+        if N < 3:
+            return JsonResponse({"points": [], "meta": {"note": "Too few points", "n_points": N}})
+
+        id_to_idx = {pid: i for i, pid in enumerate(ordered_ids)}
+
+        # ---- 4) all pairs among kept_ids (one small query) ----
+        subpairs = list(
+            ReceptorSimilarity.objects
+            .filter(protein_ref_id__in=kept_ids, protein_target_id__in=kept_ids)
+            .values("protein_ref_id", "protein_target_id", "similarity", "identity")
+        )
+        # undirected map
+        pv = {}
+        for r in subpairs:
+            a, b = r["protein_ref_id"], r["protein_target_id"]
+            if a == b:
+                continue
+            key = (a, b) if a < b else (b, a)
+            if key not in pv:
+                pv[key] = r
+
+        D = np.full((N, N), np.nan, dtype=float)
+        np.fill_diagonal(D, 0.0)
+
+        def to_dist(rec):
+            val = rec["identity"] if metric == "identity" else rec["similarity"]
+            try:
+                v = float(val)
+            except Exception:
+                return np.nan
+            return max(0.0, min(1.0, 1.0 - v / 100.0))
+
+        for (a, b), rec in pv.items():
+            if a in id_to_idx and b in id_to_idx:
+                i, j = id_to_idx[a], id_to_idx[b]
+                d = to_dist(rec)
+                D[i, j] = d
+                D[j, i] = d
+
+        if np.isnan(D).any():
+            col_med = np.nanmedian(D, axis=0)
+            inds = np.where(np.isnan(D))
+            D[inds] = np.take(col_med, inds[1])
+            D = 0.5 * (D + D.T)
+            np.fill_diagonal(D, 0.0)
+
+        # ---- 5) embed (t-SNE only) ----
+
+        # perplexity must be strictly < N; keep it reasonable for tiny N
+        perplexity = max(
+            1.0,
+            min(40.0, (N - 1) / 3.0, N - 1 - 1e-9),
+        )
+
+        tsne = TSNE(
+            n_components=2,
+            metric="precomputed",
+            perplexity=perplexity,
+            random_state=42,
+            init="random",        # required with precomputed distances
+            learning_rate="auto", # silences future warning / modern default
+            square_distances=True # modern behavior; no deprecation warning
+        )
+        coords = tsne.fit_transform(D)
+        used_method = "tsne"
+
+
+        # ---- 6) scalar vs ref for Gradient color ----
+        ref_field = "identity" if metric == "identity" else "similarity"
+        val_vs_ref = {}
+        for r in pairs:  # original ref↔other list
+            if r["other_id"] in id_to_idx:
+                val = r.get(ref_field)
+                if val is not None:
+                    lab = self._lab(pmap[r["other_id"]].entry_name or "")
+                    val_vs_ref[lab] = float(val)
+
+        # ---- 7) response points ----
+        points = []
+        for i, pid in enumerate(ordered_ids):
+            p = pmap[pid]
+            fam = getattr(p.family, "parent", None)
+            lig = getattr(fam, "parent", None) if fam else None
+            cls = getattr(lig, "parent", None) if lig else None
+
+            clazz = getattr(cls, "name", "") if cls else ""
+            lig_t = getattr(lig, "name", "") if lig else ""
+            fam_n = getattr(fam, "name", "") if fam else ""
+            lab = labels[i]
+
+            fill = 100.0 if pid == ref_id else val_vs_ref.get(lab)
+
+            points.append({
+                "id": pid,
+                "label": lab,
+                "x": float(coords[i, 0]),
+                "y": float(coords[i, 1]),
+                "Class": clazz,
+                "Ligand type": lig_t,
+                "Receptor family": fam_n,
+                "fill": float(fill) if fill is not None else None,
+                "is_ref": (pid == ref_id),
+            })
+
+        return JsonResponse({
+            "points": points,
+            "ref": {"id": ref_id, "label": labels[0]},
+            "meta": {"method": used_method, "metric": metric, "top_n": len(points), "n_points": N}
+        })
