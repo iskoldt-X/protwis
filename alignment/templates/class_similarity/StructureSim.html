@@ -1,0 +1,768 @@
+{% extends "home/base.html" %}
+{% load static %}
+{% load utils %}
+
+{% block content %}
+<div class="container">
+  <h3>Structure similarity</h3>
+  <div id="sim-status">Loading…</div>
+
+  <!-- state toggle -->
+  <div style="margin:8px 0;">
+    <button class="btn btn-primary btn-sm state-btn" data-state="inactive">Inactive</button>
+    <button class="btn btn-default btn-sm state-btn" data-state="active">Active</button>
+  </div>
+
+  <div style="margin:8px 0;">
+    <button class="btn btn-primary btn-sm colorby" data-key="Class">Class</button>
+    <button class="btn btn-default  btn-sm colorby" data-key="Ligand type">Ligand type</button>
+    <button class="btn btn-default  btn-sm colorby" data-key="Receptor family">Receptor family</button>
+    <button class="btn btn-default btn-sm colorby" data-key="Physiological ligand">Physiological ligand</button>
+    <button class="btn btn-default btn-sm colorby" data-key="Sense">Sense</button>
+  </div>
+
+  <div style="margin:4px 0 8px;">
+    <span style="margin-right:4px;">Shape by:</span>
+    <button class="btn btn-primary btn-xs shapeby" data-key="Class">Class</button>
+    <button class="btn btn-default btn-xs shapeby" data-key="Sense">Sense</button>
+  </div>
+
+  <!-- NEW: external plot title that we update from JS -->
+  <h4 id="plot-title" class="text-center" style="margin: 10px 0 5px;">
+    Inactive structures
+  </h4>
+
+  <div id="plot" style="min-height: 540px;"></div>
+</div>
+{% endblock %}
+
+{% block addon_js %}
+<script src="{% static 'home/js/plotly_v1_58_5.js' %}"></script>
+<script>
+(async function () {
+  const statusEl    = document.getElementById('sim-status');
+  const plotTitleEl = document.getElementById('plot-title');
+  const plotDiv     = document.getElementById('plot');
+
+  // Backend-provided URLs for each state
+  const EMBED_URLS = {
+    inactive: "{{ inactive_embed_url }}",
+    active:   "{{ active_embed_url }}",
+  };
+
+  // Fallback palette if we ever need it
+  const PALETTE = [
+    '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+    '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'
+  ];
+
+  // --- FIXED COLOR MAPS ---
+
+  // Colors for GPCR Class
+  const CLASS_COLORS = {
+    'A':     '#1f77b4',
+    'B1':    '#ff7f0e',
+    'B2':    '#2ca02c',
+    'O1':    '#d62728',
+    'O2':    '#9467bd',
+    'C':     '#8c564b',
+    'F':     '#e377c2',
+    'T2':    '#7f7f7f',
+    'Other': '#bcbd22'
+  };
+
+  // Colors by physiological ligand category
+  const PHYSIO_COLORS = {
+    'Peptide/protein': '#1b9e77',
+    'Small-molecule':  '#d95f02',
+    'Ion':             '#7570b3',
+    'Unknown':         '#7f7f7f',
+    'Other':           '#666666'
+  };
+
+  // Colors for sense categories
+  const SENSE_COLORS = {
+    'non-sensory': '#1f78b4',
+    'odorant':     '#e31a1c',
+    'taste':       '#33a02c',
+    'unknown':     '#b2b2b2',
+    'vision':      '#6a3d9a'
+  };
+
+  // Gradients per physio group (used for Ligand type / Receptor family)
+  const GROUP_GRADIENTS = {
+    'Peptide/protein': [
+      '#006d2c','#238b45','#41ab5d','#74c476','#a1d99b','#c7e9c0'
+    ],
+    'Small-molecule': [
+      '#7f2704','#a63603','#d94801','#f16913','#fd8d3c','#fdae6b'
+    ],
+    'Ion': [
+      '#08519c','#2171b5','#4292c6','#6baed6','#9ecae1','#c6dbef'
+    ],
+    'Unknown': [
+      '#3f3f3f','#525252','#737373','#969696','#bdbdbd','#d9d9d9'
+    ],
+    'Other': [
+      '#7f3b08','#b35806','#e08214','#fdb863','#fee0b6','#f7f7f7'
+    ]
+  };
+
+  // -------------- small helpers --------------
+
+  function plain(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return (div.textContent || div.innerText || '').trim();
+  }
+
+  function normEntry(entry) {
+    const raw = String(entry || '').toUpperCase();
+    return raw.replace(/_HUMAN$/i, '');
+  }
+
+  function getCategory(point, key, meta) {
+    if (key === 'Physiological ligand') return meta.physio_ligand_consensus || '—';
+
+    if (key === 'Class')             return meta.protein_class   || point.Class            || '—';
+    if (key === 'Ligand type')       return meta.ligand_type     || point['Ligand type']   || '—';
+    if (key === 'Receptor family')   return meta.receptor_family || point['Receptor family'] || '—';
+    if (key === 'Sense')             return meta.sense           || point.Sense            || '—';
+    return '—';
+  }
+
+  // ---------- shape + physio helpers ----------
+
+  // Normalize a class string to A/B1/B2/O1/O2/C/F/T2
+  function normClassCodeFromString(cls) {
+    let s = String(cls || '').toUpperCase();
+    if (!s) return null;
+    if (s.includes('CLASS B1')) return 'B1';
+    if (s.includes('CLASS B2')) return 'B2';
+    if (s.includes('CLASS O1')) return 'O1';
+    if (s.includes('CLASS O2')) return 'O2';
+    if (s.includes('CLASS T2')) return 'T2';
+    if (s.includes('CLASS C'))  return 'C';
+    if (s.includes('CLASS F'))  return 'F';
+    if (s.includes('CLASS A'))  return 'A';
+    return null;
+  }
+
+  // Uses meta when we have it (for shapes)
+  function normClassCode(meta) {
+    return normClassCodeFromString(meta.protein_class);
+  }
+
+  // Shape category (decides symbol) – class code or full sense label
+  function getShapeCategory(meta, shapeKey) {
+    if (shapeKey === 'Sense') {
+      const s = (meta.sense || '').trim();
+      return s || 'Unknown';
+    }
+    return normClassCode(meta) || 'Other';
+  }
+
+  function senseAbbrev(sense) {
+    const s = (sense || '').trim().toLowerCase();
+    if (s === 'non-sensory') return 'Ns';
+    if (s === 'odorant')     return 'O';
+    if (s === 'taste')       return 'T';
+    if (s === 'unknown' || !s) return 'U';
+    return 'U';
+  }
+
+  // Small monospaced-looking prefixes so dots/labels align
+  function classPrefix(label) {
+    if (!label) label = '';
+    label = String(label);
+    while (label.length < 2) label += '\u00A0'; // pad to 2 chars
+    return label;
+  }
+
+  function sensePrefix(sense) {
+    let abbr = senseAbbrev(sense);
+    abbr = String(abbr || '');
+    while (abbr.length < 2) abbr += '\u00A0';
+    return abbr;
+  }
+
+  function getShapeFor(shapeCat, shapeKey) {
+    if (shapeKey === 'Sense') {
+      const s = (shapeCat || '').toLowerCase();
+      if (s === 'non-sensory') return 'circle-x';
+      if (s === 'odorant')     return 'triangle-down';
+      if (s === 'taste')       return 'triangle-left';
+      if (s === 'unknown' || !s) return 'triangle-right';
+      return 'x';
+    }
+
+    switch (shapeCat) {
+      case 'A':  return 'circle';
+      case 'B1': return 'star-triangle-up';
+      case 'B2': return 'star-triangle-down';
+      case 'O1': return 'square';
+      case 'O2': return 'star-diamond';
+      case 'C':  return 'pentagon';
+      case 'F':  return 'hexagram';
+      case 'T2': return 'diamond-wide';
+      default:   return 'circle-open';
+    }
+  }
+
+  const PHYSIO_GROUP_ORDER = ['Peptide/protein', 'Small-molecule', 'Ion', 'Unknown', 'Other'];
+
+  // ONE dominant physio group per receptor, with priority:
+  // small-molecule > peptide/protein > ion > unknown > other
+  function physioGroupForConsensus(consensus) {
+    const s = (consensus || '').trim().toLowerCase();
+    if (!s || s === 'unknown')           return 'Unknown';
+    if (s === 'ion')                     return 'Ion';
+    if (s.includes('small-molecule'))    return 'Small-molecule';
+    if (s.includes('peptide') || s.includes('protein')) return 'Peptide/protein';
+    return 'Other';
+  }
+
+  function physioGroupOrderIndex(groupLabel) {
+    const idx = PHYSIO_GROUP_ORDER.indexOf(groupLabel);
+    return idx === -1 ? 99 : idx;
+  }
+
+  // Decide the legend label
+  function makeLegendName(colorKey, shapeKey, colorCat, shapeCat) {
+    if (shapeKey === 'Class') {
+      const prefix = classPrefix(shapeCat || 'Other');
+      if (colorKey === 'Class') {
+        return prefix;
+      }
+      return `${prefix} · ${colorCat}`;
+    }
+
+    if (shapeKey === 'Sense') {
+      const prefix = sensePrefix(shapeCat || 'Unknown');
+      return `${prefix} · ${colorCat}`;
+    }
+
+    return colorCat;
+  }
+
+  // Decide the *color* of a bucket (trace)
+  function chooseBucketColor(colorKey, bucket, groupColorMaps, defaultColorMap) {
+    const g = bucket.physioGroup || 'Other';
+
+    // Fixed colors for Class
+    if (colorKey === 'Class') {
+      const code = normClassCodeFromString(bucket.colorCat) || 'Other';
+      return CLASS_COLORS[code] || CLASS_COLORS['Other'] || '#999999';
+    }
+
+    // Fixed colors for Physiological ligand
+    if (colorKey === 'Physiological ligand') {
+      const grp = physioGroupForConsensus(bucket.physio) || g;
+      return PHYSIO_COLORS[grp] || '#999999';
+    }
+
+    // Fixed colors for Sense
+    if (colorKey === 'Sense') {
+      const s = (bucket.colorCat || '').trim().toLowerCase();
+      if (s in SENSE_COLORS) return SENSE_COLORS[s];
+      return SENSE_COLORS['unknown'];
+    }
+
+    // Gradients for Ligand type / Receptor family
+    if ((colorKey === 'Ligand type' || colorKey === 'Receptor family') &&
+        groupColorMaps && groupColorMaps[g] && groupColorMaps[g].has(bucket.colorCat)) {
+      return groupColorMaps[g].get(bucket.colorCat);
+    }
+
+    // Fallback – deterministic palette by category
+    if (defaultColorMap && defaultColorMap.has(bucket.colorCat)) {
+      return defaultColorMap.get(bucket.colorCat);
+    }
+    return '#999999';
+  }
+
+  function compareBuckets(a, b) {
+    // Sort first by physio group, then by shape, then legend text
+    const ga = physioGroupOrderIndex(a.physioGroup);
+    const gb = physioGroupOrderIndex(b.physioGroup);
+    if (ga < gb) return -1;
+    if (ga > gb) return 1;
+
+    if (a.shapeCat < b.shapeCat) return -1;
+    if (a.shapeCat > b.shapeCat) return 1;
+    if (a.legendName < b.legendName) return -1;
+    if (a.legendName > b.legendName) return 1;
+    return 0;
+  }
+
+  let currentState = 'inactive';
+  let colorKey     = 'Class';
+  let shapeKey     = 'Class';
+  const dataCache  = {};  // state → { points, proteins }
+  let legendHandlersAttached = false;
+
+  function buildTraces(points, proteins, key, shapeKey) {
+    const GROUP_BY_PHYSIO_KEYS = [
+      'Class',
+      'Ligand type',
+      'Receptor family',
+      'Physiological ligand',
+      'Sense'
+    ];
+    const shouldGroupByPhysio = GROUP_BY_PHYSIO_KEYS.includes(key);
+
+    // 1) per-point categories
+    const colorCats = new Set();
+    const perPointColor       = [];
+    const perPointShapeCat    = [];
+    const perPointPhysio      = [];
+    const perPointPhysioGroup = [];
+
+    for (let i = 0; i < points.length; i++) {
+      const p    = points[i];
+      const meta = proteins[p.label] || {};
+      const cCat = getCategory(p, key, meta) || '—';
+      const sCat = getShapeCategory(meta, shapeKey);
+      const physio = meta.physio_ligand_consensus || 'Unknown';
+      const group  = physioGroupForConsensus(physio);
+
+      perPointColor.push(cCat);
+      perPointShapeCat.push(sCat);
+      perPointPhysio.push(physio);
+      perPointPhysioGroup.push(group);
+      colorCats.add(cCat);
+    }
+
+    const colorCatList = Array.from(colorCats).sort();
+    const colorMap = new Map(colorCatList.map((c,i) => [c, PALETTE[i % PALETTE.length]]));
+
+    // 2) group by (colorCat, shapeCat, physioGroup)
+    const bucketsById = {}; // id -> { ... }
+
+    for (let i = 0; i < points.length; i++) {
+      const p    = points[i];
+      const meta = proteins[p.label] || {};
+
+      const colorCat   = perPointColor[i];
+      const shapeCat   = perPointShapeCat[i];
+      const physio     = perPointPhysio[i];
+      const physioGroup = perPointPhysioGroup[i];
+
+      const id = colorCat + '|||' + shapeCat + '|||' + physioGroup;
+
+      if (!bucketsById[id]) {
+        bucketsById[id] = {
+          id,
+          colorCat,
+          shapeCat,
+          physio,
+          physioGroup,
+          xs: [],
+          ys: [],
+          texts: []
+        };
+      }
+
+      const entry = normEntry(meta.protein_entry);
+      const name  = plain(meta.protein_name);
+      const pdb   = meta.pdb_code || p.label || '';
+
+      const sense = meta.sense || '';
+      const senseLine = sense ? `Sense: ${sense}<br>` : '';
+
+      const consensus = meta.physio_ligand_consensus || '';
+      const rawList   = Array.isArray(meta.physio_ligand_types_raw)
+                        ? meta.physio_ligand_types_raw.filter(Boolean).join(', ')
+                        : '';
+      const physioLine = consensus
+        ? `Physiological ligand: ${consensus}${rawList ? ` <span style="color:#666">(${rawList})</span>` : ''}<br>`
+        : '';
+
+      const line1 = (entry && name) ? `${entry} — ${name}` : (entry || name || pdb);
+      const line2 = `PDB: ${pdb}`;
+      const line3 = `${key}: ${colorCat}`;
+
+      bucketsById[id].texts.push(`${line1}<br>${physioLine}${senseLine}${line2}<br>${line3}`);
+      bucketsById[id].xs.push(p.x);
+      bucketsById[id].ys.push(p.y);
+    }
+
+    // 3) materialize buckets
+    const bucketList = [];
+    for (const id in bucketsById) {
+      const b = bucketsById[id];
+      const legendName = makeLegendName(key, shapeKey, b.colorCat, b.shapeCat);
+      const symbol     = getShapeFor(b.shapeCat, shapeKey);
+
+      bucketList.push({
+        id:         b.id,
+        colorCat:   b.colorCat,
+        shapeCat:   b.shapeCat,
+        physio:     b.physio,
+        physioGroup: b.physioGroup,
+        xs:         b.xs,
+        ys:         b.ys,
+        texts:      b.texts,
+        legendName,
+        symbol
+      });
+    }
+
+    // 3b) build per-group color maps for Ligand type / Receptor family
+    let groupColorMaps = null;
+    if (key === 'Ligand type' || key === 'Receptor family') {
+      groupColorMaps = {};
+      const catsByGroup = {};
+      for (const b of bucketList) {
+        const g = b.physioGroup || 'Other';
+        if (!catsByGroup[g]) catsByGroup[g] = new Set();
+        catsByGroup[g].add(b.colorCat);
+      }
+      for (const g in catsByGroup) {
+        const cats = Array.from(catsByGroup[g]).sort();
+        const palette = GROUP_GRADIENTS[g] || PALETTE;
+        const m = new Map();
+        cats.forEach((c, i) => {
+          m.set(c, palette[i % palette.length]);
+        });
+        groupColorMaps[g] = m;
+      }
+    }
+
+    const traces = [];
+
+    if (shouldGroupByPhysio) {
+      // 4a) legend grouped by physio
+      for (const groupLabel of PHYSIO_GROUP_ORDER) {
+        const groupBuckets = bucketList
+          .filter(b => b.physioGroup === groupLabel)
+          .sort(compareBuckets);
+
+        if (!groupBuckets.length) continue;
+
+        // header trace (no points, but clickable for group toggling)
+        traces.push({
+          x: [NaN],
+          y: [NaN],
+          type: 'scatter',
+          mode: 'markers',
+          marker: {
+            size: 0,
+            color: 'rgba(0,0,0,0)'
+          },
+          name: `<b>&nbsp;&nbsp;&nbsp;${groupLabel}</b>`,
+          hoverinfo: 'skip',
+          showlegend: true,
+          _kind: 'header',
+          _physioGroup: groupLabel
+        });
+
+        for (const b of groupBuckets) {
+          const color = chooseBucketColor(key, b, groupColorMaps, colorMap);
+          traces.push({
+            x: b.xs,
+            y: b.ys,
+            type: 'scatter',
+            mode: 'markers',
+            marker: {
+              size: 9,
+              line: { width: 0.5, color: '#000' },
+              color: color,
+              symbol: b.symbol
+            },
+            name: b.legendName,
+            hoverinfo: 'text',
+            text: b.texts,
+            _kind: 'bucket',
+            _physioGroup: groupLabel
+          });
+        }
+      }
+    } else {
+      // 4b) simple legend: sort globally
+      bucketList.sort(compareBuckets);
+      for (const b of bucketList) {
+        const color = chooseBucketColor(key, b, groupColorMaps, colorMap);
+        traces.push({
+          x: b.xs,
+          y: b.ys,
+          type: 'scatter',
+          mode: 'markers',
+          marker: {
+            size: 9,
+            line: { width: 0.5, color: '#000' },
+            color: color,
+            symbol: b.symbol
+          },
+          name: b.legendName,
+          hoverinfo: 'text',
+          text: b.texts,
+          _kind: 'bucket',
+          _physioGroup: b.physioGroup
+        });
+      }
+    }
+
+    return traces;
+  }
+
+  // --- Legend click handlers (keep your freeze-axes behaviour) ---
+
+  function attachLegendHandlersOnce() {
+    if (legendHandlersAttached || !plotDiv) return;
+    legendHandlersAttached = true;
+
+    plotDiv.on('plotly_legendclick', function (ev) {
+      const idx   = ev.curveNumber;
+      const data  = ev.data || [];
+      const trace = data[idx];
+      if (!trace) {
+        return true;
+      }
+
+      // save current ranges
+      const xRange = (plotDiv.layout && plotDiv.layout.xaxis && plotDiv.layout.xaxis.range)
+        ? plotDiv.layout.xaxis.range.slice()
+        : null;
+      const yRange = (plotDiv.layout && plotDiv.layout.yaxis && plotDiv.layout.yaxis.range)
+        ? plotDiv.layout.yaxis.range.slice()
+        : null;
+
+      // HEADER: toggle whole physio group
+      if (trace._kind === 'header') {
+        const group = trace._physioGroup;
+        if (!group) return false;
+
+        const bucketIdxs = [];
+        let anyVisible = false;
+        let anyHidden  = false;
+
+        for (let i = 0; i < data.length; i++) {
+          const t = data[i];
+          if (t && t._kind === 'bucket' && t._physioGroup === group) {
+            bucketIdxs.push(i);
+            const vis = t.visible;
+            if (vis === 'legendonly' || vis === false || vis === 'none') {
+              anyHidden = true;
+            } else {
+              anyVisible = true;
+            }
+          }
+        }
+
+        if (!bucketIdxs.length) return false;
+        const newVisible = (anyVisible && !anyHidden) ? 'legendonly' : true;
+
+        Plotly.restyle(plotDiv, { visible: newVisible }, bucketIdxs).then(function () {
+          if (xRange && yRange) {
+            return Plotly.relayout(plotDiv, {
+              'xaxis.range': xRange,
+              'yaxis.range': yRange
+            });
+          }
+        });
+
+        return false;
+      }
+
+      // BUCKET: toggle single trace
+      if (trace._kind === 'bucket') {
+        const isHidden = (
+          trace.visible === 'legendonly' ||
+          trace.visible === false ||
+          trace.visible === 'none'
+        );
+        const newVisible = isHidden ? true : 'legendonly';
+
+        Plotly.restyle(plotDiv, { visible: newVisible }, [idx]).then(function () {
+          if (xRange && yRange) {
+            return Plotly.relayout(plotDiv, {
+              'xaxis.range': xRange,
+              'yaxis.range': yRange
+            });
+          }
+        });
+
+        return false;
+      }
+
+      return true;
+    });
+
+    plotDiv.on('plotly_legenddoubleclick', function (ev) {
+      const idx   = ev.curveNumber;
+      const data  = ev.data || [];
+      const trace = data[idx];
+      if (!trace || trace._kind !== 'header') {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  // --- render & data fetching ---
+
+  function render(state) {
+    const cached = dataCache[state];
+    if (!cached) return;
+
+    currentState = state;
+
+    if (plotTitleEl) {
+      plotTitleEl.textContent = (state === 'inactive')
+        ? 'Inactive structures'
+        : 'Active structures';
+    }
+
+    const traces = buildTraces(cached.points, cached.proteins, colorKey, shapeKey);
+    const layout = {
+      xaxis: { visible: false, showgrid: false, scaleanchor: 'y' },
+      yaxis: { visible: false, showgrid: false },
+      hovermode: 'closest',
+      legend: {
+        x: 1.02,
+        xanchor: 'left',
+        y: 0.44,
+        orientation: 'v',
+        font: {
+          family: 'Source Code Pro, monospace'
+        }
+      },
+      margin: { l: 40, r: 160, t: 10, b: 40 },
+      paper_bgcolor: '#fff',
+      plot_bgcolor: '#fff'
+    };
+
+    Plotly.react(plotDiv, traces, layout, { displayModeBar: true, responsive: true });
+    attachLegendHandlersOnce();
+    requestAnimationFrame(() => { try { Plotly.Plots.resize(plotDiv); } catch(e){} });
+  }
+
+  async function fetchState(state, { renderAfter = false } = {}) {
+    if (dataCache[state]) {
+      if (renderAfter) {
+        statusEl.textContent = '';
+        render(state);
+      }
+      return;
+    }
+
+    const url = EMBED_URLS[state];
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+
+      if (!res.ok) {
+        let msg = 'HTTP ' + res.status;
+        try {
+          const errJson = await res.json();
+          if (errJson && errJson.error) msg += ' – ' + errJson.error;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+
+      if (!data.tsne || data.tsne.error) {
+        if (renderAfter) {
+          statusEl.textContent = data.tsne ? ('Embedding error: ' + data.tsne.error) : 'No embedding';
+        }
+        return;
+      }
+
+      const points   = data.tsne.points || [];
+      const proteins = data.proteins     || {};
+      if (!points.length) {
+        if (renderAfter) {
+          statusEl.textContent = 'No points to plot.';
+        }
+        return;
+      }
+
+      dataCache[state] = { points, proteins };
+
+      if (renderAfter) {
+        statusEl.textContent = '';
+        render(state);
+      }
+
+    } catch (e) {
+      console.error('fetchState error for', state, e);
+      if (renderAfter) {
+        statusEl.textContent = 'Failed to load data: ' + e.message;
+      }
+    }
+  }
+
+  // state toggle buttons
+  document.querySelectorAll('.state-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const state = btn.getAttribute('data-state');
+      if (!state || state === currentState) return;
+
+      document.querySelectorAll('.state-btn').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-default');
+      });
+      btn.classList.remove('btn-default');
+      btn.classList.add('btn-primary');
+
+      if (dataCache[state]) {
+        render(state);
+      } else {
+        fetchState(state, { renderAfter: true });
+      }
+    });
+  });
+
+  // color-by toggles
+  document.querySelectorAll('.colorby').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.colorby').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-default');
+      });
+      btn.classList.remove('btn-default');
+      btn.classList.add('btn-primary');
+      colorKey = btn.getAttribute('data-key') || 'Class';
+      render(currentState);
+    });
+  });
+
+  // shape-by toggles
+  document.querySelectorAll('.shapeby').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-key') || 'Class';
+      if (key === shapeKey) return;
+
+      document.querySelectorAll('.shapeby').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-default');
+      });
+      btn.classList.remove('btn-default');
+      btn.classList.add('btn-primary');
+      shapeKey = key;
+      render(currentState);
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    try { Plotly.Plots.resize(plotDiv); } catch (e) {}
+  });
+
+  // initial load: fetch both datasets, then render inactive
+  try {
+    statusEl.textContent = 'Loading structures…';
+    await Promise.all([
+      fetchState('inactive'),
+      fetchState('active'),
+    ]);
+    statusEl.textContent = '';
+    render('inactive');
+  } catch (e) {
+    console.error('Initial load error:', e);
+    statusEl.textContent = 'Failed to load data: ' + e.message;
+  }
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,1088 @@
+{% extends "home/base.html" %}
+{% load static %}
+{% load utils %}
+
+{% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/structure_browser.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+<link rel="stylesheet" href="{% static 'home/css/BusyLoad.css' %}" type="text/css">
+
+<style>
+  .page-wrap { padding: 8px 0 16px; }
+
+  /* Top controls */
+  .controls-wrap { display:flex; justify-content:center; }
+  .controls {
+    width: 85%;
+    min-width: 720px;
+    max-width: 1400px;
+    display:flex; flex-direction:column; gap:8px; align-items:stretch;
+    margin:12px 0 8px; text-align:center;
+  }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .orphan-select { flex: 1 1 520px; min-width: 420px; max-width: 720px; }
+  .select2-container { width:100% !important; }
+  .btn-toggle { min-width: 125px; display: inline-flex; justify-content: center; align-items: center; }
+  #btnDownloadTable[disabled], #btnDownloadPlot[disabled]{ opacity: .5; cursor: not-allowed; }
+
+  /* Stage used for BusyLoad overlay */
+  .stage {
+    width: 85%;
+    min-width: 720px;
+    max-width: 1400px;
+    margin: 12px auto 0;
+    position: relative;
+  }
+  .stage.loading { min-height: 240px; }
+
+  /* Tabs wrapper (hidden until we have data) */
+  .is-hidden { display: none !important; }
+
+  /* DataTable */
+  table.dataTable{ font-size:12px; table-layout:auto; width:100%; }
+  table.dataTable tbody tr:hover{ background:#fafafa; }
+  .border-left{ border-left:1px solid #cccccc !important; }
+  .muted{ color:#666; font-size:11px; }
+  #simTable td { transition: background-color 120ms ease-in-out, color 120ms ease-in-out; }
+
+  /* NEW: per-tab toolbars left-aligned */
+  .toolbar-table,
+  .toolbar-cluster { justify-content:flex-start; }
+
+  /* NEW: give toolbars breathing room above the content */
+  .toolbar-table { margin: 8px 0 10px; }
+  .toolbar-cluster { margin: 8px 0 10px; }
+
+  /* Optional: if header still crowds, add a tad of top margin on the table wrapper */
+  #simWrap { margin-top: 2px; }
+
+  /* If you ever see the DataTables scroll head overlap, this ensures it sits below the toolbar */
+  .dataTables_wrapper { position: relative; z-index: 0; }
+  .toolbar-table { position: relative; z-index: 1; }
+
+  /* Superheader tuning like your original */
+  thead tr:last-child th .dt-column-title{ display:inline-block; text-align:center; padding-left:24px; margin:0; line-height:1.2em; white-space:normal; }
+  thead tr:nth-child(2) th .dt-column-title{ padding-left:0 !important; }
+  thead tr:last-child th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
+  thead tr:last-child th:first-child:not(.gpcrdb-col) .dt-column-title{ padding-left:24px !important; }
+  th.gpcrdb-col .dt-column-title{ padding-left:0 !important; }
+  th.gpcrdb-col, td.gpcrdb-col{ width:50px; min-width:50px; max-width:50px; text-align:center; }
+
+  /* expand-on-hover */
+  td.expand_1line{
+    max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative;
+  }
+  td.expand_1line .expanded{ display:none; white-space:normal; }
+  td.expand_1line:hover{ overflow:visible; white-space:normal; }
+  td.expand_1line:hover .collapsed{ display:none; }
+  td.expand_1line:hover .expanded{ display:inline; }
+
+  /* Cluster */
+  #plotWrap { width: 100%; }
+  #plotContainer_cluster { width: 100%; height: 70vh; min-height: 520px; }
+
+  .dropdown-menu-side{
+    position: absolute;
+    left: 100%;
+    margin-left: 6px;
+    min-width: 190px;
+    padding: 10px 12px;
+  }
+  .dropdown-menu-align-colorby { transform: translateY(-10%); }
+  .dropdown-menu-side .btn { margin-bottom:6px; }
+  .dropdown-menu-side .btn:last-child{ margin-bottom:0; }
+
+  /* Tiny toast (top-right) for cluster notifications */
+  .toast-wrap {
+    position: fixed; right: 16px; top: 16px; z-index: 2000;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .toast-wrap .alert { pointer-events: auto; margin: 0; padding: 8px 12px; }
+
+  .controls .toolbar .select2-container {
+  width: 50% !important;
+  min-width: 420px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .select2-container { width: 70% !important; }
+}
+@media (max-width: 600px) {
+  .select2-container { width: 90% !important; }
+}
+
+.ccs-modal-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 3000; display:none;
+}
+.ccs-modal{
+  position: fixed; left: 50%; top: 12%;
+  transform: translateX(-50%);
+  width: min(780px, calc(100% - 40px));
+  background: #fff; color:#111;
+  border:1px solid #cfcfcf; border-radius:10px;
+  box-shadow:0 16px 36px rgba(0,0,0,.25);
+  z-index: 3001; display:none;
+}
+.ccs-modal header{
+  padding: 14px 16px; border-bottom:1px solid #e6e6e6;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.ccs-modal header h3{ margin:0; font-size:18px; font-weight:600; }
+.ccs-modal .ccs-modal-close{
+  border:0; background:transparent; font-size:22px; line-height:1;
+  opacity:.65; cursor:pointer;
+}
+.ccs-modal .ccs-modal-close:hover{ opacity:1; }
+.ccs-modal .ccs-modal-body{ padding: 14px 16px 18px; max-height: 70vh; overflow:auto; }
+.ccs-modal footer{ padding: 10px 16px; border-top:1px solid #e6e6e6; text-align:right; }
+
+/* Always show the info icons properly aligned and visible */
+.btn .glyphicon {
+  display: inline-block;
+  opacity: 1 !important;
+  visibility: visible !important;
+  margin-right: 4px;           /* small gap before text */
+  vertical-align: top;
+  font-size: 14px;             /* ensure it's not zero-sized */
+  line-height: 1.3;
+  color: #fff; /* or #007bff if you prefer blue tint */
+}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <!-- Controls -->
+  <div class="controls-wrap">
+    <div class="controls">
+      <div class="toolbar">
+        <select id="orphanSelect" class="orphan-select"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage for BusyLoad -->
+  <div id="stage" class="stage" aria-busy="false" aria-live="polite">
+    <div id="tabsWrap" class="is-hidden">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="active" role="presentation">
+          <a href="#tab-table" aria-controls="tab-table" role="tab" data-toggle="tab">Similarity table</a>
+        </li>
+        <li role="presentation">
+          <a href="#tab-cluster" aria-controls="tab-cluster" role="tab" data-toggle="tab">Cluster</a>
+        </li>
+      </ul>
+
+      <div class="tab-content" style="padding-top: 12px;">
+
+        <!-- TABLE TAB -->
+        <div role="tabpanel" class="tab-pane active" id="tab-table">
+          <div class="toolbar toolbar-table">
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Help
+            </button>
+            <!-- <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Help manual
+            </button>
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Guide
+            </button>
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Quick Guide
+            </button>
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Learn More
+            </button>
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> Hints
+            </button>
+            <button id="howToTableBtn" class="btn btn-primary">
+              <span class="glyphicon glyphicon-info-sign"></span> How to use
+            </button> -->
+            <button id="toggleOrphans" type="button" class="btn btn-success btn-toggle" disabled>Include orphans</button>
+            <button id="btnDownloadTable" type="button" class="btn btn-primary" disabled>Download table</button>
+          </div>
+          <div id="simWrap">
+            <table id="simTable" class="display compact" style="width:100%">
+              <thead>
+                <!-- dummy header for styling (keeps top row spacing consistent) -->
+                <tr>
+                  <td colspan="11" style="text-align:center" data-dt-order="disable"></td>
+                </tr>
+
+                <!-- Super header -->
+                <tr style="font-size:14px; white-space:nowrap;">
+                  <th colspan="2" style="text-align:center;" data-dt-order="disable"></th>
+                  <th colspan="4" class="border-left" style="text-align:center;" data-dt-order="disable">RECEPTOR</th>
+                  <th colspan="3" class="border-left" style="text-align:center;" data-dt-order="disable">CLASSIFICATION</th>
+                  <th colspan="2" class="border-left" style="text-align:center;" data-dt-order="disable">PHYSIOLOGICAL&nbsp;LIGAND</th>
+                </tr>
+
+                <!-- Column header row -->
+                <tr>
+                  <th style="text-align:center;">Sim (%)</th>
+                  <th style="text-align:center;">Id (%)</th>
+
+                  <th class="border-left gpcrdb-col" style="text-align:center;" data-dt-order="disable">GPCRdb</th>
+                  <th style="text-align:center;">GtoPdb</th>
+                  <th style="text-align:center;">UniProt</th>
+                  <th style="text-align:center;">Gene</th>
+
+                  <th class="border-left" style="text-align:center;">Receptor family</th>
+                  <th style="text-align:center;">Ligand type</th>
+                  <th style="text-align:center;">Class</th>
+
+                  <th class="border-left" style="text-align:center;">Name</th>
+                  <th style="text-align:center;">Type</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CLUSTER TAB -->
+        <div role="tabpanel" class="tab-pane" id="tab-cluster">
+          <div class="toolbar toolbar-cluster">
+            <div class="dropdown">
+              <button id="howToClusterBtn" class="btn btn-primary">
+                <span class="glyphicon glyphicon-info-sign"></span> Hints
+              </button>
+              <button id="colorByToggle" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" disabled>
+                Color by
+              </button>
+              <div class="dropdown-menu dropdown-menu-side dropdown-menu-align-colorby text-center">
+                <button type="button" class="btn btn-primary btn-block mb-1 colorby-item" data-mode="Class" disabled>Class</button>
+                <button type="button" class="btn btn-outline-primary btn-block mb-1 colorby-item" data-mode="Ligand type" disabled>Ligand type</button>
+                <button type="button" class="btn btn-outline-primary btn-block mb-1 colorby-item" data-mode="Receptor family" disabled>Receptor family</button>
+                <button type="button" class="btn btn-outline-primary btn-block colorby-item" data-mode="Gradient" disabled>Gradient (vs ref)</button>
+              </div>
+            </div>
+            <button id="btnDownloadPlot" type="button" class="btn btn-primary" disabled>Download plot</button>
+          </div>
+
+          <div id="plotWrap">
+            <div id="plotContainer_cluster"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast for cluster -->
+  <div id="toasts" class="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+  <!-- Modals -->
+  <div id="howToTableBackdrop" class="ccs-modal-backdrop"></div>
+    <div id="howToTableModal" class="ccs-modal" role="dialog" aria-modal="true">
+      <header>
+        <h3>How to use the Similarity table</h3>
+        <button type="button" class="ccs-modal-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="ccs-modal-body">
+        <ul>
+          <li>Each row lists the closest receptors by sequence similarity.</li>
+          <li>Click column headers to sort by identity or similarity.</li>
+          <li>Use “Include orphans” to toggle orphan receptors in the table.</li>
+          <li>Download the visible table with the button on the right.</li>
+        </ul>
+      </div>
+      <footer>
+        <button type="button" class="btn btn-primary howto-close">Got it</button>
+      </footer>
+    </div>
+
+    <div id="howToClusterBackdrop" class="ccs-modal-backdrop"></div>
+      <div id="howToClusterModal" class="ccs-modal" role="dialog" aria-modal="true">
+        <header>
+          <h3>How to use the Cluster embedding</h3>
+          <button type="button" class="ccs-modal-close" aria-label="Close">&times;</button>
+        </header>
+        <div class="ccs-modal-body">
+          <ul>
+            <li>Each point represents a receptor, clustered by sequence similarity.</li>
+            <li>Hover to see labels, click and drag to zoom or pan.</li>
+            <li>Use the “Color by” dropdown to group by Class or Ligand type.</li>
+            <li>Download the plot as PNG or SVG from the Download button.</li>
+          </ul>
+        </div>
+        <footer>
+          <button type="button" class="btn btn-primary howto-close">Got it</button>
+        </footer>
+      </div>
+
+
+</div>
+{% endblock %}
+
+{% block addon_js %}
+  <!-- libs -->
+  <script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+  <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
+  <script src="{% static 'home/js/xlsx.full.min.js' %}"></script>
+  <script src="{% static 'home/js/plotly_v1_58_5.js' %}"></script>
+  <script src="{% static 'home/js/BusyLoad.js' %}"></script>
+
+  <script>
+    /* ====================== Server data ====================== */
+    const ORPHANS = {{ orphans_select2|safe }};
+
+    /* ====================== Helpers ====================== */
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    function showToast(msg, kind="info", timeout=3500){
+      const wrap = document.getElementById('toasts');
+      const div = document.createElement('div');
+      div.className = `alert alert-${kind} alert-dismissible fade in`;
+      div.role = "alert";
+      div.innerHTML = `
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        ${msg}
+      `;
+      wrap.appendChild(div);
+      setTimeout(() => { try { div.parentNode && wrap.removeChild(div); } catch(e){} }, timeout);
+    }
+
+    function setTableControlsEnabled(enabled){
+      document.getElementById('toggleOrphans').disabled = !enabled;
+      document.getElementById('btnDownloadTable').disabled = !enabled;
+    }
+
+    function setClusterControlsEnabled(enabled){
+      const colorBtn = document.getElementById('colorByToggle');
+      colorBtn.disabled = !enabled;
+      document.getElementById('btnDownloadPlot').disabled = !enabled;
+      document.querySelectorAll('#tab-cluster .dropdown-menu .colorby-item').forEach(btn => btn.disabled = !enabled);
+    }
+
+    // During loading, disable both panes (select remains usable)
+    function setAllPanesEnabled(enabled){
+      setTableControlsEnabled(enabled);
+      setClusterControlsEnabled(enabled);
+    }
+
+    function showBusy(text){
+      const st = document.getElementById('stage');
+      st.classList.add('loading');
+      st.setAttribute('aria-busy', 'true');
+      $("#stage").busyLoad("show", {
+        spinner: "accordion",
+        text: text || "Crunching similarity and embedding...",
+        textPosition: "bottom",
+        textMargin: "1rem",
+        color: "black",
+        background: "rgba(255,255,255,0.88)",
+        fontSize: "1.2rem"
+      });
+    }
+    function hideBusy(){
+        $("#stage").busyLoad("hide");
+        $("#stage .busy-load-container").remove();
+        const st = document.getElementById('stage');
+        st.classList.remove('loading');
+        st.setAttribute('aria-busy', 'false');
+        requestAnimationFrame(() => {
+          ensurePlotSized(false);
+          ensureTableSized(false);
+        });
+      }
+
+    /* ====================== Select2 ====================== */
+    function orphanMatcher(params, data){
+      const term = (params.term || '').trim().toLowerCase();
+      if (!term) return data;
+
+      // collect searchable fields
+      const fields = [
+        data.text, data.name, data.entry_name, data.gene, data.class
+      ].filter(Boolean).map(String);
+
+      const bag = [];
+      for (const f of fields){
+        const s = f.toLowerCase();
+        bag.push(s, s.replace(/\s+/g,'_'), s.replace(/_/g,' '));
+      }
+      return bag.some(v => v.includes(term)) ? data : null;
+    }
+    function tmplResult(item){
+      if (!item.id) return item.text;
+      const gtop = item.name || item.text || '—';
+      const unip = item.entry_name || '—';
+      const gene = item.gene || '—';
+      const cls = item.class || '—';
+
+      return $(`
+        <div class="s2-row"
+            style="display:grid;grid-template-columns:1fr 0.8fr 0.8fr 0.6fr;gap:12px;align-items:center;">
+          <div style="text-align:center;">${gtop}</div>
+          <div style="text-align:center;color:#666;font-size:11px;">${unip}</div>
+          <div style="text-align:center;">${gene}</div>
+          <div style="text-align:center;">
+            ${cls === '—' ? '—' : `<span class="label label-default" style="font-size:10px;">${cls}</span>`}
+          </div>
+        </div>
+      `);
+    }
+
+    function tmplSelection(item){
+      const parts = [item.name || item.text || '', item.entry_name || '', item.gene || ''].filter(Boolean);
+      const cls = item.class || '—';
+      const suffix = (cls && cls !== '—') ? ` | ${cls}` : '';
+      return `<span>${parts.join(' | ')}${suffix}</span>`;
+    }
+
+    const s2Collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    function s2NaturalSorter(results) {
+      return results.sort((a, b) => s2Collator.compare(a.name || a.text || '', b.name || b.text || ''));
+    }
+    $('#orphanSelect').select2({
+      data: ORPHANS,
+      placeholder: 'Type to search orphan receptors…',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 0,
+      matcher: orphanMatcher,
+      escapeMarkup: m => m,
+      templateResult: tmplResult,
+      templateSelection: tmplSelection,
+      sorter: s2NaturalSorter
+    });
+    $('#orphanSelect').on('select2:open', () => {
+      const $dd = $('.select2-container .select2-dropdown');
+      if ($dd.find('.s2-head').length === 0){
+        $dd.prepend($(`
+          <div class="s2-head"
+              style="display:grid;grid-template-columns:1fr 0.8fr 0.8fr 0.6fr;gap:12px;padding:6px 10px;font-size:11px;color:#666;border-bottom:1px solid #eee;">
+            <div style="text-align:center;">GtoPdb</div>
+            <div style="text-align:center;">UniProt</div>
+            <div style="text-align:center;">Gene</div>
+            <div style="text-align:center;">Class</div>
+          </div>
+        `));
+      }
+    });
+
+
+    /* ====================== TABLE (DataTables) ====================== */
+    // expand helpers
+    function expand1LineRender(d, type) {
+      const decode = (s) => { const div = document.createElement('div'); div.innerHTML = s || ''; return div.textContent || div.innerText || ''; };
+      const toItems = (val) => {
+        if (val == null) return [];
+        if (Array.isArray(val)) {
+          return val.map(x => typeof x === 'string' ? x : (x?.name ?? x?.text ?? x?.label ?? ''))
+                    .map(s => decode(s).trim()).filter(Boolean);
+        }
+        const s = String(val).trim();
+        if (!s || s === '-') return [];
+        const dec = decode(s.replace(/<br\s*\/?>/gi, '\n'));
+        return dec.split(/\n+/).map(t => t.trim()).filter(Boolean);
+      };
+      const items = toItems(d);
+      if (type === 'filter' || type === 'sort') return items.join('|');
+      if (type && type !== 'display') return items.join('\n');
+      if (!items.length) return '-';
+      const first = items[0], more = items.length - 1, hint = more > 0 ? ` <span class="muted">(+${more} more)</span>` : '';
+      const expanded = items.join('<br>');
+      return (
+        '<span class="expand_1line">' +
+          '<span class="collapsed">'+ first + hint +'</span>' +
+          '<span class="expanded">'+  expanded +'</span>' +
+        '</span>'
+      );
+    }
+    function expandFirstThenHoverLinkList(d, type, hrefBuilder, { showCountHint = true } = {}) {
+      const arr = Array.isArray(d) ? d.filter(x => x && (x.name || x.id != null)) : [];
+      if (type && type !== 'display') return arr.map(x => x.name || '').join('\n');
+      if (!arr.length) return (type === 'display' ? '-' : '');
+      const first = arr[0];
+      const firstHref = (first.id != null && first.id !== '-' && first.id !== '')
+        ? (hrefBuilder ? hrefBuilder(first.id, first) : `https://gpcrdb.org/ligand/${first.id}/info`)
+        : null;
+      const collapsed = firstHref
+        ? `<a href="${firstHref}" target="_blank" rel="noopener">${first.name || ''}</a>`
+        : (first.name || '');
+      const more = arr.length - 1;
+      const hint = (showCountHint && more > 0) ? ` <span class="muted">(+${more} more)</span>` : '';
+      const expanded = arr.map(x => {
+        const nm = x.name || '';
+        if (x.id == null || x.id === '' || x.id === '-') return nm;
+        const href = hrefBuilder ? hrefBuilder(x.id, x) : `https://gpcrdb.org/ligand/${x.id}/info`;
+        return `<a href="${href}" target="_blank" rel="noopener">${nm}</a>`;
+      }).join('<br>');
+      return (
+        '<span class="expand_1line">' +
+          '<span class="collapsed">'+ collapsed + hint +'</span>' +
+          '<span class="expanded">'+  expanded +'</span>' +
+        '</span>'
+      );
+    }
+
+    // heat range + painters
+    let SIM_MIN = null, SIM_MAX = null, ID_MIN = null, ID_MAX = null;
+    function greyFor(val, min, max){
+      if (!isFinite(val) || min == null || max == null || min === max) return { bg:'', fg:'' };
+      const t = Math.max(0, Math.min(1, (val - min) / (max - min)));
+      const g = Math.round(245 - t * (245 - 95));
+      const bg = `rgb(${g}, ${g}, ${g})`;
+      const fg = (g <= 140) ? 'white' : '';
+      return { bg, fg };
+    }
+    function applyHeat(td, val, min, max){
+      const { bg, fg } = greyFor(Number(val), min, max);
+      td.style.backgroundColor = bg || '';
+      td.style.color = fg || '';
+    }
+
+    const columns = [
+      { data: 'similarity', width: "5%" },
+      { data: 'identity',   width: "5%" },
+      { data:'gpcrdb_link', className:'gpcrdb-col', orderable:false, searchable:false, width:"5%", render:function(d,t){
+          if(t!=='display') return d||'';
+          return (d&&d!=='-') ? `<a href="${d}" target="_blank" rel="noopener"><img class="gpcrdb-link" src="/static/home/logo/gpcr/main.png" width="12" height="12" alt="GPCRdb"></a>` : '';
+        }
+      },
+      { data: 'iuphar_name', width: "10%", render: function (d, t, r) {
+          if (t !== 'display') return d;
+          const txt = (d || '—').replace(/receptor/gi, '').trim();
+          return (r && r.iuphar_link) ? `<a href="${r.iuphar_link}" target="_blank" rel="noopener">${txt}</a>` : txt;
+        }
+      },
+      { data: 'entry_name', width: "10%", render: function (d, t, r) {
+          if (!d) return (t === 'display' ? '—' : '');
+          const geneCode = d.split('_')[0].toUpperCase();
+          if (t !== 'display') return d;
+          return r && r.uniprot_link ? `<a href="${r.uniprot_link}" target="_blank" rel="noopener">${geneCode}</a>` : geneCode;
+        }
+      },
+      { data: 'Gene', width: "10%", defaultContent: '-' },
+      { data: 'family', width: "15%", render: function (d, t) {
+          if (d == null) return '—';
+          return (t === 'display' || t === 'filter') ? d.replace(/receptors/gi, '').replace(/Other GPCR orphans/gi, 'Classless Orphans').trim() : d;
+        }
+      },
+      { data: 'ligand_type', width: "10%", render: function(d,t){ return d==null ? '—' : ((t==='display'||t==='filter') ? d.replace(/receptors/gi,'').trim() : d); } },
+      { data: 'class', width: "5%", render: function (d, t) {
+          if (d == null) return '—';
+          if (t === 'display' || t === 'filter') return d.split(' (')[0].replace(/Class\s*/i, '').replace(/Other GPCRs\s*/i, 'Classless').trim();
+          return d;
+        }
+      },
+      { data: 'endo_ligands', width: "15%", render: function (d, t) {
+          return expandFirstThenHoverLinkList(d, t, id => `https://gpcrdb.org/ligand/${id}/info`, { showCountHint: true });
+        }
+      },
+      { data: 'endo_type', width: "10%", render: function (d, t) { return expand1LineRender(d, t); } }
+    ];
+    const columnDefs = [
+      { targets: "_all", className: "dt-head-nowrap dt-head-center dt-center dt-body-center expand" },
+      { targets: [2, 6, 9], className: "border-left" },
+      { targets: 0, createdCell: function(td, cellData){ applyHeat(td, cellData, SIM_MIN, SIM_MAX); } },
+      { targets: 1, createdCell: function(td, cellData){ applyHeat(td, cellData, ID_MIN,  ID_MAX ); } },
+      { targets: [9, 10], createdCell: function (td) { td.classList.add('expand_1line'); } }
+    ];
+
+    const table = new DataTable('#simTable', {
+      paging: false,
+      searching: false,
+      info: true,
+      fixedHeader: false,
+      order: [[0, 'desc'], [1, 'desc']],
+      columns: columns,
+      columnDefs: columnDefs,
+      scrollY: "50vh",
+      scrollCollapse: true,
+    });
+    setTimeout(() => table.columns.adjust(), 0);
+    $(window).on('resize.simTable', () => table.columns.adjust());
+    table.on('draw', () => table.columns.adjust());
+
+    /* TABLE state */
+    let excludeOrphans = false;
+    let LAST_ROWS = [];
+    function filteredRows(){
+      if (!excludeOrphans) return LAST_ROWS;
+      return LAST_ROWS.filter(r => !/orphan/i.test(String(r.ligand_type || '')));
+    }
+    const $toggle = $('#toggleOrphans');
+    function updateToggleUI(){
+      $toggle
+        .removeClass('btn-success btn-danger')
+        .addClass(excludeOrphans ? 'btn-danger' : 'btn-success')
+        .text(excludeOrphans ? 'Exclude orphans' : 'Include orphans');
+    }
+    function setRangesFrom(rows){
+      const sVals = rows.map(r => Number(r.similarity)).filter(Number.isFinite);
+      const iVals = rows.map(r => Number(r.identity)).filter(Number.isFinite);
+      SIM_MIN = sVals.length ? Math.min(...sVals) : null;
+      SIM_MAX = sVals.length ? Math.max(...sVals) : null;
+      ID_MIN  = iVals.length ? Math.min(...iVals) : null;
+      ID_MAX  = iVals.length ? Math.max(...iVals) : null;
+    }
+    function repaintHeat(){
+      table.cells(null, 0).every(function(){ applyHeat(this.node(), this.data(), SIM_MIN, SIM_MAX); });
+      table.cells(null, 1).every(function(){ applyHeat(this.node(), this.data(), ID_MIN,  ID_MAX ); });
+    }
+    $toggle.on('click', function(){
+      excludeOrphans = !excludeOrphans;
+      updateToggleUI();
+      const rowsToShow = filteredRows();
+      setRangesFrom(rowsToShow);
+      table.clear().rows.add(rowsToShow).draw(false);
+      repaintHeat();
+      setDownloadTableEnabled(rowsToShow.length > 0);
+    });
+    updateToggleUI();
+
+    /* TABLE export */
+    function setDownloadTableEnabled(on){ document.getElementById('btnDownloadTable').disabled = !on; }
+    function xlCol(n){ let s = ''; n++; while(n){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+    const EXPORT_TITLES = [
+      'Similarity (%)','Identity (%)',
+      'GPCRdb',
+      'GtoPdb','GtoPdb link',
+      'UniProt','UniProt link',
+      'Gene',
+      'Receptor family','Ligand type','Class',
+      'Name','Type'
+    ];
+    function mapRowForExport(r){
+      const gpcrdb = r.gpcrdb_link
+        ? (r.gpcrdb_link.startsWith('http') ? r.gpcrdb_link
+          : (r.gpcrdb_link.startsWith('/') ? 'https://gpcrdb.org' + r.gpcrdb_link
+          : 'https://gpcrdb.org/' + r.gpcrdb_link.replace(/^\/+/,'')))
+        : '';
+      const gtopText = (r.iuphar_name || '').replace(/receptor/gi,'').trim();
+      const gtopLink = r.iuphar_link || '';
+      const uniText = (r.entry_name || '').split('_')[0].toUpperCase() || '';
+      const uniLink = r.uniprot_link || '';
+      const fam  = (r.family || '').replace(/receptors/gi,'').replace(/Other GPCR orphans/gi,'Classless Orphans').trim();
+      const ltyp = (r.ligand_type || '').replace(/receptors/gi,'').trim();
+      const cls  = (r.class || '').split(' (')[0].replace(/Class\s*/i,'').replace(/Other GPCRs\s*/i,'Classless').trim() || (r.class || '');
+      const endoNames = Array.isArray(r.endo_ligands) && r.endo_ligands.length
+        ? r.endo_ligands.map(x => x.name).join('; ')
+        : (r.endo_ligands || '-');
+      const endoType = (typeof r.endo_type === 'string')
+        ? r.endo_type.replace(/<br\s*\/?>/gi,'\n')
+        : (r.endo_type ?? '');
+      return [
+        r.similarity ?? '',
+        r.identity ?? '',
+        gpcrdb,
+        gtopText,  gtopLink,
+        uniText,   uniLink,
+        r.Gene || '',
+        fam || '',
+        ltyp || '',
+        cls || '',
+        endoNames,
+        endoType
+      ];
+    }
+    function exportSimXlsx(){
+      const seenRows = table.rows({ order:'applied' }).data().toArray();
+      if (!seenRows.length){ alert('No rows to export.'); return; }
+      const groupRow = [
+        'SEQUENCE','',
+        'RECEPTOR','','','','','',
+        'CLASSIFICATION','','',
+        'PHYSIOLOGICAL LIGAND',''
+      ];
+      const merges = [
+        { s:{r:0,c:0}, e:{r:0,c:1} },
+        { s:{r:0,c:2}, e:{r:0,c:7} },
+        { s:{r:0,c:8}, e:{r:0,c:10} },
+        { s:{r:0,c:11}, e:{r:0,c:12} }
+      ];
+      const body = seenRows.map(mapRowForExport);
+      const aoa = [groupRow, EXPORT_TITLES, ...body];
+      const ws  = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!merges'] = merges;
+      ws['!cols'] = EXPORT_TITLES.map((h, j) => {
+        const maxLen = Math.max(String(h||'').length, ...body.map(r => String(r[j]||'').length));
+        return { wch: Math.min(Math.max(10, maxLen + 2), 60) };
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Similarity');
+
+      const sel = $('#orphanSelect').select2('data');
+      const who = (sel && sel[0] && (sel[0].name || sel[0].text)) ? String(sel[0].name || sel[0].text).split('|')[0].trim() : 'orphan';
+      const mode = excludeOrphans ? 'no-orphans' : 'all';
+      const stamp = new Date().toISOString().slice(0,10);
+      const safe = s => String(s).replace(/[^A-Za-z0-9._-]+/g, '_');
+      const fname = `GPCRdb_similarity_${safe(who)}_${mode}_${stamp}.xlsx`;
+      XLSX.writeFile(wb, fname);
+    }
+    document.getElementById('btnDownloadTable').addEventListener('click', exportSimXlsx);
+
+    table.on('draw', function(){
+      setDownloadTableEnabled(table.rows({ order:'applied' }).data().length > 0);
+      ensureTableSized(false); // keep header/body widths in sync
+    });
+
+    /* ====================== CLUSTER (Plotly) ====================== */
+    let CURRENT_COLOR_MODE = 'Class';
+    let REF_LABEL = 'Reference';
+    const palette = [
+      '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+      '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+      '#393b79','#e7969c','#98df8a','#ffbb78','#9edae5',
+      '#c5b0d5','#f7b6d2','#dbdb8d','#c49c94','#17a2b8'
+    ];
+    function uniqueSorted(values){ return Array.from(new Set(values)).filter(v => v != null && v !== '').sort(); }
+
+    function buildTraces(points, mode){
+      const refPts = points.filter(p => p.is_ref);
+      const others = points.filter(p => !p.is_ref);
+      const traceRef = {
+        x: refPts.map(p => p.x),
+        y: refPts.map(p => p.y),
+        mode: 'markers',
+        type: 'scatter',
+        hoverinfo: 'text',
+        text: refPts.map(() => `${REF_LABEL}`),
+        marker: { size: 16, symbol: 'diamond', line: { width: 2, color: '#000' }, color: '#fff' },
+        name: REF_LABEL,
+        showlegend: (mode !== 'Gradient')
+      };
+
+      if (mode === 'Class' || mode === 'Ligand type' || mode === 'Receptor family'){
+        const key = mode;
+        const raw = others.map(p => (p[key] === 'Other GPCRs' && key === 'Class') ? 'Classless' : (p[key] || '—'));
+        const cats = uniqueSorted(raw);
+        const cmap = new Map(cats.map((c,i) => [c, palette[i % palette.length]]));
+        const series = cats.map(cat => {
+          const pts = others.filter(p => ((p[key] === 'Other GPCRs' && key === 'Class') ? 'Classless' : (p[key] || '—')) === cat);
+          return {
+            x: pts.map(p => p.x),
+            y: pts.map(p => p.y),
+            mode: 'markers',
+            type: 'scatter',
+            hoverinfo: 'text',
+            text: pts.map(p => {
+              const sim = (p.fill != null) ? `; ${REF_LABEL} SIM: ${p.fill.toFixed(1)}%` : '';
+              return `${(p.label||'').toUpperCase()}<br>${key}: ${cat}${sim}`;
+            }),
+            marker: { size: 9, symbol: 'circle', line: { width: 0.5, color: '#000' }, color: cmap.get(cat) },
+            name: cat,
+            showlegend: true
+          };
+        });
+        return [...series, traceRef];
+      }
+
+      if (mode === 'Gradient'){
+        return [{
+          x: others.map(p => p.x),
+          y: others.map(p => p.y),
+          mode: 'markers',
+          type: 'scatter',
+          hoverinfo: 'text',
+          text: others.map(p =>
+            `${(p.label||'').toUpperCase()}<br>${REF_LABEL} SIM: ${p.fill != null ? p.fill.toFixed(1) + '%' : '–'}`
+          ),
+          marker: {
+            size: 9,
+            symbol: 'circle',
+            line: { width: 0.5, color: '#000' },
+            color: others.map(p => p.fill ?? null),
+            colorscale: 'RdBu',
+            reversescale: true,
+            colorbar: { title: { text: `${REF_LABEL} SIM (%)` }, thickness: 16, len: 0.6 }
+          },
+          showlegend: false
+        }, traceRef];
+      }
+      return [traceRef];
+    }
+
+    function renderPlot(points){
+      const wrap = document.getElementById('plotWrap');
+      if (!Array.isArray(points) || points.length === 0){
+        try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+        wrap.style.display = 'none';
+        setClusterControlsEnabled(false);
+        return;
+      }
+      wrap.style.display = 'block';
+      const traces = buildTraces(points, CURRENT_COLOR_MODE);
+      const layout = {
+        xaxis: { visible: false, showgrid: false, scaleanchor: 'y' },
+        yaxis: { visible: false, showgrid: false },
+        hovermode: 'closest',
+        showlegend: true,
+        legend: { x: 1.02, xanchor: 'left', y: 0.5, orientation: 'v' },
+        plot_bgcolor: '#FFFFFF',
+        paper_bgcolor: '#FFFFFF',
+        autosize: true,
+        margin: { l: 40, r: 160, t: 10, b: 40 }
+      };
+      Plotly.react('plotContainer_cluster', traces, layout, { displayModeBar: true, responsive: true });
+      requestAnimationFrame(() => { try { Plotly.Plots.resize('plotContainer_cluster'); } catch(e){} });
+      setClusterControlsEnabled(true);
+    }
+
+    window.addEventListener('resize', () => {
+      try { Plotly.Plots.resize('plotContainer_cluster'); } catch(e){}
+    });
+
+    function setActiveColorBy(mode){
+      CURRENT_COLOR_MODE = mode;
+      const $items = $('.colorby-item');
+      $items.removeClass('btn-primary active').addClass('btn-outline-primary');
+      $items.filter(`[data-mode="${mode}"]`).removeClass('btn-outline-primary').addClass('btn-primary active');
+      if (window.__LAST_POINTS__) renderPlot(window.__LAST_POINTS__);
+    }
+    $('.colorby-item').on('click', function(){ setActiveColorBy(this.getAttribute('data-mode') || 'Class'); });
+
+    $('.dropdown-menu-side').on('click', function (e) {e.stopPropagation();});
+
+    function updateColorByOptions(refClass) {
+      const classBtn = document.querySelector('.colorby-item[data-mode="Class"]');
+      const ligandBtn = document.querySelector('.colorby-item[data-mode="Ligand type"]');
+
+      if (!classBtn || !ligandBtn) return;
+
+      const cls = (refClass || '').trim().toLowerCase();
+
+      if (cls === 'class a' || cls === 'class c') {
+        // Hide/disable the Class button
+        classBtn.style.display = 'none';
+        classBtn.disabled = true;
+
+        // Default to Ligand type if we're not already there
+        setActiveColorBy('Ligand type');
+      } else if (cls === 'classless') {
+        // Show Class again
+        classBtn.style.display = '';
+        classBtn.disabled = false;
+
+        // Default to Class if not already selected
+        setActiveColorBy('Class');
+      } else {
+        // For all other classes, keep Class available but default to Ligand type
+        classBtn.style.display = '';
+        classBtn.disabled = false;
+        setActiveColorBy('Ligand type');
+      }
+    }
+
+
+    function downloadPlot(){
+      const el = document.getElementById('plotContainer_cluster');
+      const rect = el.getBoundingClientRect();
+      Plotly.toImage(el, { format: 'png', height: Math.round(rect.height), width: Math.round(rect.width), scale: 3 })
+        .then(function (dataUrl) {
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          const sel = $('#orphanSelect').select2('data');
+          const who = (sel && sel[0] && (sel[0].name || sel[0].text)) ? String(sel[0].name || sel[0].text).split('|')[0].trim() : 'orphan';
+          const stamp = new Date().toISOString().slice(0,10);
+          const safe = s => String(s).replace(/[^A-Za-z0-9._-]+/g, '_');
+          link.download = `GPCRdb_orphan_embedding_${safe(who)}_${CURRENT_COLOR_MODE}_${stamp}.png`;
+          document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        })
+        .catch(err => {
+          console.error('Export failed:', err);
+          showToast('Export failed. Try again after changing selection.', 'warning');
+        });
+    }
+    document.getElementById('btnDownloadPlot').addEventListener('click', downloadPlot);
+
+    /* ====================== BUNDLE API ====================== */
+    // state shared with cluster
+    window.__LAST_POINTS__ = [];
+
+    function revealTabs(){
+      const tabs = document.getElementById('tabsWrap');
+      tabs.style.removeProperty('display');   // <-- clear inline display:none if any
+      tabs.classList.remove('is-hidden');
+      // $('a[href="#tab-table"]').tab('show');
+      // requestAnimationFrame(() => {
+      //   setTimeout(() => ensureTableSized(true), 120);
+      // });
+    }
+
+    function hideTabs(){
+      const tabs = document.getElementById('tabsWrap');
+      tabs.classList.add('is-hidden');
+      tabs.style.removeProperty('display');   // ensure we never keep inline display:none
+    }
+
+    function loadBundle(refId, topN = 50){
+      if (!refId){
+        table.clear().draw();
+        SIM_MIN = SIM_MAX = ID_MIN = ID_MAX = null;
+        hideTabs();
+        setAllPanesEnabled(false);                   // <— changed
+        try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+        window.__LAST_POINTS__ = [];
+        return;
+      }
+
+      setAllPanesEnabled(false);                     // <— changed
+      showBusy("Computing similarity table and embedding...");
+
+      $.ajax({
+        url: "{% url 'api-similarity-bundle' %}",
+        method: "GET",
+        data: { ref: refId, top_n: topN, metric: 'identity', exclude_orphans: true },
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function(resp){
+          // TABLE
+          LAST_ROWS = (resp && resp.table && Array.isArray(resp.table.results)) ? resp.table.results : [];
+          const rowsToShow = filteredRows();
+          setRangesFrom(rowsToShow);
+          table.clear().rows.add(rowsToShow).draw(false);
+          repaintHeat();
+          setDownloadTableEnabled(rowsToShow.length > 0);
+          ensureTableSized(true);
+
+          // CLUSTER
+          if (resp && resp.embedding && !resp.embedding.error){
+            REF_LABEL = (resp.embedding.ref && resp.embedding.ref.label) ? String(resp.embedding.ref.label).toUpperCase() : 'Reference';
+            window.__LAST_POINTS__ = Array.isArray(resp.embedding.points) ? resp.embedding.points : [];
+            renderPlot(window.__LAST_POINTS__);
+          } else {
+            window.__LAST_POINTS__ = [];
+            renderPlot(window.__LAST_POINTS__);
+            if (resp && resp.embedding && resp.embedding.error) showToast('Embedding error: ' + String(resp.embedding.error), 'danger');
+          }
+          // Determine reference class (from embedding points or table data)
+          let refClass = '';
+          if (resp.embedding && Array.isArray(resp.embedding.points)) {
+            const refPoint = resp.embedding.points.find(p => p.is_ref);
+            refClass = refPoint ? (refPoint.Class || '') : '';
+          }
+
+          // Apply color-by visibility logic
+          updateColorByOptions(refClass);
+          ensurePlotSized(true);
+          revealTabs();
+          setAllPanesEnabled(true);                  // <— changed
+        },
+        error: function(xhr, status){
+          table.clear().draw();
+          SIM_MIN = SIM_MAX = ID_MIN = ID_MAX = null;
+          window.__LAST_POINTS__ = [];
+          try { Plotly.purge('plotContainer_cluster'); } catch(e){}
+          hideTabs();
+          setAllPanesEnabled(false);                 // <— changed
+
+          // existing toast code...
+        },
+        complete: function(){ hideBusy(); }
+      });
+    }
+
+    // --- sizing helpers (debounced + size-aware) ---
+    function debounce(fn, ms=120){
+      let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args), ms); };
+    }
+
+    // cache last seen sizes to avoid needless work
+    let __LAST_TABLE_W = 0;
+    let __LAST_PLOT_W  = 0;
+    let __LAST_PLOT_H  = 0;
+
+    function measure(el){
+      const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : { width:0, height:0 };
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    }
+
+    // force=true skips the size guard
+    const ensureTableSized = debounce(function(force=false){
+      try {
+        const wrap = document.getElementById('simWrap') || document.getElementById('tab-table');
+        const { w } = measure(wrap);
+        if (!force && w === __LAST_TABLE_W) return;       // no change, no adjust
+        __LAST_TABLE_W = w;
+        table.columns.adjust();                            // no .draw(false) here
+      } catch(e){}
+    }, 60);
+
+    const ensurePlotSized = debounce(function(force=false){
+      try {
+        const el = document.getElementById('plotContainer_cluster');
+        const { w, h } = measure(el);
+        if (!force && w === __LAST_PLOT_W && h === __LAST_PLOT_H) return;
+        __LAST_PLOT_W = w; __LAST_PLOT_H = h;
+        Plotly.Plots.resize(el);
+      } catch(e){}
+    }, 60);
+
+
+    // put this near your other module-level state:
+    let CLUSTER_TAB_FIRST_OPEN = true;
+
+    // update your tab switch handler:
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+      const target = $(e.target).attr('href');
+      if (target === '#tab-table') {
+        ensureTableSized(false);                // size-aware, no flicker
+      } else if (target === '#tab-cluster') {
+        if (CLUSTER_TAB_FIRST_OPEN) {
+          ensurePlotSized(true);                // <-- force once on first open
+          CLUSTER_TAB_FIRST_OPEN = false;
+        } else {
+          ensurePlotSized(false);               // subsequent opens: only if size changed
+        }
+      }
+    });
+
+    function setupHowTo(modalId, backdropId, btnId){
+        const modal = document.getElementById(modalId);
+        const back  = document.getElementById(backdropId);
+        const btn   = document.getElementById(btnId);
+        if(!modal || !back || !btn) return;
+
+        const closeBtn = modal.querySelector('.ccs-modal-close');
+        const okBtn    = modal.querySelector('.howto-close');
+
+        function open(){
+          modal.style.display='block';
+          back.style.display='block';
+          document.documentElement.style.overflow='hidden';
+        }
+        function close(){
+          modal.style.display='none';
+          back.style.display='none';
+          document.documentElement.style.overflow='';
+        }
+
+        btn.addEventListener('click', open);
+        back.addEventListener('click', close);
+        if(closeBtn) closeBtn.addEventListener('click', close);
+        if(okBtn) okBtn.addEventListener('click', close);
+        document.addEventListener('keydown', e => { if(e.key==='Escape') close(); });
+      }
+
+      setupHowTo('howToTableModal','howToTableBackdrop','howToTableBtn');
+      setupHowTo('howToClusterModal','howToClusterBackdrop','howToClusterBtn');
+
+    /* ====================== Wire-up ====================== */
+    // Select triggers single bundle call
+    $('#orphanSelect').on('select2:select', function (e){ loadBundle((e.params.data || {}).id); });
+    $('#orphanSelect').on('select2:clear',  function ()  { loadBundle(null); });
+
+    // Initial: empty
+    $('#orphanSelect').val(null).trigger('change');
+    hideTabs();
+    setAllPanesEnabled(false);     // <-- this exists
+
+    // Default color mode
+    setActiveColorBy('Class');
+  </script>
+{% endblock %}

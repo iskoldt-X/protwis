@@ -180,8 +180,6 @@ class Command(BaseBuild):
         proteins = None
         i = 1
 
-
-
         step1=int(initial_step1) #If alignment fails, please, set this to a lower value
         step2=int(initial_step2) #If alignment fails, please, set this to a lower value
         step_halved = False 

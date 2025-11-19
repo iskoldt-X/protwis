@@ -24,9 +24,18 @@ urlpatterns = [
     url(r'class_similarity_matrix/xlsx', views.render_class_similarity_xlsx_matrix, name='class_similarity_csv_matrix'),
     url(r'^class_similarity/ClassesAndCounts', views.ClassesAndCounts.as_view(), name='ClassesAndCounts'),
     url(r'^class_similarity/ClassificationWheel', views.ClassificationWheel.as_view(), name='ClassificationWheel'),
-    url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity'),
+    # url(r'^class_similarity/OrphanSimilarity', views.OrphanSimilarity.as_view(), name='OrphanSimilarity'),
     url(r'^class_similarity/CrossClassSimilarity', views.CrossClassSimilarity.as_view(), name='CrossClassSimilarity'),
-    url(r'^class_similarity/OrhanSimilarityClustering', views.OrhanSimilarityClustering.as_view(), name='OrhanSimilarityClustering'),
-    url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity'),
-    url(r'^class_similarity/api/embedding$', views.SimilarityEmbeddingAPI.as_view(), name='api-embedding')
+    url(r'^class_similarity/StructureSim', views.StructureSim.as_view(), name='StructureSim'),
+    # url(
+    #     r'^class_similarity/StructureSim',
+    #     cache_page(60*60*24*7)(views.StructureSim.as_view()),
+    #     name='StructureSim'
+    # ),
+    # url(r'^class_similarity/OrhanSimilarityClustering', views.OrhanSimilarityClustering.as_view(), name='OrhanSimilarityClustering'),
+    # url(r'^class_similarity/api/similarity$', views.SimilarityTopAPI.as_view(), name='api-similarity'),
+    # url(r'^class_similarity/api/embedding$', views.SimilarityEmbeddingAPI.as_view(), name='api-embedding'),
+    url(r'^class_similarity/OrphanSimilarityExplorer', views.OrphanSimilarityExplorer.as_view(), name='OrphanSimilarityExplorer'),
+    url(r'^class_similarity/api/bundle$', views.SimilarityBundleAPI.as_view(), name='api-similarity-bundle'),
+    # url(r'^class_similarity/ReceptorSimilarityExportExcel$',views.ReceptorSimilarityExportExcel.as_view(),name='ReceptorSimilarityExportExcel'),
 ]

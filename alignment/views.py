@@ -34,6 +34,7 @@ from mapper.views import DataMapperHome
 from alignment.models import ReceptorSimilarity
 from common.models import WebLink
 from ligand.models import Endogenous_GTP
+from structure.models import Structure, StructureModel
 
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -1215,225 +1216,6 @@ class ClassificationWheel(TemplateView):
         context['GPCRomeOdorantData'] = json.dumps(updated_odorant['Data'])
 
         return context
-    
-class OrphanSimilarity(TemplateView):
-    template_name = 'class_similarity/OrphanSimilarity.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        def clean_gtop_name(nm):
-            if not nm:
-                return "-"
-            s = (nm
-                 .replace("receptor", "")
-                 .replace("-adrenoceptor", "")
-                 .replace("<i>", "").replace("</i>", "")
-                 .strip())
-            return s or "-"
-
-        orphans_qs = (
-            Protein.objects
-            .filter(
-                parent_id__isnull=True,
-                species_id=1,
-                family__parent__parent__name__iexact='Orphan receptors',
-            )
-            .prefetch_related(
-                Prefetch('genes',
-                         queryset=Gene.objects.filter(position=0),
-                         to_attr='primary_genes_self')
-            )
-            .order_by('entry_name')
-        )
-
-        data = []
-        for p in orphans_qs:
-            gene = (p.primary_genes_self[0].name
-                    if getattr(p, 'primary_genes_self', None)
-                    else (p.entry_name.split('_')[0].upper() if p.entry_name else "-"))
-            data.append({
-                "id": p.id,
-                "text": clean_gtop_name(p.name),
-                "name": clean_gtop_name(p.name),
-                "entry_name": p.entry_name,
-                "gene": gene,
-            })
-
-        context['orphans_select2'] = json.dumps(data)
-        return context
-    
-class SimilarityTopAPI(View):
-    """
-    GET /class_similarity/api/similarity?ref=<protein_id>
-
-    Rule:
-      1) Sort ALL neighbors by similarity (desc) – do NOT use identity.
-      2) Compute the cutoff from the 10th **liganded** row (or the last liganded row if <10 exist).
-         Keep **all** liganded rows with similarity >= cutoff (ties included).
-      3) Also include **orphan** rows with similarity >= the same cutoff.
-      4) If there are NO liganded rows, fall back to the 10th overall row (or last) as cutoff.
-
-    Returns each row with:
-      Gene (primary M2M gene, position=0), entry_name, links (GPCRdb/UniProt/IUPHAR),
-      family/ligand_type/class, similarity & identity, endogenous ligands (id/name) + types.
-    """
-    def get(self, request):
-        from string import Template
-        ref_raw = request.GET.get('ref')
-        try:
-            ref_id = int(ref_raw)
-        except (TypeError, ValueError):
-            return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
-
-        # 1) All neighbors sorted by similarity only (no identity in ordering)
-        pairs_qs = (
-            ReceptorSimilarity.objects
-            .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
-            .annotate(
-                other_id=Case(
-                    When(protein_ref_id=ref_id, then=F('protein_target_id')),
-                    default=F('protein_ref_id'),
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by('-similarity')   # <— identity NOT used
-            .values('other_id', 'similarity', 'identity')
-        )
-        pairs = list(pairs_qs)
-        if not pairs:
-            return JsonResponse({"results": []})
-
-        other_ids_all = [p['other_id'] for p in pairs]
-
-        # 2) For cutoff we only need to know who is orphan. Fetch ligand type name cheaply.
-        LT_ORPHAN = 'Orphan receptors'
-        lt_map = dict(
-            Protein.objects
-                   .filter(id__in=other_ids_all)
-                   .values_list('id', 'family__parent__parent__name')   # ligand type name
-        )
-        def is_orphan(pid):
-            return (lt_map.get(pid) or '').strip().lower() == LT_ORPHAN.lower()
-
-        liganded_rows = [p for p in pairs if not is_orphan(p['other_id'])]
-
-        # 3) Compute the similarity cutoff from liganded rows; if none, fall back to overall.
-        if liganded_rows:
-            if len(liganded_rows) >= 10:
-                cutoff = liganded_rows[9]['similarity']  # 10th liganded row
-            else:
-                cutoff = liganded_rows[-1]['similarity'] # last liganded row
-        else:
-            # No liganded hits: use overall 10th (or last) similarity as cutoff
-            cutoff = pairs[min(9, len(pairs) - 1)]['similarity']
-
-        # 4) Keep everyone (liganded + orphan) with similarity >= cutoff
-        kept = [p for p in pairs if p['similarity'] >= cutoff]
-        kept_ids = [p['other_id'] for p in kept]
-
-        # 5) Fetch full protein meta only for kept ids
-        gtop_links_qs = WebLink.objects.select_related('web_resource').filter(web_resource__slug='gtop')
-        proteins_qs = (
-            Protein.objects
-            .filter(id__in=kept_ids)
-            .select_related('family__parent__parent__parent')
-            .prefetch_related(
-                Prefetch('genes',
-                         queryset=Gene.objects.filter(position=0),
-                         to_attr='primary_genes_self'),
-                Prefetch('web_links',
-                         queryset=gtop_links_qs,
-                         to_attr='gtop_links_self'),
-            )
-        )
-        proteins = {p.id: p for p in proteins_qs}
-
-        # 6) Batch endogenous ligands for kept ids
-        endo_qs = (
-            Endogenous_GTP.objects
-            .filter(receptor_id__in=kept_ids)
-            .select_related('ligand', 'ligand__ligand_type')
-        )
-        endo_by_receptor = {}
-        for e in endo_qs:
-            if e.ligand:
-                endo_by_receptor.setdefault(e.receptor_id, []).append(e)
-
-        # helpers
-        def clean_iuphar_name(nm):
-            if not nm:
-                return "-"
-            s = nm.replace("receptor", "").replace("-adrenoceptor", "").replace("<i>", "").replace("</i>", "").strip()
-            return s or "-"
-
-        def build_gtop_url(wl):
-            try:
-                return Template(wl.web_resource.url).substitute(index=wl.index)
-            except Exception:
-                return None
-
-        sim_map = {p['other_id']: p['similarity'] for p in kept}
-        idn_map = {p['other_id']: p['identity']   for p in kept}
-
-        # 7) Build results in similarity-desc order
-        results = []
-        for row in kept:
-            pid = row['other_id']
-            p = proteins.get(pid)
-            if not p:
-                continue
-
-            # Gene: primary (position=0) or fallback to entry code
-            gene_name = p.primary_genes_self[0].name if getattr(p, 'primary_genes_self', None) else (
-                (p.entry_name.split('_')[0].upper()) if p.entry_name else "-"
-            )
-
-            entry_name  = p.entry_name or None
-            gpcrdb_link = f"/protein/{entry_name}" if entry_name else "-"
-            uniprot_link = f"https://www.uniprot.org/uniprot/{p.accession}" if p.accession else None
-
-            wl_self = p.gtop_links_self[0] if getattr(p, 'gtop_links_self', None) else None
-            iuphar_link = build_gtop_url(wl_self) if wl_self else None
-            iuphar_name = clean_iuphar_name(p.name)
-
-            family_name = getattr(getattr(p.family, "parent", None), "name", None)
-            ligand_type = getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None)
-            clazz       = getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None)
-
-            # endogenous ligands (dedup by ligand.id)
-            lig_items = endo_by_receptor.get(pid, [])
-            seen, endo_ligands, lig_types = set(), [], set()
-            for e in lig_items:
-                lig = e.ligand
-                if not lig:
-                    continue
-                if lig.id not in seen:
-                    seen.add(lig.id)
-                    endo_ligands.append({"id": lig.id, "name": lig.name})
-                if lig.ligand_type:
-                    lig_types.add(lig.ligand_type.name)
-            endo_type = "<br>".join(sorted(lig_types)) if lig_types else "-"
-
-            results.append({
-                "other_id": pid,
-                "Gene": gene_name,
-                "entry_name": entry_name,
-                "gpcrdb_link": gpcrdb_link,
-                "uniprot_link": uniprot_link,
-                "iuphar_name": iuphar_name,
-                "iuphar_link": iuphar_link,
-                "family": family_name,
-                "ligand_type": ligand_type,
-                "class": clazz,
-                "similarity": sim_map.get(pid, 0),
-                "identity": idn_map.get(pid, 0),
-                "endo_ligands": endo_ligands,
-                "endo_type": endo_type,
-            })
-
-        # already in similarity desc because `kept` was built from `pairs` order
-        return JsonResponse({"results": results})
 
 class CrossClassSimilarity(TemplateView):
     template_name = 'class_similarity/CrossClassSimilarity.html'
@@ -1900,6 +1682,226 @@ class CrossClassSimilarity(TemplateView):
         context["matrix_json"] = json.dumps(matrix)
         return context
 
+
+class OrphanSimilarity(TemplateView):
+    template_name = 'class_similarity/OrphanSimilarity.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        def clean_gtop_name(nm):
+            if not nm:
+                return "-"
+            s = (nm
+                 .replace("receptor", "")
+                 .replace("-adrenoceptor", "")
+                 .replace("<i>", "").replace("</i>", "")
+                 .strip())
+            return s or "-"
+
+        orphans_qs = (
+            Protein.objects
+            .filter(
+                parent_id__isnull=True,
+                species_id=1,
+                family__parent__parent__name__iexact='Orphan receptors',
+            )
+            .prefetch_related(
+                Prefetch('genes',
+                         queryset=Gene.objects.filter(position=0),
+                         to_attr='primary_genes_self')
+            )
+            .order_by('entry_name')
+        )
+
+        data = []
+        for p in orphans_qs:
+            gene = (p.primary_genes_self[0].name
+                    if getattr(p, 'primary_genes_self', None)
+                    else (p.entry_name.split('_')[0].upper() if p.entry_name else "-"))
+            data.append({
+                "id": p.id,
+                "text": clean_gtop_name(p.name),
+                "name": clean_gtop_name(p.name),
+                "entry_name": p.entry_name,
+                "gene": gene,
+            })
+
+        context['orphans_select2'] = json.dumps(data)
+        return context
+    
+class SimilarityTopAPI(View):
+    """
+    GET /class_similarity/api/similarity?ref=<protein_id>
+
+    Rule:
+      1) Sort ALL neighbors by similarity (desc) – do NOT use identity.
+      2) Compute the cutoff from the 10th **liganded** row (or the last liganded row if <10 exist).
+         Keep **all** liganded rows with similarity >= cutoff (ties included).
+      3) Also include **orphan** rows with similarity >= the same cutoff.
+      4) If there are NO liganded rows, fall back to the 10th overall row (or last) as cutoff.
+
+    Returns each row with:
+      Gene (primary M2M gene, position=0), entry_name, links (GPCRdb/UniProt/IUPHAR),
+      family/ligand_type/class, similarity & identity, endogenous ligands (id/name) + types.
+    """
+    def get(self, request):
+        from string import Template
+        ref_raw = request.GET.get('ref')
+        try:
+            ref_id = int(ref_raw)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
+
+        # 1) All neighbors sorted by similarity only (no identity in ordering)
+        pairs_qs = (
+            ReceptorSimilarity.objects
+            .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+            .annotate(
+                other_id=Case(
+                    When(protein_ref_id=ref_id, then=F('protein_target_id')),
+                    default=F('protein_ref_id'),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('-similarity')   # <— identity NOT used
+            .values('other_id', 'similarity', 'identity')
+        )
+        pairs = list(pairs_qs)
+        if not pairs:
+            return JsonResponse({"results": []})
+
+        other_ids_all = [p['other_id'] for p in pairs]
+
+        # 2) For cutoff we only need to know who is orphan. Fetch ligand type name cheaply.
+        LT_ORPHAN = 'Orphan receptors'
+        lt_map = dict(
+            Protein.objects
+                   .filter(id__in=other_ids_all)
+                   .values_list('id', 'family__parent__parent__name')   # ligand type name
+        )
+        def is_orphan(pid):
+            return (lt_map.get(pid) or '').strip().lower() == LT_ORPHAN.lower()
+
+        liganded_rows = [p for p in pairs if not is_orphan(p['other_id'])]
+
+        # 3) Compute the similarity cutoff from liganded rows; if none, fall back to overall.
+        if liganded_rows:
+            if len(liganded_rows) >= 10:
+                cutoff = liganded_rows[9]['similarity']  # 10th liganded row
+            else:
+                cutoff = liganded_rows[-1]['similarity'] # last liganded row
+        else:
+            # No liganded hits: use overall 10th (or last) similarity as cutoff
+            cutoff = pairs[min(9, len(pairs) - 1)]['similarity']
+
+        # 4) Keep everyone (liganded + orphan) with similarity >= cutoff
+        kept = [p for p in pairs if p['similarity'] >= cutoff]
+        kept_ids = [p['other_id'] for p in kept]
+
+        # 5) Fetch full protein meta only for kept ids
+        gtop_links_qs = WebLink.objects.select_related('web_resource').filter(web_resource__slug='gtop')
+        proteins_qs = (
+            Protein.objects
+            .filter(id__in=kept_ids)
+            .select_related('family__parent__parent__parent')
+            .prefetch_related(
+                Prefetch('genes',
+                         queryset=Gene.objects.filter(position=0),
+                         to_attr='primary_genes_self'),
+                Prefetch('web_links',
+                         queryset=gtop_links_qs,
+                         to_attr='gtop_links_self'),
+            )
+        )
+        proteins = {p.id: p for p in proteins_qs}
+
+        # 6) Batch endogenous ligands for kept ids
+        endo_qs = (
+            Endogenous_GTP.objects
+            .filter(receptor_id__in=kept_ids)
+            .select_related('ligand', 'ligand__ligand_type')
+        )
+        endo_by_receptor = {}
+        for e in endo_qs:
+            if e.ligand:
+                endo_by_receptor.setdefault(e.receptor_id, []).append(e)
+
+        # helpers
+        def clean_iuphar_name(nm):
+            if not nm:
+                return "-"
+            s = nm.replace("receptor", "").replace("-adrenoceptor", "").replace("<i>", "").replace("</i>", "").strip()
+            return s or "-"
+
+        def build_gtop_url(wl):
+            try:
+                return Template(wl.web_resource.url).substitute(index=wl.index)
+            except Exception:
+                return None
+
+        sim_map = {p['other_id']: p['similarity'] for p in kept}
+        idn_map = {p['other_id']: p['identity']   for p in kept}
+
+        # 7) Build results in similarity-desc order
+        results = []
+        for row in kept:
+            pid = row['other_id']
+            p = proteins.get(pid)
+            if not p:
+                continue
+
+            # Gene: primary (position=0) or fallback to entry code
+            gene_name = p.primary_genes_self[0].name if getattr(p, 'primary_genes_self', None) else (
+                (p.entry_name.split('_')[0].upper()) if p.entry_name else "-"
+            )
+
+            entry_name  = p.entry_name or None
+            gpcrdb_link = f"/protein/{entry_name}" if entry_name else "-"
+            uniprot_link = f"https://www.uniprot.org/uniprot/{p.accession}" if p.accession else None
+
+            wl_self = p.gtop_links_self[0] if getattr(p, 'gtop_links_self', None) else None
+            iuphar_link = build_gtop_url(wl_self) if wl_self else None
+            iuphar_name = clean_iuphar_name(p.name)
+
+            family_name = getattr(getattr(p.family, "parent", None), "name", None)
+            ligand_type = getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None)
+            clazz       = getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None)
+
+            # endogenous ligands (dedup by ligand.id)
+            lig_items = endo_by_receptor.get(pid, [])
+            seen, endo_ligands, lig_types = set(), [], set()
+            for e in lig_items:
+                lig = e.ligand
+                if not lig:
+                    continue
+                if lig.id not in seen:
+                    seen.add(lig.id)
+                    endo_ligands.append({"id": lig.id, "name": lig.name})
+                if lig.ligand_type:
+                    lig_types.add(lig.ligand_type.name)
+            endo_type = "<br>".join(sorted(lig_types)) if lig_types else "-"
+
+            results.append({
+                "other_id": pid,
+                "Gene": gene_name,
+                "entry_name": entry_name,
+                "gpcrdb_link": gpcrdb_link,
+                "uniprot_link": uniprot_link,
+                "iuphar_name": iuphar_name,
+                "iuphar_link": iuphar_link,
+                "family": family_name,
+                "ligand_type": ligand_type,
+                "class": clazz,
+                "similarity": sim_map.get(pid, 0),
+                "identity": idn_map.get(pid, 0),
+                "endo_ligands": endo_ligands,
+                "endo_type": endo_type,
+            })
+
+        # already in similarity desc because `kept` was built from `pairs` order
+        return JsonResponse({"results": results})
+
 class OrhanSimilarityClustering(TemplateView):
     template_name = 'class_similarity/OrhanSimilarityClustering.html'
 
@@ -2148,3 +2150,1106 @@ class SimilarityEmbeddingAPI(View):
             "ref": {"id": ref_id, "label": labels[0]},
             "meta": {"method": used_method, "metric": metric, "top_n": len(points), "n_points": N}
         })
+
+# ----------------------------- Shared helpers ------------------------------
+
+class OrphanSelect2Mixin:
+    ORPHAN_LT = 'Orphan receptors'
+
+    @staticmethod
+    def _clean_gtop_name(nm):
+        if not nm:
+            return "-"
+        s = (nm
+             .replace("receptor", "")
+             .replace("-adrenoceptor", "")
+             .replace("<i>", "").replace("</i>", "")
+             .strip())
+        return s or "-"
+
+    def get_orphans_select2(self):
+        # pull the whole lineage to read "Class ..."
+        orphans_qs = (
+            Protein.objects
+            .filter(
+                parent_id__isnull=True,
+                species_id=1,
+                family__parent__parent__name__iexact=self.ORPHAN_LT,
+            )
+            .select_related('family__parent__parent__parent')  # <-- add this
+            .prefetch_related(
+                Prefetch('genes',
+                         queryset=Gene.objects.filter(position=0),
+                         to_attr='primary_genes_self')
+            )
+            .order_by('entry_name')
+        )
+
+        data = []
+        for p in orphans_qs:
+            gene = (
+                p.primary_genes_self[0].name
+                if getattr(p, 'primary_genes_self', None)
+                else (p.entry_name.split('_')[0].upper() if p.entry_name else "-")
+            )
+            nm = self._clean_gtop_name(p.name)
+
+            # read raw class name from lineage (e.g. "Class A orphans")
+            fam = getattr(p.family, 'parent', None)
+            lig = getattr(fam, 'parent', None) if fam else None
+            cls = getattr(lig, 'parent', None) if lig else None
+            raw_class = getattr(cls, 'name', '') or ''
+
+            # normalize directly in Python
+            if raw_class.lower().startswith("other gpcr"):
+                raw_class = "Classless"
+            elif raw_class.lower().startswith("class "):
+                # keep only the letter, e.g. "Class A orphans" → "Class A"
+                m = re.search(r"class\s*([a-z])", raw_class, re.I)
+                raw_class = f"Class {m.group(1).upper()}" if m else raw_class
+
+            data.append({
+                "id": p.id,
+                "text": nm,
+                "name": nm,
+                "entry_name": p.entry_name,
+                "gene": gene,
+                "class": raw_class,
+            })
+        return data
+
+
+def _get_ref_class_info(ref_id):
+    """
+    Return (class_id, class_name) for the reference protein, inferred directly
+    from ReceptorSimilarity (works regardless of row direction).
+    """
+    row = (
+        ReceptorSimilarity.objects
+        .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+        .values('protein_ref_id', 'protein_target_id', 'ref_class_id', 'target_class_id')
+        .first()
+    )
+    if not row:
+        return (None, None)
+
+    if row['protein_ref_id'] == ref_id:
+        class_id = row['ref_class_id']
+    else:
+        class_id = row['target_class_id']
+
+    class_name = None
+    if class_id:
+        try:
+            cls = ProteinFamily.objects.only('id', 'name').get(id=class_id)
+            # Normalize like your Select2 (Classless / "Class X")
+            name = (cls.name or '').strip()
+            if name.lower().startswith('other gpcr'):
+                name = 'Classless'
+            else:
+                m = re.search(r'class\s*([a-z])', name, re.I)
+                if m:
+                    name = f'Class {m.group(1).upper()}'
+            class_name = name
+        except ProteinFamily.DoesNotExist:
+            pass
+
+    return (class_id, class_name)
+
+def _build_similarity_rows(ref_id):
+    """
+    Reuses the exact logic from SimilarityTopAPI to produce the table rows.
+    Returns: list[dict] (the 'results' list you already send today)
+    """
+    from string import Template
+
+    pairs_qs = (
+        ReceptorSimilarity.objects
+        .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+        .annotate(
+            other_id=Case(
+                When(protein_ref_id=ref_id, then=F('protein_target_id')),
+                default=F('protein_ref_id'),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by('-similarity')
+        .values('other_id', 'similarity', 'identity')
+    )
+    pairs = list(pairs_qs)
+    if not pairs:
+        return []
+
+    other_ids_all = [p['other_id'] for p in pairs]
+
+    LT_ORPHAN = 'Orphan receptors'
+    lt_map = dict(
+        Protein.objects
+               .filter(id__in=other_ids_all)
+               .values_list('id', 'family__parent__parent__name')
+    )
+    def is_orphan(pid):
+        return (lt_map.get(pid) or '').strip().lower() == LT_ORPHAN.lower()
+
+    liganded_rows = [p for p in pairs if not is_orphan(p['other_id'])]
+
+    if liganded_rows:
+        cutoff = liganded_rows[9]['similarity'] if len(liganded_rows) >= 10 else liganded_rows[-1]['similarity']
+    else:
+        cutoff = pairs[min(9, len(pairs) - 1)]['similarity']
+
+    kept = [p for p in pairs if p['similarity'] >= cutoff]
+    kept_ids = [p['other_id'] for p in kept]
+
+    gtop_links_qs = WebLink.objects.select_related('web_resource').filter(web_resource__slug='gtop')
+    proteins_qs = (
+        Protein.objects
+        .filter(id__in=kept_ids)
+        .select_related('family__parent__parent__parent')
+        .prefetch_related(
+            Prefetch('genes',
+                     queryset=Gene.objects.filter(position=0),
+                     to_attr='primary_genes_self'),
+            Prefetch('web_links',
+                     queryset=gtop_links_qs,
+                     to_attr='gtop_links_self'),
+        )
+    )
+    proteins = {p.id: p for p in proteins_qs}
+
+    endo_qs = (
+        Endogenous_GTP.objects
+        .filter(receptor_id__in=kept_ids)
+        .select_related('ligand', 'ligand__ligand_type')
+    )
+    endo_by_receptor = {}
+    for e in endo_qs:
+        if e.ligand:
+            endo_by_receptor.setdefault(e.receptor_id, []).append(e)
+
+    def clean_iuphar_name(nm):
+        if not nm:
+            return "-"
+        s = nm.replace("receptor", "").replace("-adrenoceptor", "").replace("<i>", "").replace("</i>", "").strip()
+        return s or "-"
+
+    def build_gtop_url(wl):
+        try:
+            return Template(wl.web_resource.url).substitute(index=wl.index)
+        except Exception:
+            return None
+
+    sim_map = {p['other_id']: p['similarity'] for p in kept}
+    idn_map = {p['other_id']: p['identity']   for p in kept}
+
+    results = []
+    for row in kept:
+        pid = row['other_id']
+        p = proteins.get(pid)
+        if not p:
+            continue
+
+        gene_name = p.primary_genes_self[0].name if getattr(p, 'primary_genes_self', None) else (
+            (p.entry_name.split('_')[0].upper()) if p.entry_name else "-")
+
+        entry_name  = p.entry_name or None
+        gpcrdb_link = f"/protein/{entry_name}" if entry_name else "-"
+        uniprot_link = f"https://www.uniprot.org/uniprot/{p.accession}" if p.accession else None
+
+        wl_self = p.gtop_links_self[0] if getattr(p, 'gtop_links_self', None) else None
+        iuphar_link = build_gtop_url(wl_self) if wl_self else None
+        iuphar_name = clean_iuphar_name(p.name)
+
+        family_name = getattr(getattr(p.family, "parent", None), "name", None)
+        ligand_type = getattr(getattr(getattr(p.family, "parent", None), "parent", None), "name", None)
+        clazz       = getattr(getattr(getattr(getattr(p.family, "parent", None), "parent", None), "parent", None), "name", None)
+
+        lig_items = endo_by_receptor.get(pid, [])
+        seen, endo_ligands, lig_types = set(), [], set()
+        for e in lig_items:
+            lig = e.ligand
+            if not lig:
+                continue
+            if lig.id not in seen:
+                seen.add(lig.id)
+                endo_ligands.append({"id": lig.id, "name": lig.name})
+            if lig.ligand_type:
+                lig_types.add(lig.ligand_type.name)
+        endo_type = "<br>".join(sorted(lig_types)) if lig_types else "-"
+
+        results.append({
+            "other_id": pid,
+            "Gene": gene_name,
+            "entry_name": entry_name,
+            "gpcrdb_link": gpcrdb_link,
+            "uniprot_link": uniprot_link,
+            "iuphar_name": iuphar_name,
+            "iuphar_link": iuphar_link,
+            "family": family_name,
+            "ligand_type": ligand_type,
+            "class": clazz,
+            "similarity": sim_map.get(pid, 0),
+            "identity": idn_map.get(pid, 0),
+            "endo_ligands": endo_ligands,
+            "endo_type": endo_type,
+        })
+
+    return results
+
+def _build_embedding_payload(ref_id, *, top_n=50, metric='identity', exclude_orphans=True):
+    """
+    Embedding selection logic (per your new rules), then the same t-SNE pipeline.
+    Rules:
+      - Classless  -> top N across all classes
+      - Class C    -> ALL Class C
+      - Other      -> top N within the same class as ref
+    """
+    # 0) Figure out the reference class once (using the RS table)
+    ref_class_id, ref_class_name = _get_ref_class_info(ref_id)
+
+    # If we couldn't deduce the class, fall back to the broad top N across all
+    if not ref_class_id:
+        base_qs = (
+            ReceptorSimilarity.objects
+            .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+            .order_by('-similarity')[:max(10, min(200, int(top_n)))]
+        )
+    else:
+        # 1) Build class-based neighbor selection
+        #    Use indexed filters directly on RS:
+        #    - same-class rows regardless of direction
+        same_class_q = (
+            Q(protein_ref_id=ref_id, target_class_id=ref_class_id) |
+            Q(protein_target_id=ref_id, ref_class_id=ref_class_id)
+        )
+
+        if ref_class_name == 'Classless':
+            # Top N across all classes
+            base_qs = (
+                ReceptorSimilarity.objects
+                .filter(Q(protein_ref_id=ref_id) | Q(protein_target_id=ref_id))
+                .order_by('-similarity')[:max(10, min(200, int(top_n)))]
+            )
+        elif ref_class_name == 'Class C':
+            # ALL Class C (no slice)
+            base_qs = (
+                ReceptorSimilarity.objects
+                .filter(same_class_q)
+                .order_by('-similarity')
+            )
+        else:
+            # Same class only, Top N
+            base_qs = (
+                ReceptorSimilarity.objects
+                .filter(same_class_q)
+                .order_by('-similarity')[:max(10, min(200, int(top_n)))]
+            )
+
+    # 2) Convert to a uniform shape with other_id + values (works both directions)
+    pairs = list(
+        base_qs.annotate(
+            other_id=Case(
+                When(protein_ref_id=ref_id, then=F('protein_target_id')),
+                default=F('protein_ref_id'),
+                output_field=IntegerField(),
+            )
+        ).values('other_id', 'similarity', 'identity')
+    )
+
+    if not pairs:
+        return {"points": [], "ref": {"id": ref_id, "label": ""}, "meta": {"note": "No neighbors for ref"}}
+
+    # Note: the old 'exclude_orphans' flag is redundant here because the
+    # class-based selection already governs inclusion. Kept for compatibility.
+
+    # 3) Cap the "ranked" set only if we have a slice-less case above (Class C keeps all already)
+    ranked = pairs  # already sliced where needed
+    kept_ids = [ref_id] + [p["other_id"] for p in ranked]
+
+    # 4) Fetch protein annotation for labels & legend
+    proteins = (
+        Protein.objects
+        .filter(id__in=kept_ids)
+        .select_related("family__parent__parent__parent")
+    )
+    pmap = {p.id: p for p in proteins}
+    if ref_id not in pmap:
+        return {"error": "Reference protein not found"}
+
+    def _lab(en):
+        return (en or "").replace("_human", "")
+
+    labels, ordered_ids = [], []
+    for pid in kept_ids:
+        p = pmap.get(pid)
+        if not p:
+            continue
+        lab = _lab(p.entry_name or "")
+        if lab and lab not in labels:
+            labels.append(lab)
+            ordered_ids.append(pid)
+
+    N = len(labels)
+    if N < 3:
+        return {"points": [], "ref": {"id": ref_id, "label": labels[0] if labels else ""}, "meta": {"note": "Too few points", "n_points": N}}
+
+    id_to_idx = {pid: i for i, pid in enumerate(ordered_ids)}
+
+    # 5) Build dense pair set among kept ids for distances
+    subpairs = list(
+        ReceptorSimilarity.objects
+        .filter(protein_ref_id__in=kept_ids, protein_target_id__in=kept_ids)
+        .values("protein_ref_id", "protein_target_id", "similarity", "identity")
+    )
+    pv = {}
+    for r in subpairs:
+        a, b = r["protein_ref_id"], r["protein_target_id"]
+        if a == b:
+            continue
+        key = (a, b) if a < b else (b, a)
+        if key not in pv:
+            pv[key] = r
+
+    D = np.full((N, N), np.nan, dtype=float)
+    np.fill_diagonal(D, 0.0)
+
+    metric = (metric or "identity").lower()
+    if metric not in ("identity", "similarity"):
+        metric = "identity"
+
+    def to_dist(rec):
+        val = rec["identity"] if metric == "identity" else rec["similarity"]
+        try:
+            v = float(val)
+        except Exception:
+            return np.nan
+        return max(0.0, min(1.0, 1.0 - v / 100.0))
+
+    for (a, b), rec in pv.items():
+        if a in id_to_idx and b in id_to_idx:
+            i, j = id_to_idx[a], id_to_idx[b]
+            d = to_dist(rec)
+            D[i, j] = d
+            D[j, i] = d
+
+    if np.isnan(D).any():
+        col_med = np.nanmedian(D, axis=0)
+        inds = np.where(np.isnan(D))
+        D[inds] = np.take(col_med, inds[1])
+        D = 0.5 * (D + D.T)
+        np.fill_diagonal(D, 0.0)
+
+    perplexity = max(1.0, min(40.0, (N - 1) / 3.0, N - 1 - 1e-9))
+    tsne = TSNE(
+        n_components=2,
+        metric="precomputed",
+        perplexity=perplexity,
+        random_state=42,
+        init="random",
+        learning_rate="auto",
+        square_distances=True
+    )
+    coords = tsne.fit_transform(D)
+    used_method = "tsne"
+
+    # 6) Values vs ref (for hover/gradient)
+    ref_field = "identity" if metric == "identity" else "similarity"
+    val_vs_ref = {}
+    for r in ranked:
+        oid = r["other_id"]
+        if oid in id_to_idx:
+            p = pmap.get(oid)
+            if p:
+                lab = _lab(p.entry_name or "")
+                val = r.get(ref_field)
+                if val is not None:
+                    val_vs_ref[lab] = float(val)
+
+    # 7) Build points w/ annotation
+    points = []
+    for i, pid in enumerate(ordered_ids):
+        p = pmap[pid]
+        fam = getattr(p.family, "parent", None)
+        lig = getattr(fam, "parent", None) if fam else None
+        cls = getattr(lig, "parent", None) if lig else None
+
+        clazz = getattr(cls, "name", "") if cls else ""
+        lig_t = getattr(lig, "name", "") if lig else ""
+        fam_n = getattr(fam, "name", "") if fam else ""
+        lab = labels[i]
+
+        # Normalize class label like before
+        if clazz.lower().startswith('other gpcr'):
+            clazz = 'Classless'
+        else:
+            m = re.search(r'class\s*([a-z])', clazz, re.I)
+            if m:
+                clazz = f'Class {m.group(1).upper()}'
+
+        fill = 100.0 if pid == ref_id else val_vs_ref.get(lab)
+
+        points.append({
+            "id": pid,
+            "label": lab,
+            "x": float(coords[i, 0]),
+            "y": float(coords[i, 1]),
+            "Class": clazz,
+            "Ligand type": lig_t,
+            "Receptor family": fam_n,
+            "fill": float(fill) if fill is not None else None,
+            "is_ref": (pid == ref_id),
+        })
+
+    return {
+        "points": points,
+        "ref": {"id": ref_id, "label": labels[0]},
+        "meta": {"method": used_method, "metric": metric, "top_n": len(points), "n_points": N, "ref_class": ref_class_name}
+    }
+
+# ------------------------------ New merged page -----------------------------
+
+class OrphanSimilarityExplorer(OrphanSelect2Mixin, TemplateView):
+    """
+    Single page that will host tabs: (1) Neighbor Table, (2) Cluster Embedding.
+    The template (to be added) will keep a hidden wrapper, and after a selection
+    it will call the bundle API once, show BusyLoad, then reveal the tabs.
+    """
+    template_name = 'class_similarity/OrphanSimilarityExplorer.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['orphans_select2'] = json.dumps(self.get_orphans_select2())
+        return ctx
+
+
+# ------------------------------- New merged API -----------------------------
+
+class SimilarityBundleAPI(View):
+    """
+    GET /class_similarity/api/bundle?ref=<protein_id>&top_n=50&metric=identity&exclude_orphans=true
+    Returns BOTH:
+      - table.results[]   (same structure as SimilarityTopAPI)
+      - embedding.{points,ref,meta} (same structure as SimilarityEmbeddingAPI)
+    Optional query flags:
+      - only=table   -> return only table part
+      - only=embed   -> return only embedding part
+    """
+
+    @staticmethod
+    def _truthy(v):
+        return str(v).lower() not in ("", "0", "false", "no", "off", "none")
+
+    def get(self, request):
+        # ---- params ----
+        ref_raw = request.GET.get('ref')
+        try:
+            ref_id = int(ref_raw)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Missing or invalid 'ref' parameter"}, status=400)
+
+        top_n = request.GET.get("top_n")
+        try:
+            top_n = int(top_n) if top_n is not None else 50
+        except Exception:
+            top_n = 50
+        top_n = max(10, min(200, top_n))
+
+        metric = (request.GET.get("metric") or "identity").lower()
+        if metric not in ("identity", "similarity"):
+            metric = "identity"
+
+        exclude_orphans = self._truthy(request.GET.get("exclude_orphans", "true"))
+
+        only = (request.GET.get("only") or "").strip().lower()
+
+        payload = {}
+
+        # Build parts according to 'only'
+        if only in ("", "table"):
+            table_rows = _build_similarity_rows(ref_id)
+            payload["table"] = {"results": table_rows}
+
+            # If user asked only table, short-circuit
+            if only == "table":
+                return JsonResponse(payload)
+
+        if only in ("", "embed"):
+            embed = _build_embedding_payload(
+                ref_id,
+                top_n=top_n,
+                metric=metric,
+                exclude_orphans=exclude_orphans,
+            )
+            payload["embedding"] = embed
+
+            if only == "embed":
+                return JsonResponse(payload)
+
+        return JsonResponse(payload)
+
+
+
+class ReceptorSimilarityExportExcel(View):
+    """
+    GET /class_similarity/ReceptorSimilarityExportExcel
+    -> returns an .xlsx file with:
+       ref_id, ref_entry, target_id, target_entry,
+       ref_class, target_class, identity, similarity
+    """
+
+    def get(self, request, *args, **kwargs):
+        # Allow override of filename via ?filename=...
+        filename = request.GET.get('filename', 'receptor_similarity.xlsx')
+
+        # Query the data we need
+        qs = (
+            ReceptorSimilarity.objects
+            .select_related('protein_ref', 'protein_target', 'ref_class', 'target_class')
+            .values(
+                'protein_ref_id',
+                'protein_ref__entry_name',
+                'protein_target_id',
+                'protein_target__entry_name',
+                'ref_class__name',
+                'target_class__name',
+                'identity',
+                'similarity',
+            )
+        )
+
+        # Build Excel in memory
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('ReceptorSimilarity')
+
+        # Headers as requested
+        headers = [
+            'ref_id',
+            'ref_entry',
+            'target_id',
+            'target_entry',
+            'ref_class',
+            'target_class',
+            'identity',
+            'similarity',
+        ]
+
+        # Write header row
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+
+        # Write data
+        row_idx = 1
+        for row in qs:
+            # ref
+            worksheet.write(row_idx, 0, row['protein_ref_id'])
+            worksheet.write(row_idx, 1, row['protein_ref__entry_name'])
+
+            # target
+            worksheet.write(row_idx, 2, row['protein_target_id'])
+            worksheet.write(row_idx, 3, row['protein_target__entry_name'])
+
+            # classes (nullable)
+            ref_class_name = row['ref_class__name'] or ''
+            target_class_name = row['target_class__name'] or ''
+
+            worksheet.write(row_idx, 4, ref_class_name)
+            worksheet.write(row_idx, 5, target_class_name)
+
+            # numbers
+            worksheet.write(row_idx, 6, row['identity'])
+            worksheet.write(row_idx, 7, row['similarity'])
+
+            row_idx += 1
+
+        workbook.close()
+        output.seek(0)
+
+        # HTTP response
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="%s"' % filename
+        return response
+
+
+# ------------------------------ Structure similarity -----------------------------
+
+class StructureSim(TemplateView):
+    template_name = 'class_similarity/StructureSim.html'
+
+    # --- config ---
+    DATA_FOLDER = 'structure_data'
+    FILES = {
+        'inactive': 'GPCR_structure_clustering_inactiveRep.csv',
+        'active':   'GPCR_structure_clustering_activeStructuresRep.csv',
+    }
+    DEFAULT_STATE = 'inactive'
+
+    # NEW: ligand/sense annotation Excel
+    LIGAND_META_FOLDER = 'protein_data'
+    LIGAND_META_FILE = 'Ligand type update plus sense column.xlsx'
+
+    CACHE_TIMEOUT = 60 * 15  # 15 minutes
+    CACHE_NS = 'structuresim:data'
+
+    # ---------- helpers ----------
+    def _file_path(self, state: str):
+        """Get full path to the CSV for the given state ('inactive' or 'active')."""
+        try:
+            file_name = self.FILES[state]
+        except KeyError:
+            raise ValueError(
+                f"Unknown state '{state}'. Expected one of: {', '.join(self.FILES.keys())}"
+            )
+        return os.path.join(settings.DATA_DIR, self.DATA_FOLDER, file_name)
+
+    def _ligand_meta_path(self):
+        """Full path to the Excel with ligand-type + sense annotations."""
+        return os.path.join(
+            settings.DATA_DIR,
+            self.LIGAND_META_FOLDER,
+            self.LIGAND_META_FILE,
+        )
+
+    def _cache_key(self, state: str, extra: str = ''):
+        """Auto-bust on CSV mtime; allow manual ?v=...; separated per state."""
+        p = self._file_path(state)
+        try:
+            mtime = int(os.path.getmtime(p))
+        except Exception:
+            mtime = 0
+        manual = self.request.GET.get('v', '')
+        # bump version for new physio logic
+        return f"{self.CACHE_NS}:v7:{state}:{mtime}:{manual}:{extra}"
+
+    def _family_lineage_names(self, protein):
+        """
+        Returns (class_name, ligand_type, receptor_family) by walking up family parents:
+          parent^3 = Class, parent^2 = Ligand type, parent^1 = Receptor family
+        """
+        f = getattr(protein, 'family', None)
+        if not f:
+            return None, None, None
+        p1 = getattr(f, 'parent', None)
+        p2 = getattr(p1, 'parent', None) if p1 else None
+        p3 = getattr(p2, 'parent', None) if p2 else None
+        receptor_family = getattr(p1, 'name', None)
+        ligand_type     = getattr(p2, 'name', None)
+        class_name      = getattr(p3, 'name', None)
+        return class_name, ligand_type, receptor_family
+
+    def _canonical_protein_from_structure(self, s, models_by_template):
+        """
+        Prefer canonical protein rows for names/labels:
+          1) structure's protein if it has accession
+          2) else its parent if it has accession
+          3) else StructureModel(main_template=s) protein with accession
+          4) else fallback to structure's protein
+        """
+        p = s.protein_conformation.protein
+        if getattr(p, 'accession', None):
+            return p
+        parent = getattr(p, 'parent', None)
+        if parent and getattr(parent, 'accession', None):
+            return parent
+        for sm in models_by_template.get(s.id, ()):
+            mp = sm.protein
+            if getattr(mp, 'accession', None):
+                return mp
+        return p
+
+    def _compute_tsne(self, D):
+        """
+        D: numpy (n x n) distance matrix, symmetric, zeros on diagonal.
+        Returns coords (n x 2), with robust defaults for perplexity.
+        """
+        n = D.shape[0]
+        perplexity = max(5.0, min(40.0, (n - 1) / 3.0, n - 2.0))
+        tsne = TSNE(
+            n_components=2,
+            metric="precomputed",
+            perplexity=perplexity,
+            random_state=42,
+            init="random",
+            learning_rate="auto",
+            square_distances=True,
+        )
+        coords = tsne.fit_transform(D)
+        return coords
+
+    @staticmethod
+    def _norm_lt(name: str) -> str:
+        """Normalize a ligand type string to coarse buckets: 'peptide', 'small', or 'other'."""
+        s = (name or '').strip().lower()
+        if 'peptide' in s or 'protein' in s:
+            return 'peptide'
+        if ('small' in s and 'molecule' in s) or s == 'small-molecule' or s == 'small molecule':
+            return 'small'
+        return 'other'
+
+    @staticmethod
+    def _uniprot_from_entry(entry_name):
+        """
+        Convert GPCRdb entry_name like 'adra1a_human' → 'ADRA1A'.
+        """
+        if not entry_name:
+            return None
+        s = str(entry_name).strip()
+        if not s:
+            return None
+        s = s.split('_')[0]
+        return s.upper()
+
+    def _load_ligand_meta(self):
+        """
+        Load Excel with ligand type / sense info, return:
+          { UNIPROT_CODE (upper) : { 'Ligand type': ..., 'Sense': ..., 'Receptor family': ..., 'Class': ... } }
+        Cached via Django cache.
+        """
+        cache_key = f"{self.CACHE_NS}:ligandmeta:v1"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        path = self._ligand_meta_path()
+        if not os.path.exists(path):
+            cache.set(cache_key, {}, self.CACHE_TIMEOUT)
+            return {}
+
+        df = pd.read_excel(path)
+
+        # Find column names, being tolerant to line breaks / spacing
+        def pick(*cands):
+            cands = {c.strip() for c in cands}
+            for name in df.columns:
+                s = str(name).strip()
+                if s in cands:
+                    return name
+            return None
+
+        col_uni    = pick('GPCRs (UniProt)', 'GPCRs\n(UniProt)')
+        col_lt     = pick('Ligand type')
+        col_sense  = pick('Sense')
+        col_family = pick('Receptor family')
+        col_class  = pick('Class')
+
+        if not col_uni:
+            cache.set(cache_key, {}, self.CACHE_TIMEOUT)
+            return {}
+
+        mapping = {}
+        for _, row in df.iterrows():
+            uni = str(row[col_uni]).strip()
+            if not uni or uni.lower() == 'nan':
+                continue
+            key = uni.upper()
+            rec = {}
+
+            if col_lt is not None:
+                v = row[col_lt]
+                if pd.notna(v):
+                    rec['Ligand type'] = str(v).strip()
+
+            if col_sense is not None:
+                v = row[col_sense]
+                if pd.notna(v):
+                    rec['Sense'] = str(v).strip()
+
+            if col_family is not None:
+                v = row[col_family]
+                if pd.notna(v):
+                    rec['Receptor family'] = str(v).strip()
+
+            if col_class is not None:
+                v = row[col_class]
+                if pd.notna(v):
+                    rec['Class'] = str(v).strip()
+
+            if rec:
+                mapping[key] = rec
+
+        cache.set(cache_key, mapping, self.CACHE_TIMEOUT)
+        return mapping
+
+    def _build_payload(self, state: str, want_embed: bool = False):
+        """
+        Read CSV for given state, validate, enrich with DB metadata (canonical protein),
+        compute physiological ligand-type consensus per receptor from ALL Endogenous_GTP,
+        and optionally compute t-SNE embedding on the distance matrix.
+        """
+        cache_key = self._cache_key(state, extra=('embed' if want_embed else 'noembed'))
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        # --- load CSV ---
+        file_path = self._file_path(state)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        df = pd.read_csv(file_path, index_col=0)
+
+        # --- basic validation ---
+        if df.shape[0] != df.shape[1]:
+            raise ValueError("CSV must be a square distance matrix (rows == columns).")
+
+        labels = df.index.astype(str).tolist()
+        cols = df.columns.astype(str).tolist()
+
+        if cols != labels:
+            try:
+                df = df.loc[labels, labels]
+            except Exception:
+                raise ValueError("CSV columns don't match index (PDB codes).")
+
+        # force numeric, impute, symmetrize, zero diag
+        df = df.apply(pd.to_numeric, errors='coerce')
+        arr = df.values.astype(float)
+        if np.isnan(arr).any():
+            col_med = np.nanmedian(arr, axis=0)
+            inds = np.where(np.isnan(arr))
+            arr[inds] = np.take(col_med, inds[1])
+        arr = 0.5 * (arr + arr.T)
+        np.fill_diagonal(arr, 0.0)
+        matrix = arr.tolist()
+
+        # --- DB fetch: map PDB -> Structure ---
+        codes_upper = [c.upper() for c in labels]
+        structures_qs = (
+            Structure.objects
+            .filter(pdb_code__index__in=codes_upper)
+            .select_related(
+                'pdb_code',
+                'structure_type',
+                'state',
+                'protein_conformation__protein',
+                'protein_conformation__protein__family',
+                'protein_conformation__protein__parent',
+                'protein_conformation__protein__parent__family',
+            )
+        )
+        structures = list(structures_qs)
+        by_pdb = {s.pdb_code.index.upper(): s for s in structures}
+
+        # preload StructureModel by main_template (fallback canonicalization)
+        template_ids = [s.id for s in structures]
+        models_by_template = {}
+        if template_ids:
+            for sm in (
+                StructureModel.objects
+                .filter(main_template_id__in=template_ids)
+                .select_related('protein')
+            ):
+                models_by_template.setdefault(sm.main_template_id, []).append(sm)
+
+        # --- build proteins dict + collect receptor ids for consensus lookup ---
+        proteins = {}
+        unmatched = []
+        label_to_receptor_id = {}
+
+        for original in labels:
+            s = by_pdb.get(original.upper())
+            if not s:
+                unmatched.append(original)
+                continue
+
+            p = self._canonical_protein_from_structure(s, models_by_template)
+
+            stype = getattr(s.structure_type, "type_short", None)
+            stype = stype() if callable(stype) else getattr(s.structure_type, "name", None)
+
+            class_name, ligand_type, receptor_family = self._family_lineage_names(p)
+
+            proteins[original] = {
+                "pdb_code": s.pdb_code.index.upper(),
+                "protein_entry": getattr(p, "entry_name", None),
+                "protein_name": getattr(p, "name", None),
+                "protein_class": class_name,
+                "ligand_type": ligand_type,
+                "protein_family": receptor_family,
+                "receptor_family": receptor_family,
+                "state": getattr(s.state, "slug", None),
+                "structure_type": stype,
+            }
+
+            if getattr(p, "id", None):
+                label_to_receptor_id[original] = p.id
+
+        # --- consensus physiological ligand type per receptor (ALL Endogenous_GTP) ---
+        consensus_map = {}
+        raw_types_map = {}
+        receptor_ids = list(set(label_to_receptor_id.values()))
+        if receptor_ids:
+            lt_rows = (
+                Endogenous_GTP.objects
+                .filter(receptor_id__in=receptor_ids)
+                .values('receptor_id', 'ligand__ligand_type__name')
+                .distinct()
+            )
+            agg = {}
+            raw = {}
+            for row in lt_rows:
+                rid = row['receptor_id']
+                lt = (row['ligand__ligand_type__name'] or '').strip()
+                if rid not in agg:
+                    agg[rid] = set()
+                    raw[rid] = set()
+                agg[rid].add(self._norm_lt(lt))
+                if lt:
+                    raw[rid].add(lt)
+
+            for rid, kinds in agg.items():
+                has_pep = ('peptide' in kinds)
+                has_sml = ('small' in kinds)
+                if has_pep and has_sml:
+                    cat = 'Peptide/protein & small-molecule'
+                elif has_pep:
+                    cat = 'Peptide/protein'
+                elif has_sml:
+                    cat = 'Small-molecule'
+                else:
+                    cat = 'Other'
+                consensus_map[rid] = cat
+                raw_types_map[rid] = sorted(raw.get(rid, []))
+
+        for lab, rid in label_to_receptor_id.items():
+            if rid in consensus_map:
+                proteins[lab]["physio_ligand_consensus"] = consensus_map[rid]
+                proteins[lab]["physio_ligand_types_raw"] = raw_types_map.get(rid, [])
+
+        # --- apply Excel ligand-type + sense overrides ---
+        ligand_meta = self._load_ligand_meta()
+        if ligand_meta:
+            for lab, meta in proteins.items():
+                entry = meta.get("protein_entry")
+                uni = self._uniprot_from_entry(entry)
+                if not uni:
+                    continue
+                ann = ligand_meta.get(uni)
+                if not ann:
+                    continue
+
+                lt = ann.get("Ligand type")
+                if lt:
+                    meta["ligand_type"] = lt
+
+                fam = ann.get("Receptor family")
+                if fam:
+                    meta["protein_family"] = fam
+                    meta["receptor_family"] = fam
+
+                cls = ann.get("Class")
+                if cls:
+                    meta["protein_class"] = cls
+
+                sense = ann.get("Sense")
+                if sense is not None:
+                    meta["sense"] = sense
+            
+                # --- final physio-ligand cleanup based on UPDATED ligand_type ---
+        for lab, meta in proteins.items():
+            lt = (meta.get("ligand_type") or "").strip()
+            lt_low = lt.lower()
+            physio = (meta.get("physio_ligand_consensus") or "").strip()
+
+            # 1) Special cases that should always override
+            #    Adhesion receptors → Peptide (auto-activation)
+            if lt_low == "adhesion receptors":
+                meta["physio_ligand_consensus"] = "Peptide (auto-activation)"
+
+            #    Ion receptors → Ion
+            elif lt_low == "ion receptors":
+                meta["physio_ligand_consensus"] = "Ion"
+
+            #    Peptide / amino acid / protein receptors → Peptide/protein
+            elif lt_low in {
+                "peptide receptors",
+                "amino acid receptors",
+                "protein receptors",
+            }:
+                meta["physio_ligand_consensus"] = "Peptide/protein"
+
+            #    Unknown receptors → Unknown
+            elif lt_low == "unknown receptors":
+                meta["physio_ligand_consensus"] = "Unknown"
+
+            # 2) Anything still missing after all the above → Unknown
+            if not meta.get("physio_ligand_consensus"):
+                meta["physio_ligand_consensus"] = "Unknown"
+
+        payload = {
+            "state": state,
+            "labels": labels,
+            "matrix": matrix,
+            "proteins": proteins,
+            "unmatched": unmatched,
+        }
+
+        # --- optional embedding (t-SNE on the distance matrix) ---
+        if want_embed:
+            try:
+                D = np.array(matrix, dtype=float)
+                coords = self._compute_tsne(D)
+                points = []
+                for i, lab in enumerate(labels):
+                    meta = proteins.get(lab, {})
+                    points.append({
+                        "label": lab,
+                        "x": float(coords[i, 0]),
+                        "y": float(coords[i, 1]),
+                        "Class": meta.get("protein_class") or "",
+                        "Ligand type": meta.get("ligand_type") or "",
+                        "Receptor family": meta.get("receptor_family") or meta.get("protein_family") or "",
+                        "Sense": meta.get("sense") or "",
+                    })
+                payload["tsne"] = {
+                    "method": "tsne",
+                    "points": points,
+                    "n": len(points),
+                }
+            except Exception as e:
+                payload["tsne"] = {"error": str(e)}
+
+        cache.set(cache_key, payload, self.CACHE_TIMEOUT)
+        return payload
+
+    # ---------- TemplateView overrides ----------
+    def get(self, request, *args, **kwargs):
+        """
+        Serve HTML by default; JSON when requested; t-SNE via ?embed=1.
+        Dataset is selected via ?state=inactive|active (default: inactive).
+        """
+        state_param = request.GET.get('state')
+        if state_param in self.FILES:
+            state = state_param
+        else:
+            state = self.DEFAULT_STATE
+
+        want_json = (
+            request.GET.get('format') == 'json'
+            or request.GET.get('data') == '1'
+            or 'application/json' in request.headers.get('Accept', '')
+        )
+        if want_json:
+            want_embed = (request.GET.get('embed') in ('1', 'true', 'yes'))
+            try:
+                payload = self._build_payload(state=state, want_embed=want_embed)
+            except Exception as e:
+                return JsonResponse({"error": str(e)}, status=400)
+            return JsonResponse(payload, safe=True)
+
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        """
+        Expose separate URLs for inactive & active datasets so JS can toggle between them.
+        """
+        ctx = super().get_context_data(**kwargs)
+        base = self.request.build_absolute_uri(self.request.path)
+
+        ctx['inactive_embed_url'] = f"{base}?format=json&state=inactive&embed=1"
+        ctx['active_embed_url']   = f"{base}?format=json&state=active&embed=1"
+
+        return ctx
