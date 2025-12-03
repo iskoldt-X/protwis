@@ -1,0 +1,228 @@
+{% extends "home/base.html" %}
+{% load static %}
+
+{% block addon_css %}
+<link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
+<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css">
+
+<style>
+  .tab-pane { margin-top: 20px; }
+  .dt-center th, .dt-center td { text-align: center; vertical-align: middle; }
+
+  /* optional: slightly narrower tables */
+  .class-wrapper, .ligand-wrapper, .rf-wrapper {
+      margin-top: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <ul class="nav nav-tabs" role="tablist">
+    <li class="active"><a href="#tab-classes" data-toggle="tab">Classes</a></li>
+    <li><a href="#tab-ligand" data-toggle="tab">Ligand types</a></li>
+    <li><a href="#tab-families" data-toggle="tab">Receptor families</a></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ========== 1) CLASSES (mostly static, two small tables) ========== -->
+    <div role="tabpanel" class="tab-pane active" id="tab-classes">
+      <div class="row class-wrapper">
+        <div class="col-sm-10 col-sm-offset-1">
+
+          <h4>Human GPCR classes</h4>
+          <table class="table table-bordered table-striped dt-center">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Non-sensory or sense</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>A</td><td>Rhodopsin</td><td>Non-sensory majority + Vision</td></tr>
+              <tr><td>B1</td><td>Secretin</td><td>Non-sensory</td></tr>
+              <tr><td>B2</td><td>Adhesion</td><td>Non-sensory</td></tr>
+              <tr><td>C</td><td>Glutamate</td><td>Non-sensory majority + Taste (sweet/umami)</td></tr>
+              <tr><td>F</td><td>Frizzled</td><td>Non-sensory</td></tr>
+              <tr><td>T2</td><td>Taste 2</td><td>Taste (bitter)</td></tr>
+              <tr><td>O1</td><td>Fish-like olfactory receptors</td><td>Olfaction + non-sensory minority</td></tr>
+              <tr><td>O2</td><td>Tetrapod-specific olfactory receptors</td><td>Olfaction</td></tr>
+              <tr><td>Cl</td><td>Classless</td><td>Unknown</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Other GPCR classes (non-human)</h4>
+          <table class="table table-bordered table-striped dt-center">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Species</th>
+                <th>Non-sensory or sense</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>D1</td><td>Fungal pheromone</td><td>Fungi</td><td>Pheromone-sensing</td></tr>
+              <tr><td>D2</td><td>How to name separately?</td><td>—</td><td>Pheromone-sensing</td></tr>
+              <tr><td>E</td><td>Yeast cAMP</td><td>Yeast</td><td>cAMP-sensing (chemotaxis)</td></tr>
+              <tr><td>V1</td><td>Vomeronasal type 1</td><td>Amphibia, reptiles & non-primate mammals</td><td>Pheromone-sensing</td></tr>
+              <tr><td>V2</td><td>Vomeronasal type 2</td><td>Amphibia, reptiles & non-primate mammals</td><td>Pheromone-sensing</td></tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 2) LIGAND TYPES (DataTable) ========== -->
+    <div role="tabpanel" class="tab-pane" id="tab-ligand">
+      <div class="row ligand-wrapper">
+        <div class="col-sm-10 col-sm-offset-1">
+          <h4>Ligand types &amp; groups</h4>
+          <table id="ligandTypeTable" class="table table-bordered table-striped table-hover dt-center" width="100%">
+            <thead>
+              <tr>
+                <th>Ligand type</th>
+                <th>Ligand type group</th>
+                <th>Found in classes</th>
+              </tr>
+              <!-- optional filter row – hook your NorgesDTFilterBuilder here -->
+              <tr class="filter-row">
+                <th data-dt-order="disable"></th>
+                <th data-dt-order="disable"></th>
+                <th data-dt-order="disable"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 3) RECEPTOR FAMILIES (two sub-tabs) ========== -->
+    <div role="tabpanel" class="tab-pane" id="tab-families">
+      <div class="row rf-wrapper">
+        <div class="col-sm-10 col-sm-offset-1">
+
+          <ul class="nav nav-pills" role="tablist">
+            <li class="active"><a href="#rf-non" data-toggle="tab">Non-sensory families</a></li>
+            <li><a href="#rf-sens" data-toggle="tab">Sensory families</a></li>
+          </ul>
+
+          <div class="tab-content" style="margin-top:15px;">
+            <div role="tabpanel" class="tab-pane active" id="rf-non">
+              <table id="rfNonTable" class="table table-bordered table-striped table-hover dt-center" width="100%">
+                <thead>
+                  <tr>
+                    <th>Class</th>
+                    <th>Receptor family</th>
+                    <th>Ligand type</th>
+                  </tr>
+                  <tr class="filter-row">
+                    <th data-dt-order="disable"></th>
+                    <th data-dt-order="disable"></th>
+                    <th data-dt-order="disable"></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="rf-sens">
+              <table id="rfSensTable" class="table table-bordered table-striped table-hover dt-center" width="100%">
+                <thead>
+                  <tr>
+                    <th>Receptor family</th>
+                    <th>Ligand type</th>
+                    <th>Found in classes</th>
+                  </tr>
+                  <tr class="filter-row">
+                    <th data-dt-order="disable"></th>
+                    <th data-dt-order="disable"></th>
+                    <th data-dt-order="disable"></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.tab-content -->
+</div><!-- /.container -->
+{% endblock %}
+{% block addon_js %}
+<script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
+<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
+<script src="{% static 'home/js/NorgesDTFilterBuilder.new.js' %}"></script>
+
+<script>
+  // backbone data from Django
+  var ligandTypeRows = {{ ligand_type_rows|safe }};
+  var rfNonRows      = {{ rf_non_rows|safe }};
+  var rfSensRows     = {{ rf_sens_rows|safe }};
+
+  $(function () {
+
+    // --- 1) DataTables ---
+
+    var ltDT = $('#ligandTypeTable').DataTable({
+      data: ligandTypeRows,
+      columns: [
+        { data: 'ligand_type' },
+        { data: 'ligand_group' },
+        { data: 'classes' }
+      ],
+      paging:false, searching:true, ordering:true, info:false,
+      autoWidth:false, orderCellsTop:true, dom:'t'
+    });
+
+    var rfNonDT = $('#rfNonTable').DataTable({
+      data: rfNonRows,
+      columns: [
+        { data: 'class_symbol' },
+        { data: 'receptor_family' },
+        { data: 'ligand_type' }
+      ],
+      paging:false, searching:true, ordering:true, info:false,
+      autoWidth:false, orderCellsTop:true, dom:'t'
+    });
+
+    var rfSensDT = $('#rfSensTable').DataTable({
+      data: rfSensRows,
+      columns: [
+        { data: 'receptor_family' },
+        { data: 'ligand_type' },
+        { data: 'classes' }
+      ],
+      paging:false, searching:true, ordering:true, info:false,
+      autoWidth:false, orderCellsTop:true, dom:'t'
+    });
+
+    // --- 2) Attach Norges filters (all columns, multi-select) ---
+
+    function attachFilters(dt) {
+      var count  = dt.columns().count();
+      var config = [];
+      config = config.concat(
+        CreateColumnFilters(dt, 0, count, "Multi-select-exact")
+      );
+      createDropdownFilters(dt, config);
+    }
+
+    attachFilters(ltDT);
+    attachFilters(rfNonDT);
+    attachFilters(rfSensDT);
+  });
+</script>
+{% endblock %}

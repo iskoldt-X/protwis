@@ -3,30 +3,16 @@
 
 {% block addon_css %}
 <link rel="stylesheet" href="{% static 'home/css/NewDrugsBrowser_datatables.min.css' %}" type="text/css"/>
-<link rel="stylesheet" href="{% static 'home/css/select2_4.1.0-rc.0._full.css' %}" type="text/css"/>
 
 <style>
-/* =============== Layout (≥ lg: 60% / 1% / 39%) =============== */
-@media (min-width: 992px){
-  .col-lg-7{ flex:0 0 auto; width:60% !important; }
-  .col-lg-1{ flex:0 0 auto; width:1%  !important; }
-  .col-lg-4{ flex:0 0 auto; width:39% !important; }
-}
-
-/* =============== Vars =============== */
 :root{
-  --rf-filter-h: 32px;
-  --rf-filter-controls-max: 36px;
   --gpcr-divider-w: 1px;
   --gpcr-divider-c: #000;
 }
 
-/* =============== General =============== */
+/* general */
 #gpcrTable_wrapper{ min-height:0 !important; height:auto !important; }
-.rf-scroller{ overflow-y:auto; overflow-x:hidden; }
-
-#gpcrTable th, #gpcrTable td,
-#receptorFamiliesTable th, #receptorFamiliesTable td{
+#gpcrTable th, #gpcrTable td{
   text-align:center; vertical-align:middle; box-sizing:border-box;
 }
 
@@ -38,7 +24,7 @@
 .popup-cell:hover{ color:#0056b3; }
 .wide-modal{ min-width:75% !important; }
 
-/* Title + Download button */
+/* title + download */
 .gpcr-header{
   display:flex; align-items:center; justify-content:space-between;
   gap:10px; flex-wrap:wrap;
@@ -47,177 +33,68 @@
 .gpcr-header .dropdown-toggle{ white-space:nowrap; }
 #gpcrDownloadDropdown{ position:relative; right:6px; top:-2px; }
 
-/* =============== Left table =============== */
+/* left table layout */
 #gpcrTable{ table-layout:fixed; width:100%; }
 #gpcrTable th.col-class,  #gpcrTable td.col-class { width:16.6667%; }
 #gpcrTable th.col-recept, #gpcrTable td.col-recept{ width:12.5%; }
 
-/* Wrapper + vertical split overlay (drawn once) */
-#gpcrLeftWrap{ position:relative; }
+/* wrapper + vertical split overlay */
+#gpcrLeftWrap{ position:relative; border: var(--gpcr-divider-w) solid var(--gpcr-divider-c); }
 #gpcrLeftWrap .vsplit-abs{
   position:absolute; top:0; bottom:0;
   width:var(--gpcr-divider-w); background:var(--gpcr-divider-c);
   pointer-events:none; z-index:7;
 }
 
-/* Avoid a double seam where the overlay sits (left edge of col 4) */
+/* avoid double seam */
 #gpcrTable thead tr:nth-child(2) th:nth-child(4),
 #gpcrTable tbody td:nth-child(4){ border-left:0 !important; }
 
-/* We’ll draw header separators as overlay lines inside THEAD */
+/* header lines drawn inside THEAD */
 #gpcrTable thead{ position:relative; background:#fff; z-index:1; }
 #gpcrTable thead th{ border-bottom:0 !important; }
 
-/* =============== Right table (structure) =============== */
-#receptorFamiliesTable{
-  table-layout:fixed; width:100%;
-  border-collapse:separate; border-spacing:0;
-}
-#receptorFamiliesTable th:nth-child(1), #receptorFamiliesTable td:nth-child(1){ width:55%; }
-#receptorFamiliesTable th:nth-child(2), #receptorFamiliesTable td:nth-child(2){ width:20%; }
-#receptorFamiliesTable th:nth-child(3), #receptorFamiliesTable td:nth-child(3){ width:25%; }
-#receptorFamiliesTable th, #receptorFamiliesTable td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-/* Sticky THEAD + we’ll draw separators ourselves */
-#receptorFamiliesTable thead{ position:sticky; top:0; background:#fff; z-index:4; }
-#receptorFamiliesTable thead::after{ display:none; }
-#receptorFamiliesTable thead tr:first-child th,
-#receptorFamiliesTable thead tr.filters th{ border-bottom:0 !important; }
-
-/* Scroller top cap (always-visible top line / top of frame) */
-#rfScroller{ position:relative; }
-#rfScroller::before{
-  content:""; position:sticky; top:0; left:0; right:0; height:1px;
-  background:var(--gpcr-divider-c); z-index:5; display:block;
-}
-
-/* =============== Right table: filter row + Select2 =============== */
-#receptorFamiliesTable thead tr.filters{ height:var(--rf-filter-h) !important; }
-#receptorFamiliesTable thead tr.filters th{
-  height:var(--rf-filter-h) !important; padding:0 6px !important; box-sizing:border-box;
-}
-#receptorFamiliesTable thead tr.filters th .rf-filter-box{
-  height:100%; width:100%; display:flex; align-items:center; justify-content:center; padding:0 4px;
-}
-
-#receptorFamiliesTable .select2-container{
-  width:100% !important; font-size:12px;
-  height:min(calc(var(--rf-filter-h)*0.8), var(--rf-filter-controls-max)) !important;
-  min-height:0 !important; max-height:var(--rf-filter-controls-max) !important;
-}
-#receptorFamiliesTable .select2-selection--multiple{
-  height:100% !important; min-height:0 !important; max-height:var(--rf-filter-controls-max) !important;
-  padding:0 4px !important; display:flex; align-items:center; white-space:nowrap;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__rendered{
-  display:flex !important; align-items:center; flex-wrap:nowrap !important;
-  gap:4px; width:100%; padding:0 !important; margin:0 !important; overflow:hidden;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__rendered li,
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice{ float:none !important; }
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice{
-  position:relative; display:inline-flex; align-items:center; max-width:100%;
-  line-height:16px !important; font-size:11px !important; padding:0 6px !important;
-  margin-top:0 !important; gap:4px; overflow:hidden;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice__display{
-  display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice__remove{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  opacity:0; pointer-events:none; background:rgba(0,0,0,.45); color:#fff; font-weight:700;
-  border:0 !important; margin:0 !important; padding:0 !important; line-height:1 !important;
-  transition:opacity .12s ease-in-out;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice:hover .select2-selection__choice__remove,
-#receptorFamiliesTable .select2-selection--multiple .select2-selection__choice:focus-within .select2-selection__choice__remove{
-  opacity:1; pointer-events:auto;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-search--inline{
-  display:inline-flex !important; align-items:center; justify-content:center; flex:0 1 auto;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-search__field{
-  --rfc: calc(min(calc(var(--rf-filter-h)*.8), var(--rf-filter-controls-max)) - 2px);
-  height:var(--rfc) !important; line-height:var(--rfc) !important; text-align:center; white-space:nowrap;
-  min-width:6ch; border:0; padding:0; margin:0; display:block; resize:none;
-}
-#receptorFamiliesTable .select2-selection--multiple .select2-search__field::placeholder{ text-align:center; opacity:.7; }
-#receptorFamiliesTable .select2-container.rf-empty .select2-selection__rendered{ display:none !important; }
-#receptorFamiliesTable .select2-container.rf-empty .select2-search--inline{ flex:1 1 100%; }
-#receptorFamiliesTable .select2-container.rf-empty .select2-search__field{ width:100% !important; min-width:0 !important; text-align:center; }
-
-/* =============== Right table: Min/Max inputs =============== */
-#receptorFamiliesTable .rf-minmax{
-  display:inline-flex; gap:6px; width:100%;
-  height:min(calc(var(--rf-filter-h)*0.8), var(--rf-filter-controls-max));
-  align-items:center; justify-content:center;
-}
-#receptorFamiliesTable .rf-minmax .form-control{
-  display:inline-block !important; width:45% !important; min-width:36px; height:100% !important;
-  padding:0 4px !important; font-size:12px !important; line-height:1 !important; margin:0 !important; text-align:center;
-}
-#receptorFamiliesTable input[type="number"]::-webkit-outer-spin-button,
-#receptorFamiliesTable input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
-#receptorFamiliesTable input[type="number"]{ -moz-appearance:textfield; }
-
-/* =============== Black frames around tables =============== */
-#gpcrTable,
-#receptorFamiliesTable{
-  outline:var(--gpcr-divider-w) solid var(--gpcr-divider-c);
-  outline-offset:-1px;
-}
-
-/* NEW: give the left wrapper the visible frame that html2canvas can capture */
-#gpcrLeftWrap{
-  border: var(--gpcr-divider-w) solid var(--gpcr-divider-c);
-}
-
-/* Keep the table clean (outline is unreliable in html2canvas anyway) */
-#gpcrTable{
-  outline: none;              /* was: outline: var(--gpcr-divider-w) solid var(--gpcr-divider-c) */
-  outline-offset: 0;          /* just in case */
-}
-
-/* Right table uses a 3-sided frame; sticky cap provides the top edge */
-#receptorFamiliesTable{
-  outline:none;
-  border-left:  var(--gpcr-divider-w) solid var(--gpcr-divider-c);
-  border-right: var(--gpcr-divider-w) solid var(--gpcr-divider-c);
-  border-bottom:var(--gpcr-divider-w) solid var(--gpcr-divider-c);
-  border-top:0;
-}
-
-/* =============== Reusable overlay line =============== */
 .hline-abs{
   position:absolute; left:0; right:0; height:1px;
   background:var(--gpcr-divider-c); pointer-events:none; z-index:8;
 }
+
+/* DataTables-specific row height control */
+table#gpcrTable.dataTable thead th,
+table#gpcrTable.dataTable thead td,
+table#gpcrTable.dataTable tbody th,
+table#gpcrTable.dataTable tbody td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  line-height: 1.2;
+  min-height: 40px;   /* ensures at least 40px rows */
+  vertical-align: middle;
+}
+
+
 </style>
-
-
 {% endblock %}
 
 {% block content %}
 <div id="tables-shell" class="hidden-until-ready">
   <div class="row" style="margin-top: 20px;">
+    <div class="col-xs-12 col-sm-10 col-sm-offset-1 col-md-10 col-md-offset-1">
 
-    <!-- LEFT: Human GPCR classes -->
-    <div class="col-lg-7 col-12">
       <div class="gpcr-header mb-2">
         <h4 class="mb-0">Human GPCR Classes</h4>
 
-        <div class="dropdown" id="gpcrDownloadDropdown" style="position: relative;">
+        <div class="dropdown" id="gpcrDownloadDropdown">
           <button type="button" class="btn btn-primary dropdown-toggle" id="gpcrDownloadToggle" style="font-size:14px;">
             <span class="glyphicon glyphicon-download" style="vertical-align: top; line-height:1.3;"></span>
             Download <span class="caret"></span>
           </button>
 
           <div class="dropdown-menu"
-              id="gpcrDownloadMenu"
-              style="min-width: 200px; padding: 10px 12px; right: 0; left: auto; top: 100%;
+               id="gpcrDownloadMenu"
+               style="min-width: 200px; padding: 10px 12px; right: 0; left: auto; top: 100%;
                       margin-top: 6px; position: absolute; display: none;">
             <div class="dropdown-item-text text-muted"
-                style="font-weight:600; font-size:12px; text-align:center; pointer-events:none; padding:2px 0 6px;">
+                 style="font-weight:600; font-size:12px; text-align:center; pointer-events:none; padding:2px 0 6px;">
               — Table only —
             </div>
             <button type="button" class="btn btn-primary btn-block" onclick="GPCRLeftDownload('jpg')">JPG</button>
@@ -226,6 +103,7 @@
           </div>
         </div>
       </div>
+
       <div class="table-responsive" id="gpcrLeftWrap">
         <table id="gpcrTable" class="table table-bordered table-striped table-hover" style="width:100%">
           <thead>
@@ -237,7 +115,7 @@
               <th class="col-class">Symbol</th>
               <th class="col-class">Class</th>
               <th class="col-class">GRAFS Family</th>
-              <th class="col-recept" class="vsplit">All</th>
+              <th class="col-recept vsplit">All</th>
               <th class="col-recept">Non-sensory</th>
               <th class="col-recept">Sensory</th>
               <th class="col-recept">Orphan</th>
@@ -260,40 +138,11 @@
           <a href="https://www.guidetopharmacology.org/GRAC/ReceptorFamiliesForward?type=GPCR" target="_blank" rel="noopener noreferrer">Guide to Pharmacology</a>.
         </p>
       </div>
-    </div>
 
-    <!-- Spacer -->
-    <div class="col-lg-1 d-none d-lg-block"></div>
-
-    <!-- RIGHT: Receptor families table -->
-    <div class="col-lg-4 col-12">
-      <h4>Receptor families by class</h4>
-
-      <div id="rfScroller" class="table-responsive rf-scroller">
-        <table id="receptorFamiliesTable" class="table table-bordered table-striped table-hover" style="width:100%">
-          <thead>
-            <tr>
-              <th>Receptor family</th>
-              <th>Class</th>
-              <th>GPCRs</th>
-            </tr>
-            <tr class="filters">
-              <th data-dt-order="disable"></th>
-              <th data-dt-order="disable"></th>
-              <th data-dt-order="disable"></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div class="table-legend">
-        <p>“GPCRs” shows the count of GPCRs belonging to each receptor family within a class. Click a number to see the list of GPCRs (gene names) and their attributes in the modal.</p>
-      </div>
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- Modal stays unchanged -->
   <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
     <div class="modal-dialog wide-modal" role="document" style="max-width:80%;">
       <div class="modal-content">
@@ -317,7 +166,6 @@
 
 {% block addon_js %}
 <script src="{% static 'home/js/NewDrugsBrowser_datatables.min.js' %}"></script>
-<script src="{% static 'home/js/select2_4.1.0-rc.0_full.js' %}"></script>
 <script src="{% static 'home/js/html2canvas.min.js' %}"></script>
 <script src="{% static 'home/js/DataTablesImage.js' %}"></script>
 <script src="{% static 'home/js/DataTablesSVG.js' %}"></script>
@@ -338,171 +186,32 @@ document.addEventListener("DOMContentLoaded", function () {
          + '</span>';
   }
 
-  const FAMILY_RENAMES = { "Other GPCR orphans": "Classless Orphans" };
-  const normalizeFamilyName = f => (f==null ? "Unknown" : (FAMILY_RENAMES[String(f).trim()] || String(f).trim()));
-
-  function buildReceptorFamilyRows(humanRows){
-    const rows = [];
-    (humanRows || []).forEach(row => {
-      const classSymbol = row.symbol || "—";
-      const members = (row.entries && row.entries.members_total) ? row.entries.members_total : [];
-      const byFamily = {};
-      members.forEach(m => {
-        const fam = normalizeFamilyName(m["Receptor family"]);
-        const fix = Object.assign({}, m, { "Receptor family": fam });
-        (byFamily[fam] ||= []).push(fix);
-      });
-      Object.keys(byFamily)
-        .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}))
-        .forEach(fam => {
-          const list = byFamily[fam];
-          rows.push({ receptor_family: fam, class_symbol: classSymbol, members_count: list.length, entries: list });
-        });
-    });
-    return rows;
-  }
-
-  /* Left table */
+  // Left table
   $('#gpcrTable').DataTable({
     data: dataHuman,
     columns: [
-      { data: "symbol",        className: "col-class"  },
-      { data: "class_name",    className: "col-class"  },
-      { data:"grafs_family", className:"col-class", render:(d,t)=> (t==='display'||t==='filter') && d==='Frizzled/Taste2' ? 'Frizzled/<wbr>Taste2' : (d||'') },
-      { data: "members_total_count",
-        className: "col-recept",
+      { data: "symbol",     className: "col-class" },
+      { data:"class_name", className:"col-class",
+        render:(d,t)=>t==='display'&&d==="Odorant (not olfactory)"?"Odorant<br>(not olfactory)":d },
+      { data:"grafs_family", className:"col-class",
+        render:(d,t)=> (t==='display'||t==='filter') && d==='Frizzled/Taste2'
+            ? 'Frizzled/<wbr>Taste2' : (d||'') },
+
+      { data: "members_total_count", className: "col-recept",
         render: (d,t,row)=> renderPopupCell(d,row.entries.members_total,"Members total") },
-      { data: "members_non_sensory_count",
-        className: "col-recept",
+
+      { data: "members_non_sensory_count", className: "col-recept",
         render: (d,t,row)=> renderPopupCell(d,row.entries.members_non_sensory,"Members non-sensory") },
-      { data: "members_sensory_count",
-        className: "col-recept",
+
+      { data: "members_sensory_count", className: "col-recept",
         render: (d,t,row)=> renderPopupCell(d,row.entries.members_sensory,"Members sensory") },
-      { data: "orphan_count",
-        className: "col-recept",
+
+      { data: "orphan_count", className: "col-recept",
         render: (d,t,row)=> renderPopupCell(d,row.entries.orphan,"Orphan") }
     ],
     paging:false, searching:false, ordering:false, info:false,
     responsive:false, autoWidth:false, orderCellsTop:true, dom:'t'
   });
-
-  /* Right table */
-  const receptorFamilyRows = buildReceptorFamilyRows(dataHuman);
-  const rfDT = $('#receptorFamiliesTable').DataTable({
-    data: receptorFamilyRows,
-    columns: [
-      { data: "receptor_family" },
-      { data: "class_symbol"    },
-      { data: "members_count", render:(d,t,row)=> renderPopupCell(d,row.entries,row.receptor_family+' GPCRs') }
-    ],
-    paging:false, searching:true, ordering:true, info:false,
-    responsive:false, autoWidth:false, orderCellsTop:true, dom:'t'
-  });
-
-  /* Sync heights */
-  function debounce(fn, ms){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,arguments), ms);} }
-  function syncRightScrollerHeight(){
-    const leftTable = document.getElementById('gpcrTable');
-    const scroller  = document.getElementById('rfScroller');
-    if (!leftTable || !scroller) return;
-    const leftH = $(leftTable).outerHeight(true);
-    if (leftH && leftH > 0) { scroller.style.height = leftH+'px'; scroller.style.maxHeight = leftH+'px'; }
-  }
-  function syncFilterRowHeight(){
-    const h = $('#gpcrTable thead tr').eq(1).outerHeight(true);
-    if (h && h > 0) { document.documentElement.style.setProperty('--rf-filter-h', h + 'px'); }
-  }
-  function resyncAll(){ syncFilterRowHeight(); syncRightScrollerHeight(); }
-  requestAnimationFrame(()=>requestAnimationFrame(resyncAll));
-  const leftWrapperEl = document.getElementById('gpcrTable_wrapper');
-  if (window.ResizeObserver && leftWrapperEl){ const ro=new ResizeObserver(resyncAll); ro.observe(leftWrapperEl); }
-  window.addEventListener('resize', debounce(resyncAll, 80));
-
-  /* --- Build filters in the real header’s filter row --- */
-  (function buildRFHeaderFilters(){
-    const $thead = $('#receptorFamiliesTable thead');
-    const $filterRow = $thead.find('tr.filters');
-    const $ths = $filterRow.children('th');
-    if ($filterRow.find('.rf-filter-box').length) return;
-
-    function addSelect(colIdx, cls){
-      const $box = $('<div class="rf-filter-box"></div>');
-      const $sel = $('<select multiple class="rf-sel '+cls+'"></select>');
-      $box.append($sel); $ths.eq(colIdx).empty().append($box);
-      return $sel;
-    }
-    function populate($sel, colIdx){
-      const values = rfDT.column(colIdx).data().toArray();
-      const uniq = Array.from(new Set(values.filter(v => v!=null && v!=='').map(String)))
-        .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
-      $sel.empty(); uniq.forEach(v => $sel.append($('<option/>',{value:v,text:v})));
-    }
-    function tagEmptyForCentering($sel){
-      const $c = $sel.next('.select2-container');
-      const update = () => {
-        const v = $sel.val();
-        const empty = !v || (Array.isArray(v) && v.length === 0);
-        $c.toggleClass('rf-empty', empty);
-      };
-      // run after Select2 builds
-      setTimeout(update,0);
-      $sel.on('change select2:clear select2:select select2:unselect', update);
-    }
-
-    // multiselects
-    const $familySel = addSelect(0,'rf-family');
-    const $classSel  = addSelect(1,'rf-class');
-
-    // min/max
-    (function(){
-      const $box = $('<div class="rf-filter-box"></div>');
-      const $wrap= $('<div class="rf-minmax"></div>');
-      const $min = $('<input type="number" class="form-control rf-min" placeholder="Min">');
-      const $max = $('<input type="number" class="form-control rf-max" placeholder="Max">');
-      $wrap.append($min,$max); $box.append($wrap);
-      $ths.eq(2).empty().append($box);
-    })();
-
-    populate($familySel,0); populate($classSel,1);
-
-    // init select2
-    $familySel.add($classSel).select2({
-      placeholder:'Filter', width:'resolve', closeOnSelect:true, minimumResultsForSearch:-1
-      // allowClear:true
-    });
-
-    // mark empty → center placeholder
-    tagEmptyForCentering($familySel);
-    tagEmptyForCentering($classSel);
-
-    // bind exact-match filters
-    function bindSelect($sel, colIdx){
-      $sel.on('change', function(){
-        const sel = $(this).val() || [];
-        if (!sel.length){ rfDT.column(colIdx).search('',true,false).draw(); return; }
-        const rx = '^(' + sel.map(s => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')$';
-        rfDT.column(colIdx).search(rx,true,false).draw();
-      });
-    }
-    bindSelect($familySel,0); bindSelect($classSel,1);
-
-    // numeric range
-    const $min = $filterRow.find('.rf-min'), $max = $filterRow.find('.rf-max');
-    const rangeCol = 2, tableId = 'receptorFamiliesTable';
-    const numFilter = (settings, data, dataIndex, rowData) => {
-      if (!settings.nTable || settings.nTable.id !== tableId) return true;
-      const val = rowData && rowData.members_count!=null ? Number(rowData.members_count) : Number(data[rangeCol]);
-      if (isNaN(val)) return true;
-      const minV = $min.val()==='' ? null : Number($min.val());
-      const maxV = $max.val()==='' ? null : Number($max.val());
-      if (minV!=null && val<minV) return false;
-      if (maxV!=null && val>maxV) return false;
-      return true;
-    };
-    $.fn.dataTable.ext.search.push(numFilter);
-    const redraw = () => rfDT.draw();
-    $min.on('input', redraw); $max.on('input', redraw);
-  })();
 
   /* Modal */
   $(document).on("click", ".popup-cell", function () {
@@ -529,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.getElementById('tables-shell').classList.add('ready');
 
-  /* ==== Download dropdown: open/close ==== */
+  /* ==== Download dropdown ==== */
   (function(){
     var toggle = document.getElementById('gpcrDownloadToggle');
     var menu   = document.getElementById('gpcrDownloadMenu');
@@ -549,12 +258,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   })();
 
-  /* ==== Export helpers (table-only) ==== */
+  /* ==== Export helpers ==== */
   window.GPCRLeftDownload = function (fmt) {
     const base = 'GPCRdb_Human_GPCR_Classes';
 
     if (fmt === 'svg') {
-      // Vector export (new one-arg API)
       DataTablesSVG.export('#gpcrTable', {
         filename: base + '.svg',
         links: 'strip',
@@ -566,9 +274,8 @@ document.addEventListener("DOMContentLoaded", function () {
         preferParenWrap: true
       });
     } else {
-      // Raster export (PNG/JPG), with link stripping
       DataTablesImage.export('#gpcrLeftWrap', 'gpcr-left-wrap', {
-        format: fmt,                 // <-- use the requested format
+        format: fmt,
         scale: 3,
         background: '#ffffff',
         links: 'strip',
@@ -579,12 +286,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
+  /* ==== Vertical split placement ==== */
   function placeGpcrVerticalSplit(){
     const wrap  = document.getElementById('gpcrLeftWrap');
     const table = document.getElementById('gpcrTable');
     if (!wrap || !table) return;
 
-    // ensure overlay element exists
     let line = wrap.querySelector('.vsplit-abs');
     if (!line) {
       line = document.createElement('div');
@@ -592,35 +299,26 @@ document.addEventListener("DOMContentLoaded", function () {
       wrap.appendChild(line);
     }
 
-    // 2nd header row, 4th column (left edge of "All")
     const th4 = table.querySelector('thead tr:nth-child(2) th:nth-child(4)');
     if (!th4) return;
 
     const wrapRect = wrap.getBoundingClientRect();
     const thRect   = th4.getBoundingClientRect();
-
-    // correction: absolute positioning uses padding-box; subtract wrapper border
     const wrapBL = parseFloat(getComputedStyle(wrap).borderLeftWidth) || 0;
 
-    const x = (thRect.left - wrapRect.left) - wrapBL; // no Math.round → exact placement
+    const x = (thRect.left - wrapRect.left) - wrapBL;
     line.style.left = x + 'px';
   }
 
-
-  // initial placement (after DT render)
   placeGpcrVerticalSplit();
-
-  // keep it correct on resize / font reflow / wrapper size change
   window.addEventListener('resize', placeGpcrVerticalSplit);
-
   if (window.ResizeObserver){
     new ResizeObserver(placeGpcrVerticalSplit).observe(
       document.getElementById('gpcrTable_wrapper') || document.body
     );
   }
 
-
-  // Utility: ensure a child element exists; return it.
+  /* ==== Header lines (left only) ==== */
   function ensureChild(parent, selector, className){
     let el = parent.querySelector(selector);
     if(!el){
@@ -631,44 +329,32 @@ document.addEventListener("DOMContentLoaded", function () {
     return el;
   }
 
- 
-  // Draw two lines INSIDE a table's THEAD so they move with the sticky head
-function placeHeaderLinesInThead(tableEl, classBase){
-  if(!tableEl || !tableEl.tHead || tableEl.tHead.rows.length < 2) return;
+  function placeHeaderLinesInThead(tableEl, classBase){
+    if(!tableEl || !tableEl.tHead || tableEl.tHead.rows.length < 2) return;
 
-  const thead = tableEl.tHead;
-  const headRect = thead.getBoundingClientRect();
-  const r1 = thead.rows[0].getBoundingClientRect();  // title row
-  const r2 = thead.rows[1].getBoundingClientRect();  // labels/filters row
+    const thead = tableEl.tHead;
+    const headRect = thead.getBoundingClientRect();
+    const r1 = thead.rows[0].getBoundingClientRect();
+    const r2 = thead.rows[1].getBoundingClientRect();
 
-  const line1 = ensureChild(thead, '.'+classBase+'-h1', 'hline-abs '+classBase+'-h1');
-  const line2 = ensureChild(thead, '.'+classBase+'-h2', 'hline-abs '+classBase+'-h2');
+    const line1 = ensureChild(thead, '.'+classBase+'-h1', 'hline-abs '+classBase+'-h1');
+    const line2 = ensureChild(thead, '.'+classBase+'-h2', 'hline-abs '+classBase+'-h2');
 
-  // position at the bottom of each row, relative to THEAD
-  line1.style.top = Math.round(r1.bottom - headRect.top) + 'px';
-  line2.style.top = Math.round(r2.bottom - headRect.top) + 'px';
-}
+    line1.style.top = Math.round(r1.bottom - headRect.top) + 'px';
+    line2.style.top = Math.round(r2.bottom - headRect.top) + 'px';
+  }
 
-// Call once and whenever layout changes
-function placeAllHeaderLines(){
-  // left table — draw lines in its thead too (non-sticky, but consistent)
-  placeHeaderLinesInThead(document.getElementById('gpcrTable'), 'gpcr');
-  // right table — sticky thead, lines will stay with it on scroll
-  placeHeaderLinesInThead(document.getElementById('receptorFamiliesTable'), 'rf');
-}
+  function placeAllHeaderLines(){
+    placeHeaderLinesInThead(document.getElementById('gpcrTable'), 'gpcr');
+  }
 
-// initial run (after DataTables renders)
-placeAllHeaderLines();
-
-// keep aligned on resize / wrapper changes
-window.addEventListener('resize', placeAllHeaderLines);
-if (window.ResizeObserver){
-  const ro = new ResizeObserver(placeAllHeaderLines);
-  ro.observe(document.getElementById('gpcrTable_wrapper') || document.body);
-  ro.observe(document.getElementById('rfScroller') || document.body);
-}
-
-
+  placeAllHeaderLines();
+  window.addEventListener('resize', placeAllHeaderLines);
+  if (window.ResizeObserver){
+    new ResizeObserver(placeAllHeaderLines).observe(
+      document.getElementById('gpcrTable_wrapper') || document.body
+    );
+  }
 
 });
 </script>

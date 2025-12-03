@@ -212,20 +212,23 @@ function createDropdownFilters(api,column_filters) {
                 if (dtColumn.searchable()) {
                     
                     var selected_cell_jq;
-                    // The `column_number_from_config` is the index for DataTables columns.
-                    // The `headerRows[2]` is the third TR element.
-                    // `eq(column_number_from_config)` targets the TD at that column index within the third TR.
-                    if (headerRows.length >= 3) { 
-                        selected_cell_jq = $(headerRows[2]).find('td').eq(column_number_from_config);
-                    } else {
-                        console.error(`Table ${Table_id} does not have the expected 3 header rows for filter placement in column ${column_number_from_config}.`);
-                        continue; 
-                    }
 
-                    if (!selected_cell_jq || selected_cell_jq.length === 0) {
-                        console.error(`Could not find filter cell for column ${column_number_from_config} in table ${Table_id}.`);
+                    // Prefer an explicit filter row if present
+                    var $filterRow = $tableHeader.find('tr.filter-row');
+
+                    if ($filterRow.length) {
+                        // use whatever cells are in the filter row (th or td)
+                        selected_cell_jq = $filterRow.children().eq(column_number_from_config);
+                    } else if (headerRows.length >= 3) {
+                        // fallback to old behaviour: 3rd header row
+                        selected_cell_jq = $(headerRows[2]).children().eq(column_number_from_config);
+                    } else {
+                        console.error(
+                        `Table ${Table_id} has no .filter-row and not enough header rows for filter placement in column ${column_number_from_config}.`
+                        );
                         continue;
                     }
+
                     
                     // Use these captured values in the event handler and for element IDs
                     var currentColumnAPI_for_multi = dtColumn; 

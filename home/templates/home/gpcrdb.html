@@ -2,6 +2,7 @@
 {% load menu_extras %}
 
 <!-- RECEPTORS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <li class="dropdown gpcr {% if current_site == 'gpcr' %}highlight_menu{% endif %}" id="gpcrdb_menu">
 
         <a tabindex="0" href="{{ hosts.gpcr }}/" class="dropdown-toggle" data-toggle="dropdown" role="button" data-submenu aria-expanded="false">
@@ -21,12 +22,17 @@
             <li class="dropdown-submenu">
                 <a tabindex="0" href="#">GPCR Classification</a>
                 <ul class="dropdown-menu">
-                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/ClassesAndCounts">GPCR classes & counts</a></li>
-                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/ClassificationWheel">GPCR classification wheel</a></li>
-                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/CrossClassSimilarity">Cross-class similarity</a></li>
+                    <!-- Manus 1 -->
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/Classification"><i class="fa fa-table"></i> GPCR classification</a></li>
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/ClassificationWheel"><i class="fas fa-dot-circle"></i> GPCRome wheel</a></li>
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/StructureSim"><i class="fa-solid fa-circle-nodes"></i> Class clusters</a></li>
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/CrossClassSimilarity"><i class="fa fa-table"></i> Cross-class similarity</a></li>
+                    <!-- Manus 2 -->
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/CountByClass"><i class="fa fa-table"></i> GPCR counts by class</a></li>
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/GPCRBrowser"><i class="fa fa-table"></i> GPCR browser & download</a></li>
+                    <!-- Manus 3 -->
+                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/OrphanSimilarityExplorer"><i class="fa-solid fa-circle-nodes"></i> Orphan receptor similarity</a></li>
                     <!-- <li><a href="{{ hosts.gpcr }}/alignment/class_similarity_matrix/render">Cross-class similarity</a></li> -->
-                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/OrphanSimilarityExplorer">Orphan receptor similarity</a></li>
-                    <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/StructureSim">Structure Similarity</a></li>
                     <!-- <li><a href="{{ hosts.gpcr }}/alignment/class_similarity/ReceptorSimilarityExportExcel">ReceptorSimilarityExportExcel</a></li>  -->
                 </ul>
             </li>
@@ -34,7 +40,7 @@
             <!-- SEQUENCES -->
             <li class="divider"></li>
             <li class="dropdown-submenu">
-                <a tabindex="0" href="#">Data Mapper <button  style="position:relative;left:149px;" type="button" class="refLink btn btn-xs btn-default" keys="10.1093/nar/gkae1065"><span class="glyphicon glyphicon-book"></span></button></a>
+                <a tabindex="0" href="#">Data mapper <button  style="position:relative;left:149px;" type="button" class="refLink btn btn-xs btn-default" keys="10.1093/nar/gkae1065"><span class="glyphicon glyphicon-book"></span></button></a>
                 <ul class="dropdown-menu">
                   <li><a href="{{ hosts.gpcr }}/mapper/DataMapperHomeNumeric">Numeric data</a></li>
                   <li><a href="{{ hosts.gpcr }}/mapper/DataMapperHomeText">Text data</a></li>

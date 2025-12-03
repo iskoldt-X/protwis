@@ -1050,96 +1050,313 @@ def render_class_similarity_xlsx_matrix(request):
     return response
 
 class ClassesAndCounts(TemplateView):
-    template_name = 'class_similarity/ClassesAndCounts.html'
+    template_name = "class_similarity/ClassesAndCounts.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        data_folder = 'protein_data'
-        file_name = 'Ligand type update plus sense column.xlsx'
+        # ---- file load (local to this view) ----
+        data_folder = "protein_data"
+        file_name = "Ligand type update plus sense column.xlsx"
         file_path = os.path.join(settings.DATA_DIR, data_folder, file_name)
 
         try:
             df = pd.read_excel(file_path)
         except FileNotFoundError:
-            context['error'] = f"File not found: {file_path}"
+            context["error"] = f"File not found: {file_path}"
             return context
 
         df.columns = df.columns.str.strip().str.replace("\n", " ")
 
-        # symbol -> ([Excel class names], GRAFS family, display name, fixed sensory value or None)
+        # ---- mapping (local to this view) ----
         mapping = {
-            "A": (["Class A (Rhodopsin)"], "Rhodopsin", "Rhodopsin", None),
+            "A":  (["Class A (Rhodopsin)"], "Rhodopsin", "Rhodopsin", None),
             "B1": (["Class B1 (Secretin)"], "Secretin", "Secretin", None),
             "B2": (["Class B2 (Adhesion)"], "Adhesion", "Adhesion", None),
-            "C": (["Class C (Glutamate)"], "Glutamate", "Glutamate", None),
-            "D": (["Class D (Fungal pheromone)"], "- (fungal)", "Fungal pheromone", None),
-            "E": (["Class E (Yeast cAMP)"], "- (yeast)", "Yeast cAMP", "2"),  # fixed value
-            "F": (["Class F (Frizzled)"], "Frizzled/Taste2", "Frizzled", None),
+            "C":  (["Class C (Glutamate)"], "Glutamate", "Glutamate", None),
+            "D":  (["Class D (Fungal pheromone)"], "- (fungal)", "Fungal pheromone", None),
+            "E":  (["Class E (Yeast cAMP)"], "- (yeast)", "Yeast cAMP", "2"),
+            "F":  (["Class F (Frizzled)"], "Frizzled/Taste2", "Frizzled", None),
             "T2": (["Class T2 (Taste 2)"], "Frizzled/Taste2", "Taste 2", None),
-            "OR": (["Class O1 (fish-like odorant)", "Class O2 (tetrapod specific odorant)"], "Rhodopsin", "Odorant (not olfactory)", None),
-            "V?": (["Class V? (Vomeronasal/pheromone?)"], "- (non-functional in human)", "Vomeronasal or pheromone?", "5"),  # fixed value
+            "OR": (["Class O1 (fish-like odorant)", "Class O2 (tetrapod specific odorant)"],
+                   "Rhodopsin", "Odorant (not olfactory)", None),
+            "V?": (["Class V? (Vomeronasal/pheromone?)"],
+                   "- (non-functional in human)", "Vomeronasal or pheromone?", "5"),
             "Cl": (["Other GPCRs"], "-", "Classless", None),
         }
+        nonhuman_symbols = {"D", "E", "V?"}
 
+        # ---- build class/counts table ----
         table_data = []
-
         for symbol, (class_names, grafs_family, display_name, fixed_sensory) in mapping.items():
             class_df = df[df["Class"].isin(class_names)]
 
-            # counts
             receptor_families_count = class_df["Receptor family"].nunique()
             members_total_count = class_df["GPCRs (UniProt)"].nunique()
-            non_sensory_count = (class_df["Sense"] == "non-sensory").sum()
+            non_sensory_count = (class_df["Sense"] == "Non-sensory").sum()
 
             if fixed_sensory is not None:
                 sensory_str = fixed_sensory
             else:
                 sensory_counts = []
-                for sense_type in ["vision", "taste", "odorant"]:
-                    count = (class_df["Sense"] == sense_type).sum()
-                    if count > 0:
-                        sensory_counts.append(f"{count} {sense_type}")
-                sensory_str = ", ".join(sensory_counts)
+                for sense_type in ["Vision", "Taste", "Odorant"]:
+                    c = (class_df["Sense"] == sense_type).sum()
+                    if c > 0:
+                        sensory_counts.append(f"{c} {sense_type}")
+                sensory_str = ", ".join(sensory_counts) or 0
 
-            orphan_count = (class_df["Sense"] == "unknown").sum()
+            orphan_count = (class_df["Sense"] == "Unknown").sum()
 
-            # entries for popups
             entries = {
                 "receptor_families": sorted(class_df["Receptor family"].dropna().unique().tolist()),
-                "members_total": class_df[["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
-                                    .drop_duplicates().to_dict(orient="records"),
-                "members_non_sensory": class_df[class_df["Sense"] == "non-sensory"]
-                                        [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
-                                        .drop_duplicates().to_dict(orient="records"),
-                "members_sensory": class_df[class_df["Sense"].isin(["vision", "taste", "odorant"])]
-                                    [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
-                                    .drop_duplicates().to_dict(orient="records"),
-                "orphan": class_df[class_df["Sense"] == "unknown"]
-                           [["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]]
-                           .drop_duplicates().to_dict(orient="records"),
+                "members_total": class_df[
+                    ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]
+                ].drop_duplicates().to_dict(orient="records"),
+                "members_non_sensory": class_df[class_df["Sense"] == "Non-sensory"][
+                    ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]
+                ].drop_duplicates().to_dict(orient="records"),
+                "members_sensory": class_df[class_df["Sense"].isin(["Vision", "Taste", "Odorant"])][
+                    ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]
+                ].drop_duplicates().to_dict(orient="records"),
+                "orphan": class_df[class_df["Sense"] == "Unknown"][
+                    ["GPCRs (Gene name)", "Receptor family", "Ligand type", "Sense"]
+                ].drop_duplicates().to_dict(orient="records"),
             }
 
-            row = {
+            table_data.append({
                 "symbol": symbol,
                 "class_name": display_name,
                 "grafs_family": grafs_family,
                 "receptor_families_count": int(receptor_families_count),
                 "members_total_count": int(members_total_count),
                 "members_non_sensory_count": int(non_sensory_count),
-                "members_sensory_count": sensory_str if sensory_str else 0,
+                "members_sensory_count": sensory_str,
                 "orphan_count": int(orphan_count),
                 "entries": entries,
-            }
+            })
 
-            table_data.append(row)
-
-        # split into human vs non-human
-        nonhuman_symbols = ["D", "E", "V?"]
-        context["human_table_data"] = [row for row in table_data if row["symbol"] not in nonhuman_symbols]
-        context["nonhuman_table_data"] = [row for row in table_data if row["symbol"] in nonhuman_symbols]
-
+        context["human_table_data"] = [r for r in table_data if r["symbol"] not in nonhuman_symbols]
+        context["nonhuman_table_data"] = [r for r in table_data if r["symbol"] in nonhuman_symbols]
         return context
+
+
+class Classification(TemplateView):
+    template_name = "class_similarity/Classification.html"
+
+    # mapping from “Excel Class” → (symbol, display_name)
+    CLASS_MAPPING = {
+        "Class A (Rhodopsin)":                      ("A",  "Rhodopsin"),
+        "Class B1 (Secretin)":                      ("B1", "Secretin"),
+        "Class B2 (Adhesion)":                      ("B2", "Adhesion"),
+        "Class C (Glutamate)":                      ("C",  "Glutamate"),
+        "Class F (Frizzled)":                       ("F",  "Frizzled"),
+        "Class T2 (Taste 2)":                       ("T2", "Taste 2"),
+        "Class O1 (fish-like odorant)":             ("O1", "Fish-like olfactory receptors"),
+        "Class O2 (tetrapod specific odorant)":     ("O2", "Tetrapod-specific olfactory receptors"),
+        "Other GPCRs":                              ("Cl", "Classless"),
+        # non-human:
+        "Class D (Fungal pheromone)":               ("D1", "Fungal pheromone"),
+        "Class E (Yeast cAMP)":                     ("E",  "Yeast cAMP"),
+        "Class V? (Vomeronasal/pheromone?)":        ("V?", "Vomeronasal or pheromone?"),
+        # you can add V1/V2 etc later if they exist in backbone
+    }
+
+    # mapping “Ligand type” → “Ligand type group”
+    LIGAND_GROUP_MAP = {
+        "Ion receptors":            "Ion receptors",
+        "Peptide receptors":        "Polypeptide receptors",
+        "Protein receptors":        "Polypeptide receptors",
+        "Alicarboxylic acid receptors": "Small molecule receptors",
+        "Aminergic receptors":      "Small molecule receptors",
+        "Amino acid receptors":     "Small molecule receptors",
+        "Lipid receptors":          "Small molecule receptors",
+        "Melatonin receptors":      "Small molecule receptors",
+        "Nucleotide receptors":     "Small molecule receptors",
+        "Odorant receptors":        "Small molecule receptors",
+        "Opsin receptors":          "Small molecule receptors",
+        "Pheromone receptors":      "Pheromone receptors",
+        "Steroid receptors":        "Small molecule receptors",
+        "Tastant receptors":        "Small molecule receptors",
+        "Mechano-activated receptors": "Tethered peptide receptors",
+        "Protease-activated receptors": "Tethered peptide receptors",
+        "Orphan receptors":         "Orphan receptors",
+        # fall-back for anything not listed:
+        #   → we’ll label as "Other / unknown" in code
+    }
+
+    SENSORY_SENSES = {"vision", "taste", "odorant"}
+
+    def _load_df(self):
+        folder = "protein_data"
+        fname = "Ligand type update plus sense column.xlsx"
+        path = os.path.join(settings.DATA_DIR, folder, fname)
+        df = pd.read_excel(path)
+        df.columns = df.columns.str.strip().str.replace("\n", " ")
+        return df
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        try:
+            df = self._load_df()
+        except FileNotFoundError as e:
+            ctx["error"] = f"File not found: {e}"
+            return ctx
+
+        # only keep backbone columns we care about
+        cols_needed = [
+            "GPCRs (Gene name)",
+            "GPCRs (UniProt)",
+            "Class",
+            "Receptor family",
+            "Ligand type",
+            "Sense",
+        ]
+        df = df[cols_needed].copy()
+
+        # map Excel class → symbol (A, B1, O1, …)
+        class_to_symbol = {}
+        for excel_cls, (symbol, _name) in self.CLASS_MAPPING.items():
+            class_to_symbol[excel_cls] = symbol
+
+        df["Class_symbol"] = df["Class"].map(class_to_symbol)
+
+        # drop rows that don’t map to a symbol (just to be safe)
+        df = df.dropna(subset=["Class_symbol"])
+
+        # ---------- 1) Ligand type table ----------
+        lt_agg = {}  # ligand_type -> {"group":..., "classes": set([...])}
+        for _, row in df.iterrows():
+            lt = str(row["Ligand type"]).strip()
+            if not lt or lt.lower() == "nan":
+                continue
+            symbol = row["Class_symbol"]
+            group = self.LIGAND_GROUP_MAP.get(lt, "Other / unknown")
+            entry = lt_agg.setdefault(lt, {"group": group, "classes": set()})
+            # keep the first group if mapping disagrees; or you can assert
+            if entry["group"] != group:
+                # you *could* log or harmonise here; for now we keep the first
+                pass
+            entry["classes"].add(symbol)
+
+        # nice ordered list of classes
+        class_order = ["A", "B1", "B2", "C", "D1", "D2", "E", "F",
+                       "T2", "O1", "O2", "V1", "V2", "Cl"]
+        def sort_classes(s):
+            return sorted(s, key=lambda x: (class_order.index(x)
+                                            if x in class_order else 999, x))
+
+        ligand_type_rows = []
+        for lt in sorted(lt_agg.keys(), key=str.lower):
+            entry = lt_agg[lt]
+            cls_list = sort_classes(entry["classes"])
+            ligand_type_rows.append({
+                "ligand_type": lt,
+                "ligand_group": entry["group"],
+                "classes": ", ".join(cls_list),
+            })
+
+        # ---------- 2) Receptor families: non-sensory vs sensory ----------
+
+        non_sens_triples = set()       # (class_symbol, family, ligand_type)
+        sensory_map = {}              # (family, ligand_type) -> set(classes)
+
+        for _, row in df.iterrows():
+            fam = str(row["Receptor family"]).strip()
+            if not fam or fam.lower() == "nan":
+                continue
+            lt = str(row["Ligand type"]).strip()
+            symbol = row["Class_symbol"]
+            sense = str(row["Sense"]).strip().lower()
+
+            if sense in self.SENSORY_SENSES:
+                key = (fam, lt)
+                sensory_map.setdefault(key, set()).add(symbol)
+            elif sense == "non-sensory":
+                non_sens_triples.add((symbol, fam, lt))
+            else:
+                # "unknown" or anything else – you can decide where to put these;
+                # for now we ignore them for the receptor-family tables
+                pass
+
+        # non-sensory: Class / Receptor family / Ligand type
+        rf_non_rows = [
+            {
+                "class_symbol": cs,
+                "receptor_family": fam,
+                "ligand_type": lt,
+            }
+            for (cs, fam, lt) in sorted(
+                non_sens_triples,
+                key=lambda t: (class_order.index(t[0])
+                               if t[0] in class_order else 999,
+                               t[0].lower(), t[1].lower())
+            )
+        ]
+
+        # sensory: Receptor family / Ligand type / Found in classes
+        rf_sens_rows = []
+        for (fam, lt), classes in sensory_map.items():
+            cls_list = sort_classes(classes)
+            rf_sens_rows.append({
+                "receptor_family": fam,
+                "ligand_type": lt,
+                "classes": ", ".join(cls_list),
+            })
+
+        rf_sens_rows.sort(key=lambda r: (r["receptor_family"].lower(),
+                                         r["ligand_type"].lower()))
+
+        ctx["ligand_type_rows"] = ligand_type_rows
+        ctx["rf_non_rows"] = rf_non_rows
+        ctx["rf_sens_rows"] = rf_sens_rows
+
+        return ctx
+
+
+class GPCRBrowser(TemplateView):
+    template_name = "class_similarity/GPCRBrowser.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # ---- file load (local to this view) ----
+        data_folder = "protein_data"
+        file_name = "Ligand type update plus sense column.xlsx"
+        file_path = os.path.join(settings.DATA_DIR, data_folder, file_name)
+
+        try:
+            df = pd.read_excel(file_path)
+        except FileNotFoundError:
+            context["error"] = f"File not found: {file_path}"
+            return context
+
+        df.columns = df.columns.str.strip().str.replace("\n", " ")
+
+        # ---- mapping (local to this view) ----
+        mapping = {
+            "A":  (["Class A (Rhodopsin)"], "Rhodopsin", "Rhodopsin", None),
+            "B1": (["Class B1 (Secretin)"], "Secretin", "Secretin", None),
+            "B2": (["Class B2 (Adhesion)"], "Adhesion", "Adhesion", None),
+            "C":  (["Class C (Glutamate)"], "Glutamate", "Glutamate", None),
+            "D":  (["Class D (Fungal pheromone)"], "- (fungal)", "Fungal pheromone", None),
+            "E":  (["Class E (Yeast cAMP)"], "- (yeast)", "Yeast cAMP", "2"),
+            "F":  (["Class F (Frizzled)"], "Frizzled/Taste2", "Frizzled", None),
+            "T2": (["Class T2 (Taste 2)"], "Frizzled/Taste2", "Taste 2", None),
+            "OR": (["Class O1 (fish-like odorant)", "Class O2 (tetrapod specific odorant)"],
+                   "Rhodopsin", "Odorant (not olfactory)", None),
+            "V?": (["Class V? (Vomeronasal/pheromone?)"],
+                   "- (non-functional in human)", "Vomeronasal or pheromone?", "5"),
+            "Cl": (["Other GPCRs"], "-", "Classless", None),
+        }
+        nonhuman_symbols = {"D", "E", "V?"}
+
+        # ---- placeholder ligand data ----
+        # when ready, build ligand-table here from df + mapping
+        context["ligand_table_data"] = []
+        return context
+
+
 
 class ClassificationWheel(TemplateView):
     template_name = 'class_similarity/ClassificationWheel.html'
@@ -2822,7 +3039,7 @@ class StructureSim(TemplateView):
             mtime = 0
         manual = self.request.GET.get('v', '')
         # bump version for new physio logic
-        return f"{self.CACHE_NS}:v7:{state}:{mtime}:{manual}:{extra}"
+        return f"{self.CACHE_NS}:v9:{state}:{mtime}:{manual}:{extra}"
 
     def _family_lineage_names(self, protein):
         """
@@ -3148,16 +3365,17 @@ class StructureSim(TemplateView):
                 if sense is not None:
                     meta["sense"] = sense
             
-                # --- final physio-ligand cleanup based on UPDATED ligand_type ---
+        # --- final physio-ligand cleanup based on UPDATED ligand_type ---
         for lab, meta in proteins.items():
             lt = (meta.get("ligand_type") or "").strip()
             lt_low = lt.lower()
             physio = (meta.get("physio_ligand_consensus") or "").strip()
 
             # 1) Special cases that should always override
-            #    Adhesion receptors → Peptide (auto-activation)
+
+            #    Adhesion receptors → Cleaved-endterm | PPI
             if lt_low == "adhesion receptors":
-                meta["physio_ligand_consensus"] = "Peptide (auto-activation)"
+                meta["physio_ligand_consensus"] = "Tethered ligand | PPI"
 
             #    Ion receptors → Ion
             elif lt_low == "ion receptors":
@@ -3171,13 +3389,22 @@ class StructureSim(TemplateView):
             }:
                 meta["physio_ligand_consensus"] = "Peptide/protein"
 
-            #    Unknown receptors → Unknown
-            elif lt_low == "unknown receptors":
-                meta["physio_ligand_consensus"] = "Unknown"
+            #    Light / odorant / tastant receptors → Small-molecule
+            elif lt_low in {
+                "light receptors",
+                "odorant receptors",
+                "tastant receptors",
+            }:
+                meta["physio_ligand_consensus"] = "Small-molecule"
 
-            # 2) Anything still missing after all the above → Unknown
+            #    Unknown receptors → Orphan
+            elif lt_low == "unknown receptors":
+                meta["physio_ligand_consensus"] = "Orphan"
+
+            # 2) Anything still missing after all the above → Orphan
             if not meta.get("physio_ligand_consensus"):
-                meta["physio_ligand_consensus"] = "Unknown"
+                meta["physio_ligand_consensus"] = "Orphan"
+
 
         payload = {
             "state": state,
