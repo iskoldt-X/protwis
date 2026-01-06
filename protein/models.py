@@ -16,6 +16,41 @@ from common.definitions import _BEFORE_NAR2025_CLASSLESS_PARENT_GPCR_SLUGS_DICT,
 
 class_prefix_re = re.compile(r'^(Class)\s+', flags=re.I)
 
+
+# =============================================================================
+# GRAFS-SOFTV Classification Models (Receptor-centric)
+# =============================================================================
+
+class Chemotype(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default='')
+    modality = models.ForeignKey(
+        'common.Modality',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='chemotypes'
+    )
+
+    def __str__(self):
+        return self.name
+
+    class Meta():
+        db_table = 'receptor_chemotype'
+
+
+class Sense(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default='')
+
+    def __str__(self):
+        return self.name
+
+    class Meta():
+        db_table = 'receptor_sense'
+
+
 class Protein(models.Model):
     parent = models.ForeignKey('self', null=True, on_delete=models.CASCADE)
     family = models.ForeignKey('ProteinFamily', on_delete=models.CASCADE)
@@ -30,6 +65,9 @@ class Protein(models.Model):
     name = models.CharField(max_length=200)
     cancer = models.ManyToManyField('CancerExpression')
     sequence = models.TextField()
+
+    chemotype = models.ForeignKey('Chemotype', null=True, on_delete=models.SET_NULL, related_name='proteins')
+    sense = models.ForeignKey('Sense', null=True, on_delete=models.SET_NULL, related_name='proteins')
 
     def entry_short(self):
         return self.entry_name.split("_")[0].upper()

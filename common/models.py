@@ -253,3 +253,22 @@ class ReleaseStatisticsType(models.Model):
 
     class Meta():
         db_table = 'release_statistics_type'
+
+
+# =============================================================================
+# GRAFS-SOFTV Classification Models (Receptor-centric)
+# =============================================================================
+# These models classify RECEPTORS (Proteins), NOT Ligands.
+# DO NOT confuse with LigandType in ligand/models.py which classifies molecules.
+# =============================================================================
+
+class Modality(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default='')
+
+    def __str__(self):
+        return self.name
+
+    class Meta():
+        db_table = 'receptor_modality'
