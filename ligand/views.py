@@ -4170,7 +4170,7 @@ class PhysiologicalLigands(TemplateView):
             if ligand_receptor not in publications.keys():
                 publications[ligand_receptor] = {}
             if data[19]:
-                pub_link = "https://pubmed.ncbi.nlm.nih.gov/" + data[19] if data[19].isdigit() else "https://dx.doi.org/" + data[17]
+                pub_link = "https://pubmed.ncbi.nlm.nih.gov/" + data[19] if data[19].isdigit() else "https://dx.doi.org/" + data[19]
                 #skipping publications without info (probably bug in the database)
                 if data[15] == None:
                     continue
