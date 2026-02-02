@@ -47,6 +47,7 @@ class Command(BaseCommand):
             ['build_human_proteins'],
             ['build_blast_database'],
             ['build_other_proteins', {'constructs_only': options['test'] ,'proc': options['proc']}], # build only constructs in test mode
+            ['build_classification_annotations'],
             ['build_annotation', {'proc': options['proc']}],
             ['build_blast_database'],
             ['build_links'],

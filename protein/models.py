@@ -334,6 +334,86 @@ class ProteinFamily(models.Model):
         db_table = 'protein_family'
         ordering = ('id', )
 
+class ProteinFamilyClassificationSense(models.Model):
+    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "protein_family_classification_sense"
+
+
+class ProteinFamilyClassificationChemotype(models.Model):
+    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "protein_family_classification_chemotype"
+
+
+class ProteinFamilyClassificationModality(models.Model):
+    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = "protein_family_classification_modality"
+
+
+class ProteinFamilyClassification(models.Model):
+    protein_family = models.ForeignKey("ProteinFamily", on_delete=models.CASCADE)
+    sense = models.ForeignKey(
+        "ProteinFamilyClassificationSense",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    chemotype = models.ForeignKey(
+        "ProteinFamilyClassificationChemotype",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    chemotype_order = models.SmallIntegerField(null=True, blank=True)
+    modality = models.ForeignKey(
+        "ProteinFamilyClassificationModality",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    modality_order = models.SmallIntegerField(null=True, blank=True)
+
+    def __str__(self):
+        parts = [self.protein_family.slug]
+        if self.sense:
+            parts.append("sense={}".format(self.sense.name))
+        if self.chemotype:
+            parts.append("chemotype={} ({})".format(self.chemotype.name, self.chemotype_order))
+        if self.modality:
+            parts.append("modality={} ({})".format(self.modality.name, self.modality_order))
+        return ", ".join(parts)
+
+    class Meta:
+        db_table = "protein_family_classification"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(chemotype_order__isnull=True) | models.Q(chemotype_order__in=[1, 2]),
+                name="pfc_chemotype_order_valid",
+            ),
+            models.CheckConstraint(
+                check=models.Q(modality_order__isnull=True) | models.Q(modality_order__in=[1, 2]),
+                name="pfc_modality_order_valid",
+            ),
+        ]
+
+
 # Remove in the future
 # The next two lines must be after class ProteinFamily
 try:
