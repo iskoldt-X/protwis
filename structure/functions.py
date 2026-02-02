@@ -1280,11 +1280,30 @@ class ParseRFAAModels():
                 }
 
 
-class ParseStructureCSV():
+class AbsParseStructureCSV():
     def __init__(self):
         self.pdb_ids = []
         self.structures = {}
         self.parent_segends = {}
+        self.fusion_proteins = []
+        self.xtal_seg_ends = {}
+
+    def parse_files(self, files):
+        for custom_input in files:
+            print(custom_input)
+            with open(custom_input, 'r') as custom_file:
+                custom_info = json.load(custom_file)
+                s = custom_info['name']
+                self.pdb_ids.append(s)
+                self.structures[s] = custom_info
+            with open(custom_input.replace('.json','.yaml'), 'r') as custom_segend_file:
+                segends = yaml.safe_load(custom_segend_file)
+                self.xtal_seg_ends[s] = segends
+
+
+class ParseStructureCSV(AbsParseStructureCSV):
+    def __init__(self):
+        AbsParseStructureCSV.__init__(self)
         with open(os.sep.join([settings.DATA_DIR, 'structure_data', 'annotation', 'structures.csv']), newline='') as csvfile:
             structures = csv.reader(csvfile, delimiter='\t')
             next(structures, None)
@@ -1294,7 +1313,6 @@ class ParseStructureCSV():
                 if '.' in s[5]:
                     s[5] = s[5][0]
                 self.structures[s[0]]= {'protein':s[1], 'name':s[0].lower(), 'state':s[4], 'preferred_chain':s[5], 'resolution':s[3], 'date_from_file':s[7], 'method_from_file':s[2]}
-        self.fusion_proteins = []
 
     def __str__(self):
         return '<ParsedStructures: {} entries>'.format(len(self.pdb_ids))

@@ -91,14 +91,15 @@ class Command(BaseCommand):
             ['build_receptor_similarity'],
             ['build_ligand_search'],
             ['build_text'],
-            ['build_release_notes'],
         ]
         phase3 = [
             ['build_af_complex_models'],
-            # build_homology_models --alphafold -r {active pdbs} -p
+            ['build_rfaa_models'],
+            ### build_homology_models --alphafold -r {active pdbs} -p ### build refined structures for new G prot coupled structures
             ['build_homology_models_zip'], 
             ['build_homology_models_zip', {'c': True}],
             ['foldseek_db'],
+            ['build_release_notes'],
         ]
 
         if options['phase']:

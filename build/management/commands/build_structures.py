@@ -3,6 +3,7 @@ from django.conf import settings
 from django.db import connection
 from django.utils.text import slugify
 from django.db import IntegrityError
+from django.core.management import call_command
 
 # for automatic alignment fixes using space information from the pdb
 from build.management.commands.PDB_sequence_helper import *
@@ -25,7 +26,7 @@ from Bio.PDB import PDBParser, PPBuilder, Polypeptide
 from Bio import pairwise2
 
 from structure.assign_generic_numbers_gpcr import GenericNumbering
-from structure.functions import StructureBuildCheck, ParseStructureCSV
+from structure.functions import StructureBuildCheck, AbsParseStructureCSV, ParseStructureCSV
 from ligand.models import Ligand, LigandType, LigandRole, LigandPeptideStructure
 from interaction.models import *
 from interaction.views import runcalculation_2022, regexaa, check_residue, extract_fragment_rotamer
@@ -99,6 +100,11 @@ class Command(BaseBuild):
             dest='debug',
             default=False,
             help='Print info for debugging')
+        parser.add_argument('--custom',
+            default = False,
+            dest='custom',
+            help='Add custom structure based on json input',
+            nargs='+')
 
     tracker = {}
     all_models = django.apps.apps.get_models()[6:]
@@ -154,12 +160,18 @@ class Command(BaseBuild):
 
         self.construct_errors, self.rotamer_errors, self.contactnetwork_errors, self.interaction_errors = [],[],[],[]
 
-        self.parsed_structures = ParseStructureCSV()
-        self.parsed_structures.parse_ligands()
-        self.parsed_structures.parse_nanobodies()
-        self.parsed_structures.parse_fusion_proteins()
-        self.parsed_structures.parse_ramp()
-        self.parsed_structures.parse_grk()
+        if options['custom']:
+            self.custom = options['custom']
+            self.parsed_structures = AbsParseStructureCSV()
+            self.parsed_structures.parse_files(options['custom'])
+            self.xtal_seg_ends = self.parsed_structures.xtal_seg_ends
+        else:
+            self.parsed_structures = ParseStructureCSV()
+            self.parsed_structures.parse_ligands()
+            self.parsed_structures.parse_nanobodies()
+            self.parsed_structures.parse_fusion_proteins()
+            self.parsed_structures.parse_ramp()
+            self.parsed_structures.parse_grk()
 
         if options['structure']:
             self.parsed_structures.pdb_ids = [i for i in self.parsed_structures.pdb_ids if i in options['structure'] or i.lower() in options['structure']]
@@ -724,7 +736,7 @@ class Command(BaseBuild):
             temp_seq = temp_seq[:146]+temp_seq[147:208]+temp_seq[209:268]+temp_seq[269:]
         elif structure.pdb_code.index=='8WVV':
             temp_seq = temp_seq[:542]+'S---'+temp_seq[546:673]+'P-----'+temp_seq[679:]
-        elif structure.pdb_code.index=='8XWP':
+        elif structure.pdb_code.index in ['8XWP','8XWQ']:
             temp_seq = temp_seq[:235]+'L'+temp_seq[235:245]+temp_seq[246:]
         elif structure.pdb_code.index=='8YN4':
             temp_seq = temp_seq[:215]+'I'+temp_seq[215:226]+temp_seq[227:]
@@ -1454,9 +1466,13 @@ class Command(BaseBuild):
             try:
                 con = Protein.objects.get(entry_name=sd['name'].lower())
             except Protein.DoesNotExist:
-                print('BIG ERROR Construct {} does not exists, skipping!'.format(sd['name'].lower()))
-                self.logger.error('Construct {} does not exists, skipping!'.format(sd['name'].lower()))
-                continue
+                if self.custom:
+                    call_command('build_construct_proteins', custom=self.custom)
+                    con = Protein.objects.get(entry_name=sd['name'].lower())
+                else:
+                    print('BIG ERROR Construct {} does not exists, skipping!'.format(sd['name'].lower()))
+                    self.logger.error('Construct {} does not exists, skipping!'.format(sd['name'].lower()))
+                    continue
 
             # create a structure record
             try:
@@ -1518,7 +1534,11 @@ class Command(BaseBuild):
             if not os.path.exists(self.pdb_data_dir):
                 os.makedirs(self.pdb_data_dir)
 
-            pdb_path = os.sep.join([self.pdb_data_dir, sd['pdb'] + '.pdb'])
+            if self.custom:
+                pdb_path = sd['pdb_path']
+            else:
+                pdb_path = os.sep.join([self.pdb_data_dir, sd['pdb'] + '.pdb'])
+
             if not os.path.isfile(pdb_path):
                 self.logger.info('Fetching PDB file {}'.format(sd['pdb']))
                 url = 'http://www.rcsb.org/pdb/files/%s.pdb' % sd['pdb']
