@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 
-import xlrd
+import openpyxl
 
 from protein.models import (
     Gene,
@@ -23,6 +23,7 @@ class Command(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._level4_cache = {}
+        self._protein_resolution_cache = {}
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -53,7 +54,7 @@ class Command(BaseCommand):
         self.stdout.write("Using file: {} (sheet: {})".format(filename, sheet_name))
 
         family_data, stats, seen_family_ids = self.aggregate_rows(rows)
-        self.apply_updates(family_data)
+        self.apply_updates(family_data, stats)
         self.prune_relationships(seen_family_ids, stats)
 
         self.stdout.write("Rows processed: {}".format(stats["rows_total"]))
@@ -72,7 +73,7 @@ class Command(BaseCommand):
         stats = defaultdict(int)
         seen_family_ids = set()
 
-        for row in rows.values():
+        for row in rows:
             stats["rows_total"] += 1
             gene_name = self.value_from_row(
                 row, ["GPCRs (Gene name)", "GPCRs (Gene name)"]
@@ -113,6 +114,8 @@ class Command(BaseCommand):
                     "senses": set(),
                     "chemotypes": {},
                     "modalities": {},
+                    "order2_pairs": set(),
+                    "row_keys": set(),
                 }
 
             sense_value = self.value_from_row(row, ["Sense"])
@@ -121,9 +124,14 @@ class Command(BaseCommand):
 
             chemotype_value = self.value_from_row(row, ["Chemotype"])
             chemotype_order = self.value_from_row(row, ["Chemotype order"])
-            self.apply_ordered_value(
+            chemotype_order_num = (
+                self.parse_order(chemotype_order, family, "chemotype", stats)
+                if chemotype_value
+                else None
+            )
+            self.store_unique_order_value(
                 family_data[family.id]["chemotypes"],
-                chemotype_order,
+                chemotype_order_num,
                 chemotype_value,
                 family,
                 "chemotype",
@@ -132,18 +140,57 @@ class Command(BaseCommand):
 
             modality_value = self.value_from_row(row, ["Modality"])
             modality_order = self.value_from_row(row, ["Modality order"])
-            self.apply_ordered_value(
+            modality_order_num = (
+                self.parse_order(modality_order, family, "modality", stats)
+                if modality_value
+                else None
+            )
+            self.store_unique_order_value(
                 family_data[family.id]["modalities"],
-                modality_order,
+                modality_order_num,
                 modality_value,
                 family,
                 "modality",
                 stats,
             )
+            if chemotype_order_num == 2 or modality_order_num == 2:
+                missing_fields = []
+                if chemotype_order_num == 2 and not modality_value:
+                    missing_fields.append("Modality")
+                if modality_order_num == 2 and not chemotype_value:
+                    missing_fields.append("Chemotype")
+                if missing_fields:
+                    stats["warnings"] += 1
+                    self.stdout.write(
+                        "WARNING: Incomplete Order 2 data for Receptor {}. Missing fields: {}. Falling back to Order 1 values.".format(
+                            family.slug, ", ".join(missing_fields)
+                        )
+                    )
+                family_data[family.id]["order2_pairs"].add(
+                    (
+                        chemotype_value if chemotype_order_num == 2 else None,
+                        modality_value if modality_order_num == 2 else None,
+                    )
+                )
+
+            row_key = (
+                chemotype_value,
+                chemotype_order_num,
+                modality_value,
+                modality_order_num,
+                sense_value,
+            )
+            if row_key in family_data[family.id]["row_keys"]:
+                stats["warnings"] += 1
+                self.stdout.write(
+                    "WARNING: duplicate row for {}: {}.".format(family.slug, row_key)
+                )
+            else:
+                family_data[family.id]["row_keys"].add(row_key)
 
         return family_data, stats, seen_family_ids
 
-    def apply_updates(self, family_data):
+    def apply_updates(self, family_data, stats):
         with transaction.atomic():
             for data in family_data.values():
                 family = data["family"]
@@ -162,27 +209,67 @@ class Command(BaseCommand):
                         ProteinFamilyClassificationSense, sense_name
                     )
 
-                orders = set(data["chemotypes"].keys()) | set(data["modalities"].keys())
+                chemotype_values = self.unique_values(
+                    data["chemotypes"], data["order2_pairs"], index=0
+                )
+                default_chemotype = (
+                    next(iter(chemotype_values)) if len(chemotype_values) == 1 else None
+                )
+                modality_values = self.unique_values(
+                    data["modalities"], data["order2_pairs"], index=1
+                )
+                default_modality = (
+                    next(iter(modality_values)) if len(modality_values) == 1 else None
+                )
 
                 # Replace rows for this family to keep grouped-by-order layout.
                 ProteinFamilyClassification.objects.filter(
                     protein_family=family
                 ).delete()
 
-                if orders:
-                    for order_num in sorted(orders):
-                        chemotype_obj = None
-                        modality_obj = None
-                        if order_num in data["chemotypes"]:
-                            chemotype_obj = self.get_or_create_vocab(
-                                ProteinFamilyClassificationChemotype,
-                                data["chemotypes"][order_num],
+                rows_to_create = []
+                order1_chemotype = data["chemotypes"].get(1) or default_chemotype
+                order1_modality = data["modalities"].get(1) or default_modality
+
+                if data["order2_pairs"] and not data["chemotypes"].get(1):
+                    stats["warnings"] += 1
+                    self.stdout.write(
+                        "WARNING: order 2 chemotype without order 1 for {}.".format(
+                            family.slug
+                        )
+                    )
+                if data["order2_pairs"] and not data["modalities"].get(1):
+                    stats["warnings"] += 1
+                    self.stdout.write(
+                        "WARNING: order 2 modality without order 1 for {}.".format(
+                            family.slug
+                        )
+                    )
+                if order1_chemotype or order1_modality:
+                    rows_to_create.append((1, order1_chemotype, order1_modality))
+
+                for chemotype_name, modality_name in sorted(data["order2_pairs"]):
+                    chemotype_name = chemotype_name or default_chemotype
+                    modality_name = modality_name or default_modality
+                    if chemotype_name or modality_name:
+                        rows_to_create.append((2, chemotype_name, modality_name))
+
+                if rows_to_create:
+                    for order_num, chemotype_name, modality_name in rows_to_create:
+                        chemotype_obj = (
+                            self.get_or_create_vocab(
+                                ProteinFamilyClassificationChemotype, chemotype_name
                             )
-                        if order_num in data["modalities"]:
-                            modality_obj = self.get_or_create_vocab(
-                                ProteinFamilyClassificationModality,
-                                data["modalities"][order_num],
+                            if chemotype_name
+                            else None
+                        )
+                        modality_obj = (
+                            self.get_or_create_vocab(
+                                ProteinFamilyClassificationModality, modality_name
                             )
+                            if modality_name
+                            else None
+                        )
                         ProteinFamilyClassification.objects.get_or_create(
                             protein_family=family,
                             sense=sense_obj,
@@ -215,11 +302,7 @@ class Command(BaseCommand):
 
         self.stdout.write("Pruned stale annotations: total={}".format(removed_count))
 
-    def apply_ordered_value(
-        self, storage, order_value, name_value, family, label, stats
-    ):
-        if not name_value:
-            return
+    def parse_order(self, order_value, family, label, stats):
         try:
             order = int(order_value)
         except (TypeError, ValueError):
@@ -227,25 +310,46 @@ class Command(BaseCommand):
             self.stdout.write(
                 "WARNING: invalid {} order for {}.".format(label, family.slug)
             )
-            return
+            return None
         if order not in (1, 2):
             stats["warnings"] += 1
             self.stdout.write(
                 "WARNING: {} order out of range for {}.".format(label, family.slug)
             )
-            return
+            return None
+        return order
 
+    def store_unique_order_value(
+        self, storage, order, name_value, family, label, stats
+    ):
+        if not name_value or order != 1:
+            return
         if order in storage and storage[order] != name_value:
             stats["warnings"] += 1
             self.stdout.write(
-                "WARNING: conflicting {} order {} for {} (kept {}).".format(
-                    label, order, family.slug, storage[order]
+                "WARNING: conflicting {} order {} for {}. Existing: {}. New: {}.".format(
+                    label, order, family.slug, storage[order], name_value
                 )
             )
             return
         storage[order] = name_value
 
+    def unique_values(self, order1_storage, order2_pairs, index):
+        values = set()
+        for value in order1_storage.values():
+            if value:
+                values.add(value)
+        for pair in order2_pairs:
+            value = pair[index]
+            if value:
+                values.add(value)
+        return values
+
     def resolve_protein(self, gene_name, uniprot_short):
+        cache_key = (gene_name or "", uniprot_short or "")
+        if cache_key in self._protein_resolution_cache:
+            return self._protein_resolution_cache[cache_key]
+
         if gene_name:
             genes = Gene.objects.filter(
                 name__iexact=gene_name, species__common_name="Human"
@@ -257,7 +361,9 @@ class Command(BaseCommand):
             )
             protein_count = proteins.count()
             if protein_count == 1:
-                return proteins.first(), "gene", False, []
+                result = (proteins.first(), "gene", False, [])
+                self._protein_resolution_cache[cache_key] = result
+                return result
             if protein_count > 1:
                 if uniprot_short:
                     short = uniprot_short.strip().lower()
@@ -265,7 +371,9 @@ class Command(BaseCommand):
                         entry_name__istartswith="{}_".format(short)
                     )
                     if short_matches.count() == 1:
-                        return short_matches.first(), "gene+entry", False, []
+                        result = (short_matches.first(), "gene+entry", False, [])
+                        self._protein_resolution_cache[cache_key] = result
+                        return result
                 primary_genes = genes.filter(position=0)
                 primary_proteins = (
                     Protein.objects.filter(
@@ -275,13 +383,17 @@ class Command(BaseCommand):
                     .order_by("id")
                 )
                 if primary_proteins.count() == 1:
-                    return primary_proteins.first(), "gene+primary", False, []
-                return (
+                    result = (primary_proteins.first(), "gene+primary", False, [])
+                    self._protein_resolution_cache[cache_key] = result
+                    return result
+                result = (
                     None,
                     "gene",
                     True,
                     list(proteins.values_list("entry_name", flat=True)),
                 )
+                self._protein_resolution_cache[cache_key] = result
+                return result
             # No human match, fall back to any species
             genes_any = Gene.objects.filter(name__iexact=gene_name)
             proteins_any = (
@@ -289,7 +401,9 @@ class Command(BaseCommand):
             )
             any_count = proteins_any.count()
             if any_count == 1:
-                return proteins_any.first(), "gene_any", False, []
+                result = (proteins_any.first(), "gene_any", False, [])
+                self._protein_resolution_cache[cache_key] = result
+                return result
             if any_count > 1:
                 if uniprot_short:
                     short = uniprot_short.strip().lower()
@@ -297,7 +411,9 @@ class Command(BaseCommand):
                         entry_name__istartswith="{}_".format(short)
                     )
                     if short_matches.count() == 1:
-                        return short_matches.first(), "gene_any+entry", False, []
+                        result = (short_matches.first(), "gene_any+entry", False, [])
+                        self._protein_resolution_cache[cache_key] = result
+                        return result
                 primary_genes_any = genes_any.filter(position=0)
                 primary_proteins_any = (
                     Protein.objects.filter(genes__in=primary_genes_any)
@@ -305,13 +421,22 @@ class Command(BaseCommand):
                     .order_by("id")
                 )
                 if primary_proteins_any.count() == 1:
-                    return primary_proteins_any.first(), "gene_any+primary", False, []
-                return (
+                    result = (
+                        primary_proteins_any.first(),
+                        "gene_any+primary",
+                        False,
+                        [],
+                    )
+                    self._protein_resolution_cache[cache_key] = result
+                    return result
+                result = (
                     None,
                     "gene_any",
                     True,
                     list(proteins_any.values_list("entry_name", flat=True)),
                 )
+                self._protein_resolution_cache[cache_key] = result
+                return result
 
         if uniprot_short:
             short = uniprot_short.strip().lower()
@@ -320,9 +445,13 @@ class Command(BaseCommand):
                 species__common_name="Human",
             ).order_by("id")
             if proteins.exists():
-                return proteins.first(), "entry", False, []
+                result = (proteins.first(), "entry", False, [])
+                self._protein_resolution_cache[cache_key] = result
+                return result
 
-        return None, None, False, []
+        result = (None, None, False, [])
+        self._protein_resolution_cache[cache_key] = result
+        return result
 
     def resolve_level4_family(self, family):
         if not family:
@@ -338,7 +467,7 @@ class Command(BaseCommand):
 
         chain = list(reversed(lineage))
         if len(chain) < 5:
-            resolved = None
+            resolved = chain[-1] if chain else None
         else:
             resolved = chain[4]
 
@@ -360,21 +489,25 @@ class Command(BaseCommand):
         return None
 
     def parse_excel(self, path, remove_header_linebreak=False):
-        workbook = xlrd.open_workbook(path)
-        worksheets = workbook.sheet_names()
+        workbook = openpyxl.load_workbook(path, data_only=True)
+        worksheets = workbook.sheetnames
         data = {}
         for worksheet_name in worksheets:
             if worksheet_name in data:
                 continue
 
-            data[worksheet_name] = {}
-            worksheet = workbook.sheet_by_name(worksheet_name)
-            num_rows = worksheet.nrows - 1
-            num_cells = worksheet.ncols
-
+            data[worksheet_name] = []
             headers = []
+            worksheet = workbook[worksheet_name]
+            rows = list(worksheet.iter_rows(values_only=True))
+            if not rows:
+                continue
+            header_row = rows[0]
+            num_cells = len(header_row)
             for col in range(num_cells):
-                header = worksheet.cell_value(0, col)
+                header = header_row[col]
+                if not isinstance(header, str):
+                    header = "" if header is None else str(header)
                 if header == "":
                     header = "i_{}".format(col)
                 if header in headers:
@@ -384,12 +517,14 @@ class Command(BaseCommand):
                 header = header.strip()
                 headers.append(header)
 
-            for row in range(1, num_rows + 1):
-                key = worksheet.cell_value(row, 0)
-                if key == "":
+            for row in rows[1:]:
+                if not row:
+                    continue
+                key = row[0] if len(row) > 0 else None
+                if key in ("", None):
                     continue
                 row_dict = {}
                 for col in range(num_cells):
-                    row_dict[headers[col]] = worksheet.cell_value(row, col)
-                data[worksheet_name][key] = row_dict
+                    row_dict[headers[col]] = row[col] if col < len(row) else None
+                data[worksheet_name].append(row_dict)
         return data
