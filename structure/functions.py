@@ -1355,12 +1355,23 @@ class ParseStructureCSV(AbsParseStructureCSV):
             ligands = csv.reader(csvfile, delimiter='\t')
             next(ligands, None)
             for ligand in ligands:
+                # Defensive check: empty row or PDB not found in structures.csv
+                if not ligand or len(ligand) < 9 or ligand[0] not in self.structures:
+                    continue
                 if 'ligand' not in self.structures[ligand[0]]:
                     self.structures[ligand[0]]['ligand'] = []
                 in_structure = True
                 if ligand[8]!='':
                     in_structure = False
-                self.structures[ligand[0]]['ligand'].append({'chain':ligand[1], 'name':ligand[2], 'pubchemId':ligand[3], 'role':ligand[4], 'title':ligand[5], 'type': ligand[6], 'in_structure': in_structure})
+                ligand_data = {
+                    'chain':ligand[1], 'name':ligand[2], 'pubchemId':ligand[3], 
+                    'role':ligand[4], 'title':ligand[5], 'type': ligand[6], 
+                    'in_structure': in_structure
+                }
+                if len(ligand) > 9 and ligand[9]: ligand_data['smiles'] = ligand[9]
+                if len(ligand) > 10 and ligand[10]: ligand_data['inchikey'] = ligand[10]
+                if len(ligand) > 11 and ligand[11]: ligand_data['sequence'] = ligand[11]
+                self.structures[ligand[0]]['ligand'].append(ligand_data)
 
     def parse_nanobodies(self):
         self.parse_aux_file('nanobodies.csv')

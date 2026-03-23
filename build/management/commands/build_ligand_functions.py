@@ -20,7 +20,7 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 external_sources = ["pubchem", "gtoplig", "chembl_ligand", "drugbank", "drug_central"]
-def get_or_create_ligand(name, ids = {}, lig_type = "small-molecule", unichem = False, extended_matching = True):
+def get_or_create_ligand(name, ids = None, lig_type = "small-molecule", unichem = False, extended_matching = True):
     """ This function tries to obtain a small molecule Ligand object.
 
         If the ligand already exists it will return the corresponding object. If
@@ -56,6 +56,8 @@ def get_or_create_ligand(name, ids = {}, lig_type = "small-molecule", unichem = 
         ...Error
             If no ...
     """
+    if ids is None:
+        ids = {}
 
     ligand = None
     cas_to_cid_url =  "http://www.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pccompound&retmax=100&term=$index"
@@ -122,7 +124,7 @@ def get_or_create_ligand(name, ids = {}, lig_type = "small-molecule", unichem = 
         # How about the InChiKey?
         if ligand is None and "inchikey" in ids:
             ligand = get_ligand_by_inchikey(ids["inchikey"])
-        elif ligand is None and "smiles" in ids:
+        if ligand is None and "smiles" in ids:
             # result = Ligand.objects.filter(smiles = ids["smiles"])
             # if result.count() > 0:
             #     ligand = result.first()
@@ -132,7 +134,8 @@ def get_or_create_ligand(name, ids = {}, lig_type = "small-molecule", unichem = 
             # else:
             # calculate inchikey from given SMILES and repeat inchikey check
             input_mol = dm.to_mol(ids["smiles"], sanitize=False)
-            ligand = get_ligand_by_inchikey(dm.to_inchikey(input_mol))
+            if input_mol is not None:
+                ligand = get_ligand_by_inchikey(dm.to_inchikey(input_mol))
             # Try again using the InChiKey from the "cleaned" molecule
             if ligand is None:
                 ligand = get_ligand_by_inchikey(get_cleaned_inchikey(ids["smiles"]))
@@ -231,6 +234,8 @@ def get_or_create_ligand(name, ids = {}, lig_type = "small-molecule", unichem = 
                 ligand.sequence = ids["sequence"]
             if "inchikey" in ids and ligand.inchikey is None:
                 ligand.inchikey = ids["inchikey"]
+            if "smiles" in ids and ligand.smiles is None:
+                ligand.smiles = ids["smiles"]
             ligand.save()
 
             # Create list of existing weblinks
@@ -315,7 +320,7 @@ def create_ligand_from_id(name, type, id, lig_type):
         # TODO - continue here and add peptide/protein support for web services
 
         if type == "sequence":
-            ligand.sequence = sequence
+            ligand.sequence = id
         elif type == "uniprot":
             ligand.uniprot = id
         elif type == "smiles":
@@ -432,6 +437,8 @@ def create_ligand_from_id(name, type, id, lig_type):
         return None
 
 def get_ligand_by_inchikey(inchikey):
+    if not inchikey:
+        return None
     result = Ligand.objects.filter(Q(inchikey = inchikey) | Q(clean_inchikey = inchikey))
     if result.count() > 0:
         if result.count() > 1:

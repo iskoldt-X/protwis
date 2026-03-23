@@ -1731,6 +1731,13 @@ class Command(BaseBuild):
 
                         # Adding the PDB three-letter code
                         ids = {}
+                        if ligand.get('inchikey'):
+                            ids["inchikey"] = ligand['inchikey']
+                        if ligand.get('smiles'):
+                            ids["smiles"] = ligand['smiles']
+                        if ligand.get('sequence'):
+                            ids["sequence"] = ligand['sequence']
+                        
                         pdb_reference = ligand['name']
 
                         # reformat pdb_reference to string if the 3 letter code is a number and gets formatted as float
@@ -1755,7 +1762,7 @@ class Command(BaseBuild):
                                 if entry["type"] not in ids:
                                     ids[entry["type"]] = entry["id"]
                         # sequence
-                        if peptide_chain in self.parsed_pdb:
+                        if 'sequence' not in ids and peptide_chain in self.parsed_pdb:
                             seq = ''
                             for res in self.parsed_pdb[peptide_chain]:
                                 one_letter = Polypeptide.protein_letters_3to1.get(res.get_resname())
