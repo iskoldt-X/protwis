@@ -30,6 +30,7 @@ from structure.functions import StructureBuildCheck, AbsParseStructureCSV, Parse
 from ligand.models import Ligand, LigandType, LigandRole, LigandPeptideStructure
 from interaction.models import *
 from interaction.views import runcalculation_2022, regexaa, check_residue, extract_fragment_rotamer
+from interaction.schrodinger_processor import process_schrodinger_sm_interactions
 from residue.functions import dgn
 
 import django.apps

@@ -1,0 +1,116 @@
+# interaction_type_map.yaml — v0
+#
+# Maps Schrodinger Engine 1 YAML (feature_family, feature, direction) -> protwis
+# canonical ResidueFragmentInteractionType slug.
+#
+# Deliverable of Plan C. Consumed by Plan A Step A6 (protwis small-molecule
+# end-to-end integration).
+#
+# -----------------------------------------------------------------------------
+# DESIGN: the target slug is fully determined by (feature_family, direction).
+# The specific `feature` name (Hydroxyl vs Carbonyl vs Amine ...) is chemical
+# detail that does NOT change the slug, so this map is keyed on
+# (feature_family, direction). Engine 1's default --contacts hbond,salt,picat,pipi
+# can only ever emit the 8 (family, direction) pairs below, so these rules cover
+# ALL 57 PH4 features by construction (each feature routes via its family).
+#
+# Spelling is preserved verbatim as cultural heritage (QuarternaryAmine,
+# 2Aminopirydine, Metoxypirydine) — never "correct" it (Q-S1 §2.c).
+#
+# Decisions ratified by domain owner 2026-05-27 (see Plan C Inbox D1/D3):
+#   * H-bond direction is REVERSED to protwis "protein perspective": protwis
+#     polar_donor/acceptor_protein names the PROTEIN residue's role
+#     (views.py:981/1029/1034), while Engine 1's family names the LIGAND's role.
+#   * Salt bridges -> polar_double_*_protein (both partners charged; the pos/neg
+#     suffix follows the RESIDUE charge; views.py:1049-1057).
+# -----------------------------------------------------------------------------
+
+version: 0
+
+rules:
+  # ---- Hydrogen bonds (direction reversed: family = ligand role) -------------
+  - family: Donor
+    direction: ligand-donor
+    slug: polar_acceptor_protein
+    rationale: >-
+      Ligand donates H => protein residue is the acceptor. protwis D/A names the
+      residue role (views.py:981 "set residue as acceptor", :1034).
+  - family: Acceptor
+    direction: ligand-acceptor
+    slug: polar_donor_protein
+    rationale: >-
+      Ligand accepts H => protein residue is the donor (views.py:1029).
+
+  # ---- Salt bridges (double charge; suffix = residue charge sign) ------------
+  - family: PosCharge
+    direction: pos-neg
+    slug: polar_double_neg_protein
+    rationale: >-
+      Salt: ligand cation + protein anion (observed: ASP D113/D3.32, D121).
+      Both charged => double; residue is negative (views.py:1049-1057).
+  - family: NegCharge
+    direction: neg-pos
+    slug: polar_double_pos_protein
+    rationale: >-
+      Salt: ligand anion + protein cation (observed: ARG R155/R157). Both
+      charged => double; residue is positive (views.py:1049-1057).
+
+  # ---- Pi-cation (protwis only ever writes aro_ion_protein) ------------------
+  - family: PiCat
+    direction: ligand-cation
+    slug: aro_ion_protein
+    rationale: >-
+      Pi-cation: ligand cation vs protein aromatic ring. protwis writes
+      aro_ion_protein for BOTH directions; aro_ion_ligand is never emitted (Q-B2).
+  - family: PiCat
+    direction: receptor-cation
+    slug: aro_ion_protein
+    rationale: >-
+      Pi-cation other direction (protein cation vs ligand ring). Still
+      aro_ion_protein. C4 fallback — not present in 6-PDB baseline.
+
+  # ---- Aromatic stacking (direction distinguishes geometry) ------------------
+  - family: Aromatic
+    direction: edge-to-face
+    slug: aro_ef_protein
+    rationale: >-
+      Edge-to-face aromatic stacking; protwis slug direction = protein.
+  - family: Aromatic
+    direction: face-to-face
+    slug: aro_ff
+    rationale: >-
+      Face-to-face aromatic stacking; protwis slug direction = none. C4 fallback
+      — not present in 6-PDB baseline.
+
+# -----------------------------------------------------------------------------
+# Deferred / not handled by this map (see Plan C Inbox). These are intentionally
+# NOT routed here; the consumer (Plan A) handles or drops them.
+# -----------------------------------------------------------------------------
+deferred:
+  polar_backbone:
+    inbox: D2
+    note: >-
+      Backbone H-bonds need the PROTEIN atom identity (backbone N/O), which is
+      not in the (family, feature, direction) key. Plan A consumer must inspect
+      receptor_pdb_block and override the H-bond slug to polar_backbone when the
+      protein partner is a backbone N/O atom (protwis priority: views.py:1008-1019).
+  dedup:
+    inbox: D4
+    note: >-
+      One ligand atom can produce several entries (e.g. 2Y02_WHJ N2 ->
+      Donor+PosCharge+PiCat). This map does 1->1 translation only; de-duplication
+      / upgrade (protwis remove_hyd) is Plan A's responsibility.
+  dropped_interaction_classes:
+    inbox: D6
+    note: >-
+      halogen-bond / metal-coordination / water-mediated H-bond have no slug in
+      the protwis 18 and are NOT produced under default --contacts
+      hbond,salt,picat,pipi. Dropped in v0.
+  aro_fe_protein:
+    inbox: D5
+    note: >-
+      protwis face-to-edge slug has no Engine 1 source: PIPI only emits
+      face-to-face / edge-to-face directions. Expected to be unmapped.
+
+# Traceability: the 13 (family, feature, direction) combos observed in the
+# 6-PDB baseline (see observed_combinations.csv) all resolve via the rules above.

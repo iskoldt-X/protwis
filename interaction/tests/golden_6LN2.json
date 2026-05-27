@@ -1,0 +1,459 @@
+{
+  "pdb": "6LN2",
+  "ligand_het": "97Y",
+  "ligand_name": "PF-06372222",
+  "source": "existing RDKit pipeline output in production GPCRdb DB (docker gpcrdb-db); exported 2026-05-27",
+  "total_rows": 32,
+  "golden_set": [
+    [
+      176,
+      "acc"
+    ],
+    [
+      328,
+      "acc"
+    ],
+    [
+      331,
+      "acc"
+    ],
+    [
+      332,
+      "acc"
+    ],
+    [
+      335,
+      "acc"
+    ],
+    [
+      347,
+      "acc"
+    ],
+    [
+      347,
+      "hyd"
+    ],
+    [
+      348,
+      "acc"
+    ],
+    [
+      349,
+      "acc"
+    ],
+    [
+      349,
+      "hyd"
+    ],
+    [
+      351,
+      "Van der Waals"
+    ],
+    [
+      351,
+      "acc"
+    ],
+    [
+      351,
+      "polar_backbone"
+    ],
+    [
+      352,
+      "Van der Waals"
+    ],
+    [
+      352,
+      "acc"
+    ],
+    [
+      354,
+      "acc"
+    ],
+    [
+      355,
+      "acc"
+    ],
+    [
+      355,
+      "polar_unspecified"
+    ],
+    [
+      401,
+      "Van der Waals"
+    ],
+    [
+      401,
+      "acc"
+    ],
+    [
+      401,
+      "polar_backbone"
+    ],
+    [
+      405,
+      "Van der Waals"
+    ],
+    [
+      405,
+      "acc"
+    ],
+    [
+      405,
+      "polar_backbone"
+    ],
+    [
+      406,
+      "Van der Waals"
+    ],
+    [
+      406,
+      "acc"
+    ],
+    [
+      406,
+      "polar_donor_protein"
+    ],
+    [
+      407,
+      "Van der Waals"
+    ],
+    [
+      407,
+      "acc"
+    ],
+    [
+      407,
+      "polar_backbone"
+    ],
+    [
+      407,
+      "polar_donor_protein"
+    ],
+    [
+      408,
+      "acc"
+    ]
+  ],
+  "rows": [
+    {
+      "seq": 176,
+      "aa": "R",
+      "generic_number": "2.46x46",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 328,
+      "aa": "I",
+      "generic_number": "5.58x58",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 331,
+      "aa": "V",
+      "generic_number": "5.61x61",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 332,
+      "aa": "V",
+      "generic_number": "5.62x62",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 335,
+      "aa": "L",
+      "generic_number": "5.65x65",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 347,
+      "aa": "F",
+      "generic_number": "6.36x36",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 347,
+      "aa": "F",
+      "generic_number": "6.36x36",
+      "slug": "hyd",
+      "type": "hydrophobic",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 348,
+      "aa": "R",
+      "generic_number": "6.37x37",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 349,
+      "aa": "L",
+      "generic_number": "6.38x38",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 349,
+      "aa": "L",
+      "generic_number": "6.38x38",
+      "slug": "hyd",
+      "type": "hydrophobic",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 351,
+      "aa": "K",
+      "generic_number": "6.40x40",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 351,
+      "aa": "K",
+      "generic_number": "6.40x40",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 351,
+      "aa": "K",
+      "generic_number": "6.40x40",
+      "slug": "polar_backbone",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 352,
+      "aa": "S",
+      "generic_number": "6.41x41",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 352,
+      "aa": "S",
+      "generic_number": "6.41x41",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 354,
+      "aa": "L",
+      "generic_number": "6.43x43",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 355,
+      "aa": "T",
+      "generic_number": "6.44x44",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 355,
+      "aa": "T",
+      "generic_number": "6.44x44",
+      "slug": "polar_unspecified",
+      "type": "polar",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 401,
+      "aa": "L",
+      "generic_number": "7.56x56",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 401,
+      "aa": "L",
+      "generic_number": "7.56x56",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 401,
+      "aa": "L",
+      "generic_number": "7.56x56",
+      "slug": "polar_backbone",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 405,
+      "aa": "V",
+      "generic_number": "7.60x60",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 405,
+      "aa": "V",
+      "generic_number": "7.60x60",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 405,
+      "aa": "V",
+      "generic_number": "7.60x60",
+      "slug": "polar_backbone",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 406,
+      "aa": "N",
+      "generic_number": "8.47x47",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 406,
+      "aa": "N",
+      "generic_number": "8.47x47",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 406,
+      "aa": "N",
+      "generic_number": "8.47x47",
+      "slug": "polar_donor_protein",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 407,
+      "aa": "N",
+      "generic_number": "8.48x48",
+      "slug": "Van der Waals",
+      "type": "waals",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 407,
+      "aa": "N",
+      "generic_number": "8.48x48",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 407,
+      "aa": "N",
+      "generic_number": "8.48x48",
+      "slug": "polar_backbone",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 407,
+      "aa": "N",
+      "generic_number": "8.48x48",
+      "slug": "polar_donor_protein",
+      "type": "polar",
+      "direction": "protein",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    },
+    {
+      "seq": 408,
+      "aa": "E",
+      "generic_number": "8.49x49",
+      "slug": "acc",
+      "type": "hidden",
+      "direction": "",
+      "pdb_ref": "97Y",
+      "ligand": "PF-06372222"
+    }
+  ]
+}

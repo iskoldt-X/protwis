@@ -1,0 +1,182 @@
+[
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 1,
+  "fields": {
+    "slug": "acc",
+    "name": "accessible",
+    "type": "hidden",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 2,
+  "fields": {
+    "slug": "hyd",
+    "name": "hydrophobic",
+    "type": "hydrophobic",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 3,
+  "fields": {
+    "slug": "aro_ff",
+    "name": "aromatic (face-to-face)",
+    "type": "aromatic",
+    "direction": "none"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 4,
+  "fields": {
+    "slug": "aro_fe_protein",
+    "name": "aromatic (face-to-edge)",
+    "type": "aromatic",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 5,
+  "fields": {
+    "slug": "aro_ef_protein",
+    "name": "aromatic (edge-to-face)",
+    "type": "aromatic",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 6,
+  "fields": {
+    "slug": "aro_ion_protein",
+    "name": "aromatic (pi-cation)",
+    "type": "aromatic",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 7,
+  "fields": {
+    "slug": "polar_backbone",
+    "name": "polar (hydrogen bond with backbone)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 8,
+  "fields": {
+    "slug": "polar_donor_protein",
+    "name": "polar (hydrogen bond)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 9,
+  "fields": {
+    "slug": "polar_acceptor_protein",
+    "name": "polar (hydrogen bond)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 10,
+  "fields": {
+    "slug": "polar_double_pos_protein",
+    "name": "polar (charge-charge)",
+    "type": "polar",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 11,
+  "fields": {
+    "slug": "polar_double_neg_protein",
+    "name": "polar (charge-charge)",
+    "type": "polar",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 12,
+  "fields": {
+    "slug": "polar_pos_ligand",
+    "name": "polar (charge-assisted hydrogen bond)",
+    "type": "polar",
+    "direction": "ligand"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 13,
+  "fields": {
+    "slug": "polar_neg_ligand",
+    "name": "polar (charge-assisted hydrogen bond)",
+    "type": "polar",
+    "direction": "ligand"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 14,
+  "fields": {
+    "slug": "polar_pos_protein",
+    "name": "polar (charge-assisted hydrogen bond)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 15,
+  "fields": {
+    "slug": "polar_neg_protein",
+    "name": "polar (charge-assisted hydrogen bond)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 16,
+  "fields": {
+    "slug": "polar_unknown_protein",
+    "name": "polar (charge-assisted hydrogen bond)",
+    "type": "polar",
+    "direction": "protein"
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 17,
+  "fields": {
+    "slug": "polar_unspecified",
+    "name": "polar (hydrogen bond)",
+    "type": "polar",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 18,
+  "fields": {
+    "slug": "Van der Waals",
+    "name": "Van der Waals",
+    "type": "waals",
+    "direction": ""
+  }
+}
+]

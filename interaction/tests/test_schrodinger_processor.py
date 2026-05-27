@@ -1,0 +1,342 @@
+"""Tests for the Schrödinger small-molecule interaction processor (Plan A).
+
+Run with::
+
+    docker exec gpcrdb-app python manage.py test interaction
+
+protwis ships no pytest-django, and ``interaction.schrodinger_processor``
+imports Django models at module load, so these tests run under Django's own
+test runner. Pure-logic tests use ``SimpleTestCase`` (no test database; it
+raises if a test touches the DB), which faithfully implements the Plan A rule
+that parsing/mapping logic must be testable "纯逻辑、不碰 DB". DB-integration
+tests (Steps A6 / A10) use ``TestCase`` with
+``fixtures = ['interaction_types.json']`` (delivered by Plan B).
+
+Fixture data: ``interaction/tests/schrodinger_data/`` holds a byte-for-byte
+copy of the canonical Engine 1 output for 6LN2 / ligand 97Y, in its real
+nested layout ``{PDB}/{PDB}/{HET}_{chain}_{resnum}/{HET}_{chain}_{resnum}.yaml``.
+"""
+
+import json
+import os
+
+import yaml
+from django.test import SimpleTestCase, TestCase
+
+from interaction.schrodinger_processor import (
+    get_receptor_pdb_block,
+    is_standard_residue,
+    locate_interaction_yamls,
+    parse_receptor_residue,
+    passes_chain_filter,
+    process_schrodinger_sm_interactions,
+    resolve_slug,
+)
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCHRODINGER_DATA_DIR = os.path.join(HERE, "schrodinger_data")
+CANONICAL_YAML = os.path.join(
+    SCHRODINGER_DATA_DIR, "6LN2_97Y", "6LN2_97Y", "97Y_A_503", "97Y_A_503.yaml"
+)
+
+
+FIXTURE_SLUGS_PATH = os.path.join(HERE, "..", "fixtures", "interaction_types.json")
+
+
+def load_canonical_interactions():
+    """Return the ``result.interactions`` list from the frozen 6LN2_97Y YAML."""
+    with open(CANONICAL_YAML) as fh:
+        return yaml.safe_load(fh)["result"]["interactions"]
+
+
+def load_fixture_slugs():
+    """The canonical slug set from Plan B's loaddata fixture (no DB needed)."""
+    with open(FIXTURE_SLUGS_PATH) as fh:
+        return {e["fields"]["slug"] for e in json.load(fh)}
+
+
+class ReceptorResidueParsingTests(SimpleTestCase):
+    """Step A1 — read the receptor residue number from a real YAML entry.
+
+    Before the fix the processor read ``receptor_res_info["pdb_number"]`` while
+    Engine 1 emits ``pdb_residue_number`` → ``KeyError: 'pdb_number'``.
+    """
+
+    def test_reads_receptor_residue_number(self):
+        # interactions[0] in the frozen fixture: Hydroxyl / Donor, residue N406 chain A.
+        entry = load_canonical_interactions()[0]
+        parsed = parse_receptor_residue(entry["receptor_residue"])
+        self.assertEqual(parsed["sequence_number"], 406)
+        self.assertEqual(parsed["amino_acid"], "N")
+        self.assertEqual(parsed["chain_id"], "A")
+        self.assertEqual(parsed["insertion_code"], "")
+
+    def test_parses_every_receptor_residue_in_fixture(self):
+        # All six interactions must parse without KeyError and yield ints/strs.
+        for entry in load_canonical_interactions():
+            parsed = parse_receptor_residue(entry["receptor_residue"])
+            self.assertIsInstance(parsed["sequence_number"], int)
+            self.assertTrue(parsed["amino_acid"])
+            self.assertEqual(parsed["chain_id"], "A")
+
+
+class YamlLocationTests(SimpleTestCase):
+    """Step A3 — locate the YAML in Engine 1's real nested layout.
+
+    The original processor built a flat ``{PDB}_{HET}_interactions.yaml`` path,
+    but Engine 1 emits
+    ``{PDB}_{HET}/{PDB}_{HET}/{HET}_{chain}_{resnum}/{HET}_{chain}_{resnum}.yaml``.
+    """
+
+    def test_locate_yaml_for_ligand(self):
+        found = locate_interaction_yamls(SCHRODINGER_DATA_DIR, "6LN2", "97Y")
+        self.assertEqual(len(found), 1, f"expected exactly one instance, got {found}")
+        self.assertTrue(found[0].endswith("97Y_A_503/97Y_A_503.yaml"))
+        self.assertTrue(os.path.exists(found[0]))
+
+    def test_lowercase_codes_are_normalised(self):
+        # Callers may pass lowercase; layout dirs are uppercase.
+        found = locate_interaction_yamls(SCHRODINGER_DATA_DIR, "6ln2", "97y")
+        self.assertEqual(len(found), 1)
+
+    def test_missing_ligand_returns_empty(self):
+        self.assertEqual(
+            locate_interaction_yamls(SCHRODINGER_DATA_DIR, "6LN2", "ZZZ"), []
+        )
+
+
+class StandardResidueTests(SimpleTestCase):
+    """Step A5 — non-standard ('X') receptor residues are recognised for skipping.
+
+    Engine 1 writes ``name_1_letter: "X"`` for waters / ions / glycans / covalent
+    modifications fused into the receptor (trap H5). They have no protwis Residue
+    row, so the processor skips them with a warning instead of querying the DB.
+    """
+
+    def test_x_is_not_standard(self):
+        self.assertFalse(is_standard_residue("X"))
+
+    def test_twenty_standard_aas(self):
+        for aa in "ACDEFGHIKLMNPQRSTVWY":
+            self.assertTrue(is_standard_residue(aa), aa)
+
+    def test_lowercase_is_normalised(self):
+        self.assertTrue(is_standard_residue("n"))
+
+    def test_synthetic_x_entry_flagged(self):
+        # A hand-built entry (the real 6LN2_97Y YAML has no X residue).
+        x_entry = {
+            "name_1_letter": "X",
+            "pdb_residue_number": 9999,
+            "chain_id": "A",
+            "insertion_code": "",
+        }
+        parsed = parse_receptor_residue(x_entry)
+        self.assertFalse(is_standard_residue(parsed["amino_acid"]))
+
+    def test_canonical_fixture_all_standard(self):
+        for entry in load_canonical_interactions():
+            aa = parse_receptor_residue(entry["receptor_residue"])["amino_acid"]
+            self.assertTrue(is_standard_residue(aa), aa)
+
+
+class ChainFilterTests(SimpleTestCase):
+    """Step A7 — only preferred_chain interactions are kept.
+
+    protwis stores no per-residue chain; ``build_structures.py:1410`` drops any
+    residue whose chain != ``Structure.preferred_chain`` (reduced to the first
+    chain for multi-chain receptors at :248-249). We mirror that exactly.
+    """
+
+    def test_keeps_preferred_chain(self):
+        self.assertTrue(passes_chain_filter("A", "A"))
+
+    def test_drops_non_preferred_chain(self):
+        self.assertFalse(passes_chain_filter("B", "A"))
+
+    def test_multichain_preference_uses_first(self):
+        # build_structures reduces "A,B" -> "A" before filtering.
+        self.assertTrue(passes_chain_filter("A", "A,B"))
+        self.assertFalse(passes_chain_filter("B", "A,B"))
+
+    def test_empty_preference_keeps_all(self):
+        self.assertTrue(passes_chain_filter("A", ""))
+
+    def test_6ln2_all_chain_A(self):
+        # The 6LN2_97Y fixture is entirely chain A; nothing is dropped (pref=A).
+        for entry in load_canonical_interactions():
+            chain = parse_receptor_residue(entry["receptor_residue"])["chain_id"]
+            self.assertTrue(passes_chain_filter(chain, "A"))
+
+
+class SlugResolutionTests(SimpleTestCase):
+    """Steps A6a + A4 — (feature_family, direction) -> canonical slug via the
+    delivered Plan C map (``interaction/interaction_type_map.yaml``).
+
+    Routing ignores the chemical ``feature`` name, so comma-joined feature
+    strings (trap H2 / §0.5 A5) can never corrupt a slug. Unknown combos raise
+    (fail-loud) so non-default contacts surface instead of silently dropping.
+    """
+
+    EXPECTED_6LN2 = {
+        ("Aromatic", "edge-to-face"): "aro_ef_protein",
+        ("Donor", "ligand-donor"): "polar_acceptor_protein",
+        ("Acceptor", "ligand-acceptor"): "polar_donor_protein",
+    }
+
+    def test_resolves_6ln2_combos(self):
+        for (family, direction), slug in self.EXPECTED_6LN2.items():
+            self.assertEqual(resolve_slug(family, direction), slug)
+
+    def test_unknown_combo_raises(self):
+        with self.assertRaises(ValueError):
+            resolve_slug("Halogen", "halogen-bond")
+
+    def test_feature_name_irrelevant_to_routing(self):
+        # A4: resolve_slug takes no `feature` argument, so a comma-joined feature
+        # is structurally incapable of producing a garbage slug.
+        for entry in load_canonical_interactions():
+            family, direction = entry["feature_family"], entry["direction"]
+            self.assertEqual(
+                resolve_slug(family, direction),
+                self.EXPECTED_6LN2[(family, direction)],
+            )
+
+    def test_resolved_slugs_exist_in_plan_b_fixture(self):
+        fixture_slugs = load_fixture_slugs()
+        for entry in load_canonical_interactions():
+            slug = resolve_slug(entry["feature_family"], entry["direction"])
+            self.assertIn(slug, fixture_slugs)
+
+
+class ReceptorPdbBlockTests(SimpleTestCase):
+    """Step A8 — Fragment.pdbdata comes from the YAML receptor_pdb_block.
+
+    The original code used ``sli.pdb_file`` (always None in this flow), gated by
+    ``if not sli.pdb_file: continue`` — so Fragments were never created. Engine 1
+    ships the receptor residue's atoms per interaction; we store that as opaque
+    text (trap H3: non-standard PDB columns — never feed it to BioPython).
+    """
+
+    def test_extracts_block_text(self):
+        entry = load_canonical_interactions()[0]  # ASN 406
+        block = get_receptor_pdb_block(entry)
+        self.assertIn("ASN A 406", block)
+        self.assertTrue(block.lstrip().startswith("ATOM"))
+
+    def test_every_entry_has_a_block(self):
+        for entry in load_canonical_interactions():
+            self.assertTrue(get_receptor_pdb_block(entry).strip())
+
+    def test_missing_block_returns_empty(self):
+        self.assertEqual(get_receptor_pdb_block({}), "")
+
+    def test_fragment_not_gated_on_sli_pdb_file(self):
+        # The B4 bug: `if not sli.pdb_file: continue` skipped every Fragment.
+        import inspect
+        from interaction import schrodinger_processor
+
+        self.assertNotIn("if not sli.pdb_file", inspect.getsource(schrodinger_processor))
+
+
+class TransactionAndIdempotencyTests(SimpleTestCase):
+    """Step A9 — the per-PDB write is atomic and idempotent (delete-before-write).
+
+    Behavioural proof (rollback leaves no dirty rows) is exercised by the A10
+    characterization command, which runs the processor against real 6LN2 data
+    inside a rolled-back transaction. These guards lock the implementation shape.
+    """
+
+    def _source(self):
+        import inspect
+        from interaction import schrodinger_processor
+
+        return inspect.getsource(schrodinger_processor)
+
+    def test_processor_is_atomic(self):
+        self.assertIn("@transaction.atomic", self._source())
+
+    def test_deletes_existing_rows_before_write(self):
+        self.assertIn(
+            "ResidueFragmentInteraction.objects.filter("
+            "structure_ligand_pair=sli).delete()",
+            self._source(),
+        )
+
+
+class LogicalEndToEndTests(SimpleTestCase):
+    """Step A10 (logical) — the full parse -> skip-X -> chain-filter -> resolve ->
+    dedup chain over the real 6LN2_97Y YAML yields the expected (seq, slug) set,
+    with no DB. The DB-writing e2e is the ``schrodinger_compare`` management
+    command (run against the populated GPCRdb DB as a rolled-back dry run).
+
+    The 6 YAML interactions collapse to 5 rows: residue 407's two Acceptor entries
+    (AmideO + Carbonyl) both route to ``polar_donor_protein`` and dedup to one.
+    """
+
+    EXPECTED_NEW_SET = {
+        (347, "aro_ef_protein"),
+        (355, "polar_acceptor_protein"),
+        (401, "polar_acceptor_protein"),
+        (406, "polar_acceptor_protein"),
+        (407, "polar_donor_protein"),
+    }
+
+    def _run_logical_pipeline(self, preferred_chain="A"):
+        result = set()
+        for entry in load_canonical_interactions():
+            parsed = parse_receptor_residue(entry["receptor_residue"])
+            if not is_standard_residue(parsed["amino_acid"]):
+                continue
+            if not passes_chain_filter(parsed["chain_id"], preferred_chain):
+                continue
+            slug = resolve_slug(entry["feature_family"], entry["direction"])
+            result.add((parsed["sequence_number"], slug))  # set membership = dedup
+        return result
+
+    def test_logical_pipeline_matches_expected(self):
+        self.assertEqual(self._run_logical_pipeline(), self.EXPECTED_NEW_SET)
+
+    def test_407_two_entries_dedup_to_one(self):
+        # Two Acceptor entries on residue 407 -> one polar_donor_protein row.
+        rows_407 = [r for r in self._run_logical_pipeline() if r[0] == 407]
+        self.assertEqual(rows_407, [(407, "polar_donor_protein")])
+
+    def test_all_new_slugs_are_canonical(self):
+        canonical = load_fixture_slugs()
+        for _, slug in self.EXPECTED_NEW_SET:
+            self.assertIn(slug, canonical)
+
+
+class BuildStructuresIntegrationTests(TestCase):
+    """Step A2 — build_structures wires in the processor under its correct name.
+
+    The stale ``interaction`` branch called ``self.process_schrodinger_interactions(...)``
+    (wrong name — missing ``_sm_`` — invoked as a method, never imported) which
+    raised NameError/AttributeError and was a key reason that branch could not run.
+    This branch rebuilds the seam from clean dev_build: a module-level import of the
+    correctly named ``process_schrodinger_sm_interactions``.
+
+    NB: ``TestCase`` (not ``SimpleTestCase``) because importing the build command
+    module executes ``test_model_updates(initialize=True)`` at class-definition
+    time, which queries the DB — so a real test DB must exist.
+    """
+
+    def test_build_structures_imports_processor(self):
+        from build.management.commands import build_structures as bs
+
+        self.assertTrue(
+            hasattr(bs, "process_schrodinger_sm_interactions"),
+            "build_structures must import process_schrodinger_sm_interactions",
+        )
+        self.assertIs(
+            bs.process_schrodinger_sm_interactions, process_schrodinger_sm_interactions
+        )
+
+    def test_no_stale_misnamed_processor_call(self):
+        # Guard against regressing to the §0.5 A2 typo (name without `_sm_`).
+        import inspect
+        from build.management.commands import build_structures as bs
+
+        source = inspect.getsource(bs)
+        self.assertNotIn("process_schrodinger_interactions(", source)
