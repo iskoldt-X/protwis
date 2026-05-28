@@ -3,10 +3,14 @@ from django.test import TestCase
 from interaction.models import ResidueFragmentInteractionType
 
 
-# The 18 canonical interaction-type slugs that the old `parsecalculation`
-# created lazily via get_or_create during a structure build. The Schrodinger
-# pipeline writes ResidueFragmentInteraction rows directly and therefore needs
-# these foreign-key targets to already exist. See
+# The 21 canonical interaction-type slugs (18 original + 3 added 2026-05-28
+# via Phase 1d: ADR-011 halogen_protein, ADR-012 water_bridge_protein,
+# ADR-013 metal_coordination_protein). The old `parsecalculation` created the
+# original 18 lazily via get_or_create during a structure build. The
+# Schrodinger pipeline writes ResidueFragmentInteraction rows directly and
+# therefore needs these foreign-key targets to already exist. The 3 new slugs
+# are pre-seeded ahead of Plan D wrapper opt-in detection (halogen / water /
+# metal contacts in Engine 1) per ADR-009 information preservation. See
 # interaction/fixtures/interaction_types.json.
 EXPECTED_SLUGS = {
     'acc',
@@ -27,23 +31,37 @@ EXPECTED_SLUGS = {
     'polar_unknown_protein',
     'polar_unspecified',
     'Van der Waals',
+    # ADR-011/012/013 (Phase 1d, 2026-05-28): protwis schema 18 -> 21.
+    'halogen_protein',
+    'water_bridge_protein',
+    'metal_coordination_protein',
+}
+
+# The 3 slugs added by Phase 1d (ADR-011/012/013). Kept as a separate set so
+# regressions on their fields are caught by name, not by the catch-all
+# EXPECTED_SLUGS.
+PHASE_1D_NEW_SLUGS = {
+    'halogen_protein',
+    'water_bridge_protein',
+    'metal_coordination_protein',
 }
 
 
 class InteractionTypeFixtureTest(TestCase):
-    """Lock the interaction_types.json seed fixture (Plan B, steps B2 & B3).
+    """Lock the interaction_types.json seed fixture (Plan B, steps B2 & B3;
+    extended 2026-05-28 by Phase 1d to 21 slugs).
 
     The ``fixtures`` attribute makes Django ``loaddata`` the file into a fresh
     test database before every test method, which is exactly the B2 scenario:
-    an empty DB that must end up with the 18 canonical rows.
+    an empty DB that must end up with the 21 canonical rows.
     """
 
     fixtures = ['interaction_types.json']
 
-    # --- B2: fixture is loadable, count == 18 -----------------------------
+    # --- B2: fixture is loadable, count == 21 -----------------------------
 
     def test_fixture_loads(self):
-        self.assertEqual(ResidueFragmentInteractionType.objects.count(), 18)
+        self.assertEqual(ResidueFragmentInteractionType.objects.count(), 21)
 
     def test_fixture_has_exact_slug_set(self):
         slugs = set(
@@ -67,3 +85,27 @@ class InteractionTypeFixtureTest(TestCase):
         # The UI explicitly excludes slug='acc'; its type must stay 'hidden'.
         acc = ResidueFragmentInteractionType.objects.get(slug='acc')
         self.assertEqual(acc.type, 'hidden')
+
+    # --- Phase 1d (ADR-011/012/013): 3 new canonical slugs ----------------
+
+    def test_phase_1d_slugs_exist(self):
+        # All three Phase 1d slugs must exist after fixture load. Regression
+        # of any one means the ADR-009 information-preservation guarantee has
+        # been silently weakened (upstream Schrodinger detection has no slug
+        # to land on -> info would be dropped).
+        for slug in PHASE_1D_NEW_SLUGS:
+            self.assertTrue(
+                ResidueFragmentInteractionType.objects.filter(slug=slug).exists(),
+                f"Phase 1d slug {slug!r} missing from fixture",
+            )
+
+    def test_phase_1d_slugs_have_polar_type_and_empty_direction(self):
+        # ADR-011/012/013 all chose type='polar' (engineering pragmatic
+        # categorization aligned with existing protwis 'type' enum) and
+        # direction='' (chemistry is direction-less for these contact types,
+        # analogous to polar_double_*_protein). Drift here would corrupt
+        # downstream queries that filter by type or direction.
+        for slug in PHASE_1D_NEW_SLUGS:
+            row = ResidueFragmentInteractionType.objects.get(slug=slug)
+            self.assertEqual(row.type, 'polar', f"{slug} type drift")
+            self.assertEqual(row.direction, '', f"{slug} direction drift")

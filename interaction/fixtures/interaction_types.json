@@ -178,5 +178,35 @@
     "type": "waals",
     "direction": ""
   }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 19,
+  "fields": {
+    "slug": "halogen_protein",
+    "name": "halogen bond",
+    "type": "polar",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 20,
+  "fields": {
+    "slug": "water_bridge_protein",
+    "name": "water-mediated h-bond",
+    "type": "polar",
+    "direction": ""
+  }
+},
+{
+  "model": "interaction.residuefragmentinteractiontype",
+  "pk": 21,
+  "fields": {
+    "slug": "metal_coordination_protein",
+    "name": "metal coordination",
+    "type": "polar",
+    "direction": ""
+  }
 }
 ]
