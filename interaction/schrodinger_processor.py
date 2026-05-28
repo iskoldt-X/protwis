@@ -143,79 +143,41 @@ def resolve_slug(feature_family, direction):
 
 
 # ---------------------------------------------------------------------------
-# A6c — priority / de-duplication (ADR-004), replicating interaction/views.py.
+# A6c — de-duplication only (ADR-008 / ADR-009; reverts the earlier 2c-1
+# "charge suppresses h-bond" branch).
 #
-# protwis classifies each receptor-residue/ligand contact through a priority
-# cascade (views.py:1008-1086):  backbone (protein atom N/O)  >  H-bond
-# (hydrogenmatch)  >  charge (chargedcheck)  >  unspecified.  The key nuance for
-# charged residues is views.py:998/1002: when the residue AA is in CHARGEDAA the
-# code forces ``hydrogenmatch = False`` ("Replace previous match!"), so a polar
-# contact on a charged residue is recorded as a CHARGE row, never a plain H-bond
-# row.  (``remove_hyd`` only strips hydrophobic rows — the H-bond suppression is
-# purely the hydrogenmatch flag.)
+# protwis views.py:998/1002 forces ``hydrogenmatch = False`` on charged residues
+# so that a charge-assisted h-bond is recorded as ONE charge row, not two. The
+# first A6c implementation mirrored that at the slug level. ADR-008 (2026-05-28)
+# reverses the call: charge-assisted h-bonds carry two independent physical
+# forces (Coulomb + directional N-H...O dipole) and Schrödinger's two detectors
+# fire independently — keeping both rows is a faithful record, not double
+# counting. ADR-009 generalises this: the DB layer preserves information; UI
+# compactness is solved by front-end views, not by dropping rows here.
 #
-# We replicate this at the slug level: on a charged residue that also carries a
-# charge-family slug (the explicit Engine 1 salt bridge → ADR-002), the residue's
-# plain H-bond slugs are suppressed.  Backbone is the top tier and is never
-# suppressed (A6b still deferred, so no polar_backbone slugs are produced yet,
-# but the ordering is encoded for when it lands).  Aromatic slugs (aro_*) are an
-# independent channel and are untouched.
+# What remains in this pass is the only loss-free reduction: collapsing
+# identical ``(sequence_number, slug)`` rows (e.g. 6LN2 N407's two Acceptor
+# entries that both map to ``polar_donor_protein``, or 2Y02 N2's twin Donor
+# entries to the same residue). Aromatic slugs are unaffected.
 # ---------------------------------------------------------------------------
-
-# views.py:71 CHARGEDAA = {'ARG', 'LYS', 'ASP', 'GLU'} — note: HIS is NOT included.
-CHARGED_AA_1LETTER = frozenset("RKDE")
-
-_HBOND_SLUGS = frozenset({"polar_donor_protein", "polar_acceptor_protein"})
-_CHARGE_SLUGS = frozenset(
-    {
-        "polar_double_neg_protein",
-        "polar_double_pos_protein",
-        "polar_pos_protein",
-        "polar_neg_protein",
-        "polar_pos_ligand",
-        "polar_neg_ligand",
-        "polar_unknown_protein",
-    }
-)
 
 
 def apply_priority_dedup(records):
-    """Apply protwis charge-suppression + de-duplication to resolved interactions.
+    """De-duplicate resolved (residue, slug) interactions; no suppression.
 
     ``records`` is a list of dicts, each with at least ``sequence_number`` (int),
     ``amino_acid`` (1-letter str) and ``slug`` (canonical slug str). Returns the
     surviving records as a list (input order preserved), deduped on
     ``(sequence_number, slug)``.
 
-    Semantics (ADR-004, mirroring views.py:998/1002/1008-1086):
-
-    * **Charge suppresses H-bond.** On a charged residue (AA in CHARGEDAA) that
-      also carries a charge-family slug, the plain H-bond slugs
-      (``polar_donor_protein`` / ``polar_acceptor_protein``) are dropped — protwis
-      reclassifies them into the charge row. (The salt bridge from the explicit
-      Engine 1 PosCharge/NegCharge entry survives.)
-    * **Backbone outranks everything** and is never suppressed (views.py:1008-1019).
-    * **Aromatic slugs are independent** and pass through untouched.
-    * Identical ``(sequence_number, slug)`` pairs collapse to one row.
+    Semantics (ADR-008 / ADR-009): identical ``(sequence_number, slug)`` rows
+    collapse to one. Nothing else is dropped — distinct slugs on the same
+    residue (e.g. a charge slug + an h-bond slug on a charge-assisted contact)
+    are all preserved as faithful records of independent Schrödinger detectors.
     """
-    records = list(records)
-    # Residues that are charged AND carry an explicit charge slug → their plain
-    # H-bond rows are absorbed into the charge row (views.py hydrogenmatch=False).
-    charge_suppressed_residues = {
-        r["sequence_number"]
-        for r in records
-        if r["amino_acid"].upper() in CHARGED_AA_1LETTER and r["slug"] in _CHARGE_SLUGS
-    }
-
     survivors = []
     seen = set()
     for r in records:
-        if (
-            r["sequence_number"] in charge_suppressed_residues
-            and r["slug"] in _HBOND_SLUGS
-        ):
-            # Charge supersedes the H-bond on this charged residue (A6c).
-            continue
         key = (r["sequence_number"], r["slug"])
         if key in seen:
             continue
@@ -365,11 +327,12 @@ def process_schrodinger_sm_interactions(
     # delete and any partial writes — the original rows survive a failed run.
     ResidueFragmentInteraction.objects.filter(structure_ligand_pair=sli).delete()
 
-    # A6c (ADR-004): compute the surviving (seq, slug) set up front (pure / no DB)
-    # so a charge row on a charged residue suppresses its plain H-bond rows. This
-    # mirrors the same parse -> skip-X -> chain-filter -> resolve chain the write
-    # loop below performs, then runs the priority/dedup. resolve_slug stays
-    # fail-loud here too (unknown combos raise before any write).
+    # A6c (ADR-008 / ADR-009): compute the surviving (seq, slug) set up front
+    # (pure / no DB) to collapse identical-(seq, slug) duplicates. No
+    # suppression — distinct slugs on the same residue (e.g. charge + h-bond on
+    # a charge-assisted contact) all survive as independent Schrödinger
+    # detector readings. resolve_slug stays fail-loud here too (unknown combos
+    # raise before any write).
     prelim_records = []
     for interaction_entry in all_interactions:
         parsed = parse_receptor_residue(interaction_entry["receptor_residue"])
@@ -484,13 +447,12 @@ def process_schrodinger_sm_interactions(
         direction = interaction_entry.get("direction")
         interaction_type_slug = resolve_slug(feature_family, direction)  # fail-loud on unknown
 
-        # A6c (ADR-004): drop entries the priority/dedup pass discarded — a
-        # charge row on a charged residue suppresses its plain H-bond rows, and
-        # (seq, slug) duplicates collapse. survivor_keys was computed up front.
+        # A6c (ADR-008 / ADR-009): drop entries the dedup pass collapsed —
+        # only identical (seq, slug) duplicates are removed; distinct slugs on
+        # the same residue all survive. survivor_keys was computed up front.
         if (pdb_residue_number, interaction_type_slug) not in survivor_keys:
             logger.info(
-                "A6c suppressing %s on %s residue %s (charge supersedes H-bond, "
-                "or duplicate (seq, slug)).",
+                "A6c dedup: duplicate (seq, slug) (%s on %s residue %s).",
                 interaction_type_slug,
                 pdb_code_str,
                 pdb_residue_number,

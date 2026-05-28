@@ -369,30 +369,36 @@ class BuildStructuresIntegrationTests(TestCase):
 
 
 class PriorityDedupTests(SimpleTestCase):
-    """Step 2c-1 / A6c — charge-suppression + dedup (ADR-004, views.py:998/1002).
+    """A6c — identical-(seq, slug) dedup only (ADR-008 / ADR-009).
 
-    On a charged residue (CHARGEDAA = ARG/LYS/ASP/GLU; HIS is *not* in it) that
-    also carries a charge slug, protwis forces ``hydrogenmatch = False`` so the
-    contact is recorded as the charge row, not a plain H-bond row. Backbone
-    outranks everything (views.py:1008-1019); aromatic slugs are an independent
-    channel. 6LN2 has no charged interactions, so this path is first exercised by
-    2Y02.
+    Reverted 2026-05-28: the earlier 2c-1 implementation mirrored protwis
+    views.py:998/1002 by dropping plain h-bond slugs on charged residues that
+    also carried a charge slug. ADR-008 reverses that — charge-assisted h-bonds
+    carry two independent physical forces (Coulomb + directional dipole) and
+    Schrödinger's two detectors fire independently, so both rows are kept as a
+    faithful record. ADR-009 generalises: DB layer preserves information; UI
+    compactness is a front-end concern. Only identical (seq, slug) duplicates
+    collapse — no information loss.
     """
 
     def _keys(self, records):
         return {(r["sequence_number"], r["slug"]) for r in apply_priority_dedup(records)}
 
-    def test_charge_suppresses_hbond_on_charged_residue(self):
-        # 2Y02 D121 (ASP): two Donor H-bonds + one salt bridge -> only the salt bridge.
+    def test_charge_does_not_suppress_hbond_on_charged_residue(self):
+        # ADR-008: D121 with both a PosCharge salt bridge and a Donor h-bond
+        # keeps BOTH rows; the two identical Donor entries collapse to one.
         records = [
             {"sequence_number": 121, "amino_acid": "D", "slug": "polar_acceptor_protein"},
             {"sequence_number": 121, "amino_acid": "D", "slug": "polar_acceptor_protein"},
             {"sequence_number": 121, "amino_acid": "D", "slug": "polar_double_neg_protein"},
         ]
-        self.assertEqual(self._keys(records), {(121, "polar_double_neg_protein")})
+        self.assertEqual(
+            self._keys(records),
+            {(121, "polar_acceptor_protein"), (121, "polar_double_neg_protein")},
+        )
 
     def test_noncharged_residue_keeps_both_hbond_directions(self):
-        # ASN 329 both donates and accepts -> both rows survive (not charged).
+        # ASN 329 both donates and accepts -> both rows survive.
         records = [
             {"sequence_number": 329, "amino_acid": "N", "slug": "polar_acceptor_protein"},
             {"sequence_number": 329, "amino_acid": "N", "slug": "polar_donor_protein"},
@@ -403,19 +409,19 @@ class PriorityDedupTests(SimpleTestCase):
         )
 
     def test_charged_residue_without_charge_slug_keeps_hbond(self):
-        # Gating choice (see Inbox-8): suppression requires an explicit charge
-        # slug, so a lone H-bond to ASP (no salt entry) is NOT dropped -> no data
-        # loss. (views.py would reclassify it to polar_neg_protein; that deeper,
-        # per-atom faithfulness is deferred to the owner.)
+        # A lone h-bond on a charged residue (no salt entry) passes through —
+        # consistent with ADR-008/009: no information loss either way.
         records = [
             {"sequence_number": 200, "amino_acid": "D", "slug": "polar_acceptor_protein"},
         ]
         self.assertEqual(self._keys(records), {(200, "polar_acceptor_protein")})
 
-    def test_backbone_not_suppressed_by_charge(self):
-        # polar_backbone outranks charge (views.py:1008-1019) and survives even on
-        # a charged residue with a salt bridge. Forward-looking: A6b is deferred so
-        # no polar_backbone slug is produced yet, but the priority must hold.
+    def test_backbone_and_charge_both_survive(self):
+        # ADR-008/009: distinct slugs all survive. No priority cascade is
+        # applied in the DB layer; if a future polar_backbone slug ever lands
+        # on the same residue as a charge slug, both are recorded as faithful
+        # readings of independent detectors. (A6b backbone slug is still
+        # deferred — see Inbox-5 — so this is forward-looking.)
         records = [
             {"sequence_number": 121, "amino_acid": "D", "slug": "polar_backbone"},
             {"sequence_number": 121, "amino_acid": "D", "slug": "polar_double_neg_protein"},
@@ -471,13 +477,16 @@ class LogicalEndToEnd2Y02Tests(SimpleTestCase):
 
     2Y02 (turkey β1-adrenergic receptor + carmoterol/WHJ) has RFI_rows=0 in the
     DB, so there is nothing to diff against; instead this verifies the new
-    pipeline against the views.py spec + known β-AR pharmacology. It exercises the
-    two things 6LN2 could not: ADR-002 salt-bridge mapping (D121/D3.32 ->
-    polar_double_neg_protein) and A6c charge-suppression.
+    pipeline against known β-AR pharmacology. It exercises the two things 6LN2
+    could not: ADR-002 salt-bridge mapping (D121/D3.32 -> polar_double_neg_protein)
+    and A6c dedup. Per ADR-008/009 (2026-05-28), the previous "charge suppresses
+    h-bond" branch was reverted: D121 now keeps BOTH the salt bridge and the
+    h-bond row (total 10 rows, was 9).
     """
 
     EXPECTED_2Y02_SET = {
-        (121, "polar_double_neg_protein"),  # Asp3.32 salt bridge (ADR-002), H-bonds suppressed
+        (121, "polar_double_neg_protein"),  # Asp3.32 salt bridge (ADR-002)
+        (121, "polar_acceptor_protein"),    # Asp3.32 charge-assisted H-bond (ADR-008: kept)
         (211, "polar_acceptor_protein"),    # Ser5.42 catechol H-bond
         (215, "polar_donor_protein"),       # Ser5.46 catechol H-bond
         (310, "polar_donor_protein"),       # Asn6.55
@@ -500,21 +509,29 @@ class LogicalEndToEnd2Y02Tests(SimpleTestCase):
         self.assertTrue(self._survivor_keys("B"))
         self.assertEqual(self._survivor_keys("Z"), set())  # no chain Z -> nothing
 
-    def test_d121_salt_bridge_only(self):
-        # ADR-002 + A6c: D121 yields ONLY the salt bridge, no polar_acceptor_protein.
+    def test_d121_keeps_both_salt_and_hbond(self):
+        # ADR-008: D121 carries BOTH the salt bridge and the directional h-bond
+        # — two faithful readings of independent Schrödinger detectors.
         rows_121 = {slug for (seq, slug) in self._survivor_keys() if seq == 121}
-        self.assertEqual(rows_121, {"polar_double_neg_protein"})
+        self.assertEqual(
+            rows_121, {"polar_double_neg_protein", "polar_acceptor_protein"}
+        )
 
-    def test_a6c_removes_exactly_the_d121_hbond(self):
-        # Without A6c, D121 would also carry polar_acceptor_protein (10 rows);
-        # A6c removes exactly that one (-> 9 rows). Isolates the suppression.
+    def test_a6c_only_collapses_identical_dupes(self):
+        # Raw load has 11 (seq, slug) rows including N2's two identical
+        # Donor->D121 entries (both -> polar_acceptor_protein). A6c collapses
+        # only that exact duplicate; nothing else is removed -> 10 rows.
         records = _load_2y02_records("B")
-        before = {(r["sequence_number"], r["slug"]) for r in records}
+        before_list = [(r["sequence_number"], r["slug"]) for r in records]
         after = {
             (r["sequence_number"], r["slug"]) for r in apply_priority_dedup(records)
         }
-        self.assertEqual(before - after, {(121, "polar_acceptor_protein")})
-        self.assertEqual(len(after), 9)
+        # the (121, polar_acceptor_protein) pair appears twice pre-dedup
+        self.assertEqual(before_list.count((121, "polar_acceptor_protein")), 2)
+        # exactly that duplicate is collapsed -> 10 unique survivors
+        self.assertEqual(len(after), 10)
+        # set of unique pre-dedup rows == set of post-dedup rows (no info lost)
+        self.assertEqual(set(before_list), after)
 
     def test_w117_picat_maps_aro_ion(self):
         rows_117 = {slug for (seq, slug) in self._survivor_keys() if seq == 117}

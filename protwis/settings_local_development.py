@@ -4,7 +4,7 @@
 # Site specific constants
 SITE_NAME = 'gpcr' # used for site specific files
 SITE_TITLE = 'GPCRdb' # for display in templates
-DATA_DIR = '/protwis/data/protwis/' + SITE_NAME
+DATA_DIR = '/Users/nht435/GitHub/gpcrdb_data'
 BUILD_CACHE_DIR = DATA_DIR + '/cache'
 DEFAULT_NUMBERING_SCHEME = 'gpcrdb'
 DEFAULT_PROTEIN_STATE = 'inactive'
@@ -42,3 +42,13 @@ SECRET_KEY = '-eqrx61@n*z3y1mc1w_@x1+yo(@^!k7i-vjaz0tx1$902a!4mu'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+
+# Disable caching in development for immediate feedback on changes
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    },
+    'alignments': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
