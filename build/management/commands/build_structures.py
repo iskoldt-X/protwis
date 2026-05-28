@@ -106,6 +106,12 @@ class Command(BaseBuild):
             dest='custom',
             help='Add custom structure based on json input',
             nargs='+')
+        parser.add_argument('--force-rebuild',
+            action='store_true',
+            dest='force_rebuild',
+            default=False,
+            help='Required (with settings.ALLOW_BUILD_DESTRUCTIVE=True) for any '
+                 'destructive operation (--purge). Phase 1c axis 2E double-lock.')
 
     tracker = {}
     all_models = django.apps.apps.get_models()[6:]
@@ -146,6 +152,16 @@ class Command(BaseBuild):
     def handle(self, *args, **options):
         # delete any existing structure data
         if options['purge']:
+            # Phase 1c axis 2E: double-lock destructive ops behind both a settings
+            # flag (deployment-level) and an explicit CLI flag (operator-level).
+            allow = getattr(settings, 'ALLOW_BUILD_DESTRUCTIVE', False)
+            force = options.get('force_rebuild', False)
+            if not (allow and force):
+                raise CommandError(
+                    "Destructive build refused. Both required:\n"
+                    "  - settings.ALLOW_BUILD_DESTRUCTIVE=True (currently {})\n"
+                    "  - --force-rebuild flag (currently {})\n"
+                    "Phase 1c axis 2E double-lock; see ADR-009.".format(allow, force))
             try:
                 self.purge_structures()
                 self.tracker = {}
@@ -1964,36 +1980,16 @@ class Command(BaseBuild):
 
                     self.contactnetwork_errors.append(s)
 
-            for ligand in ligands:
-                if ligand['type'].strip() in ['small molecule', 'protein', 'peptide'] and ligand['in_structure']:
-                    try:
-                        current = time.time()
-                        peptide_chain = ""
-                        if ligand['chain']!='':
-                            peptide_chain = ligand['chain']
-                        # mypath = '/tmp/interactions/results/' + sd['pdb'] + '/output'
-                        # if not os.path.isdir(mypath):
-                        #     #Only run calcs, if not already in temp
-                        # runcalculation(sd['pdb'],peptide_chain)
-                        data_results = runcalculation_2022(sd['pdb'], peptide_chain)
-                        if 'NAG' in data_results:
-                            del data_results['NAG']
-                        self.parsecalculation(sd['pdb'], data_results, ligand['name'], False)
-                        end = time.time()
-                        diff = round(end - current,1)
-                        print('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                        self.logger.info('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                    except Exception as msg:
-                        print(msg)
-                        # print(traceback.format_exc())
-                        print('ERROR WITH INTERACTIONS {}'.format(sd['pdb']))
-                        self.logger.error('Error parsing interactions output for {}'.format(sd['pdb']))
-
-                        self.interaction_errors.append(s)
-
-                        # print('{} done'.format(sd['pdb']))
+            # Phase 1c axis 2E: dispatch via pluggable calculator strategy.
+            # Default settings.INTERACTION_CALCULATOR='rdkit' preserves the
+            # original per-ligand RDKit loop byte-for-byte (see
+            # interaction/calculators/rdkit.py). 'schrodinger' is wired up
+            # primarily through the import_schrodinger_interactions command;
+            # invoking it here is also supported.
+            from interaction.calculators import get_interaction_calculator
+            calculator = get_interaction_calculator(
+                getattr(settings, 'INTERACTION_CALCULATOR', 'rdkit'))
+            calculator.compute_interactions(s, sd=sd, command=self)
 
             s.build_check = True
             s.save()

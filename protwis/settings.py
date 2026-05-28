@@ -189,6 +189,18 @@ if DEBUG:
        }
     }
 
+# Interaction calculator strategy (Phase 1c axis 2E).
+# 'rdkit' = legacy real-time RDKit (default, preserves existing build_structures behavior).
+# 'schrodinger' = Phase 1+ Schrödinger YAML pipeline.
+# Switch to 'schrodinger' in the deployment that consumes the new DB; legacy DB stays on 'rdkit'.
+INTERACTION_CALCULATOR = 'rdkit'
+
+# Destructive build_structures lock (Phase 1c axis 2E, ADR-009 fail-loud).
+# Must be True AND `--force-rebuild` flag set for build_structures to perform destructive
+# operations (--purge, full table wipes). Defaults to False so an accidental invocation in a
+# production-shaped container cannot wipe data.
+ALLOW_BUILD_DESTRUCTIVE = False
+
 #CACHE
 CACHES = {
     'default': {
