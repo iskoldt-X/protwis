@@ -82,6 +82,39 @@ rules:
       Face-to-face aromatic stacking; protwis slug direction = none. C4 fallback
       — not present in 6-PDB baseline.
 
+  # ---- Plan D 2026-05-28 (ADR-011/012/013) — halogen / water-bridge / metal ---
+  # Engine 1 default --contacts now includes xbond, water_hbonds, metal. The
+  # wrapper emits Schrödinger's native SHORTFORM strings ('XBond' / 'Wat-HBond' /
+  # 'Metal') unchanged — no per-family override layer is added (ADR-006 default-
+  # trust-Schrödinger). direction is '' because these contact types don't carry a
+  # donor/acceptor or pos/neg axis; protwis canonical slugs match (ADR-011/012/013).
+  - family: XBond
+    direction: ''
+    slug: halogen_protein
+    rationale: >-
+      Halogen bond: ligand C-X (X = Cl/Br/I; F rarely qualifies) σ-hole donates
+      to a receptor lone-pair acceptor (C=O backbone, Asn/Gln O, His N). ADR-011
+      adds halogen_protein to the canonical 21. Schrödinger emits SHORTFORM
+      'XBond' verbatim (poseviewer_interactions.py:72-87); we don't rename it to
+      'Halogen' because ADR-006 prefers trusting Schrödinger names.
+  - family: Wat-HBond
+    direction: ''
+    slug: water_bridge_protein
+    rationale: >-
+      Water-mediated H-bond: ligand → water → receptor two-hop H-bond chain. ADR-012
+      adds water_bridge_protein. Bridging water identity is recoverable via the
+      ligand/receptor pdb_blocks if needed (Plan A consumer choice). SHORTFORM
+      'Wat-HBond' is verbatim from Schrödinger.
+  - family: Metal
+    direction: ''
+    slug: metal_coordination_protein
+    rationale: >-
+      Metal coordination: ligand → metal cofactor → receptor coordinating residue
+      (His/Asp/Cys/Glu) via dative bonds. ADR-013 adds metal_coordination_protein.
+      Note: Schrödinger's metal detection is VdW-relative (metal_cutoff + radii) or
+      LID 2.5 Å absolute — not literal ADR-013 "≤ 3.0 Å" but equivalent in practice
+      (see Plan D Inbox Q3 decision).
+
 # -----------------------------------------------------------------------------
 # Deferred / not handled by this map (see Plan C Inbox). These are intentionally
 # NOT routed here; the consumer (Plan A) handles or drops them.
@@ -100,17 +133,20 @@ deferred:
       One ligand atom can produce several entries (e.g. 2Y02_WHJ N2 ->
       Donor+PosCharge+PiCat). This map does 1->1 translation only; de-duplication
       / upgrade (protwis remove_hyd) is Plan A's responsibility.
-  dropped_interaction_classes:
-    inbox: D6
-    note: >-
-      halogen-bond / metal-coordination / water-mediated H-bond have no slug in
-      the protwis 18 and are NOT produced under default --contacts
-      hbond,salt,picat,pipi. Dropped in v0.
   aro_fe_protein:
     inbox: D5
     note: >-
       protwis face-to-edge slug has no Engine 1 source: PIPI only emits
       face-to-face / edge-to-face directions. Expected to be unmapped.
 
-# Traceability: the 13 (family, feature, direction) combos observed in the
-# 6-PDB baseline (see observed_combinations.csv) all resolve via the rules above.
+# Plan D 2026-05-28 resolved (was Inbox D6 — "dropped_interaction_classes"):
+# halogen-bond / metal-coordination / water-mediated H-bond now route via the
+# three rules above (XBond / Wat-HBond / Metal) to halogen_protein /
+# water_bridge_protein / metal_coordination_protein (protwis canonical 21,
+# Phase 1d ADR-011/012/013).
+
+# Traceability: 13 (family, feature, direction) combos in the 6-PDB v0 baseline
+# (see observed_combinations.csv) all resolve via the rules above. Plan D
+# 2026-05-28 enables xbond / water_hbonds / metal by default — Phase 2 baselines
+# regenerated under [[Plan D Engine 1 opt-in 进展]] 阶段 C will refresh
+# observed_combinations.csv with any actually-produced new combos.
