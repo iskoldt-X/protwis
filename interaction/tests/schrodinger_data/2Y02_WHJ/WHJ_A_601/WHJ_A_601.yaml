@@ -1,0 +1,707 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: Amine
+    feature_family: Donor
+    matching_atoms:
+    - 2
+    receptor_residue:
+      name_1_letter: S
+      pdb_residue_number: 211
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM   1375  N  SER A 211     -14.053 -12.098  29.339  1.00
+      18.44           N
+
+      ATOM   1376  CA SER A 211     -14.674 -11.885  28.032  1.00 17.17           C
+
+      ATOM   1377  C  SER A 211     -15.335 -10.510  27.961  1.00 17.93           C
+
+      ATOM   1378  O  SER A 211     -15.221  -9.811  26.950  1.00 19.20           O
+
+      ATOM   1379  CB SER A 211     -15.678 -12.986  27.726  1.00 17.62           C
+
+      ATOM   1380  OG SER A 211     -16.758 -12.935  28.624  1.00 13.22           O
+
+      ATOM   6385  H  SER A 211     -14.485 -12.778  29.963  1.00 18.44           H
+
+      ATOM   6386  HA SER A 211     -13.897 -11.920  27.266  1.00 17.17           H
+
+      ATOM   6387  HB3SER A 211     -15.206 -13.968  27.778  1.00 17.62           H
+
+      ATOM   6388  HB2SER A 211     -16.067 -12.869  26.713  1.00 17.62           H
+
+      ATOM   6389  HG SER A 211     -16.515 -13.427  29.429  1.00 13.22           H'
+    ligand_pdb_block: HETATM    3  N1 WHJ A 601     -19.752 -12.774  27.909  1.00
+      24.75           N
+  - annotated_interaction: null
+    feature: Hydroxyl
+    feature_family: Donor
+    matching_atoms:
+    - 13
+    receptor_residue:
+      name_1_letter: D
+      pdb_residue_number: 121
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM    661  N  ASP A 121     -22.600 -15.706  18.378  1.00
+      17.40           N
+
+      ATOM    662  CA ASP A 121     -23.112 -14.646  19.241  1.00 18.53           C
+
+      ATOM    663  C  ASP A 121     -21.947 -13.775  19.750  1.00 18.68           C
+
+      ATOM    664  O  ASP A 121     -21.894 -12.583  19.440  1.00 19.64           O
+
+      ATOM    665  CB ASP A 121     -23.887 -15.286  20.392  1.00 19.23           C
+
+      ATOM    666  CG ASP A 121     -24.539 -14.283  21.311  1.00 23.70           C
+
+      ATOM    667  OD1ASP A 121     -24.079 -13.125  21.437  1.00 24.15           O
+
+      ATOM    668  OD2ASP A 121     -25.533 -14.686  21.942  1.00 28.37           O
+
+      ATOM   5700  H  ASP A 121     -22.827 -16.663  18.629  1.00 17.40           H
+
+      ATOM   5701  HA ASP A 121     -23.787 -14.026  18.651  1.00 18.53           H
+
+      ATOM   5702  HB3ASP A 121     -23.252 -15.913  21.007  1.00 19.23           H
+
+      ATOM   5703  HB2ASP A 121     -24.650 -15.953  19.986  1.00 19.23           H'
+    ligand_pdb_block: HETATM   14  O4 WHJ A 601     -24.433 -12.305  23.985  1.00
+      23.01           O
+  - annotated_interaction: null
+    feature: QuarternaryAmine
+    feature_family: Donor
+    matching_atoms:
+    - 15
+    receptor_residue:
+      name_1_letter: D
+      pdb_residue_number: 121
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM    661  N  ASP A 121     -22.600 -15.706  18.378  1.00
+      17.40           N
+
+      ATOM    662  CA ASP A 121     -23.112 -14.646  19.241  1.00 18.53           C
+
+      ATOM    663  C  ASP A 121     -21.947 -13.775  19.750  1.00 18.68           C
+
+      ATOM    664  O  ASP A 121     -21.894 -12.583  19.440  1.00 19.64           O
+
+      ATOM    665  CB ASP A 121     -23.887 -15.286  20.392  1.00 19.23           C
+
+      ATOM    666  CG ASP A 121     -24.539 -14.283  21.311  1.00 23.70           C
+
+      ATOM    667  OD1ASP A 121     -24.079 -13.125  21.437  1.00 24.15           O
+
+      ATOM    668  OD2ASP A 121     -25.533 -14.686  21.942  1.00 28.37           O
+
+      ATOM   5700  H  ASP A 121     -22.827 -16.663  18.629  1.00 17.40           H
+
+      ATOM   5701  HA ASP A 121     -23.787 -14.026  18.651  1.00 18.53           H
+
+      ATOM   5702  HB3ASP A 121     -23.252 -15.913  21.007  1.00 19.23           H
+
+      ATOM   5703  HB2ASP A 121     -24.650 -15.953  19.986  1.00 19.23           H'
+    ligand_pdb_block: HETATM   16  N2 WHJ A 601     -25.392 -15.030  24.734  1.00
+      31.78           N
+  - annotated_interaction: null
+    feature: QuarternaryAmine
+    feature_family: Donor
+    matching_atoms:
+    - 15
+    receptor_residue:
+      name_1_letter: N
+      pdb_residue_number: 329
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM   2023  N  ASN A 329     -30.011  -8.969  27.051  1.00
+      18.30           N
+
+      ATOM   2024  CA ASN A 329     -29.276  -9.660  26.020  1.00 20.27           C
+
+      ATOM   2025  C  ASN A 329     -30.025  -9.523  24.710  1.00 22.31           C
+
+      ATOM   2026  O  ASN A 329     -29.411  -9.253  23.687  1.00 25.74           O
+
+      ATOM   2027  CB ASN A 329     -29.002 -11.122  26.385  1.00 21.84           C
+
+      ATOM   2028  CG ASN A 329     -27.742 -11.712  25.677  1.00 24.55           C
+
+      ATOM   2029  OD1ASN A 329     -27.275 -12.810  26.031  1.00 22.58           O
+
+      ATOM   2030  ND2ASN A 329     -27.216 -11.004  24.671  1.00 25.41           N
+
+      ATOM   7046  H  ASN A 329     -30.547  -9.511  27.720  1.00 18.30           H
+
+      ATOM   7047  HA ASN A 329     -28.319  -9.155  25.866  1.00 20.27           H
+
+      ATOM   7048  HB3ASN A 329     -29.870 -11.763  26.227  1.00 21.84           H
+
+      ATOM   7049  HB2ASN A 329     -28.776 -11.183  27.450  1.00 21.84           H
+
+      ATOM   7050 HD22ASN A 329     -26.334 -11.367  24.304  1.00 25.41           H
+
+      ATOM   7051 HD21ASN A 329     -27.644 -10.187  24.257  1.00 25.41           H'
+    ligand_pdb_block: HETATM   16  N2 WHJ A 601     -25.392 -15.030  24.734  1.00
+      31.78           N
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: Acceptor
+    matching_atoms:
+    - 5
+    receptor_residue:
+      name_1_letter: S
+      pdb_residue_number: 215
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   1403  N  SER A 215     -13.797  -8.591  25.110  1.00
+      22.57           N
+
+      ATOM   1404  CA SER A 215     -14.678  -8.399  23.958  1.00 21.91           C
+
+      ATOM   1405  C  SER A 215     -15.475  -7.083  23.956  1.00 21.29           C
+
+      ATOM   1406  O  SER A 215     -15.882  -6.634  22.896  1.00 20.84           O
+
+      ATOM   1407  CB SER A 215     -15.610  -9.591  23.759  1.00 22.49           C
+
+      ATOM   1408  OG SER A 215     -16.800  -9.441  24.501  1.00 25.95           O
+
+      ATOM   6417  H  SER A 215     -14.204  -9.058  25.922  1.00 22.57           H
+
+      ATOM   6418  HA SER A 215     -14.045  -8.420  23.073  1.00 21.91           H
+
+      ATOM   6419  HB3SER A 215     -15.134 -10.556  23.935  1.00 22.49           H
+
+      ATOM   6420  HB2SER A 215     -15.917  -9.547  22.730  1.00 22.49           H
+
+      ATOM   6421  HG SER A 215     -17.160 -10.296  24.815  1.00 25.95           H'
+    ligand_pdb_block: HETATM    6  O2 WHJ A 601     -18.446 -11.487  25.739  1.00
+      24.49           O
+  - annotated_interaction: null
+    feature: CarbonylLike
+    feature_family: Acceptor
+    matching_atoms:
+    - 0
+    receptor_residue:
+      name_1_letter: N
+      pdb_residue_number: 310
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   1861  N  ASN A 310     -23.979  -8.462  33.540  1.00
+      26.57           N
+
+      ATOM   1862  CA ASN A 310     -23.060  -9.621  33.514  1.00 25.55           C
+
+      ATOM   1863  C  ASN A 310     -22.005  -9.553  34.634  1.00 26.15           C
+
+      ATOM   1864  O  ASN A 310     -21.749 -10.554  35.309  1.00 26.78           O
+
+      ATOM   1865  CB ASN A 310     -22.350  -9.709  32.160  1.00 23.38           C
+
+      ATOM   1866  CG ASN A 310     -21.758 -11.071  31.904  1.00 22.67           C
+
+      ATOM   1867  OD1ASN A 310     -22.379 -12.084  32.198  1.00 22.53           O
+
+      ATOM   1868  ND2ASN A 310     -20.557 -11.109  31.334  1.00 23.74           N
+
+      ATOM   6894  H  ASN A 310     -24.138  -7.962  32.667  1.00 26.57           H
+
+      ATOM   6895  HA ASN A 310     -23.632 -10.531  33.706  1.00 25.55           H
+
+      ATOM   6896  HB3ASN A 310     -21.617  -8.913  32.024  1.00 23.38           H
+
+      ATOM   6897  HB2ASN A 310     -23.094  -9.582  31.372  1.00 23.38           H
+
+      ATOM   6898 HD22ASN A 310     -20.237 -12.033  31.030  1.00 23.74           H
+
+      ATOM   6899 HD21ASN A 310     -20.035 -10.293  31.023  1.00 23.74           H'
+    ligand_pdb_block: HETATM    1  O1 WHJ A 601     -19.709 -13.584  29.987  1.00
+      21.30           O
+  - annotated_interaction: null
+    feature: Hydroxyl
+    feature_family: Acceptor
+    matching_atoms:
+    - 13
+    receptor_residue:
+      name_1_letter: N
+      pdb_residue_number: 329
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   2023  N  ASN A 329     -30.011  -8.969  27.051  1.00
+      18.30           N
+
+      ATOM   2024  CA ASN A 329     -29.276  -9.660  26.020  1.00 20.27           C
+
+      ATOM   2025  C  ASN A 329     -30.025  -9.523  24.710  1.00 22.31           C
+
+      ATOM   2026  O  ASN A 329     -29.411  -9.253  23.687  1.00 25.74           O
+
+      ATOM   2027  CB ASN A 329     -29.002 -11.122  26.385  1.00 21.84           C
+
+      ATOM   2028  CG ASN A 329     -27.742 -11.712  25.677  1.00 24.55           C
+
+      ATOM   2029  OD1ASN A 329     -27.275 -12.810  26.031  1.00 22.58           O
+
+      ATOM   2030  ND2ASN A 329     -27.216 -11.004  24.671  1.00 25.41           N
+
+      ATOM   7046  H  ASN A 329     -30.547  -9.511  27.720  1.00 18.30           H
+
+      ATOM   7047  HA ASN A 329     -28.319  -9.155  25.866  1.00 20.27           H
+
+      ATOM   7048  HB3ASN A 329     -29.870 -11.763  26.227  1.00 21.84           H
+
+      ATOM   7049  HB2ASN A 329     -28.776 -11.183  27.450  1.00 21.84           H
+
+      ATOM   7050 HD22ASN A 329     -26.334 -11.367  24.304  1.00 25.41           H
+
+      ATOM   7051 HD21ASN A 329     -27.644 -10.187  24.257  1.00 25.41           H'
+    ligand_pdb_block: HETATM   14  O4 WHJ A 601     -24.433 -12.305  23.985  1.00
+      23.01           O
+  - annotated_interaction: null
+    feature: QuarternaryAmine
+    feature_family: PosCharge
+    matching_atoms:
+    - 15
+    receptor_residue:
+      name_1_letter: D
+      pdb_residue_number: 121
+      chain_id: A
+      insertion_code: ''
+    direction: pos-neg
+    receptor_pdb_block: 'ATOM    661  N  ASP A 121     -22.600 -15.706  18.378  1.00
+      17.40           N
+
+      ATOM    662  CA ASP A 121     -23.112 -14.646  19.241  1.00 18.53           C
+
+      ATOM    663  C  ASP A 121     -21.947 -13.775  19.750  1.00 18.68           C
+
+      ATOM    664  O  ASP A 121     -21.894 -12.583  19.440  1.00 19.64           O
+
+      ATOM    665  CB ASP A 121     -23.887 -15.286  20.392  1.00 19.23           C
+
+      ATOM    666  CG ASP A 121     -24.539 -14.283  21.311  1.00 23.70           C
+
+      ATOM    667  OD1ASP A 121     -24.079 -13.125  21.437  1.00 24.15           O
+
+      ATOM    668  OD2ASP A 121     -25.533 -14.686  21.942  1.00 28.37           O
+
+      ATOM   5700  H  ASP A 121     -22.827 -16.663  18.629  1.00 17.40           H
+
+      ATOM   5701  HA ASP A 121     -23.787 -14.026  18.651  1.00 18.53           H
+
+      ATOM   5702  HB3ASP A 121     -23.252 -15.913  21.007  1.00 19.23           H
+
+      ATOM   5703  HB2ASP A 121     -24.650 -15.953  19.986  1.00 19.23           H'
+    ligand_pdb_block: HETATM   16  N2 WHJ A 601     -25.392 -15.030  24.734  1.00
+      31.78           N
+  - annotated_interaction: null
+    feature: null
+    feature_family: PiCat
+    matching_atoms:
+    - 15
+    receptor_residue:
+      name_1_letter: W
+      pdb_residue_number: 117
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-cation
+    receptor_pdb_block: 'ATOM    626  N  TRP A 117     -23.517 -21.792  17.899  1.00
+      21.99           N
+
+      ATOM    627  CA TRP A 117     -24.415 -20.636  18.081  1.00 19.95           C
+
+      ATOM    628  C  TRP A 117     -23.868 -19.613  19.082  1.00 19.33           C
+
+      ATOM    629  O  TRP A 117     -23.924 -18.403  18.863  1.00 20.33           O
+
+      ATOM    630  CB TRP A 117     -25.823 -21.093  18.499  1.00 18.67           C
+
+      ATOM    631  CG TRP A 117     -26.750 -19.982  18.894  1.00 13.83           C
+
+      ATOM    632  CD1TRP A 117     -27.184 -18.948  18.101  1.00 18.26           C
+
+      ATOM    633  CD2TRP A 117     -27.364 -19.787  20.171  1.00 13.75           C
+
+      ATOM    634  NE1TRP A 117     -28.036 -18.127  18.806  1.00 15.65           N
+
+      ATOM    635  CE2TRP A 117     -28.167 -18.615  20.079  1.00 15.25           C
+
+      ATOM    636  CE3TRP A 117     -27.327 -20.488  21.382  1.00 16.24           C
+
+      ATOM    637  CZ2TRP A 117     -28.921 -18.125  21.158  1.00 13.08           C
+
+      ATOM    638  CZ3TRP A 117     -28.077 -20.000  22.466  1.00 17.25           C
+
+      ATOM    639  CH2TRP A 117     -28.875 -18.830  22.335  1.00 15.97           C
+
+      ATOM   5667  H  TRP A 117     -23.917 -22.721  18.018  1.00 21.99           H
+
+      ATOM   5668  HA TRP A 117     -24.496 -20.115  17.125  1.00 19.95           H
+
+      ATOM   5669  HB3TRP A 117     -25.752 -21.785  19.338  1.00 18.67           H
+
+      ATOM   5670  HB2TRP A 117     -26.290 -21.654  17.689  1.00 18.67           H
+
+      ATOM   5671  HD1TRP A 117     -26.894 -18.835  17.066  1.00 18.26           H
+
+      ATOM   5672  HE1TRP A 117     -28.518 -17.330  18.393  1.00 15.65           H
+
+      ATOM   5673  HE3TRP A 117     -26.718 -21.373  21.492  1.00 16.24           H
+
+      ATOM   5674  HZ2TRP A 117     -29.494 -17.213  21.074  1.00 13.08           H
+
+      ATOM   5675  HZ3TRP A 117     -28.041 -20.516  23.417  1.00 17.25           H
+
+      ATOM   5676  HH2TRP A 117     -29.431 -18.472  23.190  1.00 15.97           H'
+    ligand_pdb_block: HETATM   16  N2 WHJ A 601     -25.392 -15.030  24.734  1.00
+      31.78           N
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 1
+    - 2
+    - 3
+    - 8
+    - 9
+    - 10
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 201
+      chain_id: A
+      insertion_code: ''
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1296  N  PHE A 201     -25.767 -20.943  28.482  1.00
+      29.43           N
+
+      ATOM   1297  CA PHE A 201     -24.487 -20.232  28.555  1.00 25.61           C
+
+      ATOM   1298  C  PHE A 201     -24.193 -19.745  29.983  1.00 24.70           C
+
+      ATOM   1299  O  PHE A 201     -24.003 -18.551  30.253  1.00 22.53           O
+
+      ATOM   1300  CB PHE A 201     -24.374 -19.127  27.497  1.00 24.00           C
+
+      ATOM   1301  CG PHE A 201     -22.965 -18.675  27.240  1.00 21.07           C
+
+      ATOM   1302  CD1PHE A 201     -21.986 -19.594  26.844  1.00 20.51           C
+
+      ATOM   1303  CD2PHE A 201     -22.610 -17.328  27.389  1.00 16.32           C
+
+      ATOM   1304  CE1PHE A 201     -20.662 -19.186  26.591  1.00 18.02           C
+
+      ATOM   1305  CE2PHE A 201     -21.295 -16.902  27.139  1.00 20.50           C
+
+      ATOM   1306  CZ PHE A 201     -20.316 -17.840  26.729  1.00 20.70           C
+
+      ATOM   6311  H  PHE A 201     -25.761 -21.931  28.307  1.00 29.43           H
+
+      ATOM   6312  HA PHE A 201     -23.741 -20.993  28.331  1.00 25.61           H
+
+      ATOM   6313  HB3PHE A 201     -24.990 -18.272  27.774  1.00 24.00           H
+
+      ATOM   6314  HB2PHE A 201     -24.772 -19.487  26.548  1.00 24.00           H
+
+      ATOM   6315  HD1PHE A 201     -22.238 -20.636  26.712  1.00 20.51           H
+
+      ATOM   6316  HD2PHE A 201     -23.341 -16.609  27.733  1.00 16.32           H
+
+      ATOM   6317  HE1PHE A 201     -19.922 -19.910  26.283  1.00 18.02           H
+
+      ATOM   6318  HE2PHE A 201     -21.026 -15.865  27.269  1.00 20.50           H
+
+      ATOM   6319  HZ PHE A 201     -19.303 -17.526  26.530  1.00 20.70           H'
+    ligand_pdb_block: 'HETATM    2  C9 WHJ A 601     -20.352 -13.384  28.942  1.00
+      22.97           C
+
+      HETATM    3  N1 WHJ A 601     -19.752 -12.774  27.909  1.00 24.75           N
+
+      HETATM    4  C7 WHJ A 601     -20.411 -12.534  26.763  1.00 23.50           C
+
+      HETATM    9  C8 WHJ A 601     -21.690 -13.791  28.863  1.00 22.65           C
+
+      HETATM   10  C1 WHJ A 601     -22.437 -13.571  27.715  1.00 23.26           C
+
+      HETATM   11  C2 WHJ A 601     -21.830 -12.936  26.628  1.00 24.35           C'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 1
+    - 2
+    - 3
+    - 8
+    - 9
+    - 10
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 306
+      chain_id: A
+      insertion_code: ''
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1824  N  PHE A 306     -26.647  -4.953  29.413  1.00
+      21.32           N
+
+      ATOM   1825  CA PHE A 306     -26.276  -6.371  29.555  1.00 21.93           C
+
+      ATOM   1826  C  PHE A 306     -24.894  -6.609  30.193  1.00 23.85           C
+
+      ATOM   1827  O  PHE A 306     -24.772  -7.381  31.149  1.00 23.52           O
+
+      ATOM   1828  CB PHE A 306     -26.367  -7.099  28.217  1.00 19.87           C
+
+      ATOM   1829  CG PHE A 306     -25.837  -8.507  28.256  1.00 21.08           C
+
+      ATOM   1830  CD1PHE A 306     -26.647  -9.561  28.701  1.00 21.95           C
+
+      ATOM   1831  CD2PHE A 306     -24.530  -8.785  27.856  1.00 17.94           C
+
+      ATOM   1832  CE1PHE A 306     -26.177 -10.870  28.737  1.00 18.63           C
+
+      ATOM   1833  CE2PHE A 306     -24.044 -10.092  27.885  1.00 21.59           C
+
+      ATOM   1834  CZ PHE A 306     -24.870 -11.141  28.332  1.00 21.23           C
+
+      ATOM   6856  H  PHE A 306     -26.694  -4.584  28.469  1.00 21.32           H
+
+      ATOM   6857  HA PHE A 306     -27.000  -6.835  30.228  1.00 21.93           H
+
+      ATOM   6858  HB3PHE A 306     -25.829  -6.543  27.448  1.00 19.87           H
+
+      ATOM   6859  HB2PHE A 306     -27.393  -7.143  27.871  1.00 19.87           H
+
+      ATOM   6860  HD1PHE A 306     -27.660  -9.372  29.027  1.00 21.95           H
+
+      ATOM   6861  HD2PHE A 306     -23.880  -7.997  27.504  1.00 17.94           H
+
+      ATOM   6862  HE1PHE A 306     -26.816 -11.670  29.084  1.00 18.63           H
+
+      ATOM   6863  HE2PHE A 306     -23.032 -10.301  27.568  1.00 21.59           H
+
+      ATOM   6864  HZ PHE A 306     -24.503 -12.151  28.385  1.00 21.23           H'
+    ligand_pdb_block: 'HETATM    2  C9 WHJ A 601     -20.352 -13.384  28.942  1.00
+      22.97           C
+
+      HETATM    3  N1 WHJ A 601     -19.752 -12.774  27.909  1.00 24.75           N
+
+      HETATM    4  C7 WHJ A 601     -20.411 -12.534  26.763  1.00 23.50           C
+
+      HETATM    9  C8 WHJ A 601     -21.690 -13.791  28.863  1.00 22.65           C
+
+      HETATM   10  C1 WHJ A 601     -22.437 -13.571  27.715  1.00 23.26           C
+
+      HETATM   11  C2 WHJ A 601     -21.830 -12.936  26.628  1.00 24.35           C'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 3
+    - 4
+    - 6
+    - 7
+    - 10
+    - 11
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 306
+      chain_id: A
+      insertion_code: ''
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1824  N  PHE A 306     -26.647  -4.953  29.413  1.00
+      21.32           N
+
+      ATOM   1825  CA PHE A 306     -26.276  -6.371  29.555  1.00 21.93           C
+
+      ATOM   1826  C  PHE A 306     -24.894  -6.609  30.193  1.00 23.85           C
+
+      ATOM   1827  O  PHE A 306     -24.772  -7.381  31.149  1.00 23.52           O
+
+      ATOM   1828  CB PHE A 306     -26.367  -7.099  28.217  1.00 19.87           C
+
+      ATOM   1829  CG PHE A 306     -25.837  -8.507  28.256  1.00 21.08           C
+
+      ATOM   1830  CD1PHE A 306     -26.647  -9.561  28.701  1.00 21.95           C
+
+      ATOM   1831  CD2PHE A 306     -24.530  -8.785  27.856  1.00 17.94           C
+
+      ATOM   1832  CE1PHE A 306     -26.177 -10.870  28.737  1.00 18.63           C
+
+      ATOM   1833  CE2PHE A 306     -24.044 -10.092  27.885  1.00 21.59           C
+
+      ATOM   1834  CZ PHE A 306     -24.870 -11.141  28.332  1.00 21.23           C
+
+      ATOM   6856  H  PHE A 306     -26.694  -4.584  28.469  1.00 21.32           H
+
+      ATOM   6857  HA PHE A 306     -27.000  -6.835  30.228  1.00 21.93           H
+
+      ATOM   6858  HB3PHE A 306     -25.829  -6.543  27.448  1.00 19.87           H
+
+      ATOM   6859  HB2PHE A 306     -27.393  -7.143  27.871  1.00 19.87           H
+
+      ATOM   6860  HD1PHE A 306     -27.660  -9.372  29.027  1.00 21.95           H
+
+      ATOM   6861  HD2PHE A 306     -23.880  -7.997  27.504  1.00 17.94           H
+
+      ATOM   6862  HE1PHE A 306     -26.816 -11.670  29.084  1.00 18.63           H
+
+      ATOM   6863  HE2PHE A 306     -23.032 -10.301  27.568  1.00 21.59           H
+
+      ATOM   6864  HZ PHE A 306     -24.503 -12.151  28.385  1.00 21.23           H'
+    ligand_pdb_block: 'HETATM    4  C7 WHJ A 601     -20.411 -12.534  26.763  1.00
+      23.50           C
+
+      HETATM    5  C6 WHJ A 601     -19.744 -11.870  25.625  1.00 23.20           C
+
+      HETATM    7  C5 WHJ A 601     -20.461 -11.631  24.454  1.00 22.15           C
+
+      HETATM    8  C4 WHJ A 601     -21.800 -12.011  24.319  1.00 23.90           C
+
+      HETATM   11  C2 WHJ A 601     -21.830 -12.936  26.628  1.00 24.35           C
+
+      HETATM   12  C3 WHJ A 601     -22.520 -12.650  25.340  1.00 24.84           C'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 1
+    - 2
+    - 3
+    - 8
+    - 9
+    - 10
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 307
+      chain_id: A
+      insertion_code: ''
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1835  N  PHE A 307     -23.858  -5.957  29.663  1.00
+      23.91           N
+
+      ATOM   1836  CA PHE A 307     -22.518  -6.130  30.219  1.00 23.06           C
+
+      ATOM   1837  C  PHE A 307     -22.360  -5.539  31.621  1.00 24.17           C
+
+      ATOM   1838  O  PHE A 307     -21.569  -6.058  32.412  1.00 23.71           O
+
+      ATOM   1839  CB PHE A 307     -21.413  -5.668  29.239  1.00 22.34           C
+
+      ATOM   1840  CG PHE A 307     -21.281  -6.564  28.017  1.00 18.44           C
+
+      ATOM   1841  CD1PHE A 307     -20.673  -7.816  28.115  1.00 14.84           C
+
+      ATOM   1842  CD2PHE A 307     -21.802  -6.171  26.787  1.00 13.25           C
+
+      ATOM   1843  CE1PHE A 307     -20.582  -8.658  27.011  1.00 12.04           C
+
+      ATOM   1844  CE2PHE A 307     -21.712  -6.994  25.676  1.00 12.33           C
+
+      ATOM   1845  CZ PHE A 307     -21.094  -8.247  25.783  1.00 12.85           C
+
+      ATOM   6865  H  PHE A 307     -23.985  -5.337  28.871  1.00 23.91           H
+
+      ATOM   6866  HA PHE A 307     -22.363  -7.203  30.350  1.00 23.06           H
+
+      ATOM   6867  HB3PHE A 307     -20.448  -5.651  29.746  1.00 22.34           H
+
+      ATOM   6868  HB2PHE A 307     -21.600  -4.641  28.922  1.00 22.34           H
+
+      ATOM   6869  HD1PHE A 307     -20.263  -8.151  29.057  1.00 14.84           H
+
+      ATOM   6870  HD2PHE A 307     -22.248  -5.195  26.679  1.00 13.25           H
+
+      ATOM   6871  HE1PHE A 307     -20.085  -9.612  27.102  1.00 12.04           H
+
+      ATOM   6872  HE2PHE A 307     -22.092  -6.663  24.721  1.00 12.33           H
+
+      ATOM   6873  HZ PHE A 307     -21.007  -8.890  24.919  1.00 12.85           H'
+    ligand_pdb_block: 'HETATM    2  C9 WHJ A 601     -20.352 -13.384  28.942  1.00
+      22.97           C
+
+      HETATM    3  N1 WHJ A 601     -19.752 -12.774  27.909  1.00 24.75           N
+
+      HETATM    4  C7 WHJ A 601     -20.411 -12.534  26.763  1.00 23.50           C
+
+      HETATM    9  C8 WHJ A 601     -21.690 -13.791  28.863  1.00 22.65           C
+
+      HETATM   10  C1 WHJ A 601     -22.437 -13.571  27.715  1.00 23.26           C
+
+      HETATM   11  C2 WHJ A 601     -21.830 -12.936  26.628  1.00 24.35           C'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 3
+    - 4
+    - 6
+    - 7
+    - 10
+    - 11
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 307
+      chain_id: A
+      insertion_code: ''
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1835  N  PHE A 307     -23.858  -5.957  29.663  1.00
+      23.91           N
+
+      ATOM   1836  CA PHE A 307     -22.518  -6.130  30.219  1.00 23.06           C
+
+      ATOM   1837  C  PHE A 307     -22.360  -5.539  31.621  1.00 24.17           C
+
+      ATOM   1838  O  PHE A 307     -21.569  -6.058  32.412  1.00 23.71           O
+
+      ATOM   1839  CB PHE A 307     -21.413  -5.668  29.239  1.00 22.34           C
+
+      ATOM   1840  CG PHE A 307     -21.281  -6.564  28.017  1.00 18.44           C
+
+      ATOM   1841  CD1PHE A 307     -20.673  -7.816  28.115  1.00 14.84           C
+
+      ATOM   1842  CD2PHE A 307     -21.802  -6.171  26.787  1.00 13.25           C
+
+      ATOM   1843  CE1PHE A 307     -20.582  -8.658  27.011  1.00 12.04           C
+
+      ATOM   1844  CE2PHE A 307     -21.712  -6.994  25.676  1.00 12.33           C
+
+      ATOM   1845  CZ PHE A 307     -21.094  -8.247  25.783  1.00 12.85           C
+
+      ATOM   6865  H  PHE A 307     -23.985  -5.337  28.871  1.00 23.91           H
+
+      ATOM   6866  HA PHE A 307     -22.363  -7.203  30.350  1.00 23.06           H
+
+      ATOM   6867  HB3PHE A 307     -20.448  -5.651  29.746  1.00 22.34           H
+
+      ATOM   6868  HB2PHE A 307     -21.600  -4.641  28.922  1.00 22.34           H
+
+      ATOM   6869  HD1PHE A 307     -20.263  -8.151  29.057  1.00 14.84           H
+
+      ATOM   6870  HD2PHE A 307     -22.248  -5.195  26.679  1.00 13.25           H
+
+      ATOM   6871  HE1PHE A 307     -20.085  -9.612  27.102  1.00 12.04           H
+
+      ATOM   6872  HE2PHE A 307     -22.092  -6.663  24.721  1.00 12.33           H
+
+      ATOM   6873  HZ PHE A 307     -21.007  -8.890  24.919  1.00 12.85           H'
+    ligand_pdb_block: 'HETATM    4  C7 WHJ A 601     -20.411 -12.534  26.763  1.00
+      23.50           C
+
+      HETATM    5  C6 WHJ A 601     -19.744 -11.870  25.625  1.00 23.20           C
+
+      HETATM    7  C5 WHJ A 601     -20.461 -11.631  24.454  1.00 22.15           C
+
+      HETATM    8  C4 WHJ A 601     -21.800 -12.011  24.319  1.00 23.90           C
+
+      HETATM   11  C2 WHJ A 601     -21.830 -12.936  26.628  1.00 24.35           C
+
+      HETATM   12  C3 WHJ A 601     -22.520 -12.650  25.340  1.00 24.84           C'

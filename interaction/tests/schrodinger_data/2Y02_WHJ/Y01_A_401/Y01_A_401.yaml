@@ -1,0 +1,143 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: CarbonylLike
+    feature_family: Acceptor
+    matching_atoms:
+    - 34
+    receptor_residue:
+      name_1_letter: X
+      pdb_residue_number: 2020
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   4995  O  HOH A2020      -0.288  -6.288   6.757  1.00
+      26.44           O
+
+      ATOM   9661  H1 HOH A2020      -0.626  -5.338   6.387  1.00 26.44           H
+
+      ATOM   9662  H2 HOH A2020      -1.009  -6.630   7.340  1.00 26.44           H'
+    ligand_pdb_block: HETATM   35  OAFY01 A 401      -0.647  -4.187   5.817  1.00
+      52.74           O
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: Acceptor
+    matching_atoms:
+    - 33
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 157
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM    941  N  ARG A 157      -5.641  -1.410   2.156  1.00
+      35.73           N
+
+      ATOM    942  CA ARG A 157      -5.393  -1.336   3.585  1.00 33.67           C
+
+      ATOM    943  C  ARG A 157      -6.688  -1.386   4.385  1.00 32.90           C
+
+      ATOM    944  O  ARG A 157      -6.743  -2.041   5.434  1.00 35.40           O
+
+      ATOM    945  CB ARG A 157      -4.552  -0.115   3.935  1.00 32.67           C
+
+      ATOM    946  CG ARG A 157      -3.126  -0.227   3.403  1.00 39.77           C
+
+      ATOM    947  CD ARG A 157      -2.171   0.761   4.065  1.00 46.38           C
+
+      ATOM    948  NE ARG A 157      -0.822   0.629   3.515  1.00 51.03           N
+
+      ATOM    949  CZ ARG A 157      -0.174   1.581   2.847  1.00 51.56           C
+
+      ATOM    950  NH1ARG A 157      -0.728   2.771   2.652  1.00 48.23           N
+
+      ATOM    951  NH2ARG A 157       1.048   1.343   2.388  1.00 53.13           N
+
+      ATOM   5969  H  ARG A 157      -5.664  -0.542   1.638  1.00 35.73           H
+
+      ATOM   5970  HA ARG A 157      -4.825  -2.219   3.889  1.00 33.67           H
+
+      ATOM   5971  HB3ARG A 157      -4.496  -0.049   5.024  1.00 32.67           H
+
+      ATOM   5972  HB2ARG A 157      -5.031   0.806   3.598  1.00 32.67           H
+
+      ATOM   5973  HG3ARG A 157      -3.084  -0.163   2.315  1.00 39.77           H
+
+      ATOM   5974  HG2ARG A 157      -2.782  -1.233   3.655  1.00 39.77           H
+
+      ATOM   5975  HD3ARG A 157      -2.081   0.495   5.114  1.00 46.38           H
+
+      ATOM   5976  HD2ARG A 157      -2.590   1.762   4.077  1.00 46.38           H
+
+      ATOM  10178 HH22ARG A 157       1.549   1.996   1.806  1.00 53.13           H
+
+      ATOM  10179 HH21ARG A 157       1.429   0.403   2.461  1.00 53.13           H
+
+      ATOM  10180 HH12ARG A 157      -0.292   3.523   2.132  1.00 48.23           H
+
+      ATOM  10181 HH11ARG A 157      -1.617   3.052   3.093  1.00 48.23           H
+
+      ATOM  10182  HE ARG A 157      -0.397  -0.291   3.713  1.00 51.03           H'
+    ligand_pdb_block: HETATM   34  OAHY01 A 401      -0.063  -2.399   4.601  1.00
+      47.84           O
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: NegCharge
+    matching_atoms:
+    - 33
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 157
+      chain_id: A
+      insertion_code: ''
+    direction: neg-pos
+    receptor_pdb_block: 'ATOM    941  N  ARG A 157      -5.641  -1.410   2.156  1.00
+      35.73           N
+
+      ATOM    942  CA ARG A 157      -5.393  -1.336   3.585  1.00 33.67           C
+
+      ATOM    943  C  ARG A 157      -6.688  -1.386   4.385  1.00 32.90           C
+
+      ATOM    944  O  ARG A 157      -6.743  -2.041   5.434  1.00 35.40           O
+
+      ATOM    945  CB ARG A 157      -4.552  -0.115   3.935  1.00 32.67           C
+
+      ATOM    946  CG ARG A 157      -3.126  -0.227   3.403  1.00 39.77           C
+
+      ATOM    947  CD ARG A 157      -2.171   0.761   4.065  1.00 46.38           C
+
+      ATOM    948  NE ARG A 157      -0.822   0.629   3.515  1.00 51.03           N
+
+      ATOM    949  CZ ARG A 157      -0.174   1.581   2.847  1.00 51.56           C
+
+      ATOM    950  NH1ARG A 157      -0.728   2.771   2.652  1.00 48.23           N
+
+      ATOM    951  NH2ARG A 157       1.048   1.343   2.388  1.00 53.13           N
+
+      ATOM   5969  H  ARG A 157      -5.664  -0.542   1.638  1.00 35.73           H
+
+      ATOM   5970  HA ARG A 157      -4.825  -2.219   3.889  1.00 33.67           H
+
+      ATOM   5971  HB3ARG A 157      -4.496  -0.049   5.024  1.00 32.67           H
+
+      ATOM   5972  HB2ARG A 157      -5.031   0.806   3.598  1.00 32.67           H
+
+      ATOM   5973  HG3ARG A 157      -3.084  -0.163   2.315  1.00 39.77           H
+
+      ATOM   5974  HG2ARG A 157      -2.782  -1.233   3.655  1.00 39.77           H
+
+      ATOM   5975  HD3ARG A 157      -2.081   0.495   5.114  1.00 46.38           H
+
+      ATOM   5976  HD2ARG A 157      -2.590   1.762   4.077  1.00 46.38           H
+
+      ATOM  10178 HH22ARG A 157       1.549   1.996   1.806  1.00 53.13           H
+
+      ATOM  10179 HH21ARG A 157       1.429   0.403   2.461  1.00 53.13           H
+
+      ATOM  10180 HH12ARG A 157      -0.292   3.523   2.132  1.00 48.23           H
+
+      ATOM  10181 HH11ARG A 157      -1.617   3.052   3.093  1.00 48.23           H
+
+      ATOM  10182  HE ARG A 157      -0.397  -0.291   3.713  1.00 51.03           H'
+    ligand_pdb_block: HETATM   34  OAHY01 A 401      -0.063  -2.399   4.601  1.00
+      47.84           O

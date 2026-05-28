@@ -24,6 +24,7 @@ import yaml
 from django.test import SimpleTestCase, TestCase
 
 from interaction.schrodinger_processor import (
+    apply_priority_dedup,
     get_receptor_pdb_block,
     is_standard_residue,
     locate_interaction_yamls,
@@ -103,6 +104,31 @@ class YamlLocationTests(SimpleTestCase):
         self.assertEqual(
             locate_interaction_yamls(SCHRODINGER_DATA_DIR, "6LN2", "ZZZ"), []
         )
+
+
+class ShallowLayoutLocationTests(SimpleTestCase):
+    """Step 2c-1/S1 — locate the YAML in 2Y02's *shallow* layout.
+
+    6LN2 nests the instance dirs one level deeper
+    (``{PDB}_{HET}/{PDB}_{HET}/{HET}_*/...``), but 2Y02 places them directly
+    under the top dir (``{PDB}_{HET}/{HET}_*/...``). ``locate_interaction_yamls``
+    must handle both. 2Y02_WHJ has two ligand instances (chain A + chain B); the
+    non-preferred chain A is dropped later by the chain filter (preferred=B).
+    """
+
+    def test_locates_both_2y02_instances(self):
+        found = locate_interaction_yamls(SCHRODINGER_DATA_DIR, "2Y02", "WHJ")
+        self.assertEqual(len(found), 2, f"expected chain A + B instances, got {found}")
+        names = {os.path.basename(p) for p in found}
+        self.assertEqual(names, {"WHJ_A_601.yaml", "WHJ_B_601.yaml"})
+        for p in found:
+            self.assertTrue(os.path.exists(p))
+
+    def test_nested_6ln2_still_found(self):
+        # Regression: adapting to the shallow layout must not break the nested one.
+        found = locate_interaction_yamls(SCHRODINGER_DATA_DIR, "6LN2", "97Y")
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0].endswith("97Y_A_503/97Y_A_503.yaml"))
 
 
 class StandardResidueTests(SimpleTestCase):
@@ -340,3 +366,161 @@ class BuildStructuresIntegrationTests(TestCase):
 
         source = inspect.getsource(bs)
         self.assertNotIn("process_schrodinger_interactions(", source)
+
+
+class PriorityDedupTests(SimpleTestCase):
+    """Step 2c-1 / A6c — charge-suppression + dedup (ADR-004, views.py:998/1002).
+
+    On a charged residue (CHARGEDAA = ARG/LYS/ASP/GLU; HIS is *not* in it) that
+    also carries a charge slug, protwis forces ``hydrogenmatch = False`` so the
+    contact is recorded as the charge row, not a plain H-bond row. Backbone
+    outranks everything (views.py:1008-1019); aromatic slugs are an independent
+    channel. 6LN2 has no charged interactions, so this path is first exercised by
+    2Y02.
+    """
+
+    def _keys(self, records):
+        return {(r["sequence_number"], r["slug"]) for r in apply_priority_dedup(records)}
+
+    def test_charge_suppresses_hbond_on_charged_residue(self):
+        # 2Y02 D121 (ASP): two Donor H-bonds + one salt bridge -> only the salt bridge.
+        records = [
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_acceptor_protein"},
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_acceptor_protein"},
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_double_neg_protein"},
+        ]
+        self.assertEqual(self._keys(records), {(121, "polar_double_neg_protein")})
+
+    def test_noncharged_residue_keeps_both_hbond_directions(self):
+        # ASN 329 both donates and accepts -> both rows survive (not charged).
+        records = [
+            {"sequence_number": 329, "amino_acid": "N", "slug": "polar_acceptor_protein"},
+            {"sequence_number": 329, "amino_acid": "N", "slug": "polar_donor_protein"},
+        ]
+        self.assertEqual(
+            self._keys(records),
+            {(329, "polar_acceptor_protein"), (329, "polar_donor_protein")},
+        )
+
+    def test_charged_residue_without_charge_slug_keeps_hbond(self):
+        # Gating choice (see Inbox-8): suppression requires an explicit charge
+        # slug, so a lone H-bond to ASP (no salt entry) is NOT dropped -> no data
+        # loss. (views.py would reclassify it to polar_neg_protein; that deeper,
+        # per-atom faithfulness is deferred to the owner.)
+        records = [
+            {"sequence_number": 200, "amino_acid": "D", "slug": "polar_acceptor_protein"},
+        ]
+        self.assertEqual(self._keys(records), {(200, "polar_acceptor_protein")})
+
+    def test_backbone_not_suppressed_by_charge(self):
+        # polar_backbone outranks charge (views.py:1008-1019) and survives even on
+        # a charged residue with a salt bridge. Forward-looking: A6b is deferred so
+        # no polar_backbone slug is produced yet, but the priority must hold.
+        records = [
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_backbone"},
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_double_neg_protein"},
+        ]
+        self.assertEqual(
+            self._keys(records),
+            {(121, "polar_backbone"), (121, "polar_double_neg_protein")},
+        )
+
+    def test_dedup_identical_seq_slug(self):
+        records = [
+            {"sequence_number": 307, "amino_acid": "F", "slug": "aro_ef_protein"},
+            {"sequence_number": 307, "amino_acid": "F", "slug": "aro_ef_protein"},
+        ]
+        self.assertEqual(len(apply_priority_dedup(records)), 1)
+
+    def test_aromatic_channel_untouched_on_charged_residue(self):
+        records = [
+            {"sequence_number": 121, "amino_acid": "D", "slug": "polar_double_neg_protein"},
+            {"sequence_number": 121, "amino_acid": "D", "slug": "aro_ion_protein"},
+        ]
+        self.assertEqual(
+            self._keys(records),
+            {(121, "polar_double_neg_protein"), (121, "aro_ion_protein")},
+        )
+
+
+def _load_2y02_records(preferred_chain="B"):
+    """Parse -> skip-X -> chain-filter -> resolve, aggregating both 2Y02_WHJ
+    instances (chain A + chain B) the way the orchestrator does. No DB, no dedup."""
+    records = []
+    for path in locate_interaction_yamls(SCHRODINGER_DATA_DIR, "2Y02", "WHJ"):
+        with open(path) as fh:
+            interactions = yaml.safe_load(fh)["result"]["interactions"]
+        for entry in interactions:
+            parsed = parse_receptor_residue(entry["receptor_residue"])
+            if not is_standard_residue(parsed["amino_acid"]):
+                continue
+            if not passes_chain_filter(parsed["chain_id"], preferred_chain):
+                continue
+            records.append(
+                {
+                    "sequence_number": parsed["sequence_number"],
+                    "amino_acid": parsed["amino_acid"],
+                    "slug": resolve_slug(entry["feature_family"], entry["direction"]),
+                }
+            )
+    return records
+
+
+class LogicalEndToEnd2Y02Tests(SimpleTestCase):
+    """Step 2c-1 (logical e2e) — the full chain over 2Y02_WHJ, no DB, no golden.
+
+    2Y02 (turkey β1-adrenergic receptor + carmoterol/WHJ) has RFI_rows=0 in the
+    DB, so there is nothing to diff against; instead this verifies the new
+    pipeline against the views.py spec + known β-AR pharmacology. It exercises the
+    two things 6LN2 could not: ADR-002 salt-bridge mapping (D121/D3.32 ->
+    polar_double_neg_protein) and A6c charge-suppression.
+    """
+
+    EXPECTED_2Y02_SET = {
+        (121, "polar_double_neg_protein"),  # Asp3.32 salt bridge (ADR-002), H-bonds suppressed
+        (211, "polar_acceptor_protein"),    # Ser5.42 catechol H-bond
+        (215, "polar_donor_protein"),       # Ser5.46 catechol H-bond
+        (310, "polar_donor_protein"),       # Asn6.55
+        (329, "polar_acceptor_protein"),    # Asn7.39 donates
+        (329, "polar_donor_protein"),       # Asn7.39 accepts
+        (117, "aro_ion_protein"),           # Trp3.28 pi-cation
+        (201, "aro_ef_protein"),            # Phe45.52 (ECL2) edge-to-face
+        (307, "aro_ef_protein"),            # Phe6.52 edge-to-face
+    }
+
+    def _survivor_keys(self, preferred_chain="B"):
+        survivors = apply_priority_dedup(_load_2y02_records(preferred_chain))
+        return {(r["sequence_number"], r["slug"]) for r in survivors}
+
+    def test_pipeline_matches_expected(self):
+        self.assertEqual(self._survivor_keys(), self.EXPECTED_2Y02_SET)
+
+    def test_chain_A_instance_fully_dropped(self):
+        # locate returns both WHJ_A_601 and WHJ_B_601; preferred=B keeps only B.
+        self.assertTrue(self._survivor_keys("B"))
+        self.assertEqual(self._survivor_keys("Z"), set())  # no chain Z -> nothing
+
+    def test_d121_salt_bridge_only(self):
+        # ADR-002 + A6c: D121 yields ONLY the salt bridge, no polar_acceptor_protein.
+        rows_121 = {slug for (seq, slug) in self._survivor_keys() if seq == 121}
+        self.assertEqual(rows_121, {"polar_double_neg_protein"})
+
+    def test_a6c_removes_exactly_the_d121_hbond(self):
+        # Without A6c, D121 would also carry polar_acceptor_protein (10 rows);
+        # A6c removes exactly that one (-> 9 rows). Isolates the suppression.
+        records = _load_2y02_records("B")
+        before = {(r["sequence_number"], r["slug"]) for r in records}
+        after = {
+            (r["sequence_number"], r["slug"]) for r in apply_priority_dedup(records)
+        }
+        self.assertEqual(before - after, {(121, "polar_acceptor_protein")})
+        self.assertEqual(len(after), 9)
+
+    def test_w117_picat_maps_aro_ion(self):
+        rows_117 = {slug for (seq, slug) in self._survivor_keys() if seq == 117}
+        self.assertEqual(rows_117, {"aro_ion_protein"})
+
+    def test_all_slugs_canonical(self):
+        canonical = load_fixture_slugs()
+        for _, slug in self._survivor_keys():
+            self.assertIn(slug, canonical)

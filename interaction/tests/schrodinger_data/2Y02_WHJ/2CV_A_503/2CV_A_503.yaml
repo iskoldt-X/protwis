@@ -1,0 +1,63 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: Hydroxyl
+    feature_family: Acceptor
+    matching_atoms:
+    - 17
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 148
+      chain_id: B
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   3133  N  ARG B 148     -12.615  -5.579  52.306  1.00
+      57.47           N
+
+      ATOM   3134  CA ARG B 148     -13.121  -6.161  51.060  1.00 58.62           C
+
+      ATOM   3135  C  ARG B 148     -12.050  -7.079  50.441  1.00 57.23           C
+
+      ATOM   3136  O  ARG B 148     -12.340  -8.215  50.056  1.00 57.35           O
+
+      ATOM   3137  CB ARG B 148     -13.539  -5.065  50.068  1.00 60.10           C
+
+      ATOM   3138  CG ARG B 148     -14.572  -5.510  49.017  1.00 66.03           C
+
+      ATOM   3139  CD ARG B 148     -16.015  -5.263  49.480  1.00 72.32           C
+
+      ATOM   3140  NE ARG B 148     -16.867  -6.432  49.246  1.00 77.98           N
+
+      ATOM   3141  CZ ARG B 148     -18.088  -6.605  49.759  1.00 79.58           C
+
+      ATOM   3142  NH1ARG B 148     -18.639  -5.680  50.540  1.00 78.00           N
+
+      ATOM   3143  NH2ARG B 148     -18.766  -7.714  49.485  1.00 79.36           N
+
+      ATOM   8188  H  ARG B 148     -12.254  -4.637  52.254  1.00 57.47           H
+
+      ATOM   8189  HA ARG B 148     -13.997  -6.760  51.318  1.00 58.62           H
+
+      ATOM   8190  HB3ARG B 148     -12.656  -4.668  49.565  1.00 60.10           H
+
+      ATOM   8191  HB2ARG B 148     -13.945  -4.216  50.617  1.00 60.10           H
+
+      ATOM   8192  HG3ARG B 148     -14.378  -6.530  48.682  1.00 66.03           H
+
+      ATOM   8193  HG2ARG B 148     -14.411  -4.879  48.141  1.00 66.03           H
+
+      ATOM   8194  HD3ARG B 148     -16.431  -4.430  48.910  1.00 72.32           H
+
+      ATOM   8195  HD2ARG B 148     -16.043  -4.977  50.532  1.00 72.32           H
+
+      ATOM  10281 HH22ARG B 148     -19.701  -7.871  49.834  1.00 79.36           H
+
+      ATOM  10282 HH21ARG B 148     -18.345  -8.525  49.036  1.00 79.36           H
+
+      ATOM  10283 HH12ARG B 148     -19.568  -5.765  50.932  1.00 78.00           H
+
+      ATOM  10284 HH11ARG B 148     -18.148  -4.820  50.740  1.00 78.00           H
+
+      ATOM  10285  HE ARG B 148     -16.439  -7.162  48.689  1.00 77.98           H'
+    ligand_pdb_block: HETATM   18  O632CV A 503     -18.991 -10.831  48.540  1.00
+      78.92           O

@@ -1,0 +1,218 @@
+pdb_id: 2Y02_WHJ
+ligand_interaction_summary:
+- ligand_id: Y01_A_401
+  asl: res.ptype 'Y01' and chain.name 'A' and res.num 401
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - R
+    - 157
+  - !!python/tuple
+    - A
+    - X
+    - 2020
+- ligand_id: Y01_A_402
+  asl: res.ptype 'Y01' and chain.name 'A' and res.num 402
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - R
+    - 155
+- ligand_id: 2CV_A_501
+  asl: res.ptype '2CV' and chain.name 'A' and res.num 501
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - D
+    - 184
+  - !!python/tuple
+    - A
+    - E
+    - 185
+  - !!python/tuple
+    - A
+    - H
+    - 180
+  - !!python/tuple
+    - A
+    - X
+    - 2021
+  - !!python/tuple
+    - B
+    - X
+    - 401
+  - !!python/tuple
+    - B
+    - X
+    - 505
+- ligand_id: 2CV_A_502
+  asl: res.ptype '2CV' and chain.name 'A' and res.num 502
+  interacting_residues: []
+- ligand_id: 2CV_A_503
+  asl: res.ptype '2CV' and chain.name 'A' and res.num 503
+  interacting_residues:
+  - !!python/tuple
+    - B
+    - R
+    - 148
+- ligand_id: 2CV_A_504
+  asl: res.ptype '2CV' and chain.name 'A' and res.num 504
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - A
+    - 327
+- ligand_id: 2CV_A_505
+  asl: res.ptype '2CV' and chain.name 'A' and res.num 505
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - K
+    - 159
+  - !!python/tuple
+    - B
+    - E
+    - 185
+- ligand_id: WHJ_A_601
+  asl: res.ptype 'WHJ' and chain.name 'A' and res.num 601
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - D
+    - 121
+  - !!python/tuple
+    - A
+    - F
+    - 201
+  - !!python/tuple
+    - A
+    - F
+    - 306
+  - !!python/tuple
+    - A
+    - F
+    - 307
+  - !!python/tuple
+    - A
+    - N
+    - 310
+  - !!python/tuple
+    - A
+    - N
+    - 329
+  - !!python/tuple
+    - A
+    - S
+    - 211
+  - !!python/tuple
+    - A
+    - S
+    - 215
+  - !!python/tuple
+    - A
+    - W
+    - 117
+- ligand_id: Y01_B_401
+  asl: res.ptype 'Y01' and chain.name 'B' and res.num 401
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - X
+    - 501
+  - !!python/tuple
+    - A
+    - X
+    - 2011
+  - !!python/tuple
+    - A
+    - X
+    - 2021
+  - !!python/tuple
+    - B
+    - R
+    - 157
+- ligand_id: Y01_B_402
+  asl: res.ptype 'Y01' and chain.name 'B' and res.num 402
+  interacting_residues:
+  - !!python/tuple
+    - B
+    - R
+    - 155
+- ligand_id: 2CV_B_501
+  asl: res.ptype '2CV' and chain.name 'B' and res.num 501
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - X
+    - 2020
+  - !!python/tuple
+    - B
+    - D
+    - 184
+  - !!python/tuple
+    - B
+    - E
+    - 185
+- ligand_id: 2CV_B_502
+  asl: res.ptype '2CV' and chain.name 'B' and res.num 502
+  interacting_residues: []
+- ligand_id: 2CV_B_503
+  asl: res.ptype '2CV' and chain.name 'B' and res.num 503
+  interacting_residues:
+  - !!python/tuple
+    - B
+    - F
+    - 315
+  - !!python/tuple
+    - B
+    - R
+    - 205
+- ligand_id: 2CV_B_504
+  asl: res.ptype '2CV' and chain.name 'B' and res.num 504
+  interacting_residues: []
+- ligand_id: 2CV_B_505
+  asl: res.ptype '2CV' and chain.name 'B' and res.num 505
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - E
+    - 185
+  - !!python/tuple
+    - A
+    - X
+    - 501
+- ligand_id: WHJ_B_601
+  asl: res.ptype 'WHJ' and chain.name 'B' and res.num 601
+  interacting_residues:
+  - !!python/tuple
+    - B
+    - D
+    - 121
+  - !!python/tuple
+    - B
+    - F
+    - 201
+  - !!python/tuple
+    - B
+    - F
+    - 307
+  - !!python/tuple
+    - B
+    - N
+    - 310
+  - !!python/tuple
+    - B
+    - N
+    - 329
+  - !!python/tuple
+    - B
+    - S
+    - 211
+  - !!python/tuple
+    - B
+    - S
+    - 215
+  - !!python/tuple
+    - B
+    - W
+    - 117

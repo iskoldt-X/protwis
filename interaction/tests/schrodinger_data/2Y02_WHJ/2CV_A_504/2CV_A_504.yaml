@@ -1,0 +1,35 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: Hydroxyl
+    feature_family: Donor
+    matching_atoms:
+    - 23
+    receptor_residue:
+      name_1_letter: A
+      pdb_residue_number: 327
+      chain_id: A
+      insertion_code: ''
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM   2007  N  ALA A 327     -33.632  -9.951  29.129  1.00
+      28.58           N
+
+      ATOM   2008  CA ALA A 327     -34.150  -8.842  28.313  1.00 27.07           C
+
+      ATOM   2009  C  ALA A 327     -32.999  -8.020  27.716  1.00 26.75           C
+
+      ATOM   2010  O  ALA A 327     -32.982  -7.766  26.496  1.00 25.71           O
+
+      ATOM   2011  CB ALA A 327     -35.113  -7.946  29.123  1.00 23.72           C
+
+      ATOM   7033  H  ALA A 327     -34.032 -10.098  30.051  1.00 28.58           H
+
+      ATOM   7034  HA ALA A 327     -34.711  -9.278  27.484  1.00 27.07           H
+
+      ATOM   7035  HB1ALA A 327     -35.504  -7.137  28.505  1.00 23.72           H
+
+      ATOM   7036  HB2ALA A 327     -35.959  -8.523  29.498  1.00 23.72           H
+
+      ATOM   7037  HB3ALA A 327     -34.604  -7.501  29.975  1.00 23.72           H'
+    ligand_pdb_block: HETATM   24  O632CV A 504     -36.242  -7.247  24.386  1.00
+      62.16           O

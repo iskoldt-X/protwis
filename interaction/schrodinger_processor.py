@@ -49,26 +49,42 @@ logger = logging.getLogger(
 def locate_interaction_yamls(base_dir, pdb_code, het_code):
     """Return the Engine 1 interaction YAML(s) for one (PDB, HET ligand).
 
-    Engine 1 writes one YAML per ligand *instance* in a nested layout::
+    Engine 1 writes one YAML per ligand *instance*, but the depth varies between
+    exports. Two layouts are seen in the wild and both are supported here:
+
+    * **nested** (6LN2)::
 
         {base}/{PDB}_{HET}/{PDB}_{HET}/{HET}_{chain}_{resnum}/{HET}_{chain}_{resnum}.yaml
 
+    * **shallow** (2Y02), one level fewer — instance dirs sit directly under the
+      top ``{PDB}_{HET}`` dir::
+
+        {base}/{PDB}_{HET}/{HET}_{chain}_{resnum}/{HET}_{chain}_{resnum}.yaml
+
     A single HET can occur multiple times in a PDB (different chain/resnum), so
-    this returns a sorted list (possibly several instances). No DB access.
+    this returns a sorted list (possibly several instances). The non-preferred
+    chains are dropped later by ``passes_chain_filter``. No DB access.
     """
     pdb = pdb_code.upper()
     het = het_code.upper()
-    # Engine 1 doubles the {PDB}_{HET} directory, then one dir per ligand instance.
-    instances_parent = os.path.join(base_dir, f"{pdb}_{het}", f"{pdb}_{het}")
+    top = os.path.join(base_dir, f"{pdb}_{het}")
+    # Look for instance dirs ({HET}_*) under BOTH the doubled (nested) parent and
+    # the top (shallow) parent. The doubled dir is named {PDB}_{HET} and the
+    # instance dirs are named {HET}_* — they never collide, so each layout only
+    # matches its own instances.
+    instance_parents = [os.path.join(top, f"{pdb}_{het}"), top]
     found = []
-    for inst_dir in sorted(glob.glob(os.path.join(instances_parent, f"{het}_*"))):
-        if not os.path.isdir(inst_dir):
-            continue
-        # The YAML inside an instance dir shares the dir's name: {HET}_{chain}_{resnum}.yaml
-        candidate = os.path.join(inst_dir, os.path.basename(inst_dir) + ".yaml")
-        if os.path.exists(candidate):
-            found.append(candidate)
-    return found
+    seen = set()
+    for parent in instance_parents:
+        for inst_dir in sorted(glob.glob(os.path.join(parent, f"{het}_*"))):
+            if not os.path.isdir(inst_dir):
+                continue
+            # The YAML inside an instance dir shares the dir's name: {HET}_{chain}_{resnum}.yaml
+            candidate = os.path.join(inst_dir, os.path.basename(inst_dir) + ".yaml")
+            if os.path.exists(candidate) and candidate not in seen:
+                seen.add(candidate)
+                found.append(candidate)
+    return sorted(found)
 
 
 # The 20 standard amino acids (1-letter). Engine 1 writes "X" for anything
@@ -124,6 +140,88 @@ def resolve_slug(feature_family, direction):
             f"No interaction_type_map rule for (family={feature_family!r}, "
             f"direction={direction!r}). Known combos: {sorted(lookup)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# A6c — priority / de-duplication (ADR-004), replicating interaction/views.py.
+#
+# protwis classifies each receptor-residue/ligand contact through a priority
+# cascade (views.py:1008-1086):  backbone (protein atom N/O)  >  H-bond
+# (hydrogenmatch)  >  charge (chargedcheck)  >  unspecified.  The key nuance for
+# charged residues is views.py:998/1002: when the residue AA is in CHARGEDAA the
+# code forces ``hydrogenmatch = False`` ("Replace previous match!"), so a polar
+# contact on a charged residue is recorded as a CHARGE row, never a plain H-bond
+# row.  (``remove_hyd`` only strips hydrophobic rows — the H-bond suppression is
+# purely the hydrogenmatch flag.)
+#
+# We replicate this at the slug level: on a charged residue that also carries a
+# charge-family slug (the explicit Engine 1 salt bridge → ADR-002), the residue's
+# plain H-bond slugs are suppressed.  Backbone is the top tier and is never
+# suppressed (A6b still deferred, so no polar_backbone slugs are produced yet,
+# but the ordering is encoded for when it lands).  Aromatic slugs (aro_*) are an
+# independent channel and are untouched.
+# ---------------------------------------------------------------------------
+
+# views.py:71 CHARGEDAA = {'ARG', 'LYS', 'ASP', 'GLU'} — note: HIS is NOT included.
+CHARGED_AA_1LETTER = frozenset("RKDE")
+
+_HBOND_SLUGS = frozenset({"polar_donor_protein", "polar_acceptor_protein"})
+_CHARGE_SLUGS = frozenset(
+    {
+        "polar_double_neg_protein",
+        "polar_double_pos_protein",
+        "polar_pos_protein",
+        "polar_neg_protein",
+        "polar_pos_ligand",
+        "polar_neg_ligand",
+        "polar_unknown_protein",
+    }
+)
+
+
+def apply_priority_dedup(records):
+    """Apply protwis charge-suppression + de-duplication to resolved interactions.
+
+    ``records`` is a list of dicts, each with at least ``sequence_number`` (int),
+    ``amino_acid`` (1-letter str) and ``slug`` (canonical slug str). Returns the
+    surviving records as a list (input order preserved), deduped on
+    ``(sequence_number, slug)``.
+
+    Semantics (ADR-004, mirroring views.py:998/1002/1008-1086):
+
+    * **Charge suppresses H-bond.** On a charged residue (AA in CHARGEDAA) that
+      also carries a charge-family slug, the plain H-bond slugs
+      (``polar_donor_protein`` / ``polar_acceptor_protein``) are dropped — protwis
+      reclassifies them into the charge row. (The salt bridge from the explicit
+      Engine 1 PosCharge/NegCharge entry survives.)
+    * **Backbone outranks everything** and is never suppressed (views.py:1008-1019).
+    * **Aromatic slugs are independent** and pass through untouched.
+    * Identical ``(sequence_number, slug)`` pairs collapse to one row.
+    """
+    records = list(records)
+    # Residues that are charged AND carry an explicit charge slug → their plain
+    # H-bond rows are absorbed into the charge row (views.py hydrogenmatch=False).
+    charge_suppressed_residues = {
+        r["sequence_number"]
+        for r in records
+        if r["amino_acid"].upper() in CHARGED_AA_1LETTER and r["slug"] in _CHARGE_SLUGS
+    }
+
+    survivors = []
+    seen = set()
+    for r in records:
+        if (
+            r["sequence_number"] in charge_suppressed_residues
+            and r["slug"] in _HBOND_SLUGS
+        ):
+            # Charge supersedes the H-bond on this charged residue (A6c).
+            continue
+        key = (r["sequence_number"], r["slug"])
+        if key in seen:
+            continue
+        seen.add(key)
+        survivors.append(r)
+    return survivors
 
 
 def passes_chain_filter(chain_id, preferred_chain):
@@ -267,6 +365,34 @@ def process_schrodinger_sm_interactions(
     # delete and any partial writes — the original rows survive a failed run.
     ResidueFragmentInteraction.objects.filter(structure_ligand_pair=sli).delete()
 
+    # A6c (ADR-004): compute the surviving (seq, slug) set up front (pure / no DB)
+    # so a charge row on a charged residue suppresses its plain H-bond rows. This
+    # mirrors the same parse -> skip-X -> chain-filter -> resolve chain the write
+    # loop below performs, then runs the priority/dedup. resolve_slug stays
+    # fail-loud here too (unknown combos raise before any write).
+    prelim_records = []
+    for interaction_entry in all_interactions:
+        parsed = parse_receptor_residue(interaction_entry["receptor_residue"])
+        if not is_standard_residue(parsed["amino_acid"]):
+            continue
+        if not passes_chain_filter(
+            parsed["chain_id"], current_structure_obj.preferred_chain
+        ):
+            continue
+        prelim_records.append(
+            {
+                "sequence_number": parsed["sequence_number"],
+                "amino_acid": parsed["amino_acid"],
+                "slug": resolve_slug(
+                    interaction_entry["feature_family"],
+                    interaction_entry.get("direction"),
+                ),
+            }
+        )
+    survivor_keys = {
+        (r["sequence_number"], r["slug"]) for r in apply_priority_dedup(prelim_records)
+    }
+
     interactions_created_count = 0
     for interaction_entry in all_interactions:
         receptor_res_info = interaction_entry["receptor_residue"]
@@ -357,6 +483,19 @@ def process_schrodinger_sm_interactions(
         feature_family = interaction_entry["feature_family"]
         direction = interaction_entry.get("direction")
         interaction_type_slug = resolve_slug(feature_family, direction)  # fail-loud on unknown
+
+        # A6c (ADR-004): drop entries the priority/dedup pass discarded — a
+        # charge row on a charged residue suppresses its plain H-bond rows, and
+        # (seq, slug) duplicates collapse. survivor_keys was computed up front.
+        if (pdb_residue_number, interaction_type_slug) not in survivor_keys:
+            logger.info(
+                "A6c suppressing %s on %s residue %s (charge supersedes H-bond, "
+                "or duplicate (seq, slug)).",
+                interaction_type_slug,
+                pdb_code_str,
+                pdb_residue_number,
+            )
+            continue
 
         # A6: use .get() (NOT get_or_create) — the 18 canonical slugs are pre-seeded
         # via the interaction_types.json fixture (Plan B); never mint new slugs here.

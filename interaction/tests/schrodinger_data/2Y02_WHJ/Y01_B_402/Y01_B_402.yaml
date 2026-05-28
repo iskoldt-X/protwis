@@ -1,0 +1,185 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: Acceptor
+    matching_atoms:
+    - 33
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 155
+      chain_id: B
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
+      39.85           N
+
+      ATOM   3195  CA ARG B 155      -5.621 -18.626  47.464  1.00 38.47           C
+
+      ATOM   3196  C  ARG B 155      -6.251 -19.216  46.220  1.00 36.66           C
+
+      ATOM   3197  O  ARG B 155      -5.665 -19.148  45.146  1.00 39.17           O
+
+      ATOM   3198  CB ARG B 155      -4.963 -19.722  48.311  1.00 39.93           C
+
+      ATOM   3199  CG ARG B 155      -3.907 -19.191  49.266  1.00 45.33           C
+
+      ATOM   3200  CD ARG B 155      -3.134 -20.298  50.001  1.00 52.69           C
+
+      ATOM   3201  NE ARG B 155      -1.687 -20.097  49.856  1.00 56.38           N
+
+      ATOM   3202  CZ ARG B 155      -1.017 -19.028  50.289  1.00 56.50           C
+
+      ATOM   3203  NH1ARG B 155      -1.647 -18.040  50.913  1.00 58.28           N
+
+      ATOM   3204  NH2ARG B 155       0.289 -18.940  50.094  1.00 56.31           N
+
+      ATOM   8230  H  ARG B 155      -6.856 -18.201  49.148  1.00 39.85           H
+
+      ATOM   8231  HA ARG B 155      -4.845 -17.942  47.114  1.00 38.47           H
+
+      ATOM   8232  HB3ARG B 155      -4.436 -20.397  47.631  1.00 39.93           H
+
+      ATOM   8233  HB2ARG B 155      -5.702 -20.340  48.824  1.00 39.93           H
+
+      ATOM   8234  HG3ARG B 155      -4.408 -18.558  49.999  1.00 45.33           H
+
+      ATOM   8235  HG2ARG B 155      -3.236 -18.537  48.707  1.00 45.33           H
+
+      ATOM   8236  HD3ARG B 155      -3.390 -21.290  49.622  1.00 52.69           H
+
+      ATOM   8237  HD2ARG B 155      -3.372 -20.296  51.065  1.00 52.69           H
+
+      ATOM  10253 HH22ARG B 155       0.869 -18.224  50.518  1.00 56.31           H
+
+      ATOM  10254 HH21ARG B 155       0.751 -19.715  49.631  1.00 56.31           H
+
+      ATOM  10255 HH12ARG B 155      -1.112 -17.293  51.337  1.00 58.28           H
+
+      ATOM  10256 HH11ARG B 155      -2.624 -18.109  51.140  1.00 58.28           H
+
+      ATOM  10257  HE ARG B 155      -1.251 -20.871  49.307  1.00 56.38           H'
+    ligand_pdb_block: HETATM   34  OAHY01 B 402      -0.995 -22.434  48.250  1.00
+      74.14           O
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: Acceptor
+    matching_atoms:
+    - 33
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 155
+      chain_id: B
+      insertion_code: ''
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
+      39.85           N
+
+      ATOM   3195  CA ARG B 155      -5.621 -18.626  47.464  1.00 38.47           C
+
+      ATOM   3196  C  ARG B 155      -6.251 -19.216  46.220  1.00 36.66           C
+
+      ATOM   3197  O  ARG B 155      -5.665 -19.148  45.146  1.00 39.17           O
+
+      ATOM   3198  CB ARG B 155      -4.963 -19.722  48.311  1.00 39.93           C
+
+      ATOM   3199  CG ARG B 155      -3.907 -19.191  49.266  1.00 45.33           C
+
+      ATOM   3200  CD ARG B 155      -3.134 -20.298  50.001  1.00 52.69           C
+
+      ATOM   3201  NE ARG B 155      -1.687 -20.097  49.856  1.00 56.38           N
+
+      ATOM   3202  CZ ARG B 155      -1.017 -19.028  50.289  1.00 56.50           C
+
+      ATOM   3203  NH1ARG B 155      -1.647 -18.040  50.913  1.00 58.28           N
+
+      ATOM   3204  NH2ARG B 155       0.289 -18.940  50.094  1.00 56.31           N
+
+      ATOM   8230  H  ARG B 155      -6.856 -18.201  49.148  1.00 39.85           H
+
+      ATOM   8231  HA ARG B 155      -4.845 -17.942  47.114  1.00 38.47           H
+
+      ATOM   8232  HB3ARG B 155      -4.436 -20.397  47.631  1.00 39.93           H
+
+      ATOM   8233  HB2ARG B 155      -5.702 -20.340  48.824  1.00 39.93           H
+
+      ATOM   8234  HG3ARG B 155      -4.408 -18.558  49.999  1.00 45.33           H
+
+      ATOM   8235  HG2ARG B 155      -3.236 -18.537  48.707  1.00 45.33           H
+
+      ATOM   8236  HD3ARG B 155      -3.390 -21.290  49.622  1.00 52.69           H
+
+      ATOM   8237  HD2ARG B 155      -3.372 -20.296  51.065  1.00 52.69           H
+
+      ATOM  10253 HH22ARG B 155       0.869 -18.224  50.518  1.00 56.31           H
+
+      ATOM  10254 HH21ARG B 155       0.751 -19.715  49.631  1.00 56.31           H
+
+      ATOM  10255 HH12ARG B 155      -1.112 -17.293  51.337  1.00 58.28           H
+
+      ATOM  10256 HH11ARG B 155      -2.624 -18.109  51.140  1.00 58.28           H
+
+      ATOM  10257  HE ARG B 155      -1.251 -20.871  49.307  1.00 56.38           H'
+    ligand_pdb_block: HETATM   34  OAHY01 B 402      -0.995 -22.434  48.250  1.00
+      74.14           O
+  - annotated_interaction: null
+    feature: NegChargeGeneric
+    feature_family: NegCharge
+    matching_atoms:
+    - 33
+    receptor_residue:
+      name_1_letter: R
+      pdb_residue_number: 155
+      chain_id: B
+      insertion_code: ''
+    direction: neg-pos
+    receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
+      39.85           N
+
+      ATOM   3195  CA ARG B 155      -5.621 -18.626  47.464  1.00 38.47           C
+
+      ATOM   3196  C  ARG B 155      -6.251 -19.216  46.220  1.00 36.66           C
+
+      ATOM   3197  O  ARG B 155      -5.665 -19.148  45.146  1.00 39.17           O
+
+      ATOM   3198  CB ARG B 155      -4.963 -19.722  48.311  1.00 39.93           C
+
+      ATOM   3199  CG ARG B 155      -3.907 -19.191  49.266  1.00 45.33           C
+
+      ATOM   3200  CD ARG B 155      -3.134 -20.298  50.001  1.00 52.69           C
+
+      ATOM   3201  NE ARG B 155      -1.687 -20.097  49.856  1.00 56.38           N
+
+      ATOM   3202  CZ ARG B 155      -1.017 -19.028  50.289  1.00 56.50           C
+
+      ATOM   3203  NH1ARG B 155      -1.647 -18.040  50.913  1.00 58.28           N
+
+      ATOM   3204  NH2ARG B 155       0.289 -18.940  50.094  1.00 56.31           N
+
+      ATOM   8230  H  ARG B 155      -6.856 -18.201  49.148  1.00 39.85           H
+
+      ATOM   8231  HA ARG B 155      -4.845 -17.942  47.114  1.00 38.47           H
+
+      ATOM   8232  HB3ARG B 155      -4.436 -20.397  47.631  1.00 39.93           H
+
+      ATOM   8233  HB2ARG B 155      -5.702 -20.340  48.824  1.00 39.93           H
+
+      ATOM   8234  HG3ARG B 155      -4.408 -18.558  49.999  1.00 45.33           H
+
+      ATOM   8235  HG2ARG B 155      -3.236 -18.537  48.707  1.00 45.33           H
+
+      ATOM   8236  HD3ARG B 155      -3.390 -21.290  49.622  1.00 52.69           H
+
+      ATOM   8237  HD2ARG B 155      -3.372 -20.296  51.065  1.00 52.69           H
+
+      ATOM  10253 HH22ARG B 155       0.869 -18.224  50.518  1.00 56.31           H
+
+      ATOM  10254 HH21ARG B 155       0.751 -19.715  49.631  1.00 56.31           H
+
+      ATOM  10255 HH12ARG B 155      -1.112 -17.293  51.337  1.00 58.28           H
+
+      ATOM  10256 HH11ARG B 155      -2.624 -18.109  51.140  1.00 58.28           H
+
+      ATOM  10257  HE ARG B 155      -1.251 -20.871  49.307  1.00 56.38           H'
+    ligand_pdb_block: HETATM   34  OAHY01 B 402      -0.995 -22.434  48.250  1.00
+      74.14           O
