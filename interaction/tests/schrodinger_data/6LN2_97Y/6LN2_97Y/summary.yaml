@@ -1,0 +1,25 @@
+pdb_id: 6LN2_97Y
+ligand_interaction_summary:
+- ligand_id: 97Y_A_503
+  asl: res.ptype '97Y' and chain.name 'A' and res.num 503
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - F
+    - 347
+  - !!python/tuple
+    - A
+    - L
+    - 401
+  - !!python/tuple
+    - A
+    - N
+    - 406
+  - !!python/tuple
+    - A
+    - N
+    - 407
+  - !!python/tuple
+    - A
+    - T
+    - 355

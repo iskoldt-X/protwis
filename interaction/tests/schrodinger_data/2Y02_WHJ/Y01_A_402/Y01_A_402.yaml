@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 155
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: NE
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM    925  N  ARG A 155      -7.661   1.388  -0.417  1.00
       46.38           N
@@ -71,6 +72,7 @@ result:
       pdb_residue_number: 155
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: neg-pos
     receptor_pdb_block: 'ATOM    925  N  ARG A 155      -7.661   1.388  -0.417  1.00
       46.38           N

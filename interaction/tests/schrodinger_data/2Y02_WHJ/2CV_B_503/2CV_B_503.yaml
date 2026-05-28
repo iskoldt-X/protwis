@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 315
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   4270  N  PHE B 315       6.034   2.140   9.557  1.00
       41.61           N
@@ -63,6 +64,7 @@ result:
       pdb_residue_number: 205
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3598  N  ARG B 205       2.541  -5.780   8.385  1.00
       22.15           N
@@ -124,6 +126,7 @@ result:
       pdb_residue_number: 205
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH1
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3598  N  ARG B 205       2.541  -5.780   8.385  1.00
       22.15           N

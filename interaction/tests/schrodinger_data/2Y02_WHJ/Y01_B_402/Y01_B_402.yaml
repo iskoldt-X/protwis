@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 155
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
       39.85           N
@@ -71,6 +72,7 @@ result:
       pdb_residue_number: 155
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NE
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
       39.85           N
@@ -132,6 +134,7 @@ result:
       pdb_residue_number: 155
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: neg-pos
     receptor_pdb_block: 'ATOM   3194  N  ARG B 155      -6.609 -17.870  48.228  1.00
       39.85           N

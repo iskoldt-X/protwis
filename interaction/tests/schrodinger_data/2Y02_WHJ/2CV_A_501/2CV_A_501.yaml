@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 401
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OAF
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   4816  CAAY01 B 401      -5.749  -6.696  25.936  1.00
       18.95           C
@@ -191,6 +192,7 @@ result:
       pdb_residue_number: 184
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OD1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1167  N  ASP A 184     -18.281 -24.182  34.096  1.00
       32.43           N
@@ -228,6 +230,7 @@ result:
       pdb_residue_number: 185
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OE1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1175  N  GLU A 185     -18.197 -25.568  37.437  1.00
       42.38           N
@@ -271,6 +274,7 @@ result:
       pdb_residue_number: 180
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1118  N  HIE A 180     -13.535 -24.874  25.998  1.00
       32.37           N
@@ -318,6 +322,7 @@ result:
       pdb_residue_number: 2021
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   5005  O  HOH A2021     -14.108 -18.407  37.710  1.00
       26.10           O
@@ -337,6 +342,7 @@ result:
       pdb_residue_number: 505
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: O53
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4946  C9 2CV B 505      -1.642 -21.778  29.024  1.00
       31.34           C

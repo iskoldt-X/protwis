@@ -24,6 +24,7 @@ import yaml
 from django.test import SimpleTestCase, TestCase
 
 from interaction.schrodinger_processor import (
+    apply_backbone_override,
     apply_priority_dedup,
     get_receptor_pdb_block,
     is_standard_residue,
@@ -292,20 +293,26 @@ class TransactionAndIdempotencyTests(SimpleTestCase):
 
 class LogicalEndToEndTests(SimpleTestCase):
     """Step A10 (logical) — the full parse -> skip-X -> chain-filter -> resolve ->
-    dedup chain over the real 6LN2_97Y YAML yields the expected (seq, slug) set,
-    with no DB. The DB-writing e2e is the ``schrodinger_compare`` management
-    command (run against the populated GPCRdb DB as a rolled-back dry run).
+    backbone-override -> dedup chain over the real 6LN2_97Y YAML yields the
+    expected (seq, slug) set, with no DB. The DB-writing e2e is the
+    ``schrodinger_compare`` management command (run against the populated GPCRdb
+    DB as a rolled-back dry run).
 
-    The 6 YAML interactions collapse to 5 rows: residue 407's two Acceptor entries
-    (AmideO + Carbonyl) both route to ``polar_donor_protein`` and dedup to one.
+    Post Phase 1a-main (ADR-005 + A6b backbone override): the 6 YAML interactions
+    yield 6 distinct rows. L401's H-bond is on a main-chain O and N407 has one
+    entry on a main-chain N — both are reclassified to ``polar_backbone`` (views.py
+    priority chain :1008-1019, backbone first). N407's other entry (on side-chain
+    ND2) keeps ``polar_donor_protein``, so 407 ends up with two distinct rows:
+    one backbone, one donor. Nothing dedups (all six (seq, slug) pairs distinct).
     """
 
     EXPECTED_NEW_SET = {
         (347, "aro_ef_protein"),
-        (355, "polar_acceptor_protein"),
-        (401, "polar_acceptor_protein"),
-        (406, "polar_acceptor_protein"),
-        (407, "polar_donor_protein"),
+        (355, "polar_acceptor_protein"),       # T355 OG1 sidechain
+        (401, "polar_backbone"),               # L401 O (backbone) — A6b override
+        (406, "polar_acceptor_protein"),       # N406 OD1 sidechain
+        (407, "polar_backbone"),               # N407 N (backbone) — A6b override
+        (407, "polar_donor_protein"),          # N407 ND2 sidechain — untouched
     }
 
     def _run_logical_pipeline(self, preferred_chain="A"):
@@ -317,21 +324,130 @@ class LogicalEndToEndTests(SimpleTestCase):
             if not passes_chain_filter(parsed["chain_id"], preferred_chain):
                 continue
             slug = resolve_slug(entry["feature_family"], entry["direction"])
+            slug = apply_backbone_override(slug, entry.get("receptor_atom_name"))
             result.add((parsed["sequence_number"], slug))  # set membership = dedup
         return result
 
     def test_logical_pipeline_matches_expected(self):
         self.assertEqual(self._run_logical_pipeline(), self.EXPECTED_NEW_SET)
 
-    def test_407_two_entries_dedup_to_one(self):
-        # Two Acceptor entries on residue 407 -> one polar_donor_protein row.
-        rows_407 = [r for r in self._run_logical_pipeline() if r[0] == 407]
-        self.assertEqual(rows_407, [(407, "polar_donor_protein")])
+    def test_407_splits_into_backbone_and_donor(self):
+        # Post-A6b: the two Acceptor entries on residue 407 carry different slugs
+        # (one is on main-chain N → polar_backbone; the other on side-chain ND2 →
+        # polar_donor_protein), so dedup does NOT collapse them.
+        rows_407 = {slug for (seq, slug) in self._run_logical_pipeline() if seq == 407}
+        self.assertEqual(rows_407, {"polar_backbone", "polar_donor_protein"})
+
+    def test_401_promoted_to_backbone(self):
+        # L401 has no polar sidechain (Leu); its H-bond is on the main-chain
+        # carbonyl O → polar_backbone (Step A10 prediction validated).
+        rows_401 = {slug for (seq, slug) in self._run_logical_pipeline() if seq == 401}
+        self.assertEqual(rows_401, {"polar_backbone"})
+
+    def test_sidechain_hbond_not_promoted(self):
+        # N406 OD1 is a sidechain H-bond; A6b must not touch it.
+        rows_406 = {slug for (seq, slug) in self._run_logical_pipeline() if seq == 406}
+        self.assertEqual(rows_406, {"polar_acceptor_protein"})
 
     def test_all_new_slugs_are_canonical(self):
         canonical = load_fixture_slugs()
         for _, slug in self.EXPECTED_NEW_SET:
             self.assertIn(slug, canonical)
+
+
+class BackboneOverrideTests(SimpleTestCase):
+    """ADR-005 / A6b — main-chain N or O ⇒ ``polar_backbone`` overrides the
+    donor/acceptor slug. This mirrors protwis views.py:1008-1019 where the
+    elif-chain checks backbone first; we get the equivalent ordering by
+    applying it as a post-routing override.
+
+    Phase 1a-main: the deterministic A6b implementation depends on the new
+    ``receptor_atom_name`` field emitted by the wrapper (ADR-005). Before that
+    field landed, A6b had to be deferred — the old code couldn't tell a
+    main-chain H-bond from a side-chain one without re-parsing the
+    ``receptor_pdb_block`` and matching atoms by index (the ADR-005 Option 2
+    geometry-reconstruction path, rejected because of the RDKit/Schrödinger
+    dual-index hazard).
+    """
+
+    def test_main_chain_n_promotes_donor(self):
+        # Acceptor entry whose protein partner is the backbone N becomes
+        # polar_backbone (protein donates H via main-chain N).
+        self.assertEqual(
+            apply_backbone_override("polar_donor_protein", "N"), "polar_backbone"
+        )
+
+    def test_main_chain_o_promotes_acceptor(self):
+        # Donor entry whose protein partner is the backbone carbonyl O.
+        self.assertEqual(
+            apply_backbone_override("polar_acceptor_protein", "O"), "polar_backbone"
+        )
+
+    def test_sidechain_o_not_promoted(self):
+        # ASP OD1/OD2, GLU OE1/OE2, SER/THR OG/OG1, etc. — single-letter O
+        # detection must NOT trigger; we match the exact atom name.
+        for atom in ("OD1", "OD2", "OE1", "OG", "OG1", "OH"):
+            self.assertEqual(
+                apply_backbone_override("polar_acceptor_protein", atom),
+                "polar_acceptor_protein",
+                f"atom={atom} should not promote",
+            )
+
+    def test_sidechain_n_not_promoted(self):
+        for atom in ("ND1", "ND2", "NE", "NE1", "NE2", "NH1", "NH2", "NZ"):
+            self.assertEqual(
+                apply_backbone_override("polar_donor_protein", atom),
+                "polar_donor_protein",
+                f"atom={atom} should not promote",
+            )
+
+    def test_whitespace_stripped(self):
+        # Some Schrödinger atom name fields ship with padding; .strip() guard
+        # is essential (and is also done at the wrapper side via .pdbname.strip()).
+        self.assertEqual(
+            apply_backbone_override("polar_donor_protein", " N "), "polar_backbone"
+        )
+
+    def test_missing_atom_name_no_op(self):
+        # Old fixtures without the ADR-005 field must not crash.
+        self.assertEqual(
+            apply_backbone_override("polar_donor_protein", None),
+            "polar_donor_protein",
+        )
+        self.assertEqual(
+            apply_backbone_override("polar_donor_protein", ""),
+            "polar_donor_protein",
+        )
+
+    def test_carbon_atoms_not_promoted(self):
+        # Aromatic/PiCat entries carry carbon atoms (CG / CD1 / CD2 / CZ). The
+        # override must only fire for N/O — never CA / C / S.
+        for atom in ("CA", "C", "CB", "CG", "CD2", "CZ", "SD", "SG"):
+            self.assertEqual(
+                apply_backbone_override("aro_ef_protein", atom),
+                "aro_ef_protein",
+                f"atom={atom} should not promote",
+            )
+
+    def test_only_polar_hbond_slugs_affected(self):
+        # Salt/aromatic/picat slugs must be left alone even if atom name is N/O
+        # (defensive — in practice they don't appear with backbone N/O, but the
+        # override semantics are scoped to donor/acceptor by views.py:1008-1019).
+        for slug in (
+            "polar_double_neg_protein",
+            "polar_double_pos_protein",
+            "aro_ef_protein",
+            "aro_ff_protein",
+            "aro_ion_protein",
+        ):
+            self.assertEqual(
+                apply_backbone_override(slug, "N"), slug, f"slug={slug} should pass through"
+            )
+
+    def test_polar_backbone_is_in_canonical_fixture(self):
+        # Plan B fixture must seed the slug or A6 will fail-loud at DB insert.
+        canonical = load_fixture_slugs()
+        self.assertIn("polar_backbone", canonical)
 
 
 class BuildStructuresIntegrationTests(TestCase):
@@ -450,8 +566,9 @@ class PriorityDedupTests(SimpleTestCase):
 
 
 def _load_2y02_records(preferred_chain="B"):
-    """Parse -> skip-X -> chain-filter -> resolve, aggregating both 2Y02_WHJ
-    instances (chain A + chain B) the way the orchestrator does. No DB, no dedup."""
+    """Parse -> skip-X -> chain-filter -> resolve -> backbone-override, aggregating
+    both 2Y02_WHJ instances (chain A + chain B) the way the orchestrator does.
+    No DB, no dedup. Mirrors processor:349 + 448 + backbone override (A6b)."""
     records = []
     for path in locate_interaction_yamls(SCHRODINGER_DATA_DIR, "2Y02", "WHJ"):
         with open(path) as fh:
@@ -462,11 +579,13 @@ def _load_2y02_records(preferred_chain="B"):
                 continue
             if not passes_chain_filter(parsed["chain_id"], preferred_chain):
                 continue
+            slug = resolve_slug(entry["feature_family"], entry["direction"])
+            slug = apply_backbone_override(slug, entry.get("receptor_atom_name"))
             records.append(
                 {
                     "sequence_number": parsed["sequence_number"],
                     "amino_acid": parsed["amino_acid"],
-                    "slug": resolve_slug(entry["feature_family"], entry["direction"]),
+                    "slug": slug,
                 }
             )
     return records
@@ -541,3 +660,15 @@ class LogicalEndToEnd2Y02Tests(SimpleTestCase):
         canonical = load_fixture_slugs()
         for _, slug in self._survivor_keys():
             self.assertIn(slug, canonical)
+
+    def test_a6b_does_not_touch_2y02(self):
+        # Sanity check that the backbone override is correctly *scoped*. 2Y02's
+        # H-bonds are all on side-chain oxygens (D121 OD1/OD2 carboxyl, S211/S215
+        # OG hydroxyl, N310/N329 OD1/ND2 amide) or aromatic carbons (W117/F201/F307
+        # CG/CD2). None are main-chain N or O. So A6b must promote zero rows
+        # here — the EXPECTED_2Y02_SET above carries no ``polar_backbone`` entry,
+        # which validates the ADR-005 / ADR-008 decoupling: charge-assisted h-bond
+        # on D121 stays as polar_acceptor_protein + polar_double_neg_protein
+        # rather than being collapsed into polar_backbone.
+        backbones = [slug for (_, slug) in self._survivor_keys() if slug == "polar_backbone"]
+        self.assertEqual(backbones, [])

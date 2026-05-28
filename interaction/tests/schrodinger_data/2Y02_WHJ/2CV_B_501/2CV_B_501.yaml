@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 184
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OD1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   3436  N  ASP B 184       4.189 -12.038   5.794  1.00
       30.02           N
@@ -47,6 +48,7 @@ result:
       pdb_residue_number: 185
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OE2
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   3444  N  GLU B 185       3.823 -10.853   2.334  1.00
       40.92           N
@@ -90,6 +92,7 @@ result:
       pdb_residue_number: 2020
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   5010  O  HOH A2020      -0.288  -6.288   6.757  1.00
       26.44           O

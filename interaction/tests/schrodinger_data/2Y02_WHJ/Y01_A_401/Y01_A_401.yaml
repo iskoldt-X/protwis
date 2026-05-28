@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 2020
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4995  O  HOH A2020      -0.288  -6.288   6.757  1.00
       26.44           O
@@ -29,6 +30,7 @@ result:
       pdb_residue_number: 157
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: NE
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM    941  N  ARG A 157      -5.641  -1.410   2.156  1.00
       35.73           N
@@ -90,6 +92,7 @@ result:
       pdb_residue_number: 157
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: neg-pos
     receptor_pdb_block: 'ATOM    941  N  ARG A 157      -5.641  -1.410   2.156  1.00
       35.73           N

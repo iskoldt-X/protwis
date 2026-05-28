@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 2011
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4994  O  HOH A2011     -17.421 -18.937  38.903  1.00
       31.37           O
@@ -29,6 +30,7 @@ result:
       pdb_residue_number: 2021
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4996  O  HOH A2021     -14.108 -18.407  37.710  1.00
       26.10           O
@@ -48,6 +50,7 @@ result:
       pdb_residue_number: 501
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O44
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4711  C9 2CV A 501     -10.551 -16.277  28.491  1.00
       17.41           C
@@ -187,6 +190,7 @@ result:
       pdb_residue_number: 157
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NE
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3210  N  ARG B 157      -8.717 -18.177  44.415  1.00
       27.86           N
@@ -248,6 +252,7 @@ result:
       pdb_residue_number: 157
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: neg-pos
     receptor_pdb_block: 'ATOM   3210  N  ARG B 157      -8.717 -18.177  44.415  1.00
       27.86           N

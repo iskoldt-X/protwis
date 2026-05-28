@@ -142,6 +142,42 @@ def resolve_slug(feature_family, direction):
         )
 
 
+# A6b (ADR-005) — main-chain N/O H-bonds reclassify to ``polar_backbone``.
+#
+# views.py:1008-1019 puts backbone first in the slug elif-chain (it wins over
+# donor/acceptor). resolve_slug above can't know about it: backbone vs sidechain
+# is a property of which receptor atom the H-bond lands on, and the (family,
+# direction) pair alone doesn't carry that. Pre-ADR-005 the wrapper YAML didn't
+# expose the receptor atom name either — the only signal was the verbose
+# receptor_pdb_block, which would have forced fragile re-parsing here.
+#
+# ADR-005 closed that gap: the wrapper now emits ``receptor_atom_name`` per
+# interaction (a `.pdbname.strip()` off the actual Schrödinger atom that
+# resolve_slug already pointed at). With that field present, A6b reduces to a
+# tiny post-routing override applied at each resolve_slug call site.
+_BACKBONE_PROMOTABLE_SLUGS = frozenset({
+    "polar_donor_protein",     # protein donates H from main-chain N
+    "polar_acceptor_protein",  # protein accepts H at main-chain carbonyl O
+})
+_BACKBONE_ATOM_NAMES = frozenset({"N", "O"})
+
+
+def apply_backbone_override(slug, receptor_atom_name):
+    """Promote a polar H-bond slug to ``polar_backbone`` when the protein
+    partner is a main-chain N or O. No-op for any other slug or atom.
+
+    ``receptor_atom_name`` may be ``None`` or empty (old YAML fixtures without
+    the ADR-005 field) — those silently pass through unchanged, so adding A6b
+    cannot break replays of older inputs.
+    """
+    if slug not in _BACKBONE_PROMOTABLE_SLUGS:
+        return slug
+    name = (receptor_atom_name or "").strip()
+    if name in _BACKBONE_ATOM_NAMES:
+        return "polar_backbone"
+    return slug
+
+
 # ---------------------------------------------------------------------------
 # A6c — de-duplication only (ADR-008 / ADR-009; reverts the earlier 2c-1
 # "charge suppresses h-bond" branch).
@@ -342,14 +378,18 @@ def process_schrodinger_sm_interactions(
             parsed["chain_id"], current_structure_obj.preferred_chain
         ):
             continue
+        prelim_slug = resolve_slug(
+            interaction_entry["feature_family"],
+            interaction_entry.get("direction"),
+        )
+        prelim_slug = apply_backbone_override(
+            prelim_slug, interaction_entry.get("receptor_atom_name")
+        )
         prelim_records.append(
             {
                 "sequence_number": parsed["sequence_number"],
                 "amino_acid": parsed["amino_acid"],
-                "slug": resolve_slug(
-                    interaction_entry["feature_family"],
-                    interaction_entry.get("direction"),
-                ),
+                "slug": prelim_slug,
             }
         )
     survivor_keys = {
@@ -443,9 +483,15 @@ def process_schrodinger_sm_interactions(
         # 2. Map interaction type via the Plan C map: (family, direction) -> canonical slug.
         # The `feature` name is chemical detail and intentionally NOT used for routing
         # (so a comma-joined feature string can never corrupt the slug — trap H2 / A4).
+        # A6b (ADR-005): promote main-chain N/O H-bonds to polar_backbone before
+        # the dedup keys are checked — survivor_keys above was computed with the
+        # same override, so the two passes stay in lockstep.
         feature_family = interaction_entry["feature_family"]
         direction = interaction_entry.get("direction")
         interaction_type_slug = resolve_slug(feature_family, direction)  # fail-loud on unknown
+        interaction_type_slug = apply_backbone_override(
+            interaction_type_slug, interaction_entry.get("receptor_atom_name")
+        )
 
         # A6c (ADR-008 / ADR-009): drop entries the dedup pass collapsed —
         # only identical (seq, slug) duplicates are removed; distinct slugs on

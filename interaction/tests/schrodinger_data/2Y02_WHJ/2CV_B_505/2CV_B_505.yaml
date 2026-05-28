@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 185
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OE2
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1175  N  GLU A 185     -18.197 -25.568  37.437  1.00
       42.38           N
@@ -53,6 +54,7 @@ result:
       pdb_residue_number: 185
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OE2
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1175  N  GLU A 185     -18.197 -25.568  37.437  1.00
       42.38           N
@@ -96,6 +98,7 @@ result:
       pdb_residue_number: 185
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OE1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   1175  N  GLU A 185     -18.197 -25.568  37.437  1.00
       42.38           N
@@ -139,6 +142,7 @@ result:
       pdb_residue_number: 501
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O51
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   4711  C9 2CV A 501     -10.551 -16.277  28.491  1.00
       17.41           C

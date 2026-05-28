@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 327
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   2007  N  ALA A 327     -33.632  -9.951  29.129  1.00
       28.58           N

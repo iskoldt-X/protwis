@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 211
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OG
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   3644  N  SER B 211      -0.346  -7.054  17.373  1.00
       16.88           N
@@ -45,6 +46,7 @@ result:
       pdb_residue_number: 121
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OD1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   2930  N  ASP B 121       8.270 -17.122  22.831  1.00
       20.62           N
@@ -82,6 +84,7 @@ result:
       pdb_residue_number: 121
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OD2
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   2930  N  ASP B 121       8.270 -17.122  22.831  1.00
       20.62           N
@@ -119,6 +122,7 @@ result:
       pdb_residue_number: 329
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OD1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   4394  N  ASN B 329      15.519  -6.214  21.090  1.00
       24.00           N
@@ -160,6 +164,7 @@ result:
       pdb_residue_number: 215
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OG
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3672  N  SER B 215      -0.599  -7.379  22.841  1.00
       21.40           N
@@ -195,6 +200,7 @@ result:
       pdb_residue_number: 310
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: ND2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4232  N  ASN B 310       9.519  -1.503  16.770  1.00
       29.02           N
@@ -236,6 +242,7 @@ result:
       pdb_residue_number: 329
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: ND2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   4394  N  ASN B 329      15.519  -6.214  21.090  1.00
       24.00           N
@@ -277,6 +284,7 @@ result:
       pdb_residue_number: 121
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: OD2
     direction: pos-neg
     receptor_pdb_block: 'ATOM   2930  N  ASP B 121       8.270 -17.122  22.831  1.00
       20.62           N
@@ -314,6 +322,7 @@ result:
       pdb_residue_number: 117
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: CD2
     direction: ligand-cation
     receptor_pdb_block: 'ATOM   2895  N  TRP B 117       9.285 -21.815  19.002  1.00
       25.57           N
@@ -380,6 +389,7 @@ result:
       pdb_residue_number: 201
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: CG
     direction: edge-to-face
     receptor_pdb_block: 'ATOM   3565  N  PHE B 201      11.688 -13.345  12.080  1.00
       35.03           N
@@ -448,6 +458,7 @@ result:
       pdb_residue_number: 307
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: CG
     direction: edge-to-face
     receptor_pdb_block: 'ATOM   4206  N  PHE B 307       9.361  -2.292  21.448  1.00
       21.99           N
@@ -516,6 +527,7 @@ result:
       pdb_residue_number: 307
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: CG
     direction: edge-to-face
     receptor_pdb_block: 'ATOM   4206  N  PHE B 307       9.361  -2.292  21.448  1.00
       21.99           N

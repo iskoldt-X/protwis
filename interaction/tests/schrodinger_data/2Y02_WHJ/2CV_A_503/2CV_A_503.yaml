@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 148
       chain_id: B
       insertion_code: ''
+    receptor_atom_name: NH2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3133  N  ARG B 148     -12.615  -5.579  52.306  1.00
       57.47           N

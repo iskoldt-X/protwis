@@ -10,6 +10,7 @@ result:
       pdb_residue_number: 406
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OD1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   3057  N  ASN A 406      13.867  26.104  94.975  1.00170.06           N
 
@@ -49,6 +50,7 @@ result:
       pdb_residue_number: 355
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: OG1
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   2704  N  THR A 355      24.881  22.455  88.894  1.00132.26           N
 
@@ -70,7 +72,7 @@ result:
 
       ATOM   9042  HB THR A 355      22.287  22.137  89.016  1.00141.85           H
 
-      ATOM   9043  HG1THR A 355      23.221  20.958  90.527  1.00145.60           H
+      ATOM   9043  HG1THR A 355      23.222  20.958  90.527  1.00145.60           H
 
       ATOM   9044 HG21THR A 355      20.878  20.378  88.145  1.00140.92           H
 
@@ -88,6 +90,7 @@ result:
       pdb_residue_number: 401
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: O
     direction: ligand-donor
     receptor_pdb_block: 'ATOM   3018  N  LEU A 401      15.412  24.739  88.779  1.00152.00           N
 
@@ -119,6 +122,7 @@ result:
       pdb_residue_number: 407
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: N
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3065  N  ASN A 407      14.088  26.353  98.487  1.00170.04           N
 
@@ -158,6 +162,7 @@ result:
       pdb_residue_number: 407
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: ND2
     direction: ligand-acceptor
     receptor_pdb_block: 'ATOM   3065  N  ASN A 407      14.088  26.353  98.487  1.00170.04           N
 
@@ -201,6 +206,7 @@ result:
       pdb_residue_number: 347
       chain_id: A
       insertion_code: ''
+    receptor_atom_name: CG
     direction: edge-to-face
     receptor_pdb_block: 'ATOM   2647  N  PHE A 347      24.795  26.181 100.231  1.00150.06           N
 
