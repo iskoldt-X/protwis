@@ -1,0 +1,607 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: Charged_amine
+    feature_family: Donor
+    matching_atoms:
+    - 24
+    receptor_residue:
+      name_1_letter: D
+      pdb_residue_number: 114
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: OD2
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM    592  N  ASP A 114       3.794  11.174  -7.768  1.00
+      63.91           N
+
+      ATOM    593  CA ASP A 114       4.598   9.999  -7.445  1.00 66.05           C
+
+      ATOM    594  C  ASP A 114       5.886  10.392  -6.734  1.00 66.08           C
+
+      ATOM    595  O  ASP A 114       6.262   9.778  -5.730  1.00 69.96           O
+
+      ATOM    596  CB ASP A 114       4.901   9.208  -8.720  1.00 75.01           C
+
+      ATOM    597  CG ASP A 114       5.951   8.133  -8.509  1.00 75.49           C
+
+      ATOM    598  OD1ASP A 114       5.746   7.255  -7.648  1.00 74.37           O
+
+      ATOM    599  OD2ASP A 114       6.980   8.161  -9.214  1.00 76.15           O
+
+      ATOM   3807  H  ASP A 114       3.563  11.347  -8.752  1.00 63.91           H
+
+      ATOM   3808  HA ASP A 114       4.041   9.355  -6.771  1.00 66.05           H
+
+      ATOM   3809  HB3ASP A 114       5.262   9.900  -9.482  1.00 75.01           H
+
+      ATOM   3810  HB2ASP A 114       4.006   8.777  -9.150  1.00 75.01           H'
+    ligand_pdb_block: HETATM   25  N068NU A2001       8.882   6.272  -9.486  1.00
+      82.54           N
+  - annotated_interaction: null
+    feature: CarbonylLike
+    feature_family: Acceptor
+    matching_atoms:
+    - 29
+    receptor_residue:
+      name_1_letter: X
+      pdb_residue_number: 2112
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: O
+    direction: ligand-acceptor
+    receptor_pdb_block: 'ATOM   3191  O  HOH A2112      12.468   7.264 -12.152  1.00
+      90.82           O
+
+      ATOM   6285  H1 HOH A2112      13.230   7.472 -11.541  1.00 90.82           H
+
+      ATOM   6286  H2 HOH A2112      12.197   6.315 -11.987  1.00 90.82           H'
+    ligand_pdb_block: HETATM   30  O238NU A2001      10.711   4.652 -12.984  1.00
+      74.60           O
+  - annotated_interaction: null
+    feature: Charged_amine
+    feature_family: PosCharge
+    matching_atoms:
+    - 24
+    receptor_residue:
+      name_1_letter: D
+      pdb_residue_number: 114
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: OD2
+    direction: pos-neg
+    receptor_pdb_block: 'ATOM    592  N  ASP A 114       3.794  11.174  -7.768  1.00
+      63.91           N
+
+      ATOM    593  CA ASP A 114       4.598   9.999  -7.445  1.00 66.05           C
+
+      ATOM    594  C  ASP A 114       5.886  10.392  -6.734  1.00 66.08           C
+
+      ATOM    595  O  ASP A 114       6.262   9.778  -5.730  1.00 69.96           O
+
+      ATOM    596  CB ASP A 114       4.901   9.208  -8.720  1.00 75.01           C
+
+      ATOM    597  CG ASP A 114       5.951   8.133  -8.509  1.00 75.49           C
+
+      ATOM    598  OD1ASP A 114       5.746   7.255  -7.648  1.00 74.37           O
+
+      ATOM    599  OD2ASP A 114       6.980   8.161  -9.214  1.00 76.15           O
+
+      ATOM   3807  H  ASP A 114       3.563  11.347  -8.752  1.00 63.91           H
+
+      ATOM   3808  HA ASP A 114       4.041   9.355  -6.771  1.00 66.05           H
+
+      ATOM   3809  HB3ASP A 114       5.262   9.900  -9.482  1.00 75.01           H
+
+      ATOM   3810  HB2ASP A 114       4.006   8.777  -9.150  1.00 75.01           H'
+    ligand_pdb_block: HETATM   25  N068NU A2001       8.882   6.272  -9.486  1.00
+      82.54           N
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 1
+    - 2
+    - 17
+    - 22
+    - 26
+    - 27
+    receptor_residue:
+      name_1_letter: W
+      pdb_residue_number: 100
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CD2
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM    472  N  TRP A 100       2.110   4.174 -21.614  1.00
+      89.68           N
+
+      ATOM    473  CA TRP A 100       1.871   5.446 -20.932  1.00 88.27           C
+
+      ATOM    474  C  TRP A 100       0.892   6.302 -21.742  1.00 91.37           C
+
+      ATOM    475  O  TRP A 100       1.217   7.382 -22.236  1.00 95.09           O
+
+      ATOM    476  CB TRP A 100       3.188   6.177 -20.702  1.00 86.77           C
+
+      ATOM    477  CG TRP A 100       4.148   5.471 -19.784  1.00 92.86           C
+
+      ATOM    478  CD1TRP A 100       4.731   4.252 -19.983  1.00 99.53           C
+
+      ATOM    479  CD2TRP A 100       4.655   5.958 -18.534  1.00 93.04           C
+
+      ATOM    480  NE1TRP A 100       5.558   3.944 -18.928  1.00 99.78           N
+
+      ATOM    481  CE2TRP A 100       5.531   4.975 -18.027  1.00 94.10           C
+
+      ATOM    482  CE3TRP A 100       4.449   7.125 -17.792  1.00 92.42           C
+
+      ATOM    483  CZ2TRP A 100       6.198   5.125 -16.811  1.00 92.35           C
+
+      ATOM    484  CZ3TRP A 100       5.114   7.273 -16.583  1.00 87.83           C
+
+      ATOM    485  CH2TRP A 100       5.977   6.280 -16.106  1.00 90.94           C
+
+      ATOM   3698  H  TRP A 100       2.898   4.122 -22.235  1.00 89.68           H
+
+      ATOM   3699  HA TRP A 100       1.414   5.268 -19.956  1.00 88.27           H
+
+      ATOM   3700  HB3TRP A 100       2.985   7.161 -20.278  1.00 86.77           H
+
+      ATOM   3701  HB2TRP A 100       3.694   6.367 -21.650  1.00 86.77           H
+
+      ATOM   3702  HD1TRP A 100       4.549   3.630 -20.846  1.00 99.53           H
+
+      ATOM   3703  HE1TRP A 100       6.043   3.062 -18.846  1.00 99.78           H
+
+      ATOM   3704  HE3TRP A 100       3.808   7.910 -18.163  1.00 92.42           H
+
+      ATOM   3705  HZ2TRP A 100       6.867   4.363 -16.448  1.00 92.35           H
+
+      ATOM   3706  HZ3TRP A 100       4.980   8.181 -16.009  1.00 87.83           H
+
+      ATOM   3707  HH2TRP A 100       6.493   6.435 -15.171  1.00 90.94           H'
+    ligand_pdb_block: 'HETATM    2  C028NU A2001       7.145   4.032 -13.366  1.00
+      73.44           C
+
+      HETATM    3  C038NU A2001       8.262   4.600 -12.909  1.00 81.52           C
+
+      HETATM   18  C228NU A2001       9.547   4.090 -13.391  1.00 77.92           C
+
+      HETATM   23  C298NU A2001       8.311   2.466 -14.702  1.00 76.00           C
+
+      HETATM   27  N248NU A2001       9.550   3.033 -14.305  1.00 78.56           N
+
+      HETATM   28  N308NU A2001       7.209   2.947 -14.269  1.00 76.66           N'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 198
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CG
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   1169  N  PHE A 198      16.134  11.265  -2.824  1.00
+      56.65           N
+
+      ATOM   1170  CA PHE A 198      16.563  10.006  -2.225  1.00 61.84           C
+
+      ATOM   1171  C  PHE A 198      17.951  10.080  -1.597  1.00 66.94           C
+
+      ATOM   1172  O  PHE A 198      18.076   9.853  -0.391  1.00 63.30           O
+
+      ATOM   1173  CB PHE A 198      16.518   8.887  -3.269  1.00 62.27           C
+
+      ATOM   1174  CG PHE A 198      16.836   7.525  -2.714  1.00 71.87           C
+
+      ATOM   1175  CD1PHE A 198      15.889   6.822  -1.986  1.00 73.26           C
+
+      ATOM   1176  CD2PHE A 198      18.074   6.944  -2.927  1.00 66.14           C
+
+      ATOM   1177  CE1PHE A 198      16.173   5.566  -1.481  1.00 70.07           C
+
+      ATOM   1178  CE2PHE A 198      18.365   5.687  -2.423  1.00 70.55           C
+
+      ATOM   1179  CZ PHE A 198      17.412   4.997  -1.700  1.00 69.64           C
+
+      ATOM   4393  H  PHE A 198      16.673  11.631  -3.598  1.00 56.65           H
+
+      ATOM   4394  HA PHE A 198      15.900   9.698  -1.416  1.00 61.84           H
+
+      ATOM   4395  HB3PHE A 198      17.129   9.067  -4.138  1.00 62.27           H
+
+      ATOM   4396  HB2PHE A 198      15.500   8.835  -3.658  1.00 62.27           H
+
+      ATOM   4397  HD1PHE A 198      14.916   7.257  -1.800  1.00 73.26           H
+
+      ATOM   4398  HD2PHE A 198      18.780   7.467  -3.538  1.00 66.14           H
+
+      ATOM   4399  HE1PHE A 198      15.427   5.034  -0.907  1.00 70.07           H
+
+      ATOM   4400  HE2PHE A 198      19.328   5.240  -2.608  1.00 70.55           H
+
+      ATOM   4401  HZ PHE A 198      17.631   4.015  -1.307  1.00 69.64           H'
+    ligand_pdb_block: 'HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00
+      77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   14  C178NU A2001      11.480   6.976  -4.481  1.00 58.28           C
+
+      HETATM   15  C188NU A2001      11.893   7.042  -3.152  1.00 57.84           C
+
+      HETATM   16  C198NU A2001      12.158   8.271  -2.538  1.00 70.59           C
+
+      HETATM   17  C218NU A2001      12.017   9.471  -3.238  1.00 71.68           C'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    receptor_residue:
+      name_1_letter: W
+      pdb_residue_number: 386
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CG
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   2692  N  TRP A 386      14.018   0.384  -2.024  1.00
+      68.60           N
+
+      ATOM   2693  CA TRP A 386      14.213   1.350  -3.095  1.00 71.32           C
+
+      ATOM   2694  C  TRP A 386      15.618   1.346  -3.677  1.00 73.91           C
+
+      ATOM   2695  O  TRP A 386      15.812   1.874  -4.776  1.00 77.41           O
+
+      ATOM   2696  CB TRP A 386      13.885   2.767  -2.612  1.00 68.85           C
+
+      ATOM   2697  CG TRP A 386      12.415   3.071  -2.564  1.00 72.68           C
+
+      ATOM   2698  CD1TRP A 386      11.648   3.236  -1.448  1.00 67.00           C
+
+      ATOM   2699  CD2TRP A 386      11.534   3.244  -3.684  1.00 78.89           C
+
+      ATOM   2700  NE1TRP A 386      10.348   3.502  -1.801  1.00 70.95           N
+
+      ATOM   2701  CE2TRP A 386      10.250   3.512  -3.168  1.00 76.55           C
+
+      ATOM   2702  CE3TRP A 386      11.706   3.200  -5.072  1.00 78.88           C
+
+      ATOM   2703  CZ2TRP A 386       9.146   3.736  -3.988  1.00 75.36           C
+
+      ATOM   2704  CZ3TRP A 386      10.606   3.421  -5.886  1.00 78.84           C
+
+      ATOM   2705  CH2TRP A 386       9.343   3.684  -5.341  1.00 78.30           C
+
+      ATOM   5866  H  TRP A 386      14.199   0.668  -1.064  1.00 68.60           H
+
+      ATOM   5867  HA TRP A 386      13.556   1.143  -3.941  1.00 71.32           H
+
+      ATOM   5868  HB3TRP A 386      14.328   3.496  -3.281  1.00 68.85           H
+
+      ATOM   5869  HB2TRP A 386      14.332   2.954  -1.635  1.00 68.85           H
+
+      ATOM   5870  HD1TRP A 386      12.038   3.147  -0.442  1.00 67.00           H
+
+      ATOM   5871  HE1TRP A 386       9.596   3.610  -1.131  1.00 70.95           H
+
+      ATOM   5872  HE3TRP A 386      12.674   2.985  -5.497  1.00 78.88           H
+
+      ATOM   5873  HZ2TRP A 386       8.166   3.924  -3.571  1.00 75.36           H
+
+      ATOM   5874  HZ3TRP A 386      10.722   3.340  -6.956  1.00 78.84           H
+
+      ATOM   5875  HH2TRP A 386       8.491   3.809  -5.994  1.00 78.30           H'
+    ligand_pdb_block: 'HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00
+      77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   14  C178NU A2001      11.480   6.976  -4.481  1.00 58.28           C
+
+      HETATM   15  C188NU A2001      11.893   7.042  -3.152  1.00 57.84           C
+
+      HETATM   16  C198NU A2001      12.158   8.271  -2.538  1.00 70.59           C
+
+      HETATM   17  C218NU A2001      12.017   9.471  -3.238  1.00 71.68           C'
+  - annotated_interaction: null
+    feature: Arom5
+    feature_family: Aromatic
+    matching_atoms:
+    - 10
+    - 11
+    - 12
+    - 25
+    - 28
+    receptor_residue:
+      name_1_letter: W
+      pdb_residue_number: 386
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CD2
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   2692  N  TRP A 386      14.018   0.384  -2.024  1.00
+      68.60           N
+
+      ATOM   2693  CA TRP A 386      14.213   1.350  -3.095  1.00 71.32           C
+
+      ATOM   2694  C  TRP A 386      15.618   1.346  -3.677  1.00 73.91           C
+
+      ATOM   2695  O  TRP A 386      15.812   1.874  -4.776  1.00 77.41           O
+
+      ATOM   2696  CB TRP A 386      13.885   2.767  -2.612  1.00 68.85           C
+
+      ATOM   2697  CG TRP A 386      12.415   3.071  -2.564  1.00 72.68           C
+
+      ATOM   2698  CD1TRP A 386      11.648   3.236  -1.448  1.00 67.00           C
+
+      ATOM   2699  CD2TRP A 386      11.534   3.244  -3.684  1.00 78.89           C
+
+      ATOM   2700  NE1TRP A 386      10.348   3.502  -1.801  1.00 70.95           N
+
+      ATOM   2701  CE2TRP A 386      10.250   3.512  -3.168  1.00 76.55           C
+
+      ATOM   2702  CE3TRP A 386      11.706   3.200  -5.072  1.00 78.88           C
+
+      ATOM   2703  CZ2TRP A 386       9.146   3.736  -3.988  1.00 75.36           C
+
+      ATOM   2704  CZ3TRP A 386      10.606   3.421  -5.886  1.00 78.84           C
+
+      ATOM   2705  CH2TRP A 386       9.343   3.684  -5.341  1.00 78.30           C
+
+      ATOM   5866  H  TRP A 386      14.199   0.668  -1.064  1.00 68.60           H
+
+      ATOM   5867  HA TRP A 386      13.556   1.143  -3.941  1.00 71.32           H
+
+      ATOM   5868  HB3TRP A 386      14.328   3.496  -3.281  1.00 68.85           H
+
+      ATOM   5869  HB2TRP A 386      14.332   2.954  -1.635  1.00 68.85           H
+
+      ATOM   5870  HD1TRP A 386      12.038   3.147  -0.442  1.00 67.00           H
+
+      ATOM   5871  HE1TRP A 386       9.596   3.610  -1.131  1.00 70.95           H
+
+      ATOM   5872  HE3TRP A 386      12.674   2.985  -5.497  1.00 78.88           H
+
+      ATOM   5873  HZ2TRP A 386       8.166   3.924  -3.571  1.00 75.36           H
+
+      ATOM   5874  HZ3TRP A 386      10.722   3.340  -6.956  1.00 78.84           H
+
+      ATOM   5875  HH2TRP A 386       8.491   3.809  -5.994  1.00 78.30           H'
+    ligand_pdb_block: 'HETATM   11  C128NU A2001      10.978   8.514  -6.434  1.00
+      83.67           C
+
+      HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00 77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   26  N138NU A2001      11.046   9.840  -6.524  1.00 87.02           N
+
+      HETATM   29  O148NU A2001      11.405  10.330  -5.429  1.00 84.77           O'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    receptor_residue:
+      name_1_letter: W
+      pdb_residue_number: 386
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CD2
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   2692  N  TRP A 386      14.018   0.384  -2.024  1.00
+      68.60           N
+
+      ATOM   2693  CA TRP A 386      14.213   1.350  -3.095  1.00 71.32           C
+
+      ATOM   2694  C  TRP A 386      15.618   1.346  -3.677  1.00 73.91           C
+
+      ATOM   2695  O  TRP A 386      15.812   1.874  -4.776  1.00 77.41           O
+
+      ATOM   2696  CB TRP A 386      13.885   2.767  -2.612  1.00 68.85           C
+
+      ATOM   2697  CG TRP A 386      12.415   3.071  -2.564  1.00 72.68           C
+
+      ATOM   2698  CD1TRP A 386      11.648   3.236  -1.448  1.00 67.00           C
+
+      ATOM   2699  CD2TRP A 386      11.534   3.244  -3.684  1.00 78.89           C
+
+      ATOM   2700  NE1TRP A 386      10.348   3.502  -1.801  1.00 70.95           N
+
+      ATOM   2701  CE2TRP A 386      10.250   3.512  -3.168  1.00 76.55           C
+
+      ATOM   2702  CE3TRP A 386      11.706   3.200  -5.072  1.00 78.88           C
+
+      ATOM   2703  CZ2TRP A 386       9.146   3.736  -3.988  1.00 75.36           C
+
+      ATOM   2704  CZ3TRP A 386      10.606   3.421  -5.886  1.00 78.84           C
+
+      ATOM   2705  CH2TRP A 386       9.343   3.684  -5.341  1.00 78.30           C
+
+      ATOM   5866  H  TRP A 386      14.199   0.668  -1.064  1.00 68.60           H
+
+      ATOM   5867  HA TRP A 386      13.556   1.143  -3.941  1.00 71.32           H
+
+      ATOM   5868  HB3TRP A 386      14.328   3.496  -3.281  1.00 68.85           H
+
+      ATOM   5869  HB2TRP A 386      14.332   2.954  -1.635  1.00 68.85           H
+
+      ATOM   5870  HD1TRP A 386      12.038   3.147  -0.442  1.00 67.00           H
+
+      ATOM   5871  HE1TRP A 386       9.596   3.610  -1.131  1.00 70.95           H
+
+      ATOM   5872  HE3TRP A 386      12.674   2.985  -5.497  1.00 78.88           H
+
+      ATOM   5873  HZ2TRP A 386       8.166   3.924  -3.571  1.00 75.36           H
+
+      ATOM   5874  HZ3TRP A 386      10.722   3.340  -6.956  1.00 78.84           H
+
+      ATOM   5875  HH2TRP A 386       8.491   3.809  -5.994  1.00 78.30           H'
+    ligand_pdb_block: 'HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00
+      77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   14  C178NU A2001      11.480   6.976  -4.481  1.00 58.28           C
+
+      HETATM   15  C188NU A2001      11.893   7.042  -3.152  1.00 57.84           C
+
+      HETATM   16  C198NU A2001      12.158   8.271  -2.538  1.00 70.59           C
+
+      HETATM   17  C218NU A2001      12.017   9.471  -3.238  1.00 71.68           C'
+  - annotated_interaction: null
+    feature: Arom5
+    feature_family: Aromatic
+    matching_atoms:
+    - 10
+    - 11
+    - 12
+    - 25
+    - 28
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 390
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CG
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   2732  N  PHE A 390      17.211   2.438  -7.553  1.00
+      78.28           N
+
+      ATOM   2733  CA PHE A 390      18.154   3.503  -7.865  1.00 77.80           C
+
+      ATOM   2734  C  PHE A 390      19.520   2.977  -8.285  1.00 85.50           C
+
+      ATOM   2735  O  PHE A 390      20.266   3.699  -8.955  1.00 80.65           O
+
+      ATOM   2736  CB PHE A 390      18.290   4.441  -6.666  1.00 72.78           C
+
+      ATOM   2737  CG PHE A 390      17.046   5.229  -6.384  1.00 71.97           C
+
+      ATOM   2738  CD1PHE A 390      16.770   6.384  -7.096  1.00 73.92           C
+
+      ATOM   2739  CD2PHE A 390      16.146   4.810  -5.423  1.00 69.40           C
+
+      ATOM   2740  CE1PHE A 390      15.624   7.110  -6.848  1.00 69.85           C
+
+      ATOM   2741  CE2PHE A 390      14.995   5.533  -5.171  1.00 69.17           C
+
+      ATOM   2742  CZ PHE A 390      14.735   6.685  -5.884  1.00 63.89           C
+
+      ATOM   5903  H  PHE A 390      16.984   2.265  -6.581  1.00 78.28           H
+
+      ATOM   5904  HA PHE A 390      17.771   4.091  -8.701  1.00 77.80           H
+
+      ATOM   5905  HB3PHE A 390      19.075   5.162  -6.871  1.00 72.78           H
+
+      ATOM   5906  HB2PHE A 390      18.604   3.896  -5.775  1.00 72.78           H
+
+      ATOM   5907  HD1PHE A 390      17.457   6.734  -7.856  1.00 73.92           H
+
+      ATOM   5908  HD2PHE A 390      16.407   4.014  -4.773  1.00 69.40           H
+
+      ATOM   5909  HE1PHE A 390      15.425   8.014  -7.408  1.00 69.85           H
+
+      ATOM   5910  HE2PHE A 390      14.333   5.264  -4.367  1.00 69.17           H
+
+      ATOM   5911  HZ PHE A 390      13.860   7.277  -5.672  1.00 63.89           H'
+    ligand_pdb_block: 'HETATM   11  C128NU A2001      10.978   8.514  -6.434  1.00
+      83.67           C
+
+      HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00 77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   26  N138NU A2001      11.046   9.840  -6.524  1.00 87.02           N
+
+      HETATM   29  O148NU A2001      11.405  10.330  -5.429  1.00 84.77           O'
+  - annotated_interaction: null
+    feature: Arom6
+    feature_family: Aromatic
+    matching_atoms:
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    receptor_residue:
+      name_1_letter: F
+      pdb_residue_number: 390
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: CG
+    direction: edge-to-face
+    receptor_pdb_block: 'ATOM   2732  N  PHE A 390      17.211   2.438  -7.553  1.00
+      78.28           N
+
+      ATOM   2733  CA PHE A 390      18.154   3.503  -7.865  1.00 77.80           C
+
+      ATOM   2734  C  PHE A 390      19.520   2.977  -8.285  1.00 85.50           C
+
+      ATOM   2735  O  PHE A 390      20.266   3.699  -8.955  1.00 80.65           O
+
+      ATOM   2736  CB PHE A 390      18.290   4.441  -6.666  1.00 72.78           C
+
+      ATOM   2737  CG PHE A 390      17.046   5.229  -6.384  1.00 71.97           C
+
+      ATOM   2738  CD1PHE A 390      16.770   6.384  -7.096  1.00 73.92           C
+
+      ATOM   2739  CD2PHE A 390      16.146   4.810  -5.423  1.00 69.40           C
+
+      ATOM   2740  CE1PHE A 390      15.624   7.110  -6.848  1.00 69.85           C
+
+      ATOM   2741  CE2PHE A 390      14.995   5.533  -5.171  1.00 69.17           C
+
+      ATOM   2742  CZ PHE A 390      14.735   6.685  -5.884  1.00 63.89           C
+
+      ATOM   5903  H  PHE A 390      16.984   2.265  -6.581  1.00 78.28           H
+
+      ATOM   5904  HA PHE A 390      17.771   4.091  -8.701  1.00 77.80           H
+
+      ATOM   5905  HB3PHE A 390      19.075   5.162  -6.871  1.00 72.78           H
+
+      ATOM   5906  HB2PHE A 390      18.604   3.896  -5.775  1.00 72.78           H
+
+      ATOM   5907  HD1PHE A 390      17.457   6.734  -7.856  1.00 73.92           H
+
+      ATOM   5908  HD2PHE A 390      16.407   4.014  -4.773  1.00 69.40           H
+
+      ATOM   5909  HE1PHE A 390      15.425   8.014  -7.408  1.00 69.85           H
+
+      ATOM   5910  HE2PHE A 390      14.333   5.264  -4.367  1.00 69.17           H
+
+      ATOM   5911  HZ PHE A 390      13.860   7.277  -5.672  1.00 63.89           H'
+    ligand_pdb_block: 'HETATM   12  C158NU A2001      11.604   9.386  -4.560  1.00
+      77.42           C
+
+      HETATM   13  C168NU A2001      11.346   8.183  -5.149  1.00 77.32           C
+
+      HETATM   14  C178NU A2001      11.480   6.976  -4.481  1.00 58.28           C
+
+      HETATM   15  C188NU A2001      11.893   7.042  -3.152  1.00 57.84           C
+
+      HETATM   16  C198NU A2001      12.158   8.271  -2.538  1.00 70.59           C
+
+      HETATM   17  C218NU A2001      12.017   9.471  -3.238  1.00 71.68           C'

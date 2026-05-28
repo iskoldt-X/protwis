@@ -1,0 +1,42 @@
+pdb_id: 6CM4_8NU
+ligand_interaction_summary:
+- ligand_id: 8NU_A_2001
+  asl: res.ptype '8NU' and chain.name 'A' and res.num 2001
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - D
+    - 114
+  - !!python/tuple
+    - A
+    - F
+    - 198
+  - !!python/tuple
+    - A
+    - F
+    - 390
+  - !!python/tuple
+    - A
+    - W
+    - 100
+  - !!python/tuple
+    - A
+    - W
+    - 386
+  - !!python/tuple
+    - A
+    - X
+    - 2112
+- ligand_id: OLA_A_2005
+  asl: res.ptype 'OLA' and chain.name 'A' and res.num 2005
+  interacting_residues: []
+- ligand_id: OLA_A_2006
+  asl: res.ptype 'OLA' and chain.name 'A' and res.num 2006
+  interacting_residues:
+  - !!python/tuple
+    - A
+    - X
+    - 2003
+- ligand_id: OLA_A_2007
+  asl: res.ptype 'OLA' and chain.name 'A' and res.num 2007
+  interacting_residues: []

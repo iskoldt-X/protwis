@@ -1,0 +1,8 @@
+pdb_id: 1F88_RET
+ligand_interaction_summary:
+- ligand_id: RET_A_977
+  asl: res.ptype 'RET' and chain.name 'A' and res.num 977
+  interacting_residues: []
+- ligand_id: RET_B_978
+  asl: res.ptype 'RET' and chain.name 'B' and res.num 978
+  interacting_residues: []

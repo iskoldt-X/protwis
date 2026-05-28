@@ -1,0 +1,50 @@
+result:
+  interactions:
+  - annotated_interaction: null
+    feature: Hydroxyl
+    feature_family: Donor
+    matching_atoms:
+    - 2
+    receptor_residue:
+      name_1_letter: X
+      pdb_residue_number: 2003
+      chain_id: A
+      insertion_code: ''
+    receptor_atom_name: O1
+    direction: ligand-donor
+    receptor_pdb_block: 'ATOM   3162  C1 PEG A2003      22.198   2.267  14.051  1.00
+      85.07           C
+
+      ATOM   3163  O1 PEG A2003      22.242   2.005  12.633  1.00 77.13           O
+
+      ATOM   3164  C2 PEG A2003      20.827   2.102  14.779  1.00 84.42           C
+
+      ATOM   3165  O2 PEG A2003      20.817   2.118  16.078  1.00 85.32           O
+
+      ATOM   3166  C3 PEG A2003      19.883   1.249  16.777  1.00 93.34           C
+
+      ATOM   3167  C4 PEG A2003      20.009   1.104  18.306  1.00 94.49           C
+
+      ATOM   3168  O4 PEG A2003      21.116   0.493  18.807  1.00 88.36           O
+
+      ATOM   6343 H1_1PEG A2003      22.589   3.265  14.250  1.00 85.07           H
+
+      ATOM   6344 H1_2PEG A2003      22.916   1.601  14.533  1.00 85.07           H
+
+      ATOM   6345  HO1PEG A2003      23.162   2.084  12.351  1.00 77.13           H
+
+      ATOM   6346 H2_1PEG A2003      20.405   1.166  14.405  1.00 84.42           H
+
+      ATOM   6347 H2_2PEG A2003      20.138   2.869  14.423  1.00 84.42           H
+
+      ATOM   6348 H3_1PEG A2003      19.918   0.243  16.354  1.00 93.34           H
+
+      ATOM   6349 H3_2PEG A2003      18.875   1.603  16.553  1.00 93.34           H
+
+      ATOM   6350 H4_1PEG A2003      19.107   0.665  18.725  1.00 94.49           H
+
+      ATOM   6351 H4_2PEG A2003      20.010   2.118  18.699  1.00 94.49           H
+
+      ATOM   6352  HO4PEG A2003      21.858   0.857  18.308  1.00 88.36           H'
+    ligand_pdb_block: HETATM    3  O2 OLA A2006      21.141   2.362  10.197  1.00
+      99.57           O
