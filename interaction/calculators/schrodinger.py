@@ -24,12 +24,17 @@ class SchrodingerInteractionCalculator(InteractionCalculator):
             ResidueFragmentInteraction,
             StructureLigandInteraction,
         )
-        from interaction.schrodinger_processor import process_schrodinger_sm_interactions
+        from interaction.schrodinger_processor import (
+            process_schrodinger_peptide_interactions,
+            process_schrodinger_sm_interactions,
+        )
 
         pdb_code_str = structure.pdb_code.index
-        slis = StructureLigandInteraction.objects.filter(structure=structure)
 
         results = []
+
+        # --- Engine 1: small-molecule SLIs (RFI rows) -----------------------
+        slis = StructureLigandInteraction.objects.filter(structure=structure)
         for sli in slis:
             het_code = sli.pdb_reference
             if not het_code:
@@ -53,4 +58,27 @@ class SchrodingerInteractionCalculator(InteractionCalculator):
                 schrodinger_interactions_dir_override=schrodinger_data_dir,
             )
             results.append((sli.id, het_code, ok, None))
+
+        # --- Engine 2: peptide / protein-protein interfaces -----------------
+        # (ADR-014 engine2/1.0 schema → contactnetwork peptide models). Keyed
+        # off LigandPeptideStructure (one per peptide/protein chain). The
+        # processor handles its own delete-then-insert per chain, so we don't
+        # pre-delete here. Missing Engine 2 YAMLs are normal for SM-only PDBs
+        # (returns False → recorded but not an error).
+        from ligand.models import LigandPeptideStructure
+
+        lpss = LigandPeptideStructure.objects.filter(structure=structure)
+        for lps in lpss:
+            chain = (lps.chain or '').strip()
+            if not chain:
+                results.append((lps.id, None, False, 'missing_peptide_chain'))
+                continue
+            ok = process_schrodinger_peptide_interactions(
+                current_structure_obj=structure,
+                ligand_chain=chain,
+                pdb_code_str=pdb_code_str,
+                schrodinger_interactions_dir_override=schrodinger_data_dir,
+            )
+            results.append((lps.id, 'peptide:{}'.format(chain), ok, None))
+
         return results

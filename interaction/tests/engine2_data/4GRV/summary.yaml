@@ -1,0 +1,21 @@
+pdb_id: 4GRV
+engine: engine2
+interface_summary:
+- instance_id: 4GRV_A_B
+  receptor_chain: A
+  ligand_chain: B
+  ligand_type: peptide
+  ligand_title: Neurotensin (8-13)
+  counts:
+    interaction_type_counts:
+      hydrogen_bond: 13
+      salt_bridge: 2
+      pi_cation: 2
+      steric_clash: 3
+      hydrophobic_contact: 137
+    hbond_class_counts:
+      hb_bb: 1
+      hb_bs: 1
+      hb_sb: 10
+      hb_ss: 1
+    residue_pair_count: 55

@@ -1,0 +1,22 @@
+pdb_id: 7F4F
+engine: engine2
+interface_summary:
+- instance_id: 7F4F_R_F
+  receptor_chain: R
+  ligand_chain: F
+  ligand_type: peptide
+  ligand_title: Afamelanotide
+  counts:
+    interaction_type_counts:
+      hydrogen_bond: 7
+      salt_bridge: 2
+      pi_pi_stacking: 1
+      pi_cation: 1
+      steric_clash: 1
+      hydrophobic_contact: 137
+    hbond_class_counts:
+      hb_bb: 0
+      hb_bs: 1
+      hb_sb: 2
+      hb_ss: 4
+    residue_pair_count: 62

@@ -53,6 +53,21 @@ class InteractingPeptideResiduePair(models.Model):
     peptide = models.ForeignKey('ligand.LigandPeptideStructure', related_name='peptide', on_delete=models.CASCADE)
     receptor_residue = models.ForeignKey('residue.Residue', related_name='receptor_residue', on_delete=models.CASCADE)
 
+    # Engine 2 (Schrödinger two-ASL worker) interface metrics — ADR-015.
+    # These are protein-protein interface descriptors the legacy BioPython
+    # peptide path (build_crystal_interactions) never computed, so they are
+    # NULLABLE / additive: rows written by the old path leave them NULL, and
+    # the front-end / API tolerate NULL natively (ADR-009/010/015). They live at
+    # the residue-pair level because the engine2/1.0 schema reports them per
+    # residue_pair_summaries entry, not per individual InteractionPeptide row.
+    #
+    #   buried_sasa_receptor  <- set_1_buried_sasa  (selection1 = receptor)
+    #   buried_sasa_peptide   <- set_2_buried_sasa  (selection2 = peptide)
+    #   surface_complementarity <- surface_complementarity (Sc)
+    buried_sasa_receptor = models.FloatField(null=True, blank=True)
+    buried_sasa_peptide = models.FloatField(null=True, blank=True)
+    surface_complementarity = models.FloatField(null=True, blank=True)
+
     def __str__(self):
         return '<{}{}-{}>'.format(self.peptide_amino_acid_three_letter, self.peptide_sequence_number, self.receptor_residue)
 

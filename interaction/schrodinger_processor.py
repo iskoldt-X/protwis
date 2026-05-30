@@ -560,13 +560,514 @@ def process_schrodinger_sm_interactions(
     return True  # YAML found and processed.
 
 
-# Placeholder for future peptide interaction processor
-def process_schrodinger_peptide_interactions():
-    # Similar logic, but YAML format and mapping might differ
-    pass
+# ===========================================================================
+# Engine 2 (peptide / protein-protein) consumer — D3.
+#
+# This is the THIRD Strategy implementation. Engine 1 (small molecule) above
+# writes RFI rows (residue ↔ ligand-fragment). Engine 2's chemistry is a
+# residue-residue interface (receptor residue ↔ peptide/protein-partner
+# residue), so it consumes a *different* schema (ADR-014, engine2/1.0) and
+# writes to *different* models.
+#
+# TARGET MODELS (investigation finding — D3): protwis already ships
+# residue-residue interface tables in the contactnetwork app:
+#
+#   contactnetwork.InteractingPeptideResiduePair
+#       receptor_residue (FK residue.Residue) ↔ a peptide residue stored as
+#       three loose fields (peptide_amino_acid / _three_letter /
+#       _sequence_number) + FK ligand.LigandPeptideStructure (the peptide
+#       chain). The peptide residue is NOT a protwis Residue row (peptides are
+#       not in the Residue table), which matches Engine 2's data: only the
+#       receptor side resolves to a Residue/generic number.
+#
+#   contactnetwork.InteractionPeptide
+#       per-pair interaction detail rows: peptide_atom / receptor_atom /
+#       interaction_type / specific_type / interaction_level.
+#
+# These are populated today by the *legacy* BioPython path
+# (contactnetwork/cube.py compute_interactions → InteractingPair
+# .save_peptide_interactions, run by build_crystal_interactions). The API
+# (StructurePeptideLigandInteractionSerializer) + front-end already read them.
+# So Engine 2 reuses the same DB contract; no new model/migration for the
+# *core* interface interactions.
+#
+# ADR-014 / ADR-009 — interface metrics (RESOLVED by ADR-015, 2026-05-30):
+#   Engine 2 produces buried-SASA, surface complementarity (Sc) and the
+#   backbone/sidechain hbond 4-class — protein-protein interface metrics the
+#   legacy RDKit path never had. ADR-009 says the DB layer must preserve
+#   information. This consumer therefore:
+#     * writes the core interactions to the existing models (fail-loud),
+#     * preserves the hbond 4-class + face/edge subtype in ``specific_type``
+#       (a free-text field, lossless for that signal),
+#     * (ADR-015) writes per-residue-pair buried-SASA + Sc into three NULLABLE
+#       fields added to InteractingPeptideResiduePair (buried_sasa_receptor /
+#       buried_sasa_peptide / surface_complementarity). These are additive: the
+#       legacy BioPython path leaves them NULL (it never computed them). The
+#       per-pair grain matches the engine2/1.0 residue_pair_summaries schema.
+# ===========================================================================
 
 
-# Placeholder for future protein-protein interaction processor
-def process_schrodinger_protein_interactions():
-    # Similar logic, but YAML format and mapping might differ
-    pass
+# Engine 2 interaction-type vocabulary, mapped to the legacy InteractionPeptide
+# vocabulary the API + front-end already understand (contactnetwork/interaction.py
+# CI subclasses). The legacy interaction_type values are: van-der-waals /
+# hydrophobic / ionic / polar / aromatic. specific_type carries the finer detail.
+#
+# Engine 2 type        -> (legacy interaction_type, specific_type seed)
+_ENGINE2_TYPE_MAP = {
+    "hydrogen_bond": ("polar", "h-bond"),
+    "salt_bridge": ("ionic", "salt-bridge"),
+    "pi_pi_stacking": ("aromatic", "pi-stacking"),
+    "pi_cation": ("aromatic", "pi-cation"),
+    "hydrophobic_contact": ("hydrophobic", ""),
+    "steric_clash": ("steric-clash", "clash"),
+}
+
+# Engine 2 instance YAMLs live at:
+#   {base}/{PDB}/{PDB}_{recvChain}_{ligChain}/{PDB}_{recvChain}_{ligChain}.yaml
+# (the adapter-emitted, ADR-014 schema file — NOT the *_worker.yaml sidecar,
+#  which is the raw worker schema). Mirrors the D4 pioneer layout in /tmp.
+
+
+def locate_engine2_yamls(base_dir, pdb_code):
+    """Return the Engine 2 (engine2/1.0) instance YAML(s) for one PDB.
+
+    Layout (D4 pioneer, schema_adapter output)::
+
+        {base}/{PDB}/{PDB}_{recv}_{lig}/{PDB}_{recv}_{lig}.yaml
+
+    A single PDB can have several interface instances (multiple peptide chains,
+    or peptide + protein-protein), so this returns a sorted list. The raw
+    ``*_worker.yaml`` sidecar (worker schema, not ADR-014) is excluded. No DB
+    access.
+    """
+    pdb = pdb_code.upper()
+    top = os.path.join(base_dir, pdb)
+    found = []
+    for inst_dir in sorted(glob.glob(os.path.join(top, f"{pdb}_*"))):
+        if not os.path.isdir(inst_dir):
+            continue
+        candidate = os.path.join(inst_dir, os.path.basename(inst_dir) + ".yaml")
+        if os.path.exists(candidate):
+            found.append(candidate)
+    return sorted(found)
+
+
+def map_engine2_interaction(interaction_entry):
+    """Map one Engine 2 ``interface_interactions`` entry to the legacy
+    ``(interaction_type, specific_type, interaction_level)`` triple plus the
+    receptor/peptide atom names.
+
+    Returns a dict (pure, no DB)::
+
+        {interaction_type, specific_type, interaction_level,
+         receptor_atom, peptide_atom}
+
+    fail-loud (ADR-009): an unknown Engine 2 ``type`` raises ValueError so a
+    new interaction class surfaces immediately instead of silently dropping.
+
+    ``specific_type`` is enriched losslessly with the Engine 2-only signal that
+    the legacy models have no column for — the hbond 4-class (hb_bb/bs/sb/ss)
+    for H-bonds, and the pi subtype (Face-to-Face / Edge-to-Face) for stacking.
+    interaction_level is always 0 (Engine 2 emits a single strict definition,
+    unlike the legacy strict/loose split).
+    """
+    itype = interaction_entry.get("type")
+    if itype not in _ENGINE2_TYPE_MAP:
+        raise ValueError(
+            f"Unknown Engine 2 interaction type {itype!r}. "
+            f"Known: {sorted(_ENGINE2_TYPE_MAP)}"
+        )
+    legacy_type, specific = _ENGINE2_TYPE_MAP[itype]
+
+    receptor_atom = ""
+    peptide_atom = ""
+
+    if itype == "hydrogen_bond":
+        # Preserve the backbone/sidechain 4-class (ADR-014 interface signal).
+        hbond_class = interaction_entry.get("hbond_class")
+        if hbond_class:
+            specific = f"{specific}:{hbond_class}"
+        donor = interaction_entry.get("donor") or {}
+        acceptor = interaction_entry.get("acceptor") or {}
+        receptor_atom, peptide_atom = _engine2_atoms_by_side(donor, acceptor)
+    elif itype == "salt_bridge":
+        anion = interaction_entry.get("anion") or {}
+        cation = interaction_entry.get("cation") or {}
+        receptor_atom, peptide_atom = _engine2_atoms_by_side(anion, cation)
+    elif itype == "pi_pi_stacking":
+        subtype = interaction_entry.get("subtype")
+        if subtype:
+            specific = f"{specific}:{subtype}"
+        # ring-ring: residue-level, no single atom
+        r1 = interaction_entry.get("residue1") or {}
+        r2 = interaction_entry.get("residue2") or {}
+        receptor_atom, peptide_atom = _engine2_atoms_by_side(r1, r2)
+    elif itype == "pi_cation":
+        cat = interaction_entry.get("cation_residue") or {}
+        pi = interaction_entry.get("pi_residue") or {}
+        receptor_atom, peptide_atom = _engine2_atoms_by_side(cat, pi)
+    else:  # hydrophobic_contact / steric_clash — atom1/atom2
+        a1 = interaction_entry.get("atom1") or {}
+        a2 = interaction_entry.get("atom2") or {}
+        receptor_atom, peptide_atom = _engine2_atoms_by_side(a1, a2)
+
+    return {
+        "interaction_type": legacy_type,
+        "specific_type": specific,
+        "interaction_level": 0,
+        "receptor_atom": receptor_atom,
+        "peptide_atom": peptide_atom,
+    }
+
+
+def _engine2_atoms_by_side(part_a, part_b):
+    """Given two interaction partners (each a dict with a ``side`` field of
+    ``selection1`` = receptor / ``selection2`` = peptide), return
+    ``(receptor_atom_name, peptide_atom_name)`` regardless of which partner is
+    which. ``atom_name`` may be absent (ring/residue-level) → empty string.
+
+    Engine 2 always tags every partner with ``side`` (D2 adapter contract). If
+    a partner is missing its side tag, we fall back to the textual order
+    (a=receptor, b=peptide) but the per-pair side resolution in the processor
+    re-derives the residues from ``side`` anyway, so this is only for atom names.
+    """
+    def name(d):
+        return (d.get("atom_name") or "").strip()
+
+    if part_a.get("side") == "selection2" or part_b.get("side") == "selection1":
+        # a is peptide, b is receptor
+        return name(part_b), name(part_a)
+    return name(part_a), name(part_b)
+
+
+def _engine2_partner_side(part):
+    """``selection1`` -> 'receptor', ``selection2`` -> 'peptide', else None."""
+    side = part.get("side")
+    if side == "selection1":
+        return "receptor"
+    if side == "selection2":
+        return "peptide"
+    return None
+
+
+def _engine2_pair_partners(interaction_entry):
+    """Return ``(receptor_partner_dict, peptide_partner_dict)`` for one Engine 2
+    entry, using each partner's ``side`` tag (selection1=receptor,
+    selection2=peptide). Returns ``(None, None)`` if the two partners are not on
+    opposite sides (intra-chain pair — out of interface scope, skipped by the
+    caller).
+    """
+    itype = interaction_entry.get("type")
+    pair_keys = {
+        "hydrogen_bond": ("donor", "acceptor"),
+        "salt_bridge": ("anion", "cation"),
+        "pi_pi_stacking": ("residue1", "residue2"),
+        "pi_cation": ("cation_residue", "pi_residue"),
+        "hydrophobic_contact": ("atom1", "atom2"),
+        "steric_clash": ("atom1", "atom2"),
+    }[itype]
+    p1 = interaction_entry.get(pair_keys[0]) or {}
+    p2 = interaction_entry.get(pair_keys[1]) or {}
+
+    s1, s2 = _engine2_partner_side(p1), _engine2_partner_side(p2)
+    if s1 == "receptor" and s2 == "peptide":
+        return p1, p2
+    if s1 == "peptide" and s2 == "receptor":
+        return p2, p1
+    return None, None
+
+
+def build_residue_pair_metrics(residue_pair_summaries):
+    """Index ``residue_pair_summaries`` by ``(recv_seq, pep_seq)`` -> interface
+    metrics dict (ADR-015).
+
+    The engine2/1.0 schema reports buried-SASA + surface complementarity (Sc)
+    once per residue pair (under ``residue_pair_summaries[].properties``), NOT
+    per individual interaction — so these are stored on
+    ``InteractingPeptideResiduePair`` (the pair-level model), not on the
+    per-interaction ``InteractionPeptide`` rows.
+
+    Each summary entry tags its two residues with ``side`` (selection1=receptor,
+    selection2=peptide), and ``properties.set_1_buried_sasa`` / ``set_2_buried_sasa``
+    correspond to selection1 / selection2 respectively (worker contract). We
+    resolve receptor vs peptide by ``side`` (not positional order) so the mapping
+    holds even if residue1/residue2 ordering ever flips.
+
+    Returns ``{(recv_seq, pep_seq): {"buried_sasa_receptor", "buried_sasa_peptide",
+    "surface_complementarity"}}``. Pure (no DB). Missing metric keys map to None
+    (nullable fields — additive, ADR-010/015). Entries whose two residues are not
+    on opposite sides are skipped (out of interface scope).
+    """
+    metrics = {}
+    for summary in residue_pair_summaries or []:
+        r1 = summary.get("residue1") or {}
+        r2 = summary.get("residue2") or {}
+        s1, s2 = _engine2_partner_side(r1), _engine2_partner_side(r2)
+        # set_1 == selection1, set_2 == selection2 (worker contract).
+        props = summary.get("properties") or {}
+        set1 = props.get("set_1_buried_sasa")
+        set2 = props.get("set_2_buried_sasa")
+        if s1 == "receptor" and s2 == "peptide":
+            recv, pep = r1, r2
+            buried_receptor, buried_peptide = set1, set2
+        elif s1 == "peptide" and s2 == "receptor":
+            recv, pep = r2, r1
+            # residue1 is the peptide here, so set_1 is the peptide-side SASA.
+            buried_receptor, buried_peptide = set2, set1
+        else:
+            # intra-chain / untagged — not an interface pair.
+            continue
+        key = (int(recv["resid"]), int(pep["resid"]))
+        metrics[key] = {
+            "buried_sasa_receptor": buried_receptor,
+            "buried_sasa_peptide": buried_peptide,
+            "surface_complementarity": props.get("surface_complementarity"),
+        }
+    return metrics
+
+
+@transaction.atomic
+def process_schrodinger_peptide_interactions(
+    current_structure_obj: Structure,
+    ligand_chain: str,
+    pdb_code_str: str,
+    schrodinger_interactions_dir_override: str = None,
+) -> bool:
+    """Process Engine 2 (engine2/1.0) peptide interface interactions into the
+    contactnetwork InteractingPeptideResiduePair / InteractionPeptide models.
+
+    Mirrors the Engine 1 small-molecule processor's good habits:
+      * fail-loud on unknown interaction types / missing receptor Residue;
+      * per-PDB (per ligand_chain) boundary;
+      * @transaction.atomic delete-then-insert idempotency — a mid-write error
+        rolls back this chain's rows, leaving the prior state intact.
+
+    Returns True if a matching YAML was found and processed (even if it yielded
+    no interactions), False if no YAML was found or a parse error occurred, so
+    the caller can decide on fallback (same contract as the SM processor).
+
+    ``ligand_chain`` selects which LigandPeptideStructure / interface instance
+    to write (a PDB can have several peptide chains). When several Engine 2
+    YAML instances exist for this PDB, only the one whose ligand_chain matches
+    is consumed.
+    """
+    logger.info(
+        f"Processing Schrödinger Engine 2 peptide interactions for {pdb_code_str} "
+        f"chain {ligand_chain}"
+    )
+
+    base_dir = schrodinger_interactions_dir_override or getattr(
+        settings, "SCHRODINGER_INTERACTIONS_DIR", None
+    )
+    if not base_dir:
+        logger.error(
+            "SCHRODINGER_INTERACTIONS_DIR is not set. Cannot process Engine 2 "
+            "peptide interactions."
+        )
+        return False
+
+    yaml_paths = locate_engine2_yamls(base_dir, pdb_code_str)
+    if not yaml_paths:
+        logger.warning(
+            f"No Engine 2 YAML found for {pdb_code_str} under {base_dir}"
+        )
+        return False
+
+    # Locate the LigandPeptideStructure for this (structure, chain). build_structures
+    # creates it at the ligand-type decision point for type∈{peptide,protein}.
+    from ligand.models import LigandPeptideStructure
+    from contactnetwork.models import (
+        InteractingPeptideResiduePair,
+        InteractionPeptide,
+    )
+
+    lps_qs = LigandPeptideStructure.objects.filter(
+        structure=current_structure_obj, chain=ligand_chain
+    )
+    lps = lps_qs.first()
+    if lps is None:
+        logger.error(
+            f"No LigandPeptideStructure for {pdb_code_str} chain {ligand_chain}; "
+            "build_structures must create it before importing Engine 2 interactions."
+        )
+        return False
+
+    # Pick the YAML instance whose metadata.ligand_chain matches this chain.
+    chosen = None
+    for path in yaml_paths:
+        try:
+            with open(path) as fh:
+                doc = yaml.safe_load(fh)
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing Engine 2 YAML {path}: {e}")
+            return False
+        if not doc or doc.get("schema_version") != "engine2/1.0":
+            logger.warning(
+                f"Skipping non-engine2/1.0 YAML {path} "
+                f"(schema_version={doc.get('schema_version') if doc else None})."
+            )
+            continue
+        meta = doc.get("metadata") or {}
+        if (meta.get("ligand_chain") or "") == ligand_chain:
+            chosen = doc
+            break
+
+    if chosen is None:
+        logger.warning(
+            f"No engine2/1.0 instance for {pdb_code_str} chain {ligand_chain} "
+            f"among {len(yaml_paths)} YAML(s)."
+        )
+        return False
+
+    interactions = chosen.get("interface_interactions") or []
+
+    # ADR-015: per-residue-pair interface metrics (buried-SASA / Sc). The
+    # engine2/1.0 schema carries these once per residue pair under
+    # residue_pair_summaries, not per interaction — so they attach to the
+    # pair-level model (InteractingPeptideResiduePair), populated when the pair
+    # is first created below.
+    pair_metrics = build_residue_pair_metrics(chosen.get("residue_pair_summaries"))
+
+    # Idempotency: drop any prior peptide interface rows for THIS peptide
+    # instance before re-inserting. CASCADE on the pair removes its
+    # InteractionPeptide children.
+    InteractingPeptideResiduePair.objects.filter(peptide=lps).delete()
+
+    if not interactions:
+        logger.warning(
+            f"Engine 2 YAML for {pdb_code_str} chain {ligand_chain} has no "
+            "interface_interactions; leaving zero rows (delete already ran)."
+        )
+        return True
+
+    # Group InteractionPeptide rows per (receptor_seq, peptide_seq) pair.
+    pairs_cache = {}  # (recv_seq, pep_seq) -> InteractingPeptideResiduePair
+    created_count = 0
+
+    for entry in interactions:
+        recv_partner, pep_partner = _engine2_pair_partners(entry)
+        if recv_partner is None or pep_partner is None:
+            # Not an interface (receptor↔peptide) pair — skip (intra-chain or
+            # untagged). The interface worker should not emit these, but be safe.
+            logger.info(
+                f"Skipping non-interface Engine 2 entry (type={entry.get('type')}) "
+                f"in {pdb_code_str} chain {ligand_chain}."
+            )
+            continue
+
+        recv_seq = int(recv_partner["resid"])
+        pep_seq = int(pep_partner["resid"])
+        pep_resname = (pep_partner.get("resname") or "").upper()
+
+        mapped = map_engine2_interaction(entry)  # fail-loud on unknown type
+
+        # Resolve the receptor Residue (same lookup as the SM processor).
+        try:
+            receptor_residue = Residue.objects.get(
+                protein_conformation=current_structure_obj.protein_conformation,
+                sequence_number=recv_seq,
+            )
+        except Residue.DoesNotExist:
+            logger.warning(
+                f"Receptor Residue not found for {pdb_code_str} seq {recv_seq}; "
+                "skipping Engine 2 interaction."
+            )
+            continue
+        except Residue.MultipleObjectsReturned:
+            logger.error(
+                f"Ambiguous receptor Residue for {pdb_code_str} seq {recv_seq}; "
+                "skipping Engine 2 interaction."
+            )
+            continue
+
+        pep_one_letter = _three_to_one(pep_resname)
+
+        key = (recv_seq, pep_seq)
+        pair = pairs_cache.get(key)
+        if pair is None:
+            # ADR-015: attach the pair-level interface metrics if the
+            # residue_pair_summaries listed this pair. Pairs absent from the
+            # summaries (or rows from the legacy BioPython path) keep NULL —
+            # the fields are nullable / additive.
+            metrics = pair_metrics.get(key, {})
+            pair = InteractingPeptideResiduePair.objects.create(
+                peptide_amino_acid_three_letter=pep_resname[:3],
+                peptide_amino_acid=pep_one_letter,
+                peptide_sequence_number=pep_seq,
+                peptide=lps,
+                receptor_residue=receptor_residue,
+                buried_sasa_receptor=metrics.get("buried_sasa_receptor"),
+                buried_sasa_peptide=metrics.get("buried_sasa_peptide"),
+                surface_complementarity=metrics.get("surface_complementarity"),
+            )
+            pairs_cache[key] = pair
+
+        InteractionPeptide.objects.create(
+            interacting_peptide_pair=pair,
+            peptide_atom=mapped["peptide_atom"],
+            receptor_atom=mapped["receptor_atom"],
+            interaction_type=mapped["interaction_type"],
+            specific_type=mapped["specific_type"],
+            interaction_level=mapped["interaction_level"],
+        )
+        created_count += 1
+
+    logger.info(
+        f"Created {created_count} Engine 2 peptide interaction rows across "
+        f"{len(pairs_cache)} residue pairs for {pdb_code_str} chain {ligand_chain}."
+    )
+    return True
+
+
+# A protein-protein interface (G protein / arrestin / receptor dimer) is the
+# SAME residue-residue interface shape as a peptide. ADR-014 keeps it on the
+# Engine 2 schema. The contactnetwork peptide models are keyed off
+# LigandPeptideStructure, which build_structures ALSO creates for
+# ligand['type'] == 'protein' (build_structures.py:1791) — so the peptide
+# processor handles both. This thin alias documents the Strategy slot and keeps
+# the two-tier dispatch explicit; if protein-protein later needs a distinct
+# target model, it diverges here.
+def process_schrodinger_protein_interactions(
+    current_structure_obj: Structure,
+    ligand_chain: str,
+    pdb_code_str: str,
+    schrodinger_interactions_dir_override: str = None,
+) -> bool:
+    """Process Engine 2 protein-protein interface interactions.
+
+    Currently identical to the peptide path: both are receptor-residue ↔
+    partner-residue interfaces stored on the contactnetwork peptide models
+    (build_structures creates a LigandPeptideStructure for type == 'protein'
+    too). Kept as a separate Strategy entry point so a future divergence (e.g.
+    a dedicated protein-protein target model) lands here without touching the
+    peptide path.
+    """
+    return process_schrodinger_peptide_interactions(
+        current_structure_obj=current_structure_obj,
+        ligand_chain=ligand_chain,
+        pdb_code_str=pdb_code_str,
+        schrodinger_interactions_dir_override=schrodinger_interactions_dir_override,
+    )
+
+
+# Three-letter -> one-letter for peptide residues. Engine 2 peptides include
+# non-standard / unnatural residues (DPN, NLE, HIE, ...) that have no protwis
+# Residue row (peptides are not in the Residue table) — so we cannot rely on the
+# DB. Fall back to "X" for anything unrecognised (the legacy contactnetwork
+# path consults unnatural_amino_acids.yaml; mirroring that fully is out of D3
+# scope — "X" is a faithful, non-crashing placeholder, flagged in the Inbox).
+_THREE_TO_ONE = {
+    "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
+    "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
+    "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
+    "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
+    # Common Schrödinger/PrepWizard protonation-state aliases:
+    "HIE": "H", "HID": "H", "HIP": "H", "ASH": "D", "GLH": "E",
+    "LYN": "K", "CYX": "C", "ARN": "R",
+}
+
+
+def _three_to_one(resname):
+    """Map a (possibly non-standard) three-letter residue name to one letter,
+    falling back to 'X' for unknown / unnatural residues."""
+    return _THREE_TO_ONE.get((resname or "").upper(), "X")
