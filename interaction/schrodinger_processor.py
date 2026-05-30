@@ -957,6 +957,7 @@ def process_schrodinger_peptide_interactions(
 
         recv_seq = int(recv_partner["resid"])
         pep_seq = int(pep_partner["resid"])
+        recv_resname = (recv_partner.get("resname") or "").upper()
         pep_resname = (pep_partner.get("resname") or "").upper()
 
         mapped = map_engine2_interaction(entry)  # fail-loud on unknown type
@@ -977,6 +978,27 @@ def process_schrodinger_peptide_interactions(
             logger.error(
                 f"Ambiguous receptor Residue for {pdb_code_str} seq {recv_seq}; "
                 "skipping Engine 2 interaction."
+            )
+            continue
+
+        # AA-guard (Gate-2, ADR-018 / fix #1): the receptor join above keys
+        # purely on author seq-number, so a -N register offset between the PDB
+        # author numbering and GPCRdb's Residue numbering would silently map
+        # this interaction onto the WRONG receptor residue. The Engine 2 YAML
+        # already carries the receptor residue's three-letter name, so we
+        # cross-check it against the DB residue's amino acid (the same guard the
+        # SM processor enforces at its receptor lookup, :448). _three_to_one
+        # normalises PrepWizard protonation aliases (HIE/HID/HIP/ASH/…) so they
+        # are not flagged as false mismatches. On disagreement we warn + skip
+        # rather than write a mis-registered row (北极星: do not silently
+        # corrupt data — surface it).
+        recv_one_letter = _three_to_one(recv_resname)
+        if recv_resname and recv_one_letter != receptor_residue.amino_acid:
+            logger.warning(
+                f"Receptor AA mismatch for {pdb_code_str} seq {recv_seq}: "
+                f"DB={receptor_residue.amino_acid} YAML={recv_resname} "
+                f"({recv_one_letter}); likely author-seqnum register offset. "
+                "Skipping Engine 2 interaction (no mis-registered row written)."
             )
             continue
 

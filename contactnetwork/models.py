@@ -64,6 +64,14 @@ class InteractingPeptideResiduePair(models.Model):
     #   buried_sasa_receptor  <- set_1_buried_sasa  (selection1 = receptor)
     #   buried_sasa_peptide   <- set_2_buried_sasa  (selection2 = peptide)
     #   surface_complementarity <- surface_complementarity (Sc)
+    #
+    # ⚠ UNITS (ADR-017): despite the "_sasa" suffix, buried_sasa_receptor /
+    # buried_sasa_peptide store a NORMALISED buried FRACTION in [0, 1] — the
+    # fraction of that residue's solvent-accessible surface that is buried by
+    # the partner chain — NOT an absolute area in Å². (Verified across
+    # 6OS0/8F7X/8F7S: all values fall in [0,1].) surface_complementarity (Sc)
+    # is likewise a dimensionless score in [0, 1]. Interpret all three as
+    # fractions/scores, never as Å².
     buried_sasa_receptor = models.FloatField(null=True, blank=True)
     buried_sasa_peptide = models.FloatField(null=True, blank=True)
     surface_complementarity = models.FloatField(null=True, blank=True)

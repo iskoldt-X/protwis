@@ -479,3 +479,176 @@ class Engine2DbIntegrationTests(TestCase):
                 interacting_peptide_pair__peptide=self.lps).count(),
             0,
         )
+
+
+class Engine2AaGuardTests(TestCase):
+    """Gate-2 / ADR-018 / fix #1: the receptor join keys on author seq-number
+    alone, so a -N register offset between PDB author numbering and GPCRdb's
+    Residue numbering would silently map an interaction onto the WRONG receptor
+    residue. The Engine 2 YAML already carries the receptor residue three-letter
+    name, so the processor must cross-check it against the DB residue's amino
+    acid and SKIP (warn, not write) on disagreement.
+
+    These tests build a synthetic engine2/1.0 YAML (one receptor chain R, one
+    peptide chain P) whose receptor partners deliberately mix:
+      * a matching residue (DB AA == YAML resname)            -> written
+      * a mismatching residue (DB AA != YAML resname)         -> skipped + warn
+      * a PrepWizard protonation alias (DB H, YAML HIE)       -> written (no
+        false mismatch — must use _three_to_one, not raw string equality)
+    """
+
+    PDB = "9AAG"  # synthetic — not a real PDB, avoids clashing with fixtures
+
+    @classmethod
+    def setUpTestData(cls):
+        from common.models import WebLink, WebResource
+        from ligand.models import Ligand, LigandPeptideStructure
+        from protein.models import (
+            Protein,
+            ProteinConformation,
+            ProteinFamily,
+            ProteinSequenceType,
+            ProteinSource,
+            ProteinState,
+            Species,
+        )
+        from residue.models import Residue
+        from structure.models import Structure, StructureType
+
+        fam = ProteinFamily.objects.create(slug="000_001_001_002", name="Guard fam")
+        species = Species.objects.create(latin_name="Homo sapiens", common_name="Human")
+        source = ProteinSource.objects.create(name="SWISSPROT")
+        seqtype = ProteinSequenceType.objects.create(slug="wt", name="Wild-type")
+        state = ProteinState.objects.create(slug="active", name="Active")
+
+        protein = Protein.objects.create(
+            family=fam, species=species, source=source, sequence_type=seqtype,
+            entry_name="guard_human_test", name="GUARD", sequence="M",
+        )
+        cls.pconf = ProteinConformation.objects.create(protein=protein, state=state)
+
+        stype = StructureType.objects.create(slug="x-ray", name="X-ray")
+        wr = WebResource.objects.create(slug="pdb", name="PDB", url="https://pdb/$index")
+        weblink = WebLink.objects.create(index=cls.PDB, web_resource=wr)
+        cls.structure = Structure.objects.create(
+            protein_conformation=cls.pconf, structure_type=stype, state=state,
+            pdb_code=weblink, preferred_chain="R", publication_date="2021-01-01",
+        )
+
+        # DB receptor residues. The YAML below references these same seq-numbers
+        # but with deliberately chosen resnames (see _write_yaml).
+        #   100 -> D  (YAML ASP : match)
+        #   200 -> E  (YAML LYS : MISMATCH — register offset signature)
+        #   300 -> H  (YAML HIE : protonation alias, must still match)
+        cls.db_aa = {100: "D", 200: "E", 300: "H"}
+        for seq, aa in cls.db_aa.items():
+            Residue.objects.create(
+                protein_conformation=cls.pconf, sequence_number=seq, amino_acid=aa,
+            )
+
+        lig = Ligand.objects.create(name="GuardPeptide")
+        cls.lps = LigandPeptideStructure.objects.create(
+            structure=cls.structure, ligand=lig, chain="P",
+        )
+
+    def _hbond(self, recv_seq, recv_resname, pep_seq):
+        # Minimal engine2/1.0 hydrogen_bond entry: receptor donor (selection1)
+        # -> peptide acceptor (selection2).
+        return {
+            "type": "hydrogen_bond",
+            "hbond_class": "hb_bb",
+            "donor": {
+                "chain_id": "R", "resname": recv_resname, "resid": recv_seq,
+                "inscode": "", "atom_name": "N", "side": "selection1",
+            },
+            "acceptor": {
+                "chain_id": "P", "resname": "GLY", "resid": pep_seq,
+                "inscode": "", "atom_name": "O", "side": "selection2",
+            },
+            "distance_h_acceptor": 1.9,
+            "angle_donor_h_acceptor": 160.0,
+        }
+
+    def _write_yaml(self, tmpdir):
+        doc = {
+            "schema_version": "engine2/1.0",
+            "metadata": {
+                "ligand_type": "peptide",
+                "receptor_chain": "R",
+                "ligand_chain": "P",
+            },
+            "interface_interactions": [
+                self._hbond(100, "ASP", 1),  # match    (DB D / YAML ASP)
+                self._hbond(200, "LYS", 2),  # MISMATCH  (DB E / YAML LYS)
+                self._hbond(300, "HIE", 3),  # alias     (DB H / YAML HIE -> H)
+            ],
+            "residue_pair_summaries": [],
+        }
+        inst_dir = os.path.join(tmpdir, self.PDB, f"{self.PDB}_R_P")
+        os.makedirs(inst_dir)
+        path = os.path.join(inst_dir, f"{self.PDB}_R_P.yaml")
+        with open(path, "w") as fh:
+            yaml.safe_dump(doc, fh)
+        return tmpdir
+
+    def test_mismatch_skipped_match_and_alias_written(self):
+        import logging
+        import tempfile
+
+        from contactnetwork.models import InteractingPeptideResiduePair
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = self._write_yaml(tmp)
+            with self.assertLogs(
+                "interaction.schrodinger_processor", level="WARNING"
+            ) as cm:
+                ok = process_schrodinger_peptide_interactions(
+                    current_structure_obj=self.structure,
+                    ligand_chain="P",
+                    pdb_code_str=self.PDB,
+                    schrodinger_interactions_dir_override=base,
+                )
+
+        self.assertTrue(ok)
+
+        written = InteractingPeptideResiduePair.objects.filter(peptide=self.lps)
+        recv_seqs = set(
+            written.values_list("receptor_residue__sequence_number", flat=True)
+        )
+        # The matching (100) and protonation-alias (300) pairs are written; the
+        # mismatching (200) pair is dropped.
+        self.assertIn(100, recv_seqs)
+        self.assertIn(300, recv_seqs)
+        self.assertNotIn(200, recv_seqs)
+
+        # A warning was logged for the mismatch, naming the offending seq + both
+        # amino acids (so an operator can spot the register offset).
+        mismatch_warnings = [
+            m for m in cm.output if "AA mismatch" in m and "seq 200" in m
+        ]
+        self.assertTrue(mismatch_warnings, cm.output)
+        self.assertIn("DB=E", mismatch_warnings[0])
+        self.assertIn("YAML=LYS", mismatch_warnings[0])
+
+    def test_protonation_alias_is_not_a_false_mismatch(self):
+        # Guards against a naive raw-string comparison: DB amino_acid 'H' vs YAML
+        # resname 'HIE' must NOT be flagged as a mismatch (HIE is a His
+        # protonation state from PrepWizard).
+        import tempfile
+
+        from contactnetwork.models import InteractingPeptideResiduePair
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = self._write_yaml(tmp)
+            process_schrodinger_peptide_interactions(
+                current_structure_obj=self.structure,
+                ligand_chain="P",
+                pdb_code_str=self.PDB,
+                schrodinger_interactions_dir_override=base,
+            )
+
+        self.assertTrue(
+            InteractingPeptideResiduePair.objects.filter(
+                peptide=self.lps, receptor_residue__sequence_number=300
+            ).exists()
+        )
