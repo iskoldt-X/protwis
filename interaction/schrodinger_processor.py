@@ -1093,3 +1093,333 @@ def _three_to_one(resname):
     """Map a (possibly non-standard) three-letter residue name to one letter,
     falling back to 'X' for unknown / unnatural residues."""
     return _THREE_TO_ONE.get((resname or "").upper(), "X")
+
+
+# ---------------------------------------------------------------------------
+# Engine 2 receptor / G-alpha interface consumer
+# ---------------------------------------------------------------------------
+#
+# The G-protein interface is the same residue-residue interface shape as a
+# peptide, but it diverges from the peptide path (InteractingPeptideResiduePair)
+# in two ways that justify a distinct target model:
+#
+#   * the partner (G-alpha) is a real protwis Residue -- it lives in the
+#     structure's "_a" ProteinConformation with a common G-protein number
+#     (display_generic_number). Storing it as a bare seqnum + three-letter name
+#     (the peptide model) would throw away the WT / generic-number linkage the
+#     front-end already shows (signprot/views.py:1939).
+#   * the legacy contactnetwork "do_complexes" path (cube.py:140-162) already
+#     writes this exact interface to InteractingResiduePair, so the API consumes
+#     it unchanged and the schema needs no migration.
+#
+# Both the receptor conformation and the "_a" G-alpha conformation store PDB
+# author sequence numbers (build_g_protein_structures.py:478 -- the WT-replace
+# path was disabled in 2019), so the YAML partner resid joins straight onto "_a"
+# by author seqnum, with an AA-guard catching any register offset. Verified
+# end-to-end against the local DB: 6CMO 18/18 and 7RYC (alpha=D, author
+# 1005-1246) 16/16, 0 skipped, generic numbers populated.
+
+
+def _resolve_residue_with_aa_guard(
+    protein_conformation, seq_number, yaml_resname, pdb_code_str, side_label,
+    inscode="",
+):
+    """Resolve a Residue by author sequence_number on protein_conformation,
+    cross-checking the YAML three-letter resname against the DB amino_acid.
+
+    (protein_conformation, sequence_number) is unique on both the receptor and
+    the "_a" conformation, so the join keys purely on the author seqnum. A
+    register offset between the PDB author numbering and the DB numbering would
+    silently map onto the WRONG residue, so the YAML resname is the guard: on
+    DoesNotExist / MultipleObjectsReturned / AA mismatch we log and return None
+    so the caller skips rather than writing a mis-registered row. _three_to_one
+    normalises PrepWizard protonation aliases (HIE/HID/HIP/ASH/...) so they are
+    not flagged as false mismatches.
+
+    The Residue model has no insertion-code field, so a residue carrying a
+    non-empty insertion code (e.g. 100A) cannot be resolved unambiguously by
+    seqnum alone -- it would silently collide with residue 100. Such residues are
+    skipped (log + return None) rather than risk a mis-registered row.
+    """
+    if (inscode or "").strip():
+        logger.warning(
+            f"{side_label} residue {pdb_code_str} seq {seq_number}{inscode} has a "
+            "non-empty insertion code; the Residue model cannot resolve it "
+            "unambiguously. Skipping Engine 2 G-protein interaction."
+        )
+        return None
+    try:
+        res = Residue.objects.get(
+            protein_conformation=protein_conformation, sequence_number=seq_number
+        )
+    except Residue.DoesNotExist:
+        logger.warning(
+            f"{side_label} Residue not found for {pdb_code_str} seq {seq_number} "
+            f"on {protein_conformation}; skipping Engine 2 G-protein interaction."
+        )
+        return None
+    except Residue.MultipleObjectsReturned:
+        logger.error(
+            f"Ambiguous {side_label} Residue for {pdb_code_str} seq {seq_number}; "
+            "skipping Engine 2 G-protein interaction."
+        )
+        return None
+
+    resname = (yaml_resname or "").upper()
+    one_letter = _three_to_one(resname)
+    if resname and one_letter != res.amino_acid:
+        logger.warning(
+            f"{side_label} AA mismatch for {pdb_code_str} seq {seq_number}: "
+            f"DB={res.amino_acid} YAML={resname} ({one_letter}); likely "
+            "author-seqnum register offset. Skipping Engine 2 G-protein "
+            "interaction (no mis-registered row written)."
+        )
+        return None
+    return res
+
+
+@transaction.atomic
+def process_schrodinger_gprotein_interactions(
+    current_structure_obj: Structure,
+    ligand_chain: str,
+    pdb_code_str: str,
+    schrodinger_interactions_dir_override: str = None,
+) -> bool:
+    """Process an Engine 2 receptor / G-alpha interface into the contactnetwork
+    InteractingResiduePair / Interaction models.
+
+    ligand_chain selects the G-alpha interface instance (the YAML whose
+    metadata.ligand_chain matches AND whose partner_category is
+    'g_protein_alpha'). Both interacting residues are resolved to real protwis
+    Residue rows:
+
+      * res1 = receptor residue on current_structure_obj.protein_conformation
+        (author seqnum + AA-guard, same join as the peptide / SM paths);
+      * res2 = G-alpha residue on the structure's "_a" ProteinConformation,
+        reached via the bridge SignprotComplex.alpha -> "{pdb}_a" -> author
+        seqnum join + AA-guard. Its generic number comes for free ("_a" is fully
+        populated; this function does not touch it -- the consumer reads
+        res2.display_generic_number).
+
+    Mirrors the legacy do_complexes path (cube.py:140-162) which writes the same
+    target model, so signprot/views.py consumes the rows unchanged. The only
+    addition over cube.py is the two-sided AA-guard (Engine 2 partner
+    coordinates come from external Schrodinger geometry, not the same
+    struc.pdb_data cube.py reads, so a register offset must be caught).
+
+    Idempotency: never a structure-wide or table-wide delete -- cube.py:261's
+    .filter(referenced_structure=struc).all().delete() would wipe this
+    structure's intra-receptor contacts and any legacy complex rows too. Instead
+    we upsert per (res1, res2) pair: get_or_create the pair, replace ONLY that
+    pair's Interaction children, then insert the new ones. This touches solely
+    the pairs this YAML produces. (Limitation: a pair written by a previous run
+    but absent from a re-run's YAML lingers -- a structure-scoped sweep would
+    catch it but is intentionally avoided here.)
+
+    @transaction.atomic: a mid-write error rolls back this instance's rows.
+
+    Returns True if a matching G-alpha YAML was found and processed (even if it
+    yielded zero rows), False if no YAML / no SignprotComplex / no "_a"
+    conformation / parse error (same contract as the peptide processor).
+    """
+    logger.info(
+        f"Processing Engine 2 G-protein interactions for "
+        f"{pdb_code_str} chain {ligand_chain}"
+    )
+
+    base_dir = schrodinger_interactions_dir_override or getattr(
+        settings, "SCHRODINGER_INTERACTIONS_DIR", None
+    )
+    if not base_dir:
+        logger.error(
+            "SCHRODINGER_INTERACTIONS_DIR is not set. Cannot process Engine 2 "
+            "G-protein interactions."
+        )
+        return False
+
+    yaml_paths = locate_engine2_yamls(base_dir, pdb_code_str)
+    if not yaml_paths:
+        logger.warning(f"No Engine 2 YAML found for {pdb_code_str} under {base_dir}")
+        return False
+
+    # Pick the engine2/1.0 instance whose metadata.ligand_chain matches this
+    # chain AND whose partner_category is g_protein_alpha. Routing keys off
+    # partner_category (truth), NOT ligand_type -- 7RYC carries BOTH a G-alpha
+    # instance (chain D, g_protein_alpha) and a legacy peptide (chain L,
+    # oxytocin) and they must not be confused.
+    chosen = None
+    for path in yaml_paths:
+        try:
+            with open(path) as fh:
+                doc = yaml.safe_load(fh)
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing Engine 2 YAML {path}: {e}")
+            return False
+        if not doc or doc.get("schema_version") != "engine2/1.0":
+            continue
+        meta = doc.get("metadata") or {}
+        if (meta.get("ligand_chain") or "") != ligand_chain:
+            continue
+        if (meta.get("partner_category") or "") != "g_protein_alpha":
+            logger.warning(
+                f"Engine 2 instance {pdb_code_str} chain {ligand_chain} has "
+                f"partner_category={meta.get('partner_category')!r}, not "
+                "'g_protein_alpha'; not a G-alpha interface -- skipping G-protein path."
+            )
+            return False
+        chosen = doc
+        break
+
+    if chosen is None:
+        logger.warning(
+            f"No g_protein_alpha engine2/1.0 instance for {pdb_code_str} chain "
+            f"{ligand_chain} among {len(yaml_paths)} YAML(s)."
+        )
+        return False
+
+    # Bridge step 1: the structure's SignprotComplex gives the G-alpha author
+    # chain letter (not always 'A' -- e.g. 7RYC alpha=D) and confirms a complex.
+    from signprot.models import SignprotComplex
+    from protein.models import ProteinConformation
+    from contactnetwork.models import InteractingResiduePair, Interaction
+
+    try:
+        signprot_complex = SignprotComplex.objects.get(structure=current_structure_obj)
+    except SignprotComplex.DoesNotExist:
+        logger.warning(
+            f"No SignprotComplex for {pdb_code_str}; cannot resolve the G-alpha "
+            "conformation. Skipping Engine 2 G-protein interactions."
+        )
+        return False
+    except SignprotComplex.MultipleObjectsReturned:
+        logger.error(
+            f"Ambiguous SignprotComplex for {pdb_code_str}; skipping Engine 2 "
+            "G-protein interactions (no rows written)."
+        )
+        return False
+    alpha_chain = signprot_complex.alpha
+    if alpha_chain != ligand_chain:
+        logger.warning(
+            f"SignprotComplex.alpha={alpha_chain!r} != YAML ligand_chain="
+            f"{ligand_chain!r} for {pdb_code_str}; the G-alpha author chain "
+            "disagrees with the interface instance -- skipping (no mis-attributed "
+            "rows)."
+        )
+        return False
+
+    # Bridge step 2: the G-alpha residues live in the "{pdb}_a"
+    # ProteinConformation (author seqnums, generic numbers populated). cube.py:141
+    # uses the same lookup.
+    alpha_entry = pdb_code_str.lower() + "_a"
+    try:
+        alpha_pc = ProteinConformation.objects.get(
+            protein__entry_name=alpha_entry
+        )
+    except ProteinConformation.DoesNotExist:
+        logger.warning(
+            f"No '{alpha_entry}' ProteinConformation for {pdb_code_str}; the "
+            "G-alpha side is not built. Skipping Engine 2 G-protein interactions."
+        )
+        return False
+    except ProteinConformation.MultipleObjectsReturned:
+        logger.error(
+            f"Ambiguous '{alpha_entry}' ProteinConformation for {pdb_code_str}; "
+            "skipping Engine 2 G-protein interactions (no rows written)."
+        )
+        return False
+
+    receptor_pc = current_structure_obj.protein_conformation
+    interactions = chosen.get("interface_interactions") or []
+    if not interactions:
+        logger.warning(
+            f"Engine 2 G-alpha YAML for {pdb_code_str} chain {ligand_chain} has "
+            "no interface_interactions; no rows written."
+        )
+        return True
+
+    pairs_cache = {}  # (recv_seq, gp_seq) -> InteractingResiduePair
+    created_count = 0
+    skipped_count = 0
+    replaced_count = 0
+
+    for entry in interactions:
+        recv_partner, gp_partner = _engine2_pair_partners(entry)
+        if recv_partner is None or gp_partner is None:
+            # Not a receptor/partner interface pair (intra-chain / untagged) --
+            # the interface worker should not emit these; be safe and skip.
+            logger.info(
+                f"Skipping non-interface Engine 2 entry (type={entry.get('type')}) "
+                f"in {pdb_code_str} chain {ligand_chain}."
+            )
+            continue
+
+        recv_seq = int(recv_partner["resid"])
+        gp_seq = int(gp_partner["resid"])
+
+        # The partner (selection2) residue must be on the G-alpha author chain.
+        gp_chain = (gp_partner.get("chain_id") or "").strip()
+        if gp_chain and gp_chain != alpha_chain:
+            logger.warning(
+                f"G-alpha partner chain {gp_chain!r} != SignprotComplex.alpha "
+                f"{alpha_chain!r} for {pdb_code_str} seq {gp_seq}; skipping."
+            )
+            skipped_count += 1
+            continue
+
+        recv_res = _resolve_residue_with_aa_guard(
+            receptor_pc, recv_seq, recv_partner.get("resname"), pdb_code_str,
+            "Receptor", inscode=recv_partner.get("inscode"),
+        )
+        if recv_res is None:
+            skipped_count += 1
+            continue
+        gp_res = _resolve_residue_with_aa_guard(
+            alpha_pc, gp_seq, gp_partner.get("resname"), pdb_code_str, "G-alpha",
+            inscode=gp_partner.get("inscode"),
+        )
+        if gp_res is None:
+            skipped_count += 1
+            continue
+
+        mapped = map_engine2_interaction(entry)  # fail-loud on unknown type
+
+        key = (recv_seq, gp_seq)
+        pair = pairs_cache.get(key)
+        if pair is None:
+            pair, created = InteractingResiduePair.objects.get_or_create(
+                res1=recv_res, res2=gp_res,
+                referenced_structure=current_structure_obj,
+            )
+            # Per-pair idempotency (NOT structure/table-wide): drop only THIS
+            # pair's existing Interaction children before re-inserting. If the
+            # pair pre-existed (a prior Engine 2 run, or a legacy do_complexes
+            # row for the same residue pair) its children are replaced -- count
+            # them so the overwrite is observable, never silent.
+            if not created:
+                existing = Interaction.objects.filter(interacting_pair=pair)
+                replaced_count += existing.count()
+                existing.delete()
+            pairs_cache[key] = pair
+
+        Interaction.objects.create(
+            interacting_pair=pair,
+            interaction_type=mapped["interaction_type"],
+            specific_type=mapped["specific_type"],
+            interaction_level=mapped["interaction_level"],
+            atomname_residue1=mapped["receptor_atom"],  # res1 = receptor
+            atomname_residue2=mapped["peptide_atom"],   # res2 = G-alpha (selection2)
+        )
+        created_count += 1
+
+    if replaced_count:
+        logger.info(
+            f"Replaced {replaced_count} pre-existing Interaction row(s) on "
+            f"{pdb_code_str} chain {ligand_chain} G-protein pairs (prior Engine 2 "
+            "run or legacy do_complexes rows for the same residue pairs)."
+        )
+    logger.info(
+        f"Created {created_count} Engine 2 G-protein Interaction rows across "
+        f"{len(pairs_cache)} residue pairs for {pdb_code_str} chain "
+        f"{ligand_chain} ({skipped_count} skipped)."
+    )
+    return True

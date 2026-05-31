@@ -1,0 +1,21 @@
+pdb_id: 6CMO
+engine: engine2
+interface_summary:
+- instance_id: 6CMO_R_A
+  receptor_chain: R
+  ligand_chain: A
+  ligand_type: protein
+  ligand_title: g_protein_alpha
+  partner_category: g_protein_alpha
+  partner_uniprot: gnai1_human
+  counts:
+    interaction_type_counts:
+      hydrogen_bond: 10
+      salt_bridge: 2
+      hydrophobic_contact: 37
+    hbond_class_counts:
+      hb_bb: 1
+      hb_bs: 1
+      hb_sb: 5
+      hb_ss: 3
+    residue_pair_count: 47

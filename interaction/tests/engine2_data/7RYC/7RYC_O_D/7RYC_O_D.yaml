@@ -1,0 +1,1428 @@
+schema_version: engine2/1.0
+engine: engine2
+metadata:
+  pdb_id: 7RYC
+  receptor_chain: O
+  ligand_chain: D
+  ligand_type: protein
+  ligand_name: gnaq_human
+  ligand_title: g_protein_alpha
+  partner_category: g_protein_alpha
+  partner_uniprot: gnaq_human
+  selection1_asl: protein and chain.name 'O'
+  selection2_asl: protein and chain.name 'D'
+  input_file: /home/nht435/bone1_validation/output/7RYC/7RYC.mae
+interface_interactions:
+- type: hydrogen_bond
+  hbond_class: hb_sb
+  donor:
+    chain_id: O
+    resname: ARG
+    resid: 137
+    inscode: ''
+    atom_name: NH2
+    side: selection1
+  acceptor:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: O
+    side: selection2
+  distance_h_acceptor: null
+  angle_donor_h_acceptor: 169.54374993921834
+- type: hydrogen_bond
+  hbond_class: hb_sb
+  donor:
+    chain_id: D
+    resname: ASN
+    resid: 1239
+    inscode: ''
+    atom_name: ND2
+    side: selection2
+  acceptor:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    atom_name: O
+    side: selection1
+  distance_h_acceptor: null
+  angle_donor_h_acceptor: 151.2491097940243
+- type: hydrogen_bond
+  hbond_class: hb_ss
+  donor:
+    chain_id: D
+    resname: GLN
+    resid: 1237
+    inscode: ''
+    atom_name: NE2
+    side: selection2
+  acceptor:
+    chain_id: O
+    resname: ASN
+    resid: 230
+    inscode: ''
+    atom_name: ND2
+    side: selection1
+  distance_h_acceptor: null
+  angle_donor_h_acceptor: 143.40177972081358
+- type: hydrogen_bond
+  hbond_class: hb_ss
+  donor:
+    chain_id: O
+    resname: ARG
+    resid: 272
+    inscode: ''
+    atom_name: NH2
+    side: selection1
+  acceptor:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    atom_name: OD1
+    side: selection2
+  distance_h_acceptor: null
+  angle_donor_h_acceptor: 121.07102204399246
+- type: hydrogen_bond
+  hbond_class: hb_bs
+  donor:
+    chain_id: O
+    resname: GLY
+    resid: 334
+    inscode: ''
+    atom_name: N
+    side: selection1
+  acceptor:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    atom_name: OD1
+    side: selection2
+  distance_h_acceptor: null
+  angle_donor_h_acceptor: 136.033913789284
+- type: hydrogen_bond
+  hbond_class: hb_sb
+  donor:
+    chain_id: D
+    resname: ASN
+    resid: 1239
+    inscode: ''
+    atom_name: ND2
+    side: selection2
+  acceptor:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: O
+    side: selection1
+  distance_h_acceptor: 3.5390385194904304
+  angle_donor_h_acceptor: 136.01964981936845
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ARG
+    resid: 73
+    inscode: ''
+    atom_name: C
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CE1
+    side: selection2
+  distance: 4.486901895668557
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 74
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 4.31116686468352
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 74
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 4.448671687793776
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 4.434823236336148
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CE2
+    side: selection2
+  distance: 3.3583633727164077
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    atom_name: CZ
+    side: selection2
+  distance: 3.9110435349998465
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    atom_name: CG1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 4.4478424450124
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    atom_name: CG2
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1240
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 4.213587648088618
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CG
+    side: selection2
+  distance: 4.066267868077916
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 3.3520363207724797
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 3.5972730540311817
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CA
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CG2
+    side: selection2
+  distance: 4.473803844223148
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: C
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CG2
+    side: selection2
+  distance: 4.169290968544768
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CG2
+    side: selection2
+  distance: 3.778254168222133
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.388688043260981
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    atom_name: CA
+    side: selection2
+  distance: 4.199893445929804
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.490610777907722
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CB
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: C
+    side: selection2
+  distance: 4.393207387319318
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    atom_name: CG
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.349657032216777
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CG
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    atom_name: CG
+    side: selection2
+  distance: 4.4705377027389
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CG
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 3.9725224694147343
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.278161421515909
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    atom_name: CG
+    side: selection2
+  distance: 3.625168418663192
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CG2
+    side: selection2
+  distance: 4.373958509567855
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 3.5965043158080534
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    atom_name: CA
+    side: selection2
+  distance: 3.7857142315405725
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.152415238732876
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    atom_name: CG1
+    side: selection2
+  distance: 4.351410353097477
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD2
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: PHE
+    resid: 1228
+    inscode: ''
+    atom_name: CD1
+    side: selection2
+  distance: 4.024676779949544
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD2
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: PHE
+    resid: 1228
+    inscode: ''
+    atom_name: CE1
+    side: selection2
+  distance: 3.475161676214936
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    atom_name: CD2
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    atom_name: CG
+    side: selection2
+  distance: 4.2170227983492214
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 223
+    inscode: ''
+    atom_name: CG2
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 3.5480750328461137
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    atom_name: CG1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1240
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 4.478537124243135
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 3.8567003423186823
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    atom_name: CD1
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CB
+    side: selection2
+  distance: 4.169990899964908
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: MET
+    resid: 276
+    inscode: ''
+    atom_name: CE
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CG
+    side: selection2
+  distance: 4.251213033321424
+- type: hydrophobic_contact
+  atom1:
+    chain_id: O
+    resname: MET
+    resid: 276
+    inscode: ''
+    atom_name: CE
+    side: selection1
+  atom2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    atom_name: CD2
+    side: selection2
+  distance: 4.048899736686752
+residue_pair_summaries:
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 73
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.0598831840148724
+    surface_complementarity: 0.6139914955432846
+    set_1_buried_sasa: 0.20975507376388025
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 74
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.4039824488134167
+    surface_complementarity: 0.5606694644993775
+    set_1_buried_sasa: 0.7583756908186167
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ASP
+    resid: 136
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.6625221041271336
+    surface_complementarity: 0.41290821040203585
+    set_1_buried_sasa: 0.19524869337486128
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 137
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.0051487233163803
+    surface_complementarity: 0.631146542421697
+    set_1_buried_sasa: 0.8406698882717493
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 137
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.354853613772402
+    surface_complementarity: 0.5622823223101656
+    set_1_buried_sasa: 0.8406698882717493
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 1
+- residue1:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1239
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 1.8556150019578244
+    surface_complementarity: 0.5462106232724026
+    set_1_buried_sasa: 0.6987125757091218
+    set_2_buried_sasa: 0.6969728826169355
+    total_interaction_count: 1
+- residue1:
+    chain_id: O
+    resname: ALA
+    resid: 140
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.0295970728725887
+    surface_complementarity: 0.5701362355011499
+    set_1_buried_sasa: 0.6987125757091218
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1239
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.2642795404347633
+    surface_complementarity: 0.5429058484647591
+    set_1_buried_sasa: 0.9976572347710767
+    set_2_buried_sasa: 0.6969728826169355
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.1027737841321996
+    surface_complementarity: 0.5073199117000826
+    set_1_buried_sasa: 0.9976572347710767
+    set_2_buried_sasa: 0.8083738941678204
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: TYR
+    resid: 1243
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.952224021850986
+    surface_complementarity: 0.5668314606935065
+    set_1_buried_sasa: 0.9976572347710767
+    set_2_buried_sasa: 0.9536521462025416
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1240
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.7697312920619392
+    surface_complementarity: 0.5632604486891248
+    set_1_buried_sasa: 0.9976572347710767
+    set_2_buried_sasa: 0.8983233770819301
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 141
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.162553583673229
+    surface_complementarity: 0.6356956808050378
+    set_1_buried_sasa: 0.9976572347710767
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1239
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.978107194934069
+    surface_complementarity: 0.6142626349413581
+    set_1_buried_sasa: 0.8618130329355206
+    set_2_buried_sasa: 0.6969728826169355
+    total_interaction_count: 1
+- residue1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.0930715627579604
+    surface_complementarity: 0.7452197199093072
+    set_1_buried_sasa: 0.8618130329355206
+    set_2_buried_sasa: 0.5898217539903876
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.4223123484201925
+    surface_complementarity: 0.5786766981766817
+    set_1_buried_sasa: 0.8618130329355206
+    set_2_buried_sasa: 0.8083738941678204
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: PRO
+    resid: 144
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.9031087319709505
+    surface_complementarity: 0.6583040583201563
+    set_1_buried_sasa: 0.8618130329355206
+    set_2_buried_sasa: 0.34530430656439637
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LYS
+    resid: 1232
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.0884097473060654
+    surface_complementarity: 0.6620978177916457
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 0.34530430656439637
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: PHE
+    resid: 1228
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 1.9496542889040593
+    surface_complementarity: 0.6047647483963876
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 0.309687235029229
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ILE
+    resid: 1235
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.1287664504954407
+    surface_complementarity: 0.7490134793807967
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 0.5898217539903876
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: VAL
+    resid: 1079
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.7316042460753707
+    surface_complementarity: 0.5700552389519278
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 0.2398902566680604
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 223
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.447731426952516
+    surface_complementarity: 0.589647236187713
+    set_1_buried_sasa: 0.9047241693368888
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LYS
+    resid: 226
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1236
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.6960880867579333
+    surface_complementarity: 0.36054993265579083
+    set_1_buried_sasa: 0.2751938884581544
+    set_2_buried_sasa: 0.8083738941678204
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1240
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.529598906303726
+    surface_complementarity: 0.5345383875916465
+    set_1_buried_sasa: 0.9595415091925952
+    set_2_buried_sasa: 0.8983233770819301
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.2927657642613846
+    surface_complementarity: 0.6069736197075595
+    set_1_buried_sasa: 0.9595415091925952
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ASN
+    resid: 230
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: GLN
+    resid: 1237
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.39574899186539
+    surface_complementarity: 0.3246220000483523
+    set_1_buried_sasa: 0.6766287295095212
+    set_2_buried_sasa: 0.3397201884595339
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ALA
+    resid: 269
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: VAL
+    resid: 1246
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.895272354955586
+    surface_complementarity: 0.0
+    set_1_buried_sasa: 0.4567767030620321
+    set_2_buried_sasa: 0.3778728803099103
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 272
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.7114726880920283
+    surface_complementarity: 0.6027366138537477
+    set_1_buried_sasa: 0.4415943796952574
+    set_2_buried_sasa: 0.6231373611857569
+    total_interaction_count: 1
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 272
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.8013066888830487
+    surface_complementarity: 0.6693428783836333
+    set_1_buried_sasa: 0.4415943796952574
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: MET
+    resid: 276
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1245
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.4749136468277135
+    surface_complementarity: 0.5231295135281168
+    set_1_buried_sasa: 0.9067033811735266
+    set_2_buried_sasa: 0.9702745618435774
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: PHE
+    resid: 332
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.3627319028435823
+    surface_complementarity: 0.0
+    set_1_buried_sasa: 0.00907895594333219
+    set_2_buried_sasa: 0.6231373611857569
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: THR
+    resid: 333
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 2.4331296643652274
+    surface_complementarity: 0.0
+    set_1_buried_sasa: 0.5303764828241724
+    set_2_buried_sasa: 0.6231373611857569
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: GLY
+    resid: 334
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASN
+    resid: 1244
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.1095245108390683
+    surface_complementarity: 0.0
+    set_1_buried_sasa: 0.11491098651904863
+    set_2_buried_sasa: 0.6231373611857569
+    total_interaction_count: 1
+- residue1:
+    chain_id: O
+    resname: SER
+    resid: 72
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: GLU
+    resid: 1242
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.4108917358874304
+    surface_complementarity: 0.15392106841680356
+    set_1_buried_sasa: 0.3514964698903329
+    set_2_buried_sasa: 0.3109860525529953
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 74
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: GLU
+    resid: 1242
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.6990245415461906
+    surface_complementarity: 0.33779066714513206
+    set_1_buried_sasa: 0.7583756908186167
+    set_2_buried_sasa: 0.3109860525529953
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: CYS
+    resid: 1231
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.4325787020201073
+    surface_complementarity: 0.5063943923974465
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 1.0
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: LEU
+    resid: 145
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: LEU
+    resid: 1034
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.4038874889123427
+    surface_complementarity: 0.5349291446639818
+    set_1_buried_sasa: 0.7131881027073704
+    set_2_buried_sasa: 0.1756116116595563
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ILE
+    resid: 227
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: VAL
+    resid: 1246
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.72383489156287
+    surface_complementarity: 0.4282098301270657
+    set_1_buried_sasa: 0.9595415091925952
+    set_2_buried_sasa: 0.3778728803099103
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ASN
+    resid: 230
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: ASH
+    resid: 1233
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.8027819252397395
+    surface_complementarity: 0.0
+    set_1_buried_sasa: 0.6766287295095212
+    set_2_buried_sasa: 0.10031084168534077
+    total_interaction_count: 0
+- residue1:
+    chain_id: O
+    resname: ARG
+    resid: 272
+    inscode: ''
+    side: selection1
+  residue2:
+    chain_id: D
+    resname: VAL
+    resid: 1246
+    inscode: ''
+    side: selection2
+  properties:
+    min_atom_distance: 3.427759179446098
+    surface_complementarity: 0.4905790888031394
+    set_1_buried_sasa: 0.4415943796952574
+    set_2_buried_sasa: 0.3778728803099103
+    total_interaction_count: 0
+interface_summary:
+  interaction_type_counts:
+    hydrogen_bond: 6
+    hydrophobic_contact: 37
+  hbond_class_counts:
+    hb_bb: 0
+    hb_bs: 1
+    hb_sb: 3
+    hb_ss: 2
+  residue_pair_count: 39

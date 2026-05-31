@@ -1,0 +1,37 @@
+pdb_id: 7RYC
+engine: engine2
+interface_summary:
+- instance_id: 7RYC_O_L
+  receptor_chain: O
+  ligand_chain: L
+  ligand_type: peptide
+  ligand_title: Oxytocin
+  partner_category: ''
+  partner_uniprot: ''
+  counts:
+    interaction_type_counts:
+      hydrogen_bond: 2
+      hydrophobic_contact: 62
+    hbond_class_counts:
+      hb_bb: 0
+      hb_bs: 0
+      hb_sb: 2
+      hb_ss: 0
+    residue_pair_count: 54
+- instance_id: 7RYC_O_D
+  receptor_chain: O
+  ligand_chain: D
+  ligand_type: protein
+  ligand_title: g_protein_alpha
+  partner_category: g_protein_alpha
+  partner_uniprot: gnaq_human
+  counts:
+    interaction_type_counts:
+      hydrogen_bond: 6
+      hydrophobic_contact: 37
+    hbond_class_counts:
+      hb_bb: 0
+      hb_bs: 1
+      hb_sb: 3
+      hb_ss: 2
+    residue_pair_count: 39
