@@ -16,10 +16,14 @@ Two layers:
 * a database layer that replaces the RFI rows of one structure inside one
   transaction.
 
-Replacement semantics: for every in-scope anchor the existing RFI rows are
-deleted and the Schrodinger rows written in their place, even when the
-Schrodinger result is empty. Anchors outside Engine 1 scope (peptide, protein
-and placeholder ligands) are never touched.
+Replacement semantics: for every in-scope anchor whose product instance(s)
+are found, the existing RFI rows are deleted and the Schrodinger rows written
+in their place, even when the Schrodinger result is empty. An anchor with no
+matching product instance (missing product directory, chain names that differ
+between the product and GPCRdb, a ligand the producer excludes by design) is
+left untouched and reported: an absent product is not an empty result.
+Anchors outside Engine 1 scope (peptide, protein and placeholder ligands) are
+never touched.
 """
 
 import collections
@@ -71,6 +75,9 @@ INSTANCE_DIR_RE = re.compile(
 
 CHAIN_RES_RE = re.compile(r"^(?P<chain>[A-Za-z0-9]+):(?P<resnum>-?\d+)(?P<icode>[A-Za-z]?)$")
 
+# Modes of select_instances that leave the anchor untouched.
+UNTOUCHED_MODES = frozenset({"exact_missing", "no_product"})
+
 
 def instance_yaml_paths(data_dir, pdb_code):
     """Map instance name -> YAML path for one PDB (flat product layout).
@@ -91,41 +98,49 @@ def instance_yaml_paths(data_dir, pdb_code):
 
 
 def parse_chain_res(chain_res):
-    """Parse an SLI ``chain_res`` of the form ``CHAIN:RESNUM[ICODE]``.
+    """Parse an SLI ``chain_res``: ``CHAIN:RESNUM[ICODE]`` or a comma list.
 
-    Returns (chain, resnum_str, icode) or None when the value is empty or
-    names a chain only.
+    Returns a list of (chain, resnum_str, icode), or None when the value is
+    empty, names a chain only, or has any item that does not parse.
     """
-    m = CHAIN_RES_RE.match((chain_res or "").strip())
-    if not m:
-        return None
-    return m.group("chain"), m.group("resnum"), m.group("icode")
+    items = [item.strip() for item in (chain_res or "").split(",")]
+    parsed = []
+    for item in items:
+        m = CHAIN_RES_RE.match(item)
+        if not m:
+            return None
+        parsed.append((m.group("chain"), m.group("resnum"), m.group("icode")))
+    return parsed
 
 
 def select_instances(het_code, chain_res, instance_names):
     """Choose the product instance(s) that belong to one SLI anchor.
 
-    When the anchor names an exact residue (``chain_res`` = ``A:408``), only
-    the instance with that chain and residue number is used: the curated
-    anchor points at one copy, and other copies of the same HET may be
-    crystal contacts or a second site with its own anchor.
+    When the anchor names exact residues (``chain_res`` = ``A:408`` or
+    ``R:401, R:402``), only the instances with those chains and residue
+    numbers are used: the curated anchor points at specific copies, and other
+    copies of the same HET may be crystal contacts or a second site with its
+    own anchor.
 
     When ``chain_res`` is empty or a bare chain, every instance of the HET is
     used and the preferred-chain filter decides later which rows are kept.
 
-    Returns (names, mode) with mode one of ``exact``, ``exact_missing``,
-    ``all_copies``.
+    Returns (names, mode, missing). mode is one of ``exact`` (all named
+    instances found), ``exact_partial`` (some found), ``exact_missing`` (none
+    found), ``all_copies`` (at least one copy found) or ``no_product`` (no
+    copy found). ``missing`` lists the named instances that were not found.
     """
     het = het_code.upper()
     copies = sorted(n for n in instance_names if n.split("_", 1)[0].upper() == het)
     parsed = parse_chain_res(chain_res)
     if parsed is None:
-        return copies, "all_copies"
-    chain, resnum, icode = parsed
-    wanted = "{}_{}_{}{}".format(het, chain, resnum, icode)
-    if wanted in copies:
-        return [wanted], "exact"
-    return [], "exact_missing"
+        return copies, ("all_copies" if copies else "no_product"), []
+    wanted = ["{}_{}_{}{}".format(het, chain, resnum, icode) for chain, resnum, icode in parsed]
+    found = [w for w in wanted if w in copies]
+    missing = [w for w in wanted if w not in copies]
+    if not found:
+        return [], "exact_missing", missing
+    return found, ("exact" if not missing else "exact_partial"), missing
 
 
 # ---------------------------------------------------------------------------
@@ -274,26 +289,29 @@ def is_in_scope(sli):
 class AnchorOutcome(object):
     """What happened to one in-scope anchor."""
 
-    __slots__ = ("sli_id", "het", "mode", "instances", "deleted", "written", "counts",
-                 "other_chain_by_chain", "dropped")
+    __slots__ = ("sli_id", "het", "mode", "instances", "missing", "deleted", "written",
+                 "counts", "other_chain_by_chain", "dropped", "fragments_created")
 
     def __init__(self, sli_id, het):
         self.sli_id = sli_id
         self.het = het
         self.mode = ""
         self.instances = []
+        self.missing = []
         self.deleted = 0
         self.written = 0
         self.counts = collections.Counter()
         self.other_chain_by_chain = {}
         self.dropped = collections.Counter()
+        self.fragments_created = 0
 
 
 def import_structure(structure, data_dir):
     """Replace the Engine 1 RFI rows of one structure.
 
     Runs in one transaction: any exception leaves the structure exactly as it
-    was. Returns (outcomes, out_of_scope_count). Rows planned but not written
+    was. Returns (outcomes, out_of_scope_count). Anchors whose mode is in
+    UNTOUCHED_MODES keep their existing rows. Rows planned but not written
     because the database has no matching residue or rotamer are counted in
     ``outcome.dropped``; for every anchor
 
@@ -316,8 +334,12 @@ def import_structure(structure, data_dir):
                 out_of_scope += 1
                 continue
             outcome = AnchorOutcome(sli.id, sli.pdb_reference.upper())
-            names, outcome.mode = select_instances(sli.pdb_reference, sli.chain_res, instances)
+            names, outcome.mode, outcome.missing = select_instances(
+                sli.pdb_reference, sli.chain_res, instances)
             outcome.instances = names
+            if outcome.mode in UNTOUCHED_MODES:
+                outcomes.append(outcome)
+                continue
 
             rows = []
             for name in names:
@@ -346,13 +368,19 @@ def import_structure(structure, data_dir):
                 if len(rotamers) != 1:
                     outcome.dropped["rotamer_not_found" if not rotamers else "rotamer_ambiguous"] += 1
                     continue
+                # Reuse only a fragment that already holds this exact receptor
+                # block (one this import wrote earlier). Legacy fragments for the
+                # same (ligand, structure, residue) hold other content and are
+                # never borrowed.
                 fragment = (Fragment.objects
-                            .filter(ligand=sli.ligand, structure=structure, residue=residue)
+                            .filter(ligand=sli.ligand, structure=structure, residue=residue,
+                                    pdbdata__pdb=rec["receptor_pdb_block"])
                             .order_by("id").first())
                 if fragment is None:
                     fragment = Fragment.objects.create(
                         ligand=sli.ligand, structure=structure, residue=residue,
                         pdbdata=PdbData.objects.create(pdb=rec["receptor_pdb_block"]))
+                    outcome.fragments_created += 1
                 ResidueFragmentInteraction.objects.create(
                     structure_ligand_pair=sli,
                     rotamer=rotamers[0],

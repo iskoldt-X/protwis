@@ -7,9 +7,12 @@ Usage::
         --anomaly-csv /runs/anomalies.csv
 
 Each structure is imported in its own transaction. A structure that fails
-(unreadable YAML, a row the type map cannot route) is rolled back and
-reported; the others are unaffected. The command exits non-zero when any
-structure failed, after all structures have been attempted.
+(unreadable YAML, a row the type map cannot route, or any unexpected error)
+is rolled back and reported; the others are unaffected. The command exits
+non-zero when any structure failed, after all structures have been attempted.
+
+An anchor with no matching product instance keeps its existing rows and is
+reported as a WARNING (anchor_not_replaced).
 
 The anomaly CSV is written outside the transactions and flushed per row, so
 it survives any rollback. Every row that was read but not written is
@@ -19,6 +22,7 @@ accounted for in it.
 import csv
 import datetime
 import json
+import os
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -95,11 +99,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         codes = self._pdb_codes(options)
+        if not os.path.isdir(options["data_dir"]):
+            raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
         self._check_slugs()
         log = AnomalyLog(options["anomaly_csv"])
         report = []
         failed = []
-        totals = {"anchors": 0, "deleted": 0, "written": 0}
+        totals = {"anchors": 0, "untouched": 0, "deleted": 0, "written": 0}
         try:
             for pdb in codes:
                 entry = {"pdb": pdb}
@@ -117,6 +123,9 @@ class Command(BaseCommand):
                             detail=structure.structure_type.slug)
                     entry["status"] = "not_experimental"
                     continue
+                if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
+                    log.log(pdb, "WARNING", "no_product_dir",
+                            detail="every in-scope anchor of this structure is left untouched")
                 try:
                     with transaction.atomic():
                         outcomes, out_of_scope = si.import_structure(
@@ -125,10 +134,13 @@ class Command(BaseCommand):
                             raise _Rollback()
                 except _Rollback:
                     pass
-                except (si.MalformedProduct, si.UnroutableRow) as exc:
-                    log.log(pdb, "ERROR", type(exc).__name__, detail=str(exc)[:300])
+                except Exception as exc:
+                    # The structure's transaction has been rolled back; record
+                    # the failure and go on with the next structure.
+                    message = "{}: {}".format(type(exc).__name__, exc)[:300]
+                    log.log(pdb, "ERROR", type(exc).__name__, detail=message)
                     entry["status"] = "failed"
-                    entry["error"] = str(exc)[:300]
+                    entry["error"] = message
                     failed.append(pdb)
                     continue
                 entry["status"] = "rolled_back" if options["dry_run"] else "imported"
@@ -138,12 +150,14 @@ class Command(BaseCommand):
                     self._log_outcome(log, pdb, o)
                     entry["anchors"].append({
                         "sli_id": o.sli_id, "het": o.het, "mode": o.mode,
-                        "instances": o.instances, "deleted": o.deleted,
-                        "written": o.written, "counts": dict(o.counts),
+                        "instances": o.instances, "missing": o.missing,
+                        "deleted": o.deleted, "written": o.written,
+                        "fragments_created": o.fragments_created, "counts": dict(o.counts),
                         "other_chain_by_chain": o.other_chain_by_chain,
                         "dropped": dict(o.dropped),
                     })
                     totals["anchors"] += 1
+                    totals["untouched"] += o.mode in si.UNTOUCHED_MODES
                     totals["deleted"] += o.deleted
                     totals["written"] += o.written
         finally:
@@ -154,9 +168,10 @@ class Command(BaseCommand):
                                "failed": failed, "structures": report}, fh, indent=1)
 
         self.stdout.write(
-            "{} structures, {} in-scope anchors, {} RFI rows deleted, {} written{}; "
-            "anomalies INFO={} WARNING={} ERROR={}".format(
-                len(codes), totals["anchors"], totals["deleted"], totals["written"],
+            "{} structures, {} in-scope anchors ({} left untouched), {} RFI rows deleted, "
+            "{} written{}; anomalies INFO={} WARNING={} ERROR={}".format(
+                len(codes), totals["anchors"], totals["untouched"], totals["deleted"],
+                totals["written"],
                 " (dry run: rolled back)" if options["dry_run"] else "",
                 log.levels["INFO"], log.levels["WARNING"], log.levels["ERROR"]))
         if failed:
@@ -166,12 +181,15 @@ class Command(BaseCommand):
     @staticmethod
     def _log_outcome(log, pdb, o):
         c = o.counts
-        if o.mode == "exact_missing":
-            log.log(pdb, "WARNING", "anchor_instance_missing", o.sli_id, o.het,
-                    detail="chain_res names an instance the product does not have")
-        elif not o.instances:
-            log.log(pdb, "INFO", "no_product_for_anchor", o.sli_id, o.het)
-        elif c["rows_in"] == 0:
+        if o.mode in si.UNTOUCHED_MODES:
+            log.log(pdb, "WARNING", "anchor_not_replaced", o.sli_id, o.het,
+                    detail="{}; existing rows kept; missing={}".format(
+                        o.mode, ",".join(o.missing)))
+            return
+        if o.mode == "exact_partial":
+            log.log(pdb, "WARNING", "anchor_instances_partial", o.sli_id, o.het,
+                    len(o.missing), detail="missing={}".format(",".join(o.missing)))
+        if c["rows_in"] == 0:
             log.log(pdb, "INFO", "product_has_zero_rows", o.sli_id, o.het,
                     detail=",".join(o.instances))
         for category, level in (("excluded_family", "INFO"),

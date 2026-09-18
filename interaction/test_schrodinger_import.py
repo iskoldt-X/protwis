@@ -34,39 +34,66 @@ def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM
 class ParseChainResTests(unittest.TestCase):
 
     def test_chain_and_number(self):
-        self.assertEqual(si.parse_chain_res("A:408"), ("A", "408", ""))
+        self.assertEqual(si.parse_chain_res("A:408"), [("A", "408", "")])
 
     def test_negative_number_and_insertion_code(self):
-        self.assertEqual(si.parse_chain_res("R:-5"), ("R", "-5", ""))
-        self.assertEqual(si.parse_chain_res("A:12B"), ("A", "12", "B"))
+        self.assertEqual(si.parse_chain_res("R:-5"), [("R", "-5", "")])
+        self.assertEqual(si.parse_chain_res("A:12B"), [("A", "12", "B")])
 
-    def test_chain_only_or_empty_is_none(self):
-        for value in ("L", "", None, "A:", ":12"):
+    def test_comma_list(self):
+        self.assertEqual(si.parse_chain_res("R:401, R:402,R:403"),
+                         [("R", "401", ""), ("R", "402", ""), ("R", "403", "")])
+
+    def test_chain_only_empty_or_bad_item_is_none(self):
+        for value in ("L", "", None, "A:", ":12", "A:1, L"):
             self.assertIsNone(si.parse_chain_res(value), value)
 
 
 class SelectInstancesTests(unittest.TestCase):
 
-    NAMES = ["CAU_A_408", "CAU_B_408", "CA_A_501", "CLR_A_1203", "CLR_A_1204"]
+    NAMES = ["CAU_A_408", "CAU_B_408", "CA_A_501", "CLR_A_1203", "CLR_A_1204",
+             "U7D_R_601", "U7D_R_602"]
 
     def test_exact_copy_only(self):
         self.assertEqual(si.select_instances("CAU", "A:408", self.NAMES),
-                         (["CAU_A_408"], "exact"))
+                         (["CAU_A_408"], "exact", []))
 
     def test_exact_missing_returns_nothing(self):
-        self.assertEqual(si.select_instances("CAU", "A:999", self.NAMES), ([], "exact_missing"))
+        self.assertEqual(si.select_instances("CAU", "A:999", self.NAMES),
+                         ([], "exact_missing", ["CAU_A_999"]))
+
+    def test_multichar_product_chain_is_not_matched(self):
+        # 6ZIN: GPCRdb says A:1000, the product instance is Q6Q_AAA_1000.
+        self.assertEqual(si.select_instances("Q6Q", "A:1000", ["Q6Q_AAA_1000"]),
+                         ([], "exact_missing", ["Q6Q_A_1000"]))
+
+    def test_list_selects_each_named_copy(self):
+        self.assertEqual(si.select_instances("U7D", "R:601, R:602", self.NAMES),
+                         (["U7D_R_601", "U7D_R_602"], "exact", []))
+
+    def test_list_partial(self):
+        self.assertEqual(si.select_instances("U7D", "R:601, R:603", self.NAMES),
+                         (["U7D_R_601"], "exact_partial", ["U7D_R_603"]))
 
     def test_all_copies_when_chain_res_empty(self):
         self.assertEqual(si.select_instances("CLR", None, self.NAMES),
-                         (["CLR_A_1203", "CLR_A_1204"], "all_copies"))
+                         (["CLR_A_1203", "CLR_A_1204"], "all_copies", []))
+
+    def test_no_product_when_no_copy(self):
+        self.assertEqual(si.select_instances("ZZZ", None, self.NAMES), ([], "no_product", []))
+        self.assertEqual(si.select_instances("ZZZ", "L", []), ([], "no_product", []))
+
+    def test_untouched_modes(self):
+        self.assertEqual(si.UNTOUCHED_MODES, frozenset({"exact_missing", "no_product"}))
 
     def test_het_prefix_does_not_leak(self):
         # "CA" must not pick up "CAU_*" instances.
-        self.assertEqual(si.select_instances("CA", None, self.NAMES), (["CA_A_501"], "all_copies"))
+        self.assertEqual(si.select_instances("CA", None, self.NAMES),
+                         (["CA_A_501"], "all_copies", []))
 
     def test_het_case_insensitive(self):
         self.assertEqual(si.select_instances("cau", "B:408", self.NAMES),
-                         (["CAU_B_408"], "exact"))
+                         (["CAU_B_408"], "exact", []))
 
 
 class RoutingTests(unittest.TestCase):
