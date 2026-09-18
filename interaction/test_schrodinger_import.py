@@ -141,6 +141,71 @@ class MapGuardTests(unittest.TestCase):
             si.receptor_chain("X", {"X": {"status": "ok", "auth_chain": "", "note": ""}})
 
 
+class StandardLigandLineTests(unittest.TestCase):
+
+    # Lines as the producer writes them (no altloc column; widened for long names).
+    CAU = "HETATM    1  O17CAU A 408     -33.477  10.957   8.170  1.00 50.96           O"
+    FIVE = "HETATM 4817  C9 A1C5S A1202     -20.354 -13.384  28.940  1.00 22.97           C"
+    AAA = "HETATM   10  N4 T0B AAA 601      -2.398  28.100  15.000  1.00 30.00           N"
+    ABUT = "HETATM    7  C1 LIG A   1    -100.123-200.456-300.789  1.0033084.00           C"
+    # A four-character atom name runs straight into the residue name, as the producer writes it.
+    HNAME = "HETATM   40 HN12CAU A 408     -30.000  11.000   9.000  1.00 50.96           H"
+
+    def check_standard(self, out, resname, chain, resnum, xyz):
+        self.assertEqual(len(out), 78)
+        self.assertEqual(out[16], " ")                 # altloc column present and blank
+        self.assertEqual(out[17:20].strip(), resname)
+        self.assertEqual(out[21], chain)
+        self.assertEqual(out[22:26].strip(), resnum)
+        self.assertEqual((float(out[30:38]), float(out[38:46]), float(out[46:54])), xyz)
+
+    def test_ordinary_line(self):
+        out, capped = si.standard_ligand_line(self.CAU, "CAU", "A", "408", "", "A")
+        self.check_standard(out, "CAU", "A", "408", (-33.477, 10.957, 8.17))
+        self.assertEqual(out[12:16], " O17")
+        self.assertFalse(capped)
+
+    def test_five_char_code_is_cut_to_three(self):
+        out, _ = si.standard_ligand_line(self.FIVE, "A1C5S", "A", "1202", "", "A")
+        self.check_standard(out, "A1C", "A", "1202", (-20.354, -13.384, 28.94))
+
+    def test_multichar_chain_becomes_gpcrdb_chain(self):
+        out, _ = si.standard_ligand_line(self.AAA, "T0B", "AAA", "601", "", "A")
+        self.check_standard(out, "T0B", "A", "601", (-2.398, 28.1, 15.0))
+
+    def test_abutting_fields_and_capped_b_factor(self):
+        out, capped = si.standard_ligand_line(self.ABUT, "LIG", "A", "1", "", "A")
+        self.check_standard(out, "LIG", "A", "1", (-100.123, -200.456, -300.789))
+        self.assertTrue(capped)
+        self.assertEqual(out[60:66], "999.99")
+
+    def test_four_char_hydrogen_name(self):
+        out, _ = si.standard_ligand_line(self.HNAME, "CAU", "A", "408", "", "A")
+        self.assertEqual(out[12:16], "HN12")
+        self.assertEqual(out[76:78], " H")
+
+    def test_mismatches_raise(self):
+        for het, chain, resnum in (("CAZ", "A", "408"), ("CAU", "B", "408"), ("CAU", "A", "409")):
+            with self.assertRaises(si.MalformedLigandLine):
+                si.standard_ligand_line(self.CAU, het, chain, resnum, "", "A")
+        with self.assertRaises(si.MalformedLigandLine):
+            si.standard_ligand_line("REMARK nothing here", "CAU", "A", "408", "", "A")
+        with self.assertRaises(si.MalformedLigandLine):
+            si.standard_ligand_line(self.CAU[:60], "CAU", "A", "408", "", "A")
+
+    def test_block_and_instance_chains(self):
+        text, capped = si.standard_ligand_block(self.CAU + "\n\n" + self.HNAME + "\n", "CAU_A_408", "A")
+        self.assertEqual(len(text.splitlines()), 2)
+        amap = {("6ZIN", "Q6Q", "A:1000"): {"status": "ok", "instance": "Q6Q_AAA_1000", "note": ""},
+                ("7E2X", "CLR", ""): {"status": "all_copies", "instance": "CLR_R_602;CLR_R_603", "note": ""},
+                ("9X9X", "LIG", ""): {"status": "all_copies", "instance": "LIG_AB_1", "note": ""}}
+        self.assertEqual(si.instance_chains("6ZIN", "Q6Q", "A:1000", amap, ["Q6Q_AAA_1000"]), {"Q6Q_AAA_1000": "A"})
+        self.assertEqual(si.instance_chains("7E2X", "CLR", "", amap, ["CLR_R_602", "CLR_R_603"]),
+                         {"CLR_R_602": "R", "CLR_R_603": "R"})
+        with self.assertRaises(si.MapMismatch):
+            si.instance_chains("9X9X", "LIG", "", amap, ["LIG_AB_1"])
+
+
 class CascadeGuardTests(unittest.TestCase):
 
     def test_only_expected_models_may_be_deleted(self):

@@ -191,6 +191,45 @@ def anchor_instances(pdb, het, chain_res, anchor_map, instance_names):
     return names, ("mapped" if not missing else "mapped_partial"), notes
 
 
+def instance_chains(pdb, het, chain_res, anchor_map, names):
+    """GPCRdb chain for each selected instance of one anchor.
+
+    Named copies take the chain of their chain_res token (GPCRdb naming). Copies
+    selected as all_copies keep their product chain, which must then be a single
+    character; otherwise MapMismatch.
+    """
+    pdb, het = pdb.upper(), het.upper()
+    out = {}
+    for tok in chain_map.split_tokens(chain_res) or [""]:
+        row = anchor_map.get((pdb, het, tok))
+        if row is not None and row["status"] in IMPORT_STATUSES and tok:
+            out[row["instance"]] = tok.split(":", 1)[0]
+    for name in names:
+        if name not in out:
+            product_chain = name.split("_")[1]
+            if len(product_chain) != 1:
+                raise MapMismatch("{} {}: no GPCRdb chain for {} (multi-character product "
+                                  "chain and no chain_res token)".format(pdb, het, name))
+            out[name] = product_chain
+    return out
+
+
+def standard_ligand_block(block, instance, gpcrdb_chain):
+    """Rewrite every atom line of a producer ligand block; returns (text, capped)."""
+    m = INSTANCE_DIR_RE.match(instance)
+    if not m:
+        raise MalformedProduct("not an instance name: {!r}".format(instance))
+    out, capped = [], 0
+    for line in (block or "").splitlines():
+        if not line.strip():
+            continue
+        new, was_capped = standard_ligand_line(line, m.group("het"), m.group("chain"),
+                                               m.group("resnum"), m.group("icode"), gpcrdb_chain)
+        out.append(new)
+        capped += was_capped
+    return "\n".join(out), capped
+
+
 def receptor_chain(pdb, receptor_map):
     """The product chain that is GPCRdb's preferred chain, from the receptor map."""
     row = receptor_map.get(pdb.upper())
@@ -398,6 +437,76 @@ def _only_deleted(deleted_by_model, allowed):
         raise UnexpectedCascade("delete also removed {}".format(extra))
 
 
+# ---------------------------------------------------------------------------
+# Ligand atom lines -> standard PDB columns (pure)
+# ---------------------------------------------------------------------------
+
+# The producer writes ligand atom lines one column short of the PDB standard
+# (no altloc column) and widens them for five-character CCD codes and
+# multi-character chains. The numeric fields always carry fixed decimals
+# (coordinates 3, occupancy and B-factor 2), so they can be read from the
+# tail of the line even where widened fields run into each other.
+_LIGAND_TAIL_RE = re.compile(
+    r"^\s*(?P<x>-?\d+\.\d{3})\s*(?P<y>-?\d+\.\d{3})\s*(?P<z>-?\d+\.\d{3})"
+    r"\s*(?P<occ>-?\d+\.\d{2})\s*(?P<b>-?\d+\.\d{2})\s+(?P<element>[A-Za-z]{1,2})\s*$")
+
+# Largest B-factor the standard 6-column field can hold.
+_MAX_PDB_B = 999.99
+
+
+class MalformedLigandLine(MalformedProduct):
+    """A ligand atom line that does not have the producer's layout."""
+
+
+def _pdb_atom_name(name, element):
+    """Columns 13-16: one-letter elements with short names start in column 14."""
+    if len(name) < 4 and len(element) == 1:
+        return " " + name.ljust(3)
+    return name.ljust(4)
+
+
+def standard_ligand_line(line, het, product_chain, resnum, icode, gpcrdb_chain):
+    """Rewrite one producer ligand atom line in standard PDB v3.3 columns.
+
+    The producer's residue name, chain and residue number are checked against
+    the instance the line came from; any disagreement raises
+    MalformedLigandLine instead of guessing. In the output the residue name is
+    cut to three characters and the chain is GPCRdb's, as in GPCRdb's own
+    stored structure text. Returns (standard_line, b_factor_was_capped).
+    """
+    record = line[:6].strip()
+    if record not in ("ATOM", "HETATM"):
+        raise MalformedLigandLine("not an atom record: {!r}".format(line[:30]))
+    serial = line[6:11].strip()
+    name = line[12:16].strip()
+    width = max(3, len(het))
+    pos = 16
+    resname = line[pos:pos + width].strip()
+    pos += width + 1
+    chain = line[pos:pos + len(product_chain)]
+    pos += len(product_chain)
+    num_width = max(4, len(str(resnum)))
+    number = line[pos:pos + num_width].strip()
+    pos += num_width
+    ins = line[pos:pos + 1].strip()
+    pos += 1
+    tail = _LIGAND_TAIL_RE.match(line[pos:])
+    if (not serial.isdigit() or not name or resname.upper() != het.upper()
+            or chain != product_chain or number != str(resnum) or ins != (icode or "")
+            or tail is None):
+        raise MalformedLigandLine("{} {}_{}_{}{}: cannot read {!r}".format(
+            record, het, product_chain, resnum, icode, line))
+    b = float(tail.group("b"))
+    capped = b > _MAX_PDB_B
+    element = tail.group("element").upper()
+    out = "{:<6}{:>5} {} {:>3} {:1}{:>4}{:1}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2}".format(
+        record, int(serial) % 100000, _pdb_atom_name(name, element), het.upper()[:3],
+        gpcrdb_chain, resnum, icode or "",
+        float(tail.group("x")), float(tail.group("y")), float(tail.group("z")),
+        float(tail.group("occ")), min(b, _MAX_PDB_B), element)
+    return out, capped
+
+
 def fragment_text(ligand_lines):
     """Stored fragment text: the ligand atoms that make the contact."""
     return "\n".join(ligand_lines) + "\n" if ligand_lines else ""
@@ -489,12 +598,20 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             outcome.instances = names
 
             rows = []
+            capped = 0
+            gchains = instance_chains(pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, names)
             for name in names:
                 if name not in instances:
                     raise MalformedProduct("{}: the anchor map names {} but the product tree "
                                            "under {} has no such instance".format(pdb_code, name, data_dir))
-                rows.extend(read_instance_rows(instances[name]))
+                for row in read_instance_rows(instances[name]):
+                    # Ligand atoms are stored in standard PDB columns (ADR-095).
+                    row["ligand_pdb_block"], n = standard_ligand_block(
+                        row.get("ligand_pdb_block"), name, gchains[name])
+                    capped += n
+                    rows.append(row)
             records, outcome.counts, outcome.other_chain_by_chain = plan_rows(rows, chain)
+            outcome.counts["ligand_lines_bfactor_capped"] = capped
 
             _, deleted_by_model = ResidueFragmentInteraction.objects.filter(
                 structure_ligand_pair=sli).delete()
