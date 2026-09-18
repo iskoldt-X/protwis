@@ -205,6 +205,26 @@ class StandardLigandLineTests(unittest.TestCase):
         with self.assertRaises(si.MapMismatch):
             si.instance_chains("9X9X", "LIG", "", amap, ["LIG_AB_1"])
 
+    def test_capped_lines_are_returned(self):
+        _, capped = si.standard_ligand_block(self.CAU, "CAU_A_408", "A")
+        self.assertEqual(capped, [])
+        _, capped = si.standard_ligand_block(self.ABUT, "LIG_A_1", "A")
+        self.assertEqual(len(capped), 1)
+
+    def test_fields_too_wide_raise(self):
+        wide = (
+            ("HETATM    1  C1 LIG A10000     -1.000   2.000   3.000  1.00 20.00           C", "10000", ""),
+            ("HETATM    1  C1 LIG A   1   -1000.500   2.000   3.000  1.00 20.00           C", "1", ""),
+            ("HETATM    1  C1 LIG A   1    10000.000   2.000   3.000  1.00 20.00           C", "1", ""),
+            ("HETATM    1  C1 LIG A   1      1.000   2.000   3.000  1.00-100.00           C", "1", ""),
+            ("HETATM    1  C1 LIG A   1      1.000   2.000   3.0001000.00 20.00           C", "1", ""),
+        )
+        for line, resnum, icode in wide:
+            with self.assertRaises(si.MalformedLigandLine, msg=line):
+                si.standard_ligand_line(line, "LIG", "A", resnum, icode, "A")
+        with self.assertRaises(si.MalformedLigandLine):
+            si.standard_ligand_line(self.CAU, "CAU", "A", "408", "", "")
+
 
 class CascadeGuardTests(unittest.TestCase):
 

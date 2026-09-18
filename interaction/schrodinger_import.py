@@ -194,9 +194,10 @@ def anchor_instances(pdb, het, chain_res, anchor_map, instance_names):
 def instance_chains(pdb, het, chain_res, anchor_map, names):
     """GPCRdb chain for each selected instance of one anchor.
 
-    Named copies take the chain of their chain_res token (GPCRdb naming). Copies
-    selected as all_copies keep their product chain, which must then be a single
-    character; otherwise MapMismatch.
+    Named copies take the chain of their chain_res token (GPCRdb naming; the
+    token pattern allows one character only). Copies selected as all_copies
+    keep their product chain, which must then be a single character; otherwise
+    MapMismatch.
     """
     pdb, het = pdb.upper(), het.upper()
     out = {}
@@ -215,18 +216,23 @@ def instance_chains(pdb, het, chain_res, anchor_map, names):
 
 
 def standard_ligand_block(block, instance, gpcrdb_chain):
-    """Rewrite every atom line of a producer ligand block; returns (text, capped)."""
+    """Rewrite every atom line of a producer ligand block.
+
+    Returns (text, capped_lines): the rewritten block and the output lines
+    whose B-factor was capped.
+    """
     m = INSTANCE_DIR_RE.match(instance)
     if not m:
         raise MalformedProduct("not an instance name: {!r}".format(instance))
-    out, capped = [], 0
+    out, capped = [], []
     for line in (block or "").splitlines():
         if not line.strip():
             continue
         new, was_capped = standard_ligand_line(line, m.group("het"), m.group("chain"),
                                                m.group("resnum"), m.group("icode"), gpcrdb_chain)
         out.append(new)
-        capped += was_capped
+        if was_capped:
+            capped.append(new)
     return "\n".join(out), capped
 
 
@@ -452,6 +458,7 @@ _LIGAND_TAIL_RE = re.compile(
 
 # Largest B-factor the standard 6-column field can hold.
 _MAX_PDB_B = 999.99
+_PDB_ATOM_LINE_WIDTH = 78
 
 
 class MalformedLigandLine(MalformedProduct):
@@ -504,6 +511,11 @@ def standard_ligand_line(line, het, product_chain, resnum, icode, gpcrdb_chain):
         gpcrdb_chain, resnum, icode or "",
         float(tail.group("x")), float(tail.group("y")), float(tail.group("z")),
         float(tail.group("occ")), min(b, _MAX_PDB_B), element)
+    # A value too wide for its field (residue number beyond 4 digits, coordinate
+    # beyond 8.3f, negative B below -99.99) would shift every later column.
+    if len(out) != _PDB_ATOM_LINE_WIDTH or len(gpcrdb_chain) != 1:
+        raise MalformedLigandLine("{} {}_{}_{}{}: a field does not fit standard PDB columns: {!r}".format(
+            record, het, product_chain, resnum, icode, line))
     return out, capped
 
 
@@ -598,7 +610,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             outcome.instances = names
 
             rows = []
-            capped = 0
+            capped = set()
             gchains = instance_chains(pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, names)
             for name in names:
                 if name not in instances:
@@ -608,10 +620,12 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                     # Ligand atoms are stored in standard PDB columns (ADR-095).
                     row["ligand_pdb_block"], n = standard_ligand_block(
                         row.get("ligand_pdb_block"), name, gchains[name])
-                    capped += n
+                    # The same block repeats on every interaction row of an
+                    # instance; count each capped atom once.
+                    capped.update((name, line) for line in n)
                     rows.append(row)
             records, outcome.counts, outcome.other_chain_by_chain = plan_rows(rows, chain)
-            outcome.counts["ligand_lines_bfactor_capped"] = capped
+            outcome.counts["ligand_lines_bfactor_capped"] = len(capped)
 
             _, deleted_by_model = ResidueFragmentInteraction.objects.filter(
                 structure_ligand_pair=sli).delete()
