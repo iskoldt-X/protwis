@@ -101,10 +101,17 @@ class Command(BaseCommand):
                                                 status="unresolved", note=note))
                 receptor_rows.append(dict({c: "" for c in cm.RECEPTOR_COLUMNS}, pdb=pdb,
                                           preferred_chain=structure.preferred_chain or "",
-                                          status="unresolved", note=note))
+                                          status="unresolved", note=note,
+                                          gpcrdb_text_sha256=cm.text_sha256(gtext),
+                                          product_instances_sha256=cm.instances_sha256(instances)))
                 continue
 
-            receptor_rows.append(cm.resolve_receptor(pdb, structure.preferred_chain, cif_atoms, gatoms))
+            receptor_row = cm.resolve_receptor(pdb, structure.preferred_chain, cif_atoms, gatoms)
+            # Per-structure fingerprints: the importer refuses a structure whose
+            # stored text or product instance list no longer matches the build.
+            receptor_row["gpcrdb_text_sha256"] = cm.text_sha256(gtext)
+            receptor_row["product_instances_sha256"] = cm.instances_sha256(instances)
+            receptor_rows.append(receptor_row)
             seen = set()
             for sli in anchors[pdb]:
                 het = sli.pdb_reference.upper()
@@ -117,8 +124,10 @@ class Command(BaseCommand):
                         anchor_rows.append(dict({c: "" for c in cm.ANCHOR_COLUMNS}, pdb=pdb, het=het,
                                                 token="", instance=";".join(copies),
                                                 status="all_copies" if copies else "no_product",
-                                                note="chain_res {!r} names no residue".format(
-                                                    sli.chain_res or "")))
+                                                note=("chain_res {!r} names no residue; every copy used".format(
+                                                    sli.chain_res or "") if copies else
+                                                    "the product has no instance of {} (chain_res {!r})".format(
+                                                        het, sli.chain_res or ""))))
                     continue
                 for tok in tokens:
                     if (het, tok) in seen:

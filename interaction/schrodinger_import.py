@@ -133,23 +133,33 @@ def load_anchor_map(path):
 def load_receptor_map(path):
     """(header, {pdb: row}) from receptor_chain_map.tsv."""
     header, rows = _read_map(path)
-    return header, {r["pdb"].upper(): r for r in rows}
+    table = {}
+    for r in rows:
+        key = r["pdb"].upper()
+        if key in table:
+            raise MapMismatch("duplicate receptor map key {}".format(key))
+        table[key] = r
+    return header, table
 
 
 # Map statuses that name a product instance to import.
 IMPORT_STATUSES = frozenset({"ok", "errata"})
 
 
-def anchor_instances(pdb, het, chain_res, anchor_map):
+def anchor_instances(pdb, het, chain_res, anchor_map, instance_names):
     """Product instances for one anchor, from the anchor map.
 
     Returns (names, mode, notes). mode is ``mapped`` (every named copy has an
     instance), ``mapped_partial`` (some copies have none), ``all_copies``
     (chain_res names no residue; every copy of the HET) or ``no_product``.
-    Raises MapMismatch when a copy is missing from the map and
+    Raises MapMismatch when a copy is missing from the map, or when the map
+    says no_product although ``instance_names`` (the product tree being
+    imported) holds a copy of the HET -- a map built against another tree
+    would otherwise clear anchors that do have a product. Raises
     UnresolvedAnchor when the map could not decide.
     """
     pdb, het = pdb.upper(), het.upper()
+    has_copy = any(n.split("_", 1)[0].upper() == het for n in instance_names)
     tokens = chain_map.split_tokens(chain_res) or [""]
     names, notes, missing = [], [], 0
     for tok in tokens:
@@ -166,6 +176,9 @@ def anchor_instances(pdb, het, chain_res, anchor_map):
         elif status == "all_copies":
             names.extend(n for n in row["instance"].split(";") if n)
         elif status == "no_product":
+            if has_copy:
+                raise MapMismatch("{} {}: map says no_product but the product tree has "
+                                  "a copy; the map was built against another tree".format(pdb, het))
             missing += 1
             notes.append(row["note"])
         else:
@@ -185,7 +198,22 @@ def receptor_chain(pdb, receptor_map):
         raise MapMismatch("{} is not in the receptor map".format(pdb))
     if row["status"] != "ok":
         raise UnresolvedAnchor("{} receptor chain {}: {}".format(pdb, row["status"], row["note"]))
+    if not row["auth_chain"]:
+        raise MapMismatch("{}: receptor map row is ok but names no chain".format(pdb))
     return row["auth_chain"]
+
+
+def check_fingerprints(pdb, receptor_map, gpcrdb_text, instance_names):
+    """Refuse a structure whose stored text or product instances changed since the build."""
+    row = receptor_map.get(pdb.upper())
+    if row is None:
+        raise MapMismatch("{} is not in the receptor map".format(pdb))
+    if row.get("gpcrdb_text_sha256") != chain_map.text_sha256(gpcrdb_text):
+        raise MapMismatch("{}: GPCRdb structure text differs from the one the map was built "
+                          "from (new dump?); rebuild the maps".format(pdb))
+    if row.get("product_instances_sha256") != chain_map.instances_sha256(instance_names):
+        raise MapMismatch("{}: product instances differ from the tree the map was built "
+                          "from; check --data-dir or rebuild the maps".format(pdb))
 
 
 # ---------------------------------------------------------------------------
@@ -451,11 +479,13 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
         out_of_scope = len(slis) - len(in_scope)
         if in_scope:
             check_map_covers(pdb_code, in_scope, anchor_map)
+            check_fingerprints(pdb_code, receptor_map,
+                               structure.pdb_data.pdb if structure.pdb_data_id else "", instances)
             chain = receptor_chain(pdb_code, receptor_map)
         for sli in in_scope:
             outcome = AnchorOutcome(sli.id, sli.pdb_reference.upper())
             names, outcome.mode, outcome.notes = anchor_instances(
-                pdb_code, sli.pdb_reference, sli.chain_res, anchor_map)
+                pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, instances)
             outcome.instances = names
 
             rows = []

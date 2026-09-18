@@ -47,29 +47,29 @@ ANCHOR_MAP = {
 class AnchorInstancesTests(unittest.TestCase):
 
     def test_renamed_chain(self):
-        self.assertEqual(si.anchor_instances("6zin", "q6q", "A:1000", ANCHOR_MAP),
+        self.assertEqual(si.anchor_instances("6zin", "q6q", "A:1000", ANCHOR_MAP, []),
                          (["Q6Q_AAA_1000"], "mapped", []))
 
     def test_errata_still_imports_and_is_reported(self):
-        names, mode, notes = si.anchor_instances("6N51", "QUS", "A:903", ANCHOR_MAP)
+        names, mode, notes = si.anchor_instances("6N51", "QUS", "A:903", ANCHOR_MAP, [])
         self.assertEqual((names, mode), (["QUS_A_903"], "mapped"))
         self.assertTrue(notes and notes[0].startswith("errata: "))
 
     def test_no_product_and_partial(self):
-        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP)[:2], ([], "no_product"))
-        self.assertEqual(si.anchor_instances("9X9X", "U7D", "R:601, R:602", ANCHOR_MAP)[:2],
+        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, [])[:2], ([], "no_product"))
+        self.assertEqual(si.anchor_instances("9X9X", "U7D", "R:601, R:602", ANCHOR_MAP, [])[:2],
                          (["U7D_R_601"], "mapped_partial"))
 
     def test_chain_res_without_residue_uses_all_copies_row(self):
-        self.assertEqual(si.anchor_instances("7E2X", "CLR", None, ANCHOR_MAP)[:2],
+        self.assertEqual(si.anchor_instances("7E2X", "CLR", None, ANCHOR_MAP, [])[:2],
                          (["CLR_A_1", "CLR_A_2"], "all_copies"))
-        self.assertEqual(si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP)[:2], ([], "no_product"))
+        self.assertEqual(si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP, [])[:2], ([], "no_product"))
 
     def test_unresolved_and_missing_are_loud(self):
         with self.assertRaises(si.UnresolvedAnchor):
-            si.anchor_instances("7V68", "2CU", "R:502", ANCHOR_MAP)
+            si.anchor_instances("7V68", "2CU", "R:502", ANCHOR_MAP, [])
         with self.assertRaises(si.MapMismatch):
-            si.anchor_instances("2RH1", "CAU", "A:408", ANCHOR_MAP)
+            si.anchor_instances("2RH1", "CAU", "A:408", ANCHOR_MAP, [])
 
     def test_receptor_chain(self):
         rmap = {"6ZIN": {"status": "ok", "auth_chain": "AAA", "note": ""},
@@ -79,6 +79,66 @@ class AnchorInstancesTests(unittest.TestCase):
             si.receptor_chain("7V68", rmap)
         with self.assertRaises(si.MapMismatch):
             si.receptor_chain("2RH1", rmap)
+
+
+class MapGuardTests(unittest.TestCase):
+
+    def test_no_product_with_a_copy_in_the_tree_is_a_map_mismatch(self):
+        with self.assertRaises(si.MapMismatch):
+            si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, ["A1A7R_A_54"])
+        with self.assertRaises(si.MapMismatch):
+            si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP, ["RET_A_1"])
+        # a copy of another HET does not count
+        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, ["CLR_A_403"])[:2],
+                         ([], "no_product"))
+
+    @staticmethod
+    def sli(ref, chain_res):
+        return types.SimpleNamespace(pdb_reference=ref, chain_res=chain_res)
+
+    def test_map_must_cover_exactly_the_database_copies(self):
+        amap = {("9X9X", "U7D", "R:601"): {}, ("9X9X", "U7D", "R:602"): {}, ("9X9X", "CLR", ""): {}}
+        si.check_map_covers("9X9X", [self.sli("U7D", "R:601, R:602"), self.sli("CLR", None)], amap)
+        with self.assertRaises(si.MapMismatch):   # map lists a copy the database does not have
+            si.check_map_covers("9X9X", [self.sli("U7D", "R:601"), self.sli("CLR", "")], amap)
+        with self.assertRaises(si.MapMismatch):   # database has a copy the map does not list
+            si.check_map_covers("9X9X", [self.sli("U7D", "R:601, R:602, R:603"), self.sli("CLR", "")], amap)
+
+    def _write(self, text):
+        fh = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        fh.write(text)
+        fh.close()
+        self.addCleanup(os.unlink, fh.name)
+        return fh.name
+
+    def test_map_files_header_and_duplicates(self):
+        header = "# dump_id\t20260917_phase2\n# structures\t1\n"
+        path = self._write(header + "pdb\thet\ttoken\tinstance\tstatus\n6zin\tq6q\tA:1000\tQ6Q_AAA_1000\tok\n")
+        head, table = si.load_anchor_map(path)
+        self.assertEqual(head, {"dump_id": "20260917_phase2", "structures": "1"})
+        self.assertEqual(table[("6ZIN", "Q6Q", "A:1000")]["instance"], "Q6Q_AAA_1000")
+        dup = self._write(header + "pdb\thet\ttoken\n6ZIN\tQ6Q\tA:1000\n6ZIN\tQ6Q\tA:1000\n")
+        with self.assertRaises(si.MapMismatch):
+            si.load_anchor_map(dup)
+        rdup = self._write(header + "pdb\tauth_chain\n6ZIN\tAAA\n6zin\tAAA\n")
+        with self.assertRaises(si.MapMismatch):
+            si.load_receptor_map(rdup)
+
+    def test_fingerprints(self):
+        from interaction import schrodinger_chain_map as cm
+        rmap = {"6ZIN": {"gpcrdb_text_sha256": cm.text_sha256("ATOM 1\n"),
+                         "product_instances_sha256": cm.instances_sha256(["Q6Q_AAA_1000", "CLR_AAA_1"])}}
+        si.check_fingerprints("6zin", rmap, "ATOM 1\n", ["CLR_AAA_1", "Q6Q_AAA_1000"])
+        with self.assertRaises(si.MapMismatch):
+            si.check_fingerprints("6ZIN", rmap, "ATOM 2\n", ["CLR_AAA_1", "Q6Q_AAA_1000"])
+        with self.assertRaises(si.MapMismatch):
+            si.check_fingerprints("6ZIN", rmap, "ATOM 1\n", ["Q6Q_AAA_1000"])
+        with self.assertRaises(si.MapMismatch):
+            si.check_fingerprints("2RH1", rmap, "", [])
+
+    def test_ok_receptor_row_without_chain_is_refused(self):
+        with self.assertRaises(si.MapMismatch):
+            si.receptor_chain("X", {"X": {"status": "ok", "auth_chain": "", "note": ""}})
 
 
 class CascadeGuardTests(unittest.TestCase):

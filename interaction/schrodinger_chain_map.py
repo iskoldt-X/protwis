@@ -21,6 +21,7 @@ module with text it reads from the database and the file system.
 """
 
 import collections
+import hashlib
 import re
 
 # ---------------------------------------------------------------------------
@@ -257,7 +258,18 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
 # ---------------------------------------------------------------------------
 
 RECEPTOR_COLUMNS = ("pdb", "preferred_chain", "auth_chain", "status", "method",
-                    "n_ca_gpcrdb", "n_ca_matched", "renumbered", "note")
+                    "n_ca_gpcrdb", "n_ca_matched", "renumbered", "note",
+                    "gpcrdb_text_sha256", "product_instances_sha256")
+
+
+def text_sha256(text):
+    """sha256 of GPCRdb's stored structure text, as stored."""
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def instances_sha256(names):
+    """sha256 of a structure's sorted product instance names."""
+    return hashlib.sha256("\n".join(sorted(names)).encode("utf-8")).hexdigest()
 
 
 def resolve_receptor(pdb, preferred_chain, cif_atoms, gpcrdb_atoms):

@@ -111,8 +111,11 @@ class Command(BaseCommand):
         if not os.path.isdir(options["data_dir"]):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
         self._check_slugs()
-        anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
-        receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
+        try:
+            anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
+            receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
+        except (OSError, si.MapMismatch) as exc:
+            raise CommandError("cannot read the chain maps: {}".format(exc))
         if anchor_header != receptor_header:
             raise CommandError("the anchor and receptor maps come from different builds")
         log = AnomalyLog(options["anomaly_csv"])
@@ -139,7 +142,8 @@ class Command(BaseCommand):
                     continue
                 if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
                     log.log(pdb, "WARNING", "no_product_dir",
-                            detail="every in-scope anchor of this structure is left untouched")
+                            detail="no product directory; the map must say no_product for every "
+                                   "in-scope anchor, which are then cleared (ADR-091)")
                 try:
                     with transaction.atomic():
                         outcomes, out_of_scope, cleanup = si.import_structure(
