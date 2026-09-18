@@ -4,15 +4,20 @@ Usage::
 
     python manage.py import_schrodinger_interactions \\
         --data-dir /app/data/schrodinger --pdb 2RH1 --pdb 6CM4 \\
+        --anchor-map /runs/chainmap/anchor_instance_map.tsv \\
+        --receptor-map /runs/chainmap/receptor_chain_map.tsv \\
         --anomaly-csv /runs/anomalies.csv
+
+The two maps come from build_schrodinger_chain_map and must have been built
+against the same database dump and product tree.
 
 Each structure is imported in its own transaction. A structure that fails
 (unreadable YAML, a row the type map cannot route, or any unexpected error)
 is rolled back and reported; the others are unaffected. The command exits
 non-zero when any structure failed, after all structures have been attempted.
 
-An anchor with no matching product instance keeps its existing rows and is
-reported as a WARNING (anchor_not_replaced).
+An anchor with no product instance loses its existing rows (ADR-091) and is
+reported as a WARNING (anchor_cleared) with the map's reason.
 
 The anomaly CSV is written outside the transactions and flushed per row, so
 it survives any rollback. Every row that was read but not written is
@@ -70,6 +75,10 @@ class Command(BaseCommand):
                             help="PDB code to import; repeatable.")
         parser.add_argument("--pdb-list", default=None,
                             help="File with one PDB code per line (# comments allowed).")
+        parser.add_argument("--anchor-map", required=True,
+                            help="anchor_instance_map.tsv from build_schrodinger_chain_map.")
+        parser.add_argument("--receptor-map", required=True,
+                            help="receptor_chain_map.tsv from build_schrodinger_chain_map.")
         parser.add_argument("--anomaly-csv", required=True,
                             help="Where to write the per-anchor accounting CSV.")
         parser.add_argument("--report-json", default=None,
@@ -102,10 +111,15 @@ class Command(BaseCommand):
         if not os.path.isdir(options["data_dir"]):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
         self._check_slugs()
+        anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
+        receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
+        if anchor_header != receptor_header:
+            raise CommandError("the anchor and receptor maps come from different builds")
         log = AnomalyLog(options["anomaly_csv"])
         report = []
         failed = []
-        totals = {"anchors": 0, "untouched": 0, "deleted": 0, "written": 0}
+        totals = {"anchors": 0, "cleared": 0, "deleted": 0, "written": 0,
+                  "fragments_deleted": 0, "pdbdata_deleted": 0, "pdbdata_kept_referenced": 0}
         try:
             for pdb in codes:
                 entry = {"pdb": pdb}
@@ -128,8 +142,8 @@ class Command(BaseCommand):
                             detail="every in-scope anchor of this structure is left untouched")
                 try:
                     with transaction.atomic():
-                        outcomes, out_of_scope = si.import_structure(
-                            structure, options["data_dir"])
+                        outcomes, out_of_scope, cleanup = si.import_structure(
+                            structure, options["data_dir"], anchor_map, receptor_map)
                         if options["dry_run"]:
                             raise _Rollback()
                 except _Rollback:
@@ -145,19 +159,22 @@ class Command(BaseCommand):
                     continue
                 entry["status"] = "rolled_back" if options["dry_run"] else "imported"
                 entry["out_of_scope_anchors"] = out_of_scope
+                entry["cleanup"] = dict(cleanup)
+                for key in ("fragments_deleted", "pdbdata_deleted", "pdbdata_kept_referenced"):
+                    totals[key] += cleanup[key]
                 entry["anchors"] = []
                 for o in outcomes:
                     self._log_outcome(log, pdb, o)
                     entry["anchors"].append({
                         "sli_id": o.sli_id, "het": o.het, "mode": o.mode,
-                        "instances": o.instances, "missing": o.missing,
+                        "instances": o.instances, "notes": o.notes,
                         "deleted": o.deleted, "written": o.written,
                         "fragments_created": o.fragments_created, "counts": dict(o.counts),
                         "other_chain_by_chain": o.other_chain_by_chain,
                         "dropped": dict(o.dropped),
                     })
                     totals["anchors"] += 1
-                    totals["untouched"] += o.mode in si.UNTOUCHED_MODES
+                    totals["cleared"] += o.mode == "no_product"
                     totals["deleted"] += o.deleted
                     totals["written"] += o.written
         finally:
@@ -168,10 +185,12 @@ class Command(BaseCommand):
                                "failed": failed, "structures": report}, fh, indent=1)
 
         self.stdout.write(
-            "{} structures, {} in-scope anchors ({} left untouched), {} RFI rows deleted, "
-            "{} written{}; anomalies INFO={} WARNING={} ERROR={}".format(
-                len(codes), totals["anchors"], totals["untouched"], totals["deleted"],
-                totals["written"],
+            "{} structures, {} in-scope anchors ({} cleared, no product), {} RFI rows deleted, "
+            "{} written; orphan fragments deleted {}, PdbData deleted {} (kept, referenced "
+            "elsewhere: {}){}; anomalies INFO={} WARNING={} ERROR={}".format(
+                len(codes), totals["anchors"], totals["cleared"], totals["deleted"],
+                totals["written"], totals["fragments_deleted"], totals["pdbdata_deleted"],
+                totals["pdbdata_kept_referenced"],
                 " (dry run: rolled back)" if options["dry_run"] else "",
                 log.levels["INFO"], log.levels["WARNING"], log.levels["ERROR"]))
         if failed:
@@ -181,14 +200,17 @@ class Command(BaseCommand):
     @staticmethod
     def _log_outcome(log, pdb, o):
         c = o.counts
-        if o.mode in si.UNTOUCHED_MODES:
-            log.log(pdb, "WARNING", "anchor_not_replaced", o.sli_id, o.het,
-                    detail="{}; existing rows kept; missing={}".format(
-                        o.mode, ",".join(o.missing)))
+        if o.mode == "no_product":
+            log.log(pdb, "WARNING", "anchor_cleared", o.sli_id, o.het, o.deleted,
+                    detail="no product instance; {} existing rows deleted; {}".format(
+                        o.deleted, "; ".join(o.notes)))
             return
-        if o.mode == "exact_partial":
+        if o.mode == "mapped_partial":
             log.log(pdb, "WARNING", "anchor_instances_partial", o.sli_id, o.het,
-                    len(o.missing), detail="missing={}".format(",".join(o.missing)))
+                    detail="; ".join(o.notes))
+        for note in o.notes:
+            if note.startswith("errata: "):
+                log.log(pdb, "INFO", "annotation_errata", o.sli_id, o.het, detail=note)
         if c["rows_in"] == 0:
             log.log(pdb, "INFO", "product_has_zero_rows", o.sli_id, o.het,
                     detail=",".join(o.instances))

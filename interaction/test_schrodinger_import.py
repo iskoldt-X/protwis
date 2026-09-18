@@ -16,12 +16,13 @@ import unittest
 from interaction import schrodinger_import as si
 
 
-def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM"):
+def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM", lig=""):
     return {
         "feature_family": family,
         "direction": direction,
         "receptor_atom_name": atom,
         "receptor_pdb_block": block,
+        "ligand_pdb_block": lig,
         "receptor_residue": {
             "name_1_letter": aa,
             "pdb_residue_number": seq,
@@ -31,69 +32,66 @@ def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM
     }
 
 
-class ParseChainResTests(unittest.TestCase):
-
-    def test_chain_and_number(self):
-        self.assertEqual(si.parse_chain_res("A:408"), [("A", "408", "")])
-
-    def test_negative_number_and_insertion_code(self):
-        self.assertEqual(si.parse_chain_res("R:-5"), [("R", "-5", "")])
-        self.assertEqual(si.parse_chain_res("A:12B"), [("A", "12", "B")])
-
-    def test_comma_list(self):
-        self.assertEqual(si.parse_chain_res("R:401, R:402,R:403"),
-                         [("R", "401", ""), ("R", "402", ""), ("R", "403", "")])
-
-    def test_chain_only_empty_or_bad_item_is_none(self):
-        for value in ("L", "", None, "A:", ":12", "A:1, L"):
-            self.assertIsNone(si.parse_chain_res(value), value)
+ANCHOR_MAP = {
+    ("6ZIN", "Q6Q", "A:1000"): {"status": "ok", "instance": "Q6Q_AAA_1000", "note": ""},
+    ("6N51", "QUS", "A:903"): {"status": "errata", "instance": "QUS_A_903", "note": "label says B"},
+    ("8E0G", "A1A7R", "A:54"): {"status": "no_product", "instance": "", "note": "no instance"},
+    ("7V68", "2CU", "R:502"): {"status": "unresolved", "instance": "", "note": "drift"},
+    ("9X9X", "U7D", "R:601"): {"status": "ok", "instance": "U7D_R_601", "note": ""},
+    ("9X9X", "U7D", "R:602"): {"status": "no_product", "instance": "", "note": "gone"},
+    ("7E2X", "CLR", ""): {"status": "all_copies", "instance": "CLR_A_1;CLR_A_2", "note": ""},
+    ("6CMO", "RET", ""): {"status": "no_product", "instance": "", "note": "not modelled"},
+}
 
 
-class SelectInstancesTests(unittest.TestCase):
+class AnchorInstancesTests(unittest.TestCase):
 
-    NAMES = ["CAU_A_408", "CAU_B_408", "CA_A_501", "CLR_A_1203", "CLR_A_1204",
-             "U7D_R_601", "U7D_R_602"]
+    def test_renamed_chain(self):
+        self.assertEqual(si.anchor_instances("6zin", "q6q", "A:1000", ANCHOR_MAP),
+                         (["Q6Q_AAA_1000"], "mapped", []))
 
-    def test_exact_copy_only(self):
-        self.assertEqual(si.select_instances("CAU", "A:408", self.NAMES),
-                         (["CAU_A_408"], "exact", []))
+    def test_errata_still_imports_and_is_reported(self):
+        names, mode, notes = si.anchor_instances("6N51", "QUS", "A:903", ANCHOR_MAP)
+        self.assertEqual((names, mode), (["QUS_A_903"], "mapped"))
+        self.assertTrue(notes and notes[0].startswith("errata: "))
 
-    def test_exact_missing_returns_nothing(self):
-        self.assertEqual(si.select_instances("CAU", "A:999", self.NAMES),
-                         ([], "exact_missing", ["CAU_A_999"]))
+    def test_no_product_and_partial(self):
+        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP)[:2], ([], "no_product"))
+        self.assertEqual(si.anchor_instances("9X9X", "U7D", "R:601, R:602", ANCHOR_MAP)[:2],
+                         (["U7D_R_601"], "mapped_partial"))
 
-    def test_multichar_product_chain_is_not_matched(self):
-        # 6ZIN: GPCRdb says A:1000, the product instance is Q6Q_AAA_1000.
-        self.assertEqual(si.select_instances("Q6Q", "A:1000", ["Q6Q_AAA_1000"]),
-                         ([], "exact_missing", ["Q6Q_A_1000"]))
+    def test_chain_res_without_residue_uses_all_copies_row(self):
+        self.assertEqual(si.anchor_instances("7E2X", "CLR", None, ANCHOR_MAP)[:2],
+                         (["CLR_A_1", "CLR_A_2"], "all_copies"))
+        self.assertEqual(si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP)[:2], ([], "no_product"))
 
-    def test_list_selects_each_named_copy(self):
-        self.assertEqual(si.select_instances("U7D", "R:601, R:602", self.NAMES),
-                         (["U7D_R_601", "U7D_R_602"], "exact", []))
+    def test_unresolved_and_missing_are_loud(self):
+        with self.assertRaises(si.UnresolvedAnchor):
+            si.anchor_instances("7V68", "2CU", "R:502", ANCHOR_MAP)
+        with self.assertRaises(si.MapMismatch):
+            si.anchor_instances("2RH1", "CAU", "A:408", ANCHOR_MAP)
 
-    def test_list_partial(self):
-        self.assertEqual(si.select_instances("U7D", "R:601, R:603", self.NAMES),
-                         (["U7D_R_601"], "exact_partial", ["U7D_R_603"]))
+    def test_receptor_chain(self):
+        rmap = {"6ZIN": {"status": "ok", "auth_chain": "AAA", "note": ""},
+                "7V68": {"status": "unresolved", "auth_chain": "", "note": "x"}}
+        self.assertEqual(si.receptor_chain("6zin", rmap), "AAA")
+        with self.assertRaises(si.UnresolvedAnchor):
+            si.receptor_chain("7V68", rmap)
+        with self.assertRaises(si.MapMismatch):
+            si.receptor_chain("2RH1", rmap)
 
-    def test_all_copies_when_chain_res_empty(self):
-        self.assertEqual(si.select_instances("CLR", None, self.NAMES),
-                         (["CLR_A_1203", "CLR_A_1204"], "all_copies", []))
 
-    def test_no_product_when_no_copy(self):
-        self.assertEqual(si.select_instances("ZZZ", None, self.NAMES), ([], "no_product", []))
-        self.assertEqual(si.select_instances("ZZZ", "L", []), ([], "no_product", []))
+class CascadeGuardTests(unittest.TestCase):
 
-    def test_untouched_modes(self):
-        self.assertEqual(si.UNTOUCHED_MODES, frozenset({"exact_missing", "no_product"}))
+    def test_only_expected_models_may_be_deleted(self):
+        si._only_deleted({"structure.Fragment": 3}, {"structure.Fragment"})
+        si._only_deleted({"structure.Fragment": 3, "structure.Rotamer": 0}, {"structure.Fragment"})
+        with self.assertRaises(si.UnexpectedCascade):
+            si._only_deleted({"structure.PdbData": 1, "structure.Rotamer": 2}, {"structure.PdbData"})
 
-    def test_het_prefix_does_not_leak(self):
-        # "CA" must not pick up "CAU_*" instances.
-        self.assertEqual(si.select_instances("CA", None, self.NAMES),
-                         (["CA_A_501"], "all_copies", []))
-
-    def test_het_case_insensitive(self):
-        self.assertEqual(si.select_instances("cau", "B:408", self.NAMES),
-                         (["CAU_B_408"], "exact", []))
+    def test_fragment_text(self):
+        self.assertEqual(si.fragment_text(["HETATM 1", "HETATM 2"]), "HETATM 1\nHETATM 2\n")
+        self.assertEqual(si.fragment_text([]), "")
 
 
 class RoutingTests(unittest.TestCase):
@@ -195,9 +193,22 @@ class PlanRowsTests(unittest.TestCase):
         with self.assertRaises(si.UnroutableRow):
             si.plan_rows([row("Bogus", "x")], "A")
 
-    def test_preferred_chain_takes_first(self):
-        self.assertEqual(si.preferred_chain_of("A,B"), "A")
-        self.assertEqual(si.preferred_chain_of(None), "")
+    def test_receptor_chain_is_the_product_chain(self):
+        # The receptor chain is now the product (author) chain from the map.
+        records, counts, _ = si.plan_rows([row("HPhob", chain="AAA")], "AAA")
+        self.assertEqual((len(records), counts["other_chain"]), (1, 0))
+
+
+class LigandLinesTests(unittest.TestCase):
+
+    def test_collapsed_rows_merge_ligand_atoms_in_first_seen_order(self):
+        rows = [row("HPhob", seq=100, lig="HETATM C1\nHETATM C2\n"),
+                row("HPhob", seq=100, lig="HETATM C2\nHETATM C3\n"),
+                row("Acceptor", "ligand-acceptor", seq=100, atom="OG", lig="HETATM O1\n")]
+        records, counts, _ = si.plan_rows(rows, "A")
+        self.assertEqual(counts["duplicate"], 1)
+        self.assertEqual([r["ligand_lines"] for r in records],
+                         [["HETATM C1", "HETATM C2", "HETATM C3"], ["HETATM O1"]])
 
 
 class ProductFilesTests(unittest.TestCase):
