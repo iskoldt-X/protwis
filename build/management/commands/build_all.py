@@ -5,6 +5,10 @@ from django.conf import settings
 
 import datetime
 
+# Where the Engine 1 products and their per-PDB chain maps are delivered,
+# relative to DATA_DIR.
+ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
+
 
 class Command(BaseCommand):
     help = 'Runs all build functions'
@@ -37,6 +41,44 @@ class Command(BaseCommand):
                             dest='phase',
                             default=None,
                             help='Specify build phase to run (1 or 2, default: None)')
+        parser.add_argument('--engine1_data_dir',
+                            action='store',
+                            dest='engine1_data_dir',
+                            default=None,
+                            help='Engine 1 product tree; default DATA_DIR/' + ENGINE1_DIR)
+        parser.add_argument('--skip_engine1',
+                            action='store_true',
+                            dest='skip_engine1',
+                            default=False,
+                            help='Do not import the Engine 1 ligand interactions, leaving the '
+                                 'legacy ones build_structures wrote')
+
+    def engine1_dir(self, options):
+        return options['engine1_data_dir'] or os.sep.join([settings.DATA_DIR, ENGINE1_DIR])
+
+    def engine1_steps(self, options):
+        """The Engine 1 import: a dry run that gates, then the real one.
+
+        build_structures writes the legacy small-molecule interactions; this
+        replaces them. The dry run rolls every structure back, so a structure
+        that would fail stops the build with nothing imported rather than half
+        imported: recovering is a re-run, not an excavation. Both runs write
+        their accounting next to the products they read.
+        """
+        if options['skip_engine1']:
+            return []
+        data_dir = self.engine1_dir(options)
+        common = {'data_dir': data_dir}
+        return [
+            ['import_schrodinger_interactions',
+             dict(common, dry_run=True,
+                  anomaly_csv=os.path.join(data_dir, '_import_anomalies.dryrun.csv'),
+                  report_json=os.path.join(data_dir, '_import_report.dryrun.json'))],
+            ['import_schrodinger_interactions',
+             dict(common,
+                  anomaly_csv=os.path.join(data_dir, '_import_anomalies.csv'),
+                  report_json=os.path.join(data_dir, '_import_report.json'))],
+        ]
 
     def handle(self, *args, **options):
         if options['test']:
@@ -61,6 +103,9 @@ class Command(BaseCommand):
             # ['build_chembl_data', {'test_run': options['test']}],
             ['build_mutant_data', {'test_run': options['test']}],
             ['build_structures', {'proc': options['proc'], 'skip_cn': options['test']}],
+            # Engine 1 replaces the small-molecule ligand interactions that
+            # build_structures just wrote, before anything reads them.
+            *self.engine1_steps(options),
             ['build_consensus_sequences', {'proc': options['proc']}],
             ['build_g_proteins'],
             ['build_consensus_sequences', {'proc': options['proc'], 'signprot': 'Alpha'}],
@@ -115,6 +160,15 @@ class Command(BaseCommand):
                 commands = phase3
         else:
             commands = phase1+phase2+phase3
+
+        if any(c[0] == 'import_schrodinger_interactions' for c in commands):
+            data_dir = self.engine1_dir(options)
+            if not os.path.isdir(data_dir):
+                raise CommandError(
+                    'Engine 1 products are missing: {} is not a directory. Deliver them, or '
+                    'pass --skip_engine1 to leave the legacy ligand interactions in place. '
+                    'Refusing to build a table that mixes the two without saying which is '
+                    'which.'.format(data_dir))
 
         for c in commands:
             print('{} Running {}'.format(

@@ -1,6 +1,17 @@
 """Import Schrodinger Engine 1 interaction YAMLs, one transaction per structure.
 
-Usage::
+Usage, the way a build calls it -- the delivered tree says what to import and
+carries its own chain maps, so nothing else has to be passed::
+
+    python manage.py import_schrodinger_interactions \\
+        --data-dir DATA_DIR/structure_data/schrodinger/engine1 \\
+        --anomaly-csv /runs/anomalies.csv
+
+Every directory under --data-dir is one structure that was run, and each holds
+the chainmap.tsv built for it. --pdb / --pdb-list narrow that to a few.
+
+The older two-file maps are still accepted for comparing against a map built
+from the database::
 
     python manage.py import_schrodinger_interactions \\
         --data-dir /app/data/schrodinger --pdb 2RH1 --pdb 6CM4 \\
@@ -8,8 +19,14 @@ Usage::
         --receptor-map /runs/chainmap/receptor_chain_map.tsv \\
         --anomaly-csv /runs/anomalies.csv
 
-The two maps come from build_schrodinger_chain_map and must have been built
-against the same database dump and product tree.
+Those two come from build_schrodinger_chain_map and must have been built
+against the same database dump and product tree. The per-PDB files carry the
+same fingerprints per structure instead, so a tree merged from several
+production runs is valid; the command reports the distinct provenance it saw.
+
+A directory with no chainmap.tsv fails that structure and the run exits
+non-zero. It is never passed over: the anchors its map should have described
+would otherwise keep their old rows without a word.
 
 Each structure is imported in its own transaction. A structure that fails
 (unreadable YAML, a row the type map cannot route, or any unexpected error)
@@ -24,6 +41,7 @@ it survives any rollback. Every row that was read but not written is
 accounted for in it.
 """
 
+import collections
 import csv
 import datetime
 import json
@@ -74,11 +92,15 @@ class Command(BaseCommand):
         parser.add_argument("--pdb", action="append", default=[],
                             help="PDB code to import; repeatable.")
         parser.add_argument("--pdb-list", default=None,
-                            help="File with one PDB code per line (# comments allowed).")
-        parser.add_argument("--anchor-map", required=True,
-                            help="anchor_instance_map.tsv from build_schrodinger_chain_map.")
-        parser.add_argument("--receptor-map", required=True,
-                            help="receptor_chain_map.tsv from build_schrodinger_chain_map.")
+                            help="File with one PDB code per line (# comments allowed). "
+                                 "Without it and without --pdb, every structure directory "
+                                 "under --data-dir is imported.")
+        parser.add_argument("--anchor-map", default=None,
+                            help="anchor_instance_map.tsv from build_schrodinger_chain_map. "
+                                 "Without it the per-PDB {PDB}/chainmap.tsv files are read.")
+        parser.add_argument("--receptor-map", default=None,
+                            help="receptor_chain_map.tsv from build_schrodinger_chain_map; "
+                                 "required with --anchor-map, refused without it.")
         parser.add_argument("--anomaly-csv", required=True,
                             help="Where to write the per-anchor accounting CSV.")
         parser.add_argument("--report-json", default=None,
@@ -95,7 +117,13 @@ class Command(BaseCommand):
                     if line:
                         codes.append(line.upper())
         if not codes:
-            raise CommandError("no PDB codes given (use --pdb or --pdb-list)")
+            # The delivered tree holds one directory per structure that was
+            # run, so it is the corpus: a build consumes it without being told
+            # what is in it.
+            codes = si.product_pdb_codes(options["data_dir"])
+            if not codes:
+                raise CommandError(
+                    "--data-dir {!r} holds no structure directory".format(options["data_dir"]))
         return list(dict.fromkeys(codes))
 
     def _check_slugs(self):
@@ -111,14 +139,30 @@ class Command(BaseCommand):
         if not os.path.isdir(options["data_dir"]):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
         self._check_slugs()
+        if bool(options["anchor_map"]) != bool(options["receptor_map"]):
+            raise CommandError("--anchor-map and --receptor-map go together")
+        no_chainmap, provenance = [], {}
         try:
-            anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
-            receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
+            if options["anchor_map"]:
+                anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
+                receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
+                if anchor_header != receptor_header:
+                    raise CommandError("the anchor and receptor maps come from different builds")
+            else:
+                anchor_map, receptor_map, no_chainmap, provenance = si.load_chainmap_dir(
+                    options["data_dir"], codes)
         except (OSError, si.MapMismatch) as exc:
             raise CommandError("cannot read the chain maps: {}".format(exc))
-        if anchor_header != receptor_header:
-            raise CommandError("the anchor and receptor maps come from different builds")
+        for key, values in sorted(provenance.items()):
+            if len(values) > 1:
+                # Merging deliveries is the intended way to grow the tree, so
+                # this is reported, not refused.
+                self.stdout.write("{}: {} distinct values across the tree ({})".format(
+                    key, len(values), ", ".join(
+                        "{}x {}".format(n, v or "(blank)") for v, n in sorted(
+                            values.items(), key=lambda kv: -kv[1])[:5])))
         log = AnomalyLog(options["anomaly_csv"])
+        no_chainmap_set = set(no_chainmap)
         report = []
         failed = []
         totals = {"anchors": 0, "cleared": 0, "deleted": 0, "written": 0,
@@ -140,13 +184,24 @@ class Command(BaseCommand):
                             detail=structure.structure_type.slug)
                     entry["status"] = "not_experimental"
                     continue
+                if pdb in no_chainmap_set:
+                    # A delivered directory without its map cannot be imported
+                    # and must not be passed over: the anchors it should have
+                    # described would silently keep their old rows.
+                    message = "no {} under {}".format(si.CHAINMAP_NAME,
+                                                      os.path.join(options["data_dir"], pdb))
+                    log.log(pdb, "ERROR", "no_chainmap", detail=message)
+                    entry["status"] = "failed"
+                    entry["error"] = message
+                    failed.append(pdb)
+                    continue
                 if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
                     log.log(pdb, "WARNING", "no_product_dir",
                             detail="no product directory; the map must say no_product for every "
                                    "in-scope anchor, which are then cleared (ADR-091)")
                 try:
                     with transaction.atomic():
-                        outcomes, out_of_scope, cleanup = si.import_structure(
+                        outcomes, out_of_scope, cleanup, unused = si.import_structure(
                             structure, options["data_dir"], anchor_map, receptor_map)
                         if options["dry_run"]:
                             raise _Rollback()
@@ -163,6 +218,29 @@ class Command(BaseCommand):
                     continue
                 entry["status"] = "rolled_back" if options["dry_run"] else "imported"
                 entry["out_of_scope_anchors"] = out_of_scope
+                if unused:
+                    # The map lists ligand copies this database has no anchor
+                    # for. One row per HET, so the CSV can be grepped by ligand.
+                    # A further copy of a ligand that IS anchored is the normal
+                    # shape of the copy axis and only worth an INFO; a HET with
+                    # no anchor at all means a ligand was computed and will
+                    # never reach the database, which is a WARNING.
+                    entry["map_copies_unused"] = [
+                        "{} {}".format(h, t).strip() for h, t in unused]
+                    anchored = {o.het for o in outcomes}
+                    by_het = collections.OrderedDict()
+                    for het, tok in unused:
+                        by_het.setdefault(het, []).append(tok or "(no token)")
+                    for het, tokens in by_het.items():
+                        if het in anchored:
+                            log.log(pdb, "INFO", "map_copies_unused", het=het, count=len(tokens),
+                                    detail="further copies of an anchored ligand, the database "
+                                           "holds one row for all of them: " + ", ".join(tokens))
+                        else:
+                            log.log(pdb, "WARNING", "map_het_not_imported", het=het,
+                                    count=len(tokens),
+                                    detail="computed but never imported, the database has no "
+                                           "anchor for this ligand: " + ", ".join(tokens))
                 entry["cleanup"] = dict(cleanup)
                 for key in ("fragments_deleted", "pdbdata_deleted", "pdbdata_kept_referenced"):
                     totals[key] += cleanup[key]

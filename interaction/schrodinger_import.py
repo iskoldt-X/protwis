@@ -110,7 +110,11 @@ def _read_map(path):
     header, body = {}, []
     with open(path, newline="") as fh:
         for line in fh:
-            if line.startswith("# "):
+            # Header lines only precede the column row. A body field may hold a
+            # quoted newline whose continuation begins with "# "; without this
+            # guard such a line would be read as a header key, and the header
+            # is where the schema and the receptor row live.
+            if not body and line.startswith("# "):
                 key, _, value = line[2:].rstrip("\n").partition("\t")
                 header[key] = value
             else:
@@ -140,6 +144,106 @@ def load_receptor_map(path):
             raise MapMismatch("duplicate receptor map key {}".format(key))
         table[key] = r
     return header, table
+
+
+# ---------------------------------------------------------------------------
+# Per-PDB chain maps
+# ---------------------------------------------------------------------------
+
+CHAINMAP_NAME = "chainmap.tsv"
+
+# The only chainmap layout this importer reads. A file naming another one is
+# refused, never guessed at: the header carries the receptor row, so a layout
+# change can move a field without changing any column name.
+CHAINMAP_SCHEMA = "engine1-chainmap/1"
+
+# The single receptor row is per structure, so it rides in the header under
+# this prefix instead of being a one-row table. Both the builder and the
+# reader take it from here; two literals would let a rename pass unnoticed.
+CHAINMAP_RECEPTOR_PREFIX = "receptor."
+
+# The producer writes one of these per structure it processed, so its presence
+# is the evidence that a run happened. Without it an empty directory cannot be
+# told from one the builder created for a structure nobody ran.
+PRODUCT_SUMMARY_NAME = "summary.yaml"
+
+# Header keys that say where a chainmap came from. They are expected to differ
+# across a tree merged from several production runs; the importer reports the
+# distinct values rather than insisting on one.
+PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
+                   "builder_sha256")
+
+
+def load_chainmap(path):
+    """(pdb, {(pdb, HET, token): row}, receptor_row, provenance) from one file."""
+    header, rows = _read_map(path)
+    schema = header.get("schema")
+    if schema != CHAINMAP_SCHEMA:
+        raise MapMismatch("{}: chainmap schema {!r}, this importer reads {!r}".format(
+            path, schema, CHAINMAP_SCHEMA))
+    pdb = (header.get("pdb") or "").strip().upper()
+    if not pdb:
+        raise MapMismatch("{}: the header names no pdb".format(path))
+    receptor = {"pdb": pdb}
+    for column in chain_map.RECEPTOR_COLUMNS:
+        if column == "pdb":
+            continue
+        key = CHAINMAP_RECEPTOR_PREFIX + column
+        if key not in header:
+            raise MapMismatch("{}: the header has no {}".format(path, key))
+        receptor[column] = header[key]
+    anchors = {}
+    for r in rows:
+        if (r.get("pdb") or "").strip().upper() != pdb:
+            raise MapMismatch("{}: a row for {!r} in the chainmap of {}".format(
+                path, r.get("pdb"), pdb))
+        key = (pdb, (r.get("het") or "").upper(), r.get("token") or "")
+        if key in anchors:
+            raise MapMismatch("{}: duplicate anchor key {}".format(path, key))
+        anchors[key] = r
+    provenance = {k: header.get(k, "") for k in PROVENANCE_KEYS}
+    return pdb, anchors, receptor, provenance
+
+
+def load_chainmap_dir(data_dir, pdb_codes):
+    """Per-PDB chain maps from {data_dir}/{PDB}/chainmap.tsv.
+
+    Returns (anchor_table, receptor_table, missing, provenance). The two tables
+    are shaped exactly like load_anchor_map / load_receptor_map, so
+    import_structure does not know which format it was given. `missing` lists
+    the PDB codes with no chainmap.tsv: they are reported and failed one at a
+    time rather than aborting the run, so one absent file names itself instead
+    of hiding every other. `provenance` counts the distinct values of each
+    PROVENANCE_KEY, which a tree merged from several runs will show as more
+    than one.
+    """
+    anchors, receptors, missing = {}, {}, []
+    provenance = dict((k, {}) for k in PROVENANCE_KEYS)
+    for pdb in pdb_codes:
+        pdb = pdb.upper()
+        path = os.path.join(data_dir, pdb, CHAINMAP_NAME)
+        if not os.path.isfile(path):
+            missing.append(pdb)
+            continue
+        named, rows, receptor, prov = load_chainmap(path)
+        if named != pdb:
+            raise MapMismatch("{}: names pdb {} but sits in the directory of {}".format(
+                path, named, pdb))
+        anchors.update(rows)
+        receptors[pdb] = receptor
+        for key, value in prov.items():
+            provenance[key][value] = provenance[key].get(value, 0) + 1
+    return anchors, receptors, missing, provenance
+
+
+def product_pdb_codes(data_dir):
+    """Every structure directory of a delivered product tree, sorted.
+
+    The tree holds one directory per structure that was run, whether or not it
+    yielded a ligand, so this is the corpus of a delivery.
+    """
+    return sorted(name.upper() for name in os.listdir(data_dir)
+                  if os.path.isdir(os.path.join(data_dir, name)))
 
 
 # Map statuses that name a product instance to import.
@@ -563,25 +667,71 @@ def delete_orphan_fragments(structure):
 
 
 def check_map_covers(pdb, slis, anchor_map):
-    """The anchor map must list exactly the copies of this structure's anchors."""
+    """Every copy the database has must be listed; extra copies are allowed.
+
+    Returns the copies the map lists that this database cannot use, sorted, so
+    the caller can report them. They are never looked up -- anchor_instances
+    only asks for the tokens of the chain_res the database stores -- but they
+    are the visible cost of the subset rule, and silence about them would hide
+    a ligand copy that was computed and then not imported.
+
+    A map built by build_schrodinger_chain_map lists exactly the database's
+    copies by construction: it walks the same StructureLigandInteraction rows
+    through the same split_tokens() call. (It also filters experiment-origin
+    structures, which the import command does separately.) The subset rule is
+    for a map built from the annotation instead (ligands.tsv), where extras are
+    normal: the annotation splits a ligand into physical copies, while
+    StructureLigandInteraction is keyed on (structure, ligand, ligand_role,
+    annotated) and has no copy dimension, so build_structures keeps one row per
+    (structure, ligand, role).
+
+    Measured on dump 20260917_phase2 against ligands.tsv at gpcrdb_data
+    9fe1875, over the 1,672 in-scope structures: the file side is never short
+    of a copy the database has (0 missing) and lists 373 extra copies across
+    239 structures. Classifying each extra by whether its chain is one the
+    database already uses for the same HET: 328 on another chain, 44 further
+    copies on a chain the database does use (35 of them the calcium ion), and
+    one whole HET -- 7IPG A1CS8, whose SMILES normalises to the same
+    stereochemistry-stripped InChIKey as A1CQL, and Ligand.clean_inchikey is
+    unique, so the two annotation rows end up on one ligand and one SLI.
+
+    The cost of allowing extras: set-equality was the only per-structure
+    witness that the SLI rows still match the ones the map was built from.
+    check_fingerprints does not cover them -- it compares the stored structure
+    text and the product instance names, not chain_res, pdb_reference or the
+    ligand type. What still fails loud is any (het, token) the database holds
+    that the map does not list. What now passes silently is drift that moves a
+    copy onto a pair the map already lists: a chain rename onto a listed
+    second-chain copy, or two HETs collapsing onto one ligand. Both then import
+    what the database still has an anchor for -- in the collapsed case that
+    means one real chemical entity is never imported at all -- and both show up
+    in the returned unused copies rather than as an exception.
+    """
+    pdb = pdb.upper()
     wanted = set()
     for sli in slis:
         het = sli.pdb_reference.upper()
         for tok in chain_map.split_tokens(sli.chain_res) or [""]:
             wanted.add((het, tok))
     listed = {(het, tok) for (p, het, tok) in anchor_map if p == pdb}
-    if wanted != listed:
-        raise MapMismatch("{}: anchor map lists {} copies, database has {} (missing {}, extra {})".format(
-            pdb, len(listed), len(wanted), sorted(wanted - listed)[:5], sorted(listed - wanted)[:5]))
+    missing = wanted - listed
+    if missing:
+        raise MapMismatch("{}: the database has {} copies, the anchor map lists {} of them "
+                          "(plus {} it cannot use); first absent: {}".format(
+                              pdb, len(wanted), len(wanted) - len(missing),
+                              len(listed - wanted), sorted(missing)[:5]))
+    return sorted(listed - wanted)
 
 
 def import_structure(structure, data_dir, anchor_map, receptor_map):
     """Replace the Engine 1 RFI rows of one structure.
 
     Runs in one transaction: any exception leaves the structure exactly as it
-    was. Returns (outcomes, out_of_scope_count, cleanup_counter). Rows planned
-    but not written because the database has no matching residue or rotamer
-    are counted in ``outcome.dropped``; for every anchor
+    was. Returns (outcomes, out_of_scope_count, cleanup_counter, unused_copies),
+    where unused_copies are the map's (HET, token) pairs this database has no
+    anchor for. Rows planned but not written because the database has no
+    matching residue or rotamer are counted in ``outcome.dropped``; for every
+    anchor
 
         counts["planned"] == written + sum(dropped.values())
     """
@@ -591,6 +741,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
 
     outcomes = []
     out_of_scope = 0
+    unused = []
     with transaction.atomic():
         slis = list(StructureLigandInteraction.objects
                     .filter(structure=structure)
@@ -599,7 +750,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
         in_scope = [sli for sli in slis if is_in_scope(sli)]
         out_of_scope = len(slis) - len(in_scope)
         if in_scope:
-            check_map_covers(pdb_code, in_scope, anchor_map)
+            unused = check_map_covers(pdb_code, in_scope, anchor_map)
             check_fingerprints(pdb_code, receptor_map,
                                structure.pdb_data.pdb if structure.pdb_data_id else "", instances)
             chain = receptor_chain(pdb_code, receptor_map)
@@ -672,4 +823,4 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                 outcome.written += 1
             outcomes.append(outcome)
         cleanup = delete_orphan_fragments(structure) if in_scope else collections.Counter()
-    return outcomes, out_of_scope, cleanup
+    return outcomes, out_of_scope, cleanup, unused
