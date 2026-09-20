@@ -62,10 +62,16 @@ def _sha256_file(path):
     return h.hexdigest()
 
 
-def _sha256_lines(lines):
+def _sha256_parts(parts):
+    """sha256 over a list, length-prefixed so the parts cannot be re-cut.
+
+    One of the parts is a function body and carries newlines, so joining on a
+    separator would not be injective.
+    """
     h = hashlib.sha256()
-    for line in lines:
-        h.update(line.encode("utf-8") + b"\n")
+    for part in parts:
+        raw = part.encode("utf-8")
+        h.update(str(len(raw)).encode("ascii") + b":" + raw)
     return h.hexdigest()
 
 
@@ -90,8 +96,10 @@ def _flat(value):
 def read_tsv(path):
     """Rows of a gpcrdb_data annotation TSV, keys and values stripped.
 
-    A row wider than the header arrives under the key None as a list. Refuse
-    the file rather than guess which field went where.
+    A row wider than the header arrives under the key None as a list: refuse
+    the file rather than guess which field went where. A row that is too short
+    is padded with empty strings, which drops the anchor from the map and makes
+    the importer refuse that structure -- loud, and the safe direction.
     """
     rows = []
     with open(path, newline="") as fh:
@@ -106,9 +114,11 @@ def read_tsv(path):
 def preferred_chains(rows):
     """PDB -> preferred chain, as structure.functions.ParseStructureCSV stores it.
 
-    That parser keeps only the first character of a chain id containing a dot
-    (numeric chain ids arrive as '1.0' for 8JCU); resolve_receptor then takes
-    the part before the first comma.
+    That parser keeps only the first character of a chain id containing a dot,
+    which is how a numeric chain id has been seen to arrive; resolve_receptor
+    then takes the part before the first comma. Neither branch fires on the
+    annotation as it stands -- they are here because the database side applies
+    them, and the two must agree whatever the file holds.
     """
     out = {}
     for r in rows:
@@ -180,6 +190,9 @@ class Command(BaseCommand):
         parser.add_argument("--out-dir", default=None,
                             help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
                                  "so the map ships with the products.")
+        parser.add_argument("--allow-stray", action="store_true",
+                            help="Do not refuse product directories that are absent from "
+                                 "structures.tsv; they still get no chainmap.")
         parser.add_argument("--pdb", action="append", default=[],
                             help="Restrict to these PDB codes; default is every structure in "
                                  "structures.tsv.")
@@ -238,10 +251,15 @@ class Command(BaseCommand):
             if housekeeping:
                 self.stdout.write("directories that are not structures, ignored: {}".format(
                     _some(housekeeping)))
-            if dropped:
+            if dropped and not opt["allow_stray"]:
                 raise CommandError(
                     "these directories hold Engine 1 products but are not in {}, so they would "
-                    "ship without a chainmap: {}".format(structures_tsv, _some(dropped)))
+                    "ship without a chainmap: {}. Pass --allow-stray if that is intended, for "
+                    "instance after a structure was retired from the annotation.".format(
+                        structures_tsv, _some(dropped)))
+            if dropped:
+                self.stdout.write("product directories with no chainmap (--allow-stray): "
+                                  "{}".format(_some(dropped)))
 
         ligands_sha = _sha256_file(ligands_tsv)
         structures_sha = _sha256_file(structures_tsv)
@@ -250,10 +268,12 @@ class Command(BaseCommand):
         # that module instead would move this stamp on every unrelated importer
         # edit, and a merged tree would then report a difference that is not
         # one.
-        builder_sha = _sha256_lines([
+        builder_sha = _sha256_parts([
             _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
             repr(sorted(si.IN_SCOPE_LIGAND_TYPES)), repr(sorted(si.PLACEHOLDER_REFERENCES)),
-            si.INSTANCE_DIR_RE.pattern, inspect.getsource(si.instance_yaml_paths)])
+            si.INSTANCE_DIR_RE.pattern, repr(si.INSTANCE_DIR_RE.flags),
+            inspect.getsource(si.instance_yaml_paths),
+            si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME])
 
         counts, rstatus, written, no_products = {}, {}, 0, 0
         for pdb in pdbs:
@@ -275,7 +295,8 @@ class Command(BaseCommand):
                       # here. No instances and no summary means nobody ran this
                       # structure; no instances with a summary means it ran and
                       # found no ligand.
-                      ("product_summary", "yes" if note["product_summary"] else "no")]
+                      (si.PRODUCT_SUMMARY_KEY,
+                       "yes" if note["product_summary"] else "no")]
             header += [(RECEPTOR_PREFIX + c, receptor.get(c, "")) for c in cm.RECEPTOR_COLUMNS
                        if c != "pdb"]
             target = os.path.join(out_dir, pdb)

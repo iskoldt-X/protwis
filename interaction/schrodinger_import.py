@@ -107,6 +107,7 @@ class UnresolvedAnchor(ValueError):
 
 
 def _read_map(path):
+    """(header dict, column names, rows). Column names are None when there are none."""
     header, body = {}, []
     with open(path, newline="") as fh:
         for line in fh:
@@ -115,16 +116,17 @@ def _read_map(path):
             # guard such a line would be read as a header key, and the header
             # is where the schema and the receptor row live.
             if not body and line.startswith("# "):
-                key, _, value = line[2:].rstrip("\n").partition("\t")
+                key, _, value = line[2:].rstrip("\r\n").partition("\t")
                 header[key] = value
             else:
                 body.append(line)
-    return header, list(csv.DictReader(body, delimiter="\t"))
+    reader = csv.DictReader(body, delimiter="\t")
+    return header, reader.fieldnames, list(reader)
 
 
 def load_anchor_map(path):
     """(header, {(pdb, HET, token): row}) from anchor_instance_map.tsv."""
-    header, rows = _read_map(path)
+    header, _, rows = _read_map(path)
     table = {}
     for r in rows:
         key = (r["pdb"].upper(), r["het"].upper(), r["token"])
@@ -136,7 +138,7 @@ def load_anchor_map(path):
 
 def load_receptor_map(path):
     """(header, {pdb: row}) from receptor_chain_map.tsv."""
-    header, rows = _read_map(path)
+    header, _, rows = _read_map(path)
     table = {}
     for r in rows:
         key = r["pdb"].upper()
@@ -163,9 +165,11 @@ CHAINMAP_SCHEMA = "engine1-chainmap/1"
 CHAINMAP_RECEPTOR_PREFIX = "receptor."
 
 # The producer writes one of these per structure it processed, so its presence
-# is the evidence that a run happened. Without it an empty directory cannot be
-# told from one the builder created for a structure nobody ran.
+# is the evidence that a run happened. The builder records it in the header as
+# PRODUCT_SUMMARY_KEY; without it an empty directory cannot be told from one
+# the builder created for a structure nobody ran.
 PRODUCT_SUMMARY_NAME = "summary.yaml"
+PRODUCT_SUMMARY_KEY = "product_summary"
 
 # Header keys that say where a chainmap came from. They are expected to differ
 # across a tree merged from several production runs; the importer reports the
@@ -175,12 +179,22 @@ PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
 
 
 def load_chainmap(path):
-    """(pdb, {(pdb, HET, token): row}, receptor_row, provenance) from one file."""
-    header, rows = _read_map(path)
+    """(pdb, anchors, receptor_row, provenance, ran) from one chainmap.tsv.
+
+    `ran` is the header's record of whether the producer left its summary in
+    that structure's directory, which is the only evidence that Engine 1 ever
+    looked at it.
+    """
+    header, fieldnames, rows = _read_map(path)
+    if not header:
+        raise MapMismatch("{}: no '# ' header lines at all; is this a chainmap?".format(path))
     schema = header.get("schema")
     if schema != CHAINMAP_SCHEMA:
         raise MapMismatch("{}: chainmap schema {!r}, this importer reads {!r}".format(
             path, schema, CHAINMAP_SCHEMA))
+    if tuple(fieldnames or ()) != tuple(chain_map.ANCHOR_COLUMNS):
+        raise MapMismatch("{}: columns {}, expected {}".format(
+            path, list(fieldnames or []), list(chain_map.ANCHOR_COLUMNS)))
     pdb = (header.get("pdb") or "").strip().upper()
     if not pdb:
         raise MapMismatch("{}: the header names no pdb".format(path))
@@ -201,49 +215,76 @@ def load_chainmap(path):
         if key in anchors:
             raise MapMismatch("{}: duplicate anchor key {}".format(path, key))
         anchors[key] = r
+    ran = header.get(PRODUCT_SUMMARY_KEY)
+    if ran not in ("yes", "no"):
+        raise MapMismatch("{}: {} is {!r}, expected yes or no".format(
+            path, PRODUCT_SUMMARY_KEY, ran))
     provenance = {k: header.get(k, "") for k in PROVENANCE_KEYS}
-    return pdb, anchors, receptor, provenance
+    return pdb, anchors, receptor, provenance, ran == "yes"
 
 
 def load_chainmap_dir(data_dir, pdb_codes):
     """Per-PDB chain maps from {data_dir}/{PDB}/chainmap.tsv.
 
-    Returns (anchor_table, receptor_table, missing, provenance). The two tables
-    are shaped exactly like load_anchor_map / load_receptor_map, so
-    import_structure does not know which format it was given. `missing` lists
-    the PDB codes with no chainmap.tsv: they are reported and failed one at a
-    time rather than aborting the run, so one absent file names itself instead
-    of hiding every other. `provenance` counts the distinct values of each
-    PROVENANCE_KEY, which a tree merged from several runs will show as more
-    than one.
+    Returns (anchor_table, receptor_table, missing, provenance, not_run). The
+    two tables are shaped exactly like load_anchor_map / load_receptor_map, so
+    import_structure does not know which format it was given.
+
+    `missing` lists the PDB codes with no chainmap.tsv: they are reported and
+    failed one at a time rather than aborting the run, so one absent file names
+    itself instead of hiding every other.
+
+    `not_run` lists the PDB codes whose directory holds neither a product
+    instance nor the producer's summary. Nobody ran those structures, and that
+    is not the same statement as "Engine 1 ran and found no ligand" -- only the
+    second one justifies clearing an anchor (ADR-091). The caller leaves them
+    alone and says so.
+
+    `provenance` counts the distinct values of each PROVENANCE_KEY, which a
+    tree merged from several runs will show as more than one.
+
+    A chainmap that is present but malformed raises, which ends the whole run:
+    unlike an absent one, a malformed one means the delivery cannot be trusted
+    at all. That happens before the caller has opened its accounting file.
     """
-    anchors, receptors, missing = {}, {}, []
+    anchors, receptors, missing, not_run = {}, {}, [], []
     provenance = dict((k, {}) for k in PROVENANCE_KEYS)
+    empty_tree = chain_map.instances_sha256([])
     for pdb in pdb_codes:
-        pdb = pdb.upper()
         path = os.path.join(data_dir, pdb, CHAINMAP_NAME)
         if not os.path.isfile(path):
+            if os.path.exists(path):
+                raise MapMismatch("{} is not a readable file".format(path))
             missing.append(pdb)
             continue
-        named, rows, receptor, prov = load_chainmap(path)
-        if named != pdb:
+        named, rows, receptor, prov, ran = load_chainmap(path)
+        if named != pdb.upper():
             raise MapMismatch("{}: names pdb {} but sits in the directory of {}".format(
                 path, named, pdb))
+        if not ran and receptor.get("product_instances_sha256") == empty_tree:
+            not_run.append(pdb)
+            continue
         anchors.update(rows)
         receptors[pdb] = receptor
         for key, value in prov.items():
             provenance[key][value] = provenance[key].get(value, 0) + 1
-    return anchors, receptors, missing, provenance
+    return anchors, receptors, missing, provenance, not_run
 
 
 def product_pdb_codes(data_dir):
-    """Every structure directory of a delivered product tree, sorted.
+    """Every structure directory of a delivered tree, sorted.
 
-    The tree holds one directory per structure that was run, whether or not it
-    yielded a ligand, so this is the corpus of a delivery.
+    This is what the tree offers, not what the producer ran: the map builder
+    writes a directory for every structure in the annotation. Which of them
+    Engine 1 actually looked at is load_chainmap_dir's `not_run`.
+
+    Names are returned as they are on disk. Upper-casing them here would make a
+    lower-case delivery directory invisible, and would fold 2rh1 and 2RH1 into
+    one code so that one of the two deliveries vanished without a word.
+    Anything beginning with a dot is tooling, not a structure.
     """
-    return sorted(name.upper() for name in os.listdir(data_dir)
-                  if os.path.isdir(os.path.join(data_dir, name)))
+    return sorted(name for name in os.listdir(data_dir)
+                  if not name.startswith(".") and os.path.isdir(os.path.join(data_dir, name)))
 
 
 # Map statuses that name a product instance to import.

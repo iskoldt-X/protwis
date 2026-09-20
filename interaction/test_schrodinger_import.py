@@ -13,6 +13,7 @@ import tempfile
 import types
 import unittest
 
+from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
 
 
@@ -148,7 +149,7 @@ class MapGuardTests(unittest.TestCase):
         path = self._write("# schema\tengine1-chainmap/1\n"
                            "pdb\thet\ttoken\tnote\n"
                            '6ZIN\tQ6Q\tA:1\t"%s"\n' % note)
-        head, table = si._read_map(path)
+        head, _, table = si._read_map(path)
         self.assertEqual(head, {"schema": "engine1-chainmap/1"})
         self.assertEqual(len(table), 1)
         self.assertEqual(table[0]["note"], note)
@@ -176,15 +177,23 @@ CHAINMAP_HEADER = "".join(
         ("schema", "engine1-chainmap/1"), ("pdb", "6ZIN"),
         ("annotation_commit", "9fe1875"), ("ligands_sha256", "aa"),
         ("structures_sha256", "bb"), ("gpcrdb_pdb_sha256", "cc"),
-        ("cif_sha256", "dd"), ("builder_sha256", "ee"),
+        ("cif_sha256", "dd"), ("builder_sha256", "ee"), ("product_summary", "yes"),
         ("receptor.preferred_chain", "A"), ("receptor.auth_chain", "A"),
         ("receptor.status", "ok"), ("receptor.method", "exact"),
         ("receptor.n_ca_gpcrdb", "10"), ("receptor.n_ca_matched", "10"),
         ("receptor.renumbered", "0"), ("receptor.note", ""),
         ("receptor.gpcrdb_text_sha256", "ff"), ("receptor.product_instances_sha256", "gg"),
     ])
-CHAINMAP_BODY = ("pdb\thet\ttoken\tinstance\tstatus\n"
-                 "6ZIN\tq6q\tA:1000\tQ6Q_A_1000\tok\n")
+CHAINMAP_COLUMNS = "\t".join(cm.ANCHOR_COLUMNS) + "\n"
+
+
+def chainmap_row(pdb="6ZIN", het="q6q", token="A:1000", instance="Q6Q_A_1000", status="ok"):
+    row = dict.fromkeys(cm.ANCHOR_COLUMNS, "")
+    row.update(pdb=pdb, het=het, token=token, instance=instance, status=status)
+    return "\t".join(row[c] for c in cm.ANCHOR_COLUMNS) + "\n"
+
+
+CHAINMAP_BODY = CHAINMAP_COLUMNS + chainmap_row()
 
 
 class ChainmapDirTests(unittest.TestCase):
@@ -203,8 +212,9 @@ class ChainmapDirTests(unittest.TestCase):
 
     def test_one_file_round_trips(self):
         path = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
-        pdb, anchors, receptor, prov = si.load_chainmap(path)
+        pdb, anchors, receptor, prov, ran = si.load_chainmap(path)
         self.assertEqual(pdb, "6ZIN")
+        self.assertTrue(ran)
         self.assertEqual(anchors[("6ZIN", "Q6Q", "A:1000")]["instance"], "Q6Q_A_1000")
         self.assertEqual(receptor["auth_chain"], "A")
         self.assertEqual(receptor["product_instances_sha256"], "gg")
@@ -229,29 +239,59 @@ class ChainmapDirTests(unittest.TestCase):
 
     def test_a_row_of_another_structure_is_refused(self):
         path = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY +
-                          "2RH1\tCAU\tA:408\tCAU_A_408\tok\n")
+                          chainmap_row(pdb="2RH1", het="CAU", token="A:408",
+                                       instance="CAU_A_408"))
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(path)
 
     def test_a_duplicate_anchor_key_is_refused(self):
-        path = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY +
-                          "6ZIN\tQ6Q\tA:1000\tQ6Q_A_1000\tok\n")
+        path = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY + chainmap_row())
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(path)
 
     def test_a_directory_without_a_map_is_named_not_skipped(self):
         self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
         os.makedirs(os.path.join(self.root, "2RH1"))
-        anchors, receptors, missing, prov = si.load_chainmap_dir(self.root, ["6ZIN", "2RH1"])
+        anchors, receptors, missing, prov, not_run = si.load_chainmap_dir(
+            self.root, ["6ZIN", "2RH1"])
         self.assertEqual(missing, ["2RH1"])
+        self.assertEqual(not_run, [])
         self.assertEqual(sorted(receptors), ["6ZIN"])
         self.assertEqual(len(anchors), 1)
+
+    def test_a_structure_nobody_ran_is_not_treated_as_one_with_no_ligand(self):
+        """Clearing an anchor states that Engine 1 looked; it must have looked."""
+        empty = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno") \
+            .replace("# receptor.product_instances_sha256\tgg",
+                     "# receptor.product_instances_sha256\t" + cm.instances_sha256([]))
+        self.write("6ZIN", empty + CHAINMAP_BODY)
+        anchors, receptors, missing, prov, not_run = si.load_chainmap_dir(self.root, ["6ZIN"])
+        self.assertEqual(not_run, ["6ZIN"])
+        self.assertEqual(anchors, {})
+        self.assertEqual(receptors, {})
+        # the same structure WITH products is imported, summary or not
+        both = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno")
+        self.write("2RH1", both.replace("# pdb\t6ZIN", "# pdb\t2RH1") + CHAINMAP_COLUMNS)
+        _, receptors, _, _, not_run = si.load_chainmap_dir(self.root, ["2RH1"])
+        self.assertEqual(not_run, [])
+        self.assertEqual(sorted(receptors), ["2RH1"])
+
+    def test_a_missing_or_bogus_product_summary_is_refused(self):
+        for value in ("", "maybe", "Yes"):
+            path = self.write("6ZIN", CHAINMAP_HEADER.replace(
+                "# product_summary\tyes", "# product_summary\t" + value) + CHAINMAP_BODY)
+            with self.assertRaises(si.MapMismatch):
+                si.load_chainmap(path)
+        path = self.write("6ZIN", CHAINMAP_HEADER.replace(
+            "# product_summary\tyes\n", "") + CHAINMAP_BODY)
+        with self.assertRaises(si.MapMismatch):
+            si.load_chainmap(path)
 
     def test_provenance_counts_a_merged_tree(self):
         self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
         self.write("2RH1", CHAINMAP_HEADER.replace("# pdb\t6ZIN", "# pdb\t2RH1")
-                   .replace("9fe1875", "deadbee") + "pdb\thet\ttoken\n")
-        _, _, _, prov = si.load_chainmap_dir(self.root, ["6ZIN", "2RH1"])
+                   .replace("9fe1875", "deadbee") + CHAINMAP_COLUMNS)
+        _, _, _, prov, _ = si.load_chainmap_dir(self.root, ["6ZIN", "2RH1"])
         self.assertEqual(prov["annotation_commit"], {"9fe1875": 1, "deadbee": 1})
         self.assertEqual(prov["ligands_sha256"], {"aa": 2})
 
@@ -263,12 +303,27 @@ class ChainmapDirTests(unittest.TestCase):
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap_dir(self.root, ["2RH1"])
 
-    def test_product_pdb_codes_is_directories_only(self):
+    def test_product_pdb_codes_keeps_the_name_on_disk(self):
+        """Upper-casing here would hide a lower-case delivery, or fold two into one."""
         self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
         os.makedirs(os.path.join(self.root, "2rh1"))
+        os.makedirs(os.path.join(self.root, ".rsync-partial"))
         with open(os.path.join(self.root, "_import_anomalies.csv"), "w") as fh:
             fh.write("x\n")
-        self.assertEqual(si.product_pdb_codes(self.root), ["2RH1", "6ZIN"])
+        self.assertEqual(si.product_pdb_codes(self.root), ["2rh1", "6ZIN"])
+
+    def test_a_truncated_or_reshaped_file_is_refused(self):
+        header_only = self.write("6ZIN", CHAINMAP_HEADER)
+        with self.assertRaises(si.MapMismatch):
+            si.load_chainmap(header_only)
+        lost_a_column = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY.replace("token\t", "", 1))
+        with self.assertRaises(si.MapMismatch):
+            si.load_chainmap(lost_a_column)
+
+    def test_crlf_does_not_leak_into_the_header_values(self):
+        path = self.write("6ZIN", (CHAINMAP_HEADER + CHAINMAP_BODY).replace("\n", "\r\n"))
+        _, _, receptor, _, _ = si.load_chainmap(path)
+        self.assertEqual(receptor["auth_chain"], "A")
 
 class StandardLigandLineTests(unittest.TestCase):
 

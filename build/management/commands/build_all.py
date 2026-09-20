@@ -66,6 +66,10 @@ class Command(BaseCommand):
         their accounting next to the products they read.
         """
         if options['skip_engine1']:
+            print('{} SKIPPING the Engine 1 import: the small-molecule ligand interactions '
+                  'in this build are the ones build_structures computes with the legacy '
+                  'pipeline'.format(datetime.datetime.strftime(
+                      datetime.datetime.now(), '%Y-%m-%d %H:%M:%S')))
             return []
         data_dir = self.engine1_dir(options)
         common = {'data_dir': data_dir}

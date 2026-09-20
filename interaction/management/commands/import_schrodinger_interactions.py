@@ -26,7 +26,9 @@ production runs is valid; the command reports the distinct provenance it saw.
 
 A directory with no chainmap.tsv fails that structure and the run exits
 non-zero. It is never passed over: the anchors its map should have described
-would otherwise keep their old rows without a word.
+would otherwise keep their old rows without a word. For the same reason, when
+the corpus comes from the tree, a database structure with Engine 1 anchors and
+no directory at all stops the run before anything is touched.
 
 Each structure is imported in its own transaction. A structure that fails
 (unreadable YAML, a row the type map cannot route, or any unexpected error)
@@ -34,7 +36,10 @@ is rolled back and reported; the others are unaffected. The command exits
 non-zero when any structure failed, after all structures have been attempted.
 
 An anchor with no product instance loses its existing rows (ADR-091) and is
-reported as a WARNING (anchor_cleared) with the map's reason.
+reported as a WARNING (anchor_cleared) with the map's reason. That applies
+only to a structure Engine 1 actually ran: one whose directory holds neither a
+product instance nor the producer's summary is left untouched and reported as
+not_run, because "never looked at" is not "looked and found nothing".
 
 The anomaly CSV is written outside the transactions and flushed per row, so
 it survives any rollback. Every row that was read but not written is
@@ -51,7 +56,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from interaction import schrodinger_import as si
-from interaction.models import ResidueFragmentInteractionType
+from interaction.models import ResidueFragmentInteractionType, StructureLigandInteraction
 from structure.models import Structure
 
 
@@ -117,14 +122,38 @@ class Command(BaseCommand):
                     if line:
                         codes.append(line.upper())
         if not codes:
-            # The delivered tree holds one directory per structure that was
-            # run, so it is the corpus: a build consumes it without being told
-            # what is in it.
+            # Every structure directory the tree offers. Which of them the
+            # producer actually ran is decided per structure from its chainmap,
+            # so a build consumes the tree without being told what is in it.
             codes = si.product_pdb_codes(options["data_dir"])
             if not codes:
                 raise CommandError(
                     "--data-dir {!r} holds no structure directory".format(options["data_dir"]))
         return list(dict.fromkeys(codes))
+
+    @staticmethod
+    def _uncovered(codes):
+        """In-scope structures the database has and the delivered tree does not.
+
+        Only meaningful when the corpus came from the tree. Such a structure is
+        never visited, so it silently keeps whatever the legacy pipeline wrote
+        -- the one way this import can leave two methods in one table without
+        saying so.
+        """
+        have = {c.upper() for c in codes}
+        out = []
+        for sli in (StructureLigandInteraction.objects
+                    .select_related("structure__pdb_code", "structure__structure_type",
+                                    "ligand__ligand_type")
+                    .order_by("id")):
+            if sli.structure is None or not si.is_in_scope(sli):
+                continue
+            if sli.structure.structure_type.origin != si.STRUCTURE_ORIGIN:
+                continue
+            pdb = sli.structure.pdb_code.index.upper()
+            if pdb not in have:
+                out.append(pdb)
+        return sorted(set(out))
 
     def _check_slugs(self):
         present = set(ResidueFragmentInteractionType.objects.values_list("slug", flat=True))
@@ -135,13 +164,14 @@ class Command(BaseCommand):
                 "(run migrate; interaction 0008 seeds them)".format(", ".join(missing)))
 
     def handle(self, *args, **options):
-        codes = self._pdb_codes(options)
         if not os.path.isdir(options["data_dir"]):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
+        whole_tree = not options["pdb"] and not options["pdb_list"]
+        codes = self._pdb_codes(options)
         self._check_slugs()
         if bool(options["anchor_map"]) != bool(options["receptor_map"]):
             raise CommandError("--anchor-map and --receptor-map go together")
-        no_chainmap, provenance = [], {}
+        no_chainmap, provenance, not_run = [], {}, []
         try:
             if options["anchor_map"]:
                 anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
@@ -149,7 +179,7 @@ class Command(BaseCommand):
                 if anchor_header != receptor_header:
                     raise CommandError("the anchor and receptor maps come from different builds")
             else:
-                anchor_map, receptor_map, no_chainmap, provenance = si.load_chainmap_dir(
+                anchor_map, receptor_map, no_chainmap, provenance, not_run = si.load_chainmap_dir(
                     options["data_dir"], codes)
         except (OSError, si.MapMismatch) as exc:
             raise CommandError("cannot read the chain maps: {}".format(exc))
@@ -161,8 +191,18 @@ class Command(BaseCommand):
                     key, len(values), ", ".join(
                         "{}x {}".format(n, v or "(blank)") for v, n in sorted(
                             values.items(), key=lambda kv: -kv[1])[:5])))
+        if whole_tree:
+            uncovered = self._uncovered(codes)
+            if uncovered:
+                raise CommandError(
+                    "{} structure(s) have Engine 1 anchors in the database and no directory "
+                    "under --data-dir, so they would keep whatever the legacy pipeline wrote: "
+                    "{}{}".format(len(uncovered), ", ".join(uncovered[:20]),
+                                  "" if len(uncovered) <= 20 else " (+%d more)" % (
+                                      len(uncovered) - 20)))
         log = AnomalyLog(options["anomaly_csv"])
         no_chainmap_set = set(no_chainmap)
+        not_run_set = set(not_run)
         report = []
         failed = []
         totals = {"anchors": 0, "cleared": 0, "deleted": 0, "written": 0,
@@ -183,6 +223,26 @@ class Command(BaseCommand):
                     log.log(pdb, "INFO", "not_experimental",
                             detail=structure.structure_type.slug)
                     entry["status"] = "not_experimental"
+                    continue
+                if pdb in not_run_set:
+                    # Neither a product instance nor the producer's summary:
+                    # Engine 1 never looked at this structure. Clearing its
+                    # anchors would state that it looked and found nothing.
+                    # It only costs something when there are anchors to lose,
+                    # and most of these structures have none -- warning about
+                    # every one of them would bury the few that matter.
+                    at_risk = [s for s in StructureLigandInteraction.objects
+                               .filter(structure=structure).select_related("ligand__ligand_type")
+                               if si.is_in_scope(s)]
+                    log.log(pdb, "WARNING" if at_risk else "INFO", "not_run",
+                            count=len(at_risk) or 1,
+                            detail="no product instance and no {} under {}; {}".format(
+                                si.PRODUCT_SUMMARY_NAME,
+                                os.path.join(options["data_dir"], pdb),
+                                "{} anchor(s) left as they are".format(len(at_risk))
+                                if at_risk else "nothing here for Engine 1 anyway"))
+                    entry["status"] = "not_run"
+                    entry["not_run_anchors"] = len(at_risk)
                     continue
                 if pdb in no_chainmap_set:
                     # A delivered directory without its map cannot be imported
@@ -264,6 +324,7 @@ class Command(BaseCommand):
             if options["report_json"]:
                 with open(options["report_json"], "w") as fh:
                     json.dump({"dry_run": options["dry_run"], "totals": totals,
+                               "provenance": provenance, "not_run": not_run,
                                "failed": failed, "structures": report}, fh, indent=1)
 
         self.stdout.write(
