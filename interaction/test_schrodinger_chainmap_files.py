@@ -134,6 +134,44 @@ class HeaderTests(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(self.root)), ["chainmap.tsv"])
 
 
+class ProductSummaryTests(unittest.TestCase):
+    """The one field that separates "ran and found nothing" from "never ran"."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root)
+        self.values = dict.fromkeys(b.HEADER_KEYS, "x")
+
+    def test_it_is_read_from_the_product_tree(self):
+        os.makedirs(os.path.join(self.root, "2RH1"))
+        self.assertFalse(b.has_product_summary(self.root, "2RH1"))
+        open(os.path.join(self.root, "2RH1", si.PRODUCT_SUMMARY_NAME), "w").close()
+        self.assertTrue(b.has_product_summary(self.root, "2RH1"))
+        self.assertFalse(b.has_product_summary(self.root, "6ZIN"))
+
+    def test_the_header_says_no_when_the_producer_left_nothing(self):
+        for has_summary, expected in ((True, "yes"), (False, "no")):
+            header = dict(b.chainmap_header("2RH1", self.values, {"auth_chain": "A"},
+                                            has_summary))
+            self.assertEqual(header[si.PRODUCT_SUMMARY_KEY], expected)
+            self.assertEqual(header["schema"], si.CHAINMAP_SCHEMA)
+            self.assertEqual(header["pdb"], "2RH1")
+            self.assertEqual(header[si.CHAINMAP_RECEPTOR_PREFIX + "auth_chain"], "A")
+
+    def test_a_never_run_structure_is_judged_not_run_by_the_reader(self):
+        """The writer and the reader have to agree, or the field buys nothing."""
+        receptor = dict.fromkeys(cm.RECEPTOR_COLUMNS, "")
+        receptor["product_instances_sha256"] = cm.instances_sha256([])
+        d = os.path.join(self.root, "6ZIN")
+        os.makedirs(d)
+        path = os.path.join(d, si.CHAINMAP_NAME)
+        for has_summary, expected in ((False, ["6ZIN"]), (True, [])):
+            b.write_chainmap(path, b.chainmap_header("6ZIN", self.values, receptor,
+                                                     has_summary), [])
+            not_run = si.load_chainmap_dir(self.root, ["6ZIN"])[4]
+            self.assertEqual(not_run, expected)
+
+
 class BuilderStampTests(unittest.TestCase):
 
     def test_the_parts_cannot_be_recut(self):

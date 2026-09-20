@@ -75,6 +75,37 @@ def _sha256_parts(parts):
     return h.hexdigest()
 
 
+# The header keys that are the same for every structure of a run, plus the two
+# that are not, in the order they are written.
+HEADER_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
+               "gpcrdb_pdb_sha256", "cif_sha256", "builder_sha256")
+
+
+def has_product_summary(data_dir, pdb):
+    """Did the producer leave its per-structure summary in this directory?
+
+    The only evidence in the delivery that Engine 1 ever looked at a structure.
+    Read from the product tree, never from the out dir: it is a fact about the
+    producer, so building into a separate directory must not change the answer.
+    """
+    return os.path.isfile(os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME))
+
+
+def chainmap_header(pdb, values, receptor, has_summary):
+    """The '# key<TAB>value' lines of one chainmap, in order.
+
+    Every field is a statement about this one structure or about an input that
+    was the same for every structure, so merging two runs by copying
+    directories leaves every file still telling the truth about itself.
+    """
+    header = [("schema", SCHEMA), ("pdb", pdb)]
+    header += [(key, values[key]) for key in HEADER_KEYS]
+    header.append((si.PRODUCT_SUMMARY_KEY, "yes" if has_summary else "no"))
+    header += [(RECEPTOR_PREFIX + c, receptor.get(c, "")) for c in cm.RECEPTOR_COLUMNS
+               if c != "pdb"]
+    return header
+
+
 def _some(names, limit=20):
     """A list for a log line, honest about what it left out."""
     head = ", ".join(names[:limit])
@@ -192,7 +223,9 @@ class Command(BaseCommand):
                                  "so the map ships with the products.")
         parser.add_argument("--allow-stray", action="store_true",
                             help="Do not refuse product directories that are absent from "
-                                 "structures.tsv; they still get no chainmap.")
+                                 "structures.tsv. They still get no chainmap, and the "
+                                 "importer fails on any of them the database still knows, "
+                                 "so delete them before delivering the tree.")
         parser.add_argument("--pdb", action="append", default=[],
                             help="Restrict to these PDB codes; default is every structure in "
                                  "structures.tsv.")
@@ -273,32 +306,25 @@ class Command(BaseCommand):
             repr(sorted(si.IN_SCOPE_LIGAND_TYPES)), repr(sorted(si.PLACEHOLDER_REFERENCES)),
             si.INSTANCE_DIR_RE.pattern, repr(si.INSTANCE_DIR_RE.flags),
             inspect.getsource(si.instance_yaml_paths),
-            si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME])
+            si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME,
+            si.PRODUCT_SUMMARY_KEY])
 
         counts, rstatus, written, no_products = {}, {}, 0, 0
         for pdb in pdbs:
+            has_summary = has_product_summary(data_dir, pdb)
             rows, receptor, note = self.build_one(
                 pdb, anchors.get(pdb, []), chains.get(pdb), labels,
                 os.path.join(cif_dir, pdb + ".cif"), os.path.join(pdb_dir, pdb + ".pdb"),
-                si.instance_yaml_paths(data_dir, pdb),
-                os.path.isfile(os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME)))
+                si.instance_yaml_paths(data_dir, pdb), has_summary)
             no_products += receptor["product_instances_sha256"] == cm.instances_sha256([])
-            header = [("schema", SCHEMA), ("pdb", pdb),
-                      ("annotation_commit", opt["annotation_commit"]),
-                      ("ligands_sha256", ligands_sha), ("structures_sha256", structures_sha),
-                      # The bytes on disk. receptor.gpcrdb_text_sha256 below is
-                      # what the importer compares against the database, hashed
-                      # as decoded text; the two differ only on a CRLF file.
-                      ("gpcrdb_pdb_sha256", note["gpcrdb_pdb_sha256"]),
-                      ("cif_sha256", note["cif_sha256"]), ("builder_sha256", builder_sha),
-                      # Whether the producer left its per-structure summary
-                      # here. No instances and no summary means nobody ran this
-                      # structure; no instances with a summary means it ran and
-                      # found no ligand.
-                      (si.PRODUCT_SUMMARY_KEY,
-                       "yes" if note["product_summary"] else "no")]
-            header += [(RECEPTOR_PREFIX + c, receptor.get(c, "")) for c in cm.RECEPTOR_COLUMNS
-                       if c != "pdb"]
+            header = chainmap_header(pdb, dict(
+                annotation_commit=opt["annotation_commit"], ligands_sha256=ligands_sha,
+                structures_sha256=structures_sha, builder_sha256=builder_sha,
+                # The bytes on disk. receptor.gpcrdb_text_sha256 is what the
+                # importer compares against the database, hashed as decoded
+                # text; the two differ only on a CRLF file.
+                gpcrdb_pdb_sha256=note["gpcrdb_pdb_sha256"],
+                cif_sha256=note["cif_sha256"]), receptor, has_summary)
             target = os.path.join(out_dir, pdb)
             os.makedirs(target, exist_ok=True)
             write_chainmap(os.path.join(target, "chainmap.tsv"), header, rows)

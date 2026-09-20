@@ -39,7 +39,10 @@ An anchor with no product instance loses its existing rows (ADR-091) and is
 reported as a WARNING (anchor_cleared) with the map's reason. That applies
 only to a structure Engine 1 actually ran: one whose directory holds neither a
 product instance nor the producer's summary is left untouched and reported as
-not_run, because "never looked at" is not "looked and found nothing".
+not_run, because "never looked at" is not "looked and found nothing". When
+such a structure has anchors, its rows would stay as the legacy pipeline left
+them, so it fails the run like any other -- pass --allow-not-run to accept that
+and carry on.
 
 The anomaly CSV is written outside the transactions and flushed per row, so
 it survives any rollback. Every row that was read but not written is
@@ -110,10 +113,18 @@ class Command(BaseCommand):
                             help="Where to write the per-anchor accounting CSV.")
         parser.add_argument("--report-json", default=None,
                             help="Optional path for a machine-readable per-anchor report.")
+        parser.add_argument("--allow-not-run", action="store_true",
+                            help="Report, instead of failing, a structure that Engine 1 never "
+                                 "ran but that has anchors: its rows stay as the legacy "
+                                 "pipeline left them.")
         parser.add_argument("--dry-run", action="store_true",
                             help="Run every structure and roll each one back.")
 
     def _pdb_codes(self, options):
+        """(codes, came_from_the_tree). The second value decides whether the
+        database's in-scope structures have to be covered: a list file that
+        turns out to hold no code leaves the tree as the corpus, and the check
+        has to follow the corpus, not the flag."""
         codes = [c.strip().upper() for c in options["pdb"] if c.strip()]
         if options["pdb_list"]:
             with open(options["pdb_list"]) as fh:
@@ -129,7 +140,8 @@ class Command(BaseCommand):
             if not codes:
                 raise CommandError(
                     "--data-dir {!r} holds no structure directory".format(options["data_dir"]))
-        return list(dict.fromkeys(codes))
+            return list(dict.fromkeys(codes)), True
+        return list(dict.fromkeys(codes)), False
 
     @staticmethod
     def _uncovered(codes):
@@ -166,8 +178,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not os.path.isdir(options["data_dir"]):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
-        whole_tree = not options["pdb"] and not options["pdb_list"]
-        codes = self._pdb_codes(options)
+        codes, whole_tree = self._pdb_codes(options)
         self._check_slugs()
         if bool(options["anchor_map"]) != bool(options["receptor_map"]):
             raise CommandError("--anchor-map and --receptor-map go together")
@@ -215,45 +226,40 @@ class Command(BaseCommand):
                              .filter(pdb_code__index__iexact=pdb)
                              .select_related("structure_type", "pdb_code", "protein_conformation")
                              .first())
-                if structure is None:
-                    log.log(pdb, "WARNING", "structure_not_in_db")
-                    entry["status"] = "structure_not_in_db"
-                    continue
-                if structure.structure_type.origin != si.STRUCTURE_ORIGIN:
-                    log.log(pdb, "INFO", "not_experimental",
-                            detail=structure.structure_type.slug)
-                    entry["status"] = "not_experimental"
-                    continue
-                if pdb in not_run_set:
-                    # Neither a product instance nor the producer's summary:
-                    # Engine 1 never looked at this structure. Clearing its
-                    # anchors would state that it looked and found nothing.
-                    # It only costs something when there are anchors to lose,
-                    # and most of these structures have none -- warning about
-                    # every one of them would bury the few that matter.
-                    at_risk = [s for s in StructureLigandInteraction.objects
-                               .filter(structure=structure).select_related("ligand__ligand_type")
-                               if si.is_in_scope(s)]
-                    log.log(pdb, "WARNING" if at_risk else "INFO", "not_run",
-                            count=len(at_risk) or 1,
-                            detail="no product instance and no {} under {}; {}".format(
-                                si.PRODUCT_SUMMARY_NAME,
-                                os.path.join(options["data_dir"], pdb),
-                                "{} anchor(s) left as they are".format(len(at_risk))
-                                if at_risk else "nothing here for Engine 1 anyway"))
-                    entry["status"] = "not_run"
-                    entry["not_run_anchors"] = len(at_risk)
-                    continue
-                if pdb in no_chainmap_set:
-                    # A delivered directory without its map cannot be imported
-                    # and must not be passed over: the anchors it should have
-                    # described would silently keep their old rows.
-                    message = "no {} under {}".format(si.CHAINMAP_NAME,
-                                                      os.path.join(options["data_dir"], pdb))
-                    log.log(pdb, "ERROR", "no_chainmap", detail=message)
-                    entry["status"] = "failed"
-                    entry["error"] = message
-                    failed.append(pdb)
+                was_run = pdb not in not_run_set
+                at_risk = 0
+                if structure is not None and not was_run:
+                    at_risk = len([s for s in StructureLigandInteraction.objects
+                                   .filter(structure=structure)
+                                   .select_related("ligand__ligand_type")
+                                   if si.is_in_scope(s)])
+                verdict = si.structure_verdict(
+                    structure is not None,
+                    structure is not None
+                    and structure.structure_type.origin == si.STRUCTURE_ORIGIN,
+                    was_run, pdb not in no_chainmap_set, at_risk,
+                    options["allow_not_run"])
+                if verdict is not None:
+                    status, level, category = verdict
+                    detail = ""
+                    if category == "not_experimental":
+                        detail = structure.structure_type.slug
+                    elif category == "not_run":
+                        detail = "no product instance and no {} under {}; {}".format(
+                            si.PRODUCT_SUMMARY_NAME, os.path.join(options["data_dir"], pdb),
+                            "{} anchor(s) would keep what the legacy pipeline wrote".format(
+                                at_risk) if at_risk else "nothing here for Engine 1 anyway")
+                        entry["not_run_anchors"] = at_risk
+                        if status == "failed":
+                            entry["error"] = detail
+                            failed.append(pdb)
+                    elif category == "no_chainmap":
+                        detail = "no {} under {}".format(
+                            si.CHAINMAP_NAME, os.path.join(options["data_dir"], pdb))
+                        entry["error"] = detail
+                        failed.append(pdb)
+                    log.log(pdb, level, category, count=at_risk, detail=detail)
+                    entry["status"] = status
                     continue
                 if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
                     log.log(pdb, "WARNING", "no_product_dir",

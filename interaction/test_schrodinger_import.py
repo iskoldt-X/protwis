@@ -259,6 +259,25 @@ class ChainmapDirTests(unittest.TestCase):
         self.assertEqual(sorted(receptors), ["6ZIN"])
         self.assertEqual(len(anchors), 1)
 
+    def test_the_tree_can_contradict_a_not_run_header(self):
+        """A header from another run must not drop this run's products."""
+        empty = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno") \
+            .replace("# receptor.product_instances_sha256\tgg",
+                     "# receptor.product_instances_sha256\t" + cm.instances_sha256([]))
+        self.write("6ZIN", empty + CHAINMAP_BODY)
+        inst = os.path.join(self.root, "6ZIN", "Q6Q_A_1000")
+        os.makedirs(inst)
+        open(os.path.join(inst, "Q6Q_A_1000.yaml"), "w").close()
+        anchors, receptors, _, _, not_run = si.load_chainmap_dir(self.root, ["6ZIN"])
+        self.assertEqual(not_run, [])
+        self.assertEqual(sorted(receptors), ["6ZIN"])
+
+    def test_the_receptor_table_is_keyed_like_the_anchor_table(self):
+        self.write("6zin", CHAINMAP_HEADER + CHAINMAP_BODY)
+        anchors, receptors, _, _, _ = si.load_chainmap_dir(self.root, ["6zin"])
+        self.assertEqual(sorted(receptors), ["6ZIN"])
+        self.assertEqual(sorted({p for p, _, _ in anchors}), ["6ZIN"])
+
     def test_a_structure_nobody_ran_is_not_treated_as_one_with_no_ligand(self):
         """Clearing an anchor states that Engine 1 looked; it must have looked."""
         empty = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno") \
@@ -324,6 +343,47 @@ class ChainmapDirTests(unittest.TestCase):
         path = self.write("6ZIN", (CHAINMAP_HEADER + CHAINMAP_BODY).replace("\n", "\r\n"))
         _, _, receptor, _, _ = si.load_chainmap(path)
         self.assertEqual(receptor["auth_chain"], "A")
+
+class StructureVerdictTests(unittest.TestCase):
+    """The pre-flight policy: what happens to a delivered structure, and why."""
+
+    IMPORTABLE = dict(in_db=True, experimental=True, was_run=True, has_chainmap=True)
+
+    def verdict(self, **kw):
+        return si.structure_verdict(**dict(self.IMPORTABLE, **kw))
+
+    def test_a_structure_we_serve_and_can_read_is_imported(self):
+        self.assertIsNone(self.verdict())
+
+    def test_a_delivered_directory_with_no_chainmap_fails_the_run(self):
+        """Never a skip: its anchors would keep whatever legacy wrote."""
+        self.assertEqual(self.verdict(has_chainmap=False),
+                         ("failed", "ERROR", "no_chainmap"))
+
+    def test_a_structure_nobody_ran_is_left_alone(self):
+        self.assertEqual(self.verdict(was_run=False),
+                         ("not_run", "INFO", "not_run"))
+
+    def test_leaving_anchors_as_legacy_wrote_them_fails_like_any_other_mixing(self):
+        """Same end state as a missing map, so the same answer."""
+        self.assertEqual(self.verdict(was_run=False, anchors_at_risk=1),
+                         ("failed", "ERROR", "not_run"))
+        self.assertEqual(self.verdict(was_run=False, anchors_at_risk=1, allow_not_run=True),
+                         ("not_run", "WARNING", "not_run"))
+        # the escape hatch changes nothing when there is nothing at risk
+        self.assertEqual(self.verdict(was_run=False, allow_not_run=True),
+                         ("not_run", "INFO", "not_run"))
+
+    def test_a_structure_this_import_does_not_serve_needs_no_chainmap(self):
+        self.assertEqual(self.verdict(in_db=False, has_chainmap=False),
+                         ("structure_not_in_db", "WARNING", "structure_not_in_db"))
+        self.assertEqual(self.verdict(experimental=False, has_chainmap=False),
+                         ("not_experimental", "INFO", "not_experimental"))
+
+    def test_never_run_outranks_a_missing_chainmap(self):
+        """Both are true of a directory holding nothing at all; say the useful one."""
+        self.assertEqual(self.verdict(was_run=False, has_chainmap=False)[0], "not_run")
+
 
 class StandardLigandLineTests(unittest.TestCase):
 

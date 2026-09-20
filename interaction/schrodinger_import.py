@@ -240,6 +240,11 @@ def load_chainmap_dir(data_dir, pdb_codes):
     second one justifies clearing an anchor (ADR-091). The caller leaves them
     alone and says so.
 
+    That judgement is read from the header but checked against the tree it is
+    being applied to: a header claiming no products beside a directory that
+    holds some means the two came from different runs, and dropping Engine 1's
+    output for that structure without a word would be the worst of both.
+
     `provenance` counts the distinct values of each PROVENANCE_KEY, which a
     tree merged from several runs will show as more than one.
 
@@ -261,14 +266,53 @@ def load_chainmap_dir(data_dir, pdb_codes):
         if named != pdb.upper():
             raise MapMismatch("{}: names pdb {} but sits in the directory of {}".format(
                 path, named, pdb))
-        if not ran and receptor.get("product_instances_sha256") == empty_tree:
+        if (not ran and receptor.get("product_instances_sha256") == empty_tree
+                and not instance_yaml_paths(data_dir, pdb)):
             not_run.append(pdb)
             continue
         anchors.update(rows)
-        receptors[pdb] = receptor
+        # load_chainmap upper-cases the anchor keys; key the receptor table the
+        # same way, so a lower-case delivery directory is found by both.
+        receptors[pdb.upper()] = receptor
         for key, value in prov.items():
             provenance[key][value] = provenance[key].get(value, 0) + 1
     return anchors, receptors, missing, provenance, not_run
+
+
+def structure_verdict(in_db, experimental, was_run, has_chainmap, anchors_at_risk=0,
+                      allow_not_run=False):
+    """What to do with one delivered structure, before the database is touched.
+
+    Returns (status, level, category), or None when the structure is imported.
+
+    The order is the policy, not a coincidence:
+
+    * a structure this import does not serve needs no chain map at all, so the
+      two "not ours" answers come first;
+    * a structure nobody ran is left exactly as it is -- clearing its anchors
+      would state that Engine 1 looked and found nothing (ADR-091), and it did
+      not look. When it has no anchors to lose, and most have none, that costs
+      nothing and is worth a note. When it does have anchors, leaving them
+      means the table keeps whatever the legacy pipeline wrote for them, which
+      is the same end state as the two failures below and gets the same answer
+      unless the caller explicitly allows it;
+    * a delivered directory with no chain map is a failure, never a skip. The
+      anchors its map should have described would otherwise keep whatever the
+      legacy pipeline wrote, without a word.
+    """
+    if not in_db:
+        return "structure_not_in_db", "WARNING", "structure_not_in_db"
+    if not experimental:
+        return "not_experimental", "INFO", "not_experimental"
+    if not was_run:
+        if not anchors_at_risk:
+            return "not_run", "INFO", "not_run"
+        if allow_not_run:
+            return "not_run", "WARNING", "not_run"
+        return "failed", "ERROR", "not_run"
+    if not has_chainmap:
+        return "failed", "ERROR", "no_chainmap"
+    return None
 
 
 def product_pdb_codes(data_dir):
