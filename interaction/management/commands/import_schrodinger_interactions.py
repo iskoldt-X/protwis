@@ -44,6 +44,9 @@ such a structure has anchors, its rows would stay as the legacy pipeline left
 them, so it fails the run like any other -- pass --allow-not-run to accept that
 and carry on.
 
+The anomaly CSV and the report JSON are per-run, per-machine output: point
+them at a fresh directory each run (build_all gives each build a timestamped
+one under logs/) rather than into the delivered tree, which is shared input.
 The anomaly CSV is written outside the transactions and flushed per row, so
 it survives any rollback. Every row that was read but not written is
 accounted for in it.
@@ -67,12 +70,24 @@ class _Rollback(Exception):
     """Raised inside a dry-run transaction to undo it."""
 
 
+def _make_room_for(path):
+    """Create the directory an output file is about to be written into.
+
+    Each run is given its own directory, so the caller should not have to make
+    it first.
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
 class AnomalyLog(object):
     """CSV sink for per-anchor accounting; independent of the database."""
 
     COLUMNS = ["timestamp", "pdb", "sli_id", "het", "level", "category", "count", "detail"]
 
     def __init__(self, path):
+        _make_room_for(path)
         self._fh = open(path, "w", newline="")
         self._writer = csv.writer(self._fh)
         self._writer.writerow(self.COLUMNS)
@@ -328,6 +343,7 @@ class Command(BaseCommand):
         finally:
             log.close()
             if options["report_json"]:
+                _make_room_for(options["report_json"])
                 with open(options["report_json"], "w") as fh:
                     json.dump({"dry_run": options["dry_run"], "totals": totals,
                                "provenance": provenance, "not_run": not_run,

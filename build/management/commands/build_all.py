@@ -9,6 +9,14 @@ import datetime
 # relative to DATA_DIR.
 ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
 
+# Where each import run leaves its accounting, relative to BASE_DIR. Not in
+# DATA_DIR: that is a git checkout of shared, versioned input, and a per-run,
+# per-machine output does not belong in it -- `git clean` there would take the
+# delivery with it. logs/ is this project's own runtime output directory and is
+# ignored by git in full. One directory per run, so a later build cannot
+# overwrite the record of an earlier one.
+ENGINE1_RUN_DIR = os.sep.join(['logs', 'engine1_import'])
+
 
 class Command(BaseCommand):
     help = 'Runs all build functions'
@@ -46,6 +54,12 @@ class Command(BaseCommand):
                             dest='engine1_data_dir',
                             default=None,
                             help='Engine 1 product tree; default DATA_DIR/' + ENGINE1_DIR)
+        parser.add_argument('--engine1_report_dir',
+                            action='store',
+                            dest='engine1_report_dir',
+                            default=None,
+                            help='Where this run leaves its Engine 1 import accounting; '
+                                 'default BASE_DIR/' + ENGINE1_RUN_DIR + '/<timestamp>')
         parser.add_argument('--skip_engine1',
                             action='store_true',
                             dest='skip_engine1',
@@ -72,16 +86,21 @@ class Command(BaseCommand):
                       datetime.datetime.now(), '%Y-%m-%d %H:%M:%S')))
             return []
         data_dir = self.engine1_dir(options)
+        run_dir = options['engine1_report_dir'] or os.sep.join([
+            settings.BASE_DIR, ENGINE1_RUN_DIR,
+            datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')])
+        print('{} Engine 1 import accounting goes to {}'.format(
+            datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'), run_dir))
         common = {'data_dir': data_dir}
         return [
             ['import_schrodinger_interactions',
              dict(common, dry_run=True,
-                  anomaly_csv=os.path.join(data_dir, '_import_anomalies.dryrun.csv'),
-                  report_json=os.path.join(data_dir, '_import_report.dryrun.json'))],
+                  anomaly_csv=os.path.join(run_dir, 'anomalies.dryrun.csv'),
+                  report_json=os.path.join(run_dir, 'report.dryrun.json'))],
             ['import_schrodinger_interactions',
              dict(common,
-                  anomaly_csv=os.path.join(data_dir, '_import_anomalies.csv'),
-                  report_json=os.path.join(data_dir, '_import_report.json'))],
+                  anomaly_csv=os.path.join(run_dir, 'anomalies.csv'),
+                  report_json=os.path.join(run_dir, 'report.json'))],
         ]
 
     def handle(self, *args, **options):
