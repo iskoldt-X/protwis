@@ -43,6 +43,7 @@ import inspect
 import io
 import os
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from interaction import schrodinger_chain_map as cm
@@ -88,7 +89,14 @@ def has_product_summary(data_dir, pdb):
     Read from the product tree, never from the out dir: it is a fact about the
     producer, so building into a separate directory must not change the answer.
     """
-    return os.path.isfile(os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME))
+    path = os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME)
+    try:
+        # An empty file is a truncated copy, not a run. The whole judgement
+        # rests on this one answer, so it does not accept a file that says
+        # nothing.
+        return os.path.isfile(path) and os.path.getsize(path) > 0
+    except OSError:
+        return False
 
 
 def chainmap_header(pdb, values, receptor, has_summary):
@@ -211,9 +219,10 @@ class Command(BaseCommand):
     help = "Build one per-PDB chainmap.tsv for the Schrodinger importer, from files only."
 
     def add_arguments(self, parser):
-        parser.add_argument("--gpcrdb-data", required=True,
+        parser.add_argument("--gpcrdb-data", default=None,
                             help="gpcrdb_data checkout (uses structure_data/annotation and "
-                                 "structure_data/pdbs).")
+                                 "structure_data/pdbs). Defaults to DATA_DIR, so the maps are "
+                                 "built from the same annotation the build will run on.")
         parser.add_argument("--cif-dir", required=True, help="Directory of the input mmCIFs, <PDB>.cif.")
         parser.add_argument("--data-dir", required=True, help="Product tree {data_dir}/{PDB}/{instance}/.")
         parser.add_argument("--annotation-commit", required=True,
@@ -231,7 +240,8 @@ class Command(BaseCommand):
                                  "structures.tsv.")
 
     def handle(self, *args, **opt):
-        gdata, cif_dir, data_dir = opt["gpcrdb_data"], opt["cif_dir"], opt["data_dir"]
+        gdata = opt["gpcrdb_data"] or settings.DATA_DIR
+        cif_dir, data_dir = opt["cif_dir"], opt["data_dir"]
         out_dir = opt["out_dir"] or data_dir
         for label, path in (("--gpcrdb-data", gdata), ("--cif-dir", cif_dir), ("--data-dir", data_dir)):
             if not os.path.isdir(path):

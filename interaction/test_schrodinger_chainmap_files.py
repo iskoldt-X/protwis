@@ -144,10 +144,17 @@ class ProductSummaryTests(unittest.TestCase):
 
     def test_it_is_read_from_the_product_tree(self):
         os.makedirs(os.path.join(self.root, "2RH1"))
+        path = os.path.join(self.root, "2RH1", si.PRODUCT_SUMMARY_NAME)
         self.assertFalse(b.has_product_summary(self.root, "2RH1"))
-        open(os.path.join(self.root, "2RH1", si.PRODUCT_SUMMARY_NAME), "w").close()
+        with open(path, "w") as fh:
+            fh.write("pdb_id: 2RH1\n")
         self.assertTrue(b.has_product_summary(self.root, "2RH1"))
         self.assertFalse(b.has_product_summary(self.root, "6ZIN"))
+
+    def test_an_empty_summary_is_a_truncated_copy_not_a_run(self):
+        os.makedirs(os.path.join(self.root, "2RH1"))
+        open(os.path.join(self.root, "2RH1", si.PRODUCT_SUMMARY_NAME), "w").close()
+        self.assertFalse(b.has_product_summary(self.root, "2RH1"))
 
     def test_the_header_says_no_when_the_producer_left_nothing(self):
         for has_summary, expected in ((True, "yes"), (False, "no")):
