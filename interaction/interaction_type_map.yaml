@@ -158,6 +158,25 @@ rules:
       chemical criterion is fixed producer-side by ADR-074 (vendor HPHOBIC_ASL
       five-SMARTS union, dist <= 1.2 * (r_i + r_j)); the consumer only routes.
 
+  # ---- Covalent topic 2026-09-28 -- covalent bond ----------------------------
+  # Engine 1 gains `covalent` in --contacts. Not a vendor family: the Suite has
+  # no function that reports a covalent bond, so the wrapper writes the rows
+  # itself (find_covalent_contacts), one per ligand-receptor bond, with
+  # direction ''. Before this family existed, deleting the false hydrophobic
+  # rows a cut-open covalent bond produced took the bonding residue off the page
+  # altogether (6 key rows of the literature truth set). The slug is new, and
+  # its type `covalent` is not `hidden`, so the rows are shown and counted
+  # (Binghan 2026-09-28: 1A import, type covalent, slug covalent).
+  - family: Covalent
+    direction: ''
+    slug: covalent
+    rationale: >-
+      Covalent bond: a bond of order >= 1 from a ligand atom to a receptor atom,
+      as the Suite drew it from the input file's _struct_conn rows (the
+      depositor's, or one the producer's step 0 added for a bond the file left
+      out). The row says a bond exists, not its order: the reader gives every
+      declared bond order 1, so a protonated Schiff base reads as a single bond.
+
 # -----------------------------------------------------------------------------
 # Deferred / not handled by this map (see Plan C Inbox). These are intentionally
 # NOT routed here; the consumer (Plan A) handles or drops them.

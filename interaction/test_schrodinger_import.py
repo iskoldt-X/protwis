@@ -500,11 +500,28 @@ class RoutingTests(unittest.TestCase):
         ("PiCat", "receptor-cation"): "aro_ion_protein",
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
+        # Not in the 2026-09-17 tree: the covalent family is new (covalent
+        # topic, 2026-09-28), and its slug comes with migration 0009.
+        ("Covalent", ""): "covalent",
     }
 
     def test_every_production_pair_routes(self):
         for (family, direction), slug in self.PRODUCTION_PAIRS.items():
             self.assertEqual(si.resolve_slug(family, direction), slug, (family, direction))
+
+    def test_the_covalent_slug_is_the_one_migration_0009_seeds_and_it_is_visible(self):
+        # The map and the migration name the same slug, or the first Covalent
+        # row finds no ResidueFragmentInteractionType. And the type must not be
+        # "hidden": pages and the scorecard both leave hidden types out, which
+        # would import the rows and show them to no one (Binghan 2026-09-28).
+        import importlib
+        mig = importlib.import_module(
+            "interaction.migrations.0009_seed_covalent_interaction_type")
+        slug, name, type_, direction = mig.COVALENT_TYPE
+        self.assertEqual(si.resolve_slug("Covalent", ""), slug)
+        self.assertNotEqual(type_, "hidden")
+        self.assertEqual((slug, name, type_, direction),
+                         ("covalent", "covalent bond", "covalent", ""))
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -533,7 +550,7 @@ class RoutingTests(unittest.TestCase):
             "hyd", "polar_donor_protein", "polar_acceptor_protein", "aro_ef_protein",
             "aro_ff", "polar_double_pos_protein", "polar_double_neg_protein",
             "metal_coordination_protein", "aro_ion_protein", "halogen_protein",
-            "polar_backbone",
+            "polar_backbone", "covalent",
         }))
 
 
