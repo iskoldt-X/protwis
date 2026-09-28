@@ -523,6 +523,44 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual((slug, name, type_, direction),
                          ("covalent", "covalent bond", "covalent", ""))
 
+    def test_the_seed_writes_a_visible_covalent_type(self):
+        # What seed() actually hands the ORM, not only the constant: a type of
+        # "hidden" written here would import every Covalent row and show it to
+        # no page and no scorecard (review 2026-09-28).
+        import importlib
+        mig = importlib.import_module(
+            "interaction.migrations.0009_seed_covalent_interaction_type")
+        seen = []
+
+        class _Objects:
+            def get_or_create(self, **kwargs):
+                seen.append(kwargs)
+                return object(), True
+
+        class _Model:
+            objects = _Objects()
+
+        class _Apps:
+            def get_model(self, app, name):
+                assert (app, name) == ("interaction", "ResidueFragmentInteractionType")
+                return _Model
+
+        mig.seed(_Apps(), None)
+        self.assertEqual(seen, [{"slug": "covalent", "defaults": {
+            "name": "covalent bond", "type": "covalent", "direction": ""}}])
+
+    def test_the_map_is_the_one_the_producer_pins(self):
+        # The producer copy (schrodinger_interaction interaction_type_map/
+        # interaction_type_map.yaml) pins the same digest in
+        # tests/unit/test_interaction_type_map.py. Nothing else compares the
+        # two files; a one-sided change fails that side's suite.
+        import hashlib
+        path = os.path.join(os.path.dirname(si.__file__), "interaction_type_map.yaml")
+        with open(path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        self.assertEqual(
+            digest, "675cc6294934f5a3c37ef00144deaeb4e2fff2704489f889f5611cf9ceebdb50")
+
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
 

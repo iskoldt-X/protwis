@@ -188,7 +188,7 @@ class Command(BaseCommand):
         if missing:
             raise CommandError(
                 "interaction types missing from the database: {} "
-                "(run migrate; interaction 0008 seeds them)".format(", ".join(missing)))
+                "(run migrate; interaction 0008 and 0009 seed them)".format(", ".join(missing)))
 
     def handle(self, *args, **options):
         if not os.path.isdir(options["data_dir"]):

@@ -174,7 +174,8 @@ rules:
       Covalent bond: a bond of order >= 1 from a ligand atom to a receptor atom,
       as the Suite drew it from the input file's _struct_conn rows (the
       depositor's, or one the producer's step 0 added for a bond the file left
-      out). The row says a bond exists, not its order: the reader gives every
+      out) or as one of its three bond builders added it in preparation step 1.
+      The row says a bond exists, not its order: the reader gives every
       declared bond order 1, so a protonated Schiff base reads as a single bond.
 
 # -----------------------------------------------------------------------------

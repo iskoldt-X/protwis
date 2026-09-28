@@ -3,7 +3,8 @@
 interaction_type_map.yaml routes (Covalent, '') to the slug ``covalent``, which
 no earlier build created. A Covalent row is a bond of order >= 1 from a ligand
 atom to a receptor atom, as the Suite drew it from the input file's
-_struct_conn rows; it says a bond exists, not its order.
+_struct_conn rows or as one of its bond builders added it during preparation;
+it says a bond exists, not its order.
 
 The type is ``covalent`` and not ``hidden``: pages leave out hidden types, and
 so does the scorecard (scorecard/score.py counts only types that are not
