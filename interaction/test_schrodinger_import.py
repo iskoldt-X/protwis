@@ -559,7 +559,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "675cc6294934f5a3c37ef00144deaeb4e2fff2704489f889f5611cf9ceebdb50")
+            digest, "27d2bd58c0a208f7cbb799890a3e5317903cb509734fc771c0859038644576b8")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -588,7 +588,7 @@ class RoutingTests(unittest.TestCase):
             "hyd", "polar_donor_protein", "polar_acceptor_protein", "aro_ef_protein",
             "aro_ff", "polar_double_pos_protein", "polar_double_neg_protein",
             "metal_coordination_protein", "aro_ion_protein", "halogen_protein",
-            "polar_backbone", "covalent",
+            "polar_backbone", "covalent", "Van der Waals", "acc",
         }))
 
 

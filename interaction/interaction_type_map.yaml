@@ -178,6 +178,33 @@ rules:
       The row says a bond exists, not its order: the reader gives every
       declared bond order 1, so a protonated Schiff base reads as a single bond.
 
+  # ---- ADR-105 2026-09-30 -- contact labels ---------------------------------
+  # Engine 1 gains `vdw` and `accessible` in --contacts. LABELS, not
+  # interactions: each says a residue lines the ligand, one row per (ligand
+  # instance, residue), and neither takes part in pipeline comparisons. Not
+  # vendor families: the wrapper writes the rows itself (find_vdw_contacts,
+  # find_accessible_contacts), with direction ''. Both route to slugs the
+  # database already holds (Binghan 2026-09-30: reuse the two existing types),
+  # so the consumer needs no code change and no migration. The same slugs also
+  # hold legacy rows, computed by a different rule, on anchors Engine 1 does not
+  # serve.
+  - family: VdW
+    direction: ''
+    slug: Van der Waals
+    rationale: >-
+      Van der Waals contact label: a heavy-atom pair with 0.89 < d/(ri+rj) < 1.3
+      (Maestro's good-contact band, vendor radii), pairs within three bonds
+      excluded. By default only on a residue with no other imported row for
+      the same ligand instance (producer config.VDW_ONLY_ON_UNTYPED_RESIDUES).
+      Existing slug, type waals, shown on the pages.
+  - family: Accessible
+    direction: ''
+    slug: acc
+    rationale: >-
+      Accessible label, legacy GPCRdb's rule copied: a heavy atom of the residue
+      other than the backbone C, O and N (CA counts) strictly within 5 A of a
+      heavy ligand atom. Existing slug, type hidden, as legacy wrote it.
+
 # -----------------------------------------------------------------------------
 # Deferred / not handled by this map (see Plan C Inbox). These are intentionally
 # NOT routed here; the consumer (Plan A) handles or drops them.
