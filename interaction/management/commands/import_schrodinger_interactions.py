@@ -186,16 +186,22 @@ class Command(BaseCommand):
         present = set(ResidueFragmentInteractionType.objects.values_list("slug", flat=True))
         missing = sorted(si.required_slugs() - present)
         if missing:
-            # Two sources: the types only Engine 1 writes are seeded by the
-            # interaction migrations; every other one, acc and Van der Waals
-            # among them, is created by build_structures (get_or_create) when it
-            # writes the legacy ligand interactions, which this import follows.
+            # Two sources: the types Engine 1 adds are seeded by the interaction
+            # migrations; every other one, acc and Van der Waals among them, is
+            # created by build_structures (get_or_create) when it writes the
+            # legacy ligand interactions, which this import follows. A manual
+            # build_structures --purge deletes every type, seeded ones included,
+            # and a plain migrate does not run applied migrations again; both
+            # seeds have a no-op reverse, so unapplying and reapplying them is
+            # safe.
             raise CommandError(
-                "interaction types missing from the database: {} (the types only "
-                "Engine 1 writes are seeded by interaction migrations 0008 and 0009: "
-                "run migrate; the others, acc and Van der Waals among them, are "
-                "created by build_structures when it writes the legacy ligand "
-                "interactions: run it before this import)".format(", ".join(missing)))
+                "interaction types missing from the database: {} (the types Engine 1 "
+                "adds are seeded by interaction migrations 0008 and 0009: run migrate, "
+                "or, if they are already applied (build_structures --purge deletes "
+                "every type), migrate interaction 0007 and then migrate interaction; "
+                "the others, acc and Van der Waals among them, are created by "
+                "build_structures when it writes the legacy ligand interactions: run "
+                "it before this import)".format(", ".join(missing)))
 
     def handle(self, *args, **options):
         if not os.path.isdir(options["data_dir"]):
