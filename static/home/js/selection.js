@@ -14,7 +14,14 @@ $(document).ready(function() {
 
 window.addEventListener('pageshow', function(event) {
     if (event.persisted) {
-        resetButtonState();
+        // A bfcache restore replays the exact DOM/selection state from whenever this page was
+        // last rendered, with no request made and no chance to re-sync #selection-segments/
+        // targets against what the server session actually holds now (it may have changed via
+        // a different tab, a completed flow elsewhere, or simply time passing). Force a real
+        // reload instead of just clearing the spinner, so the page always reflects current
+        // server state on back-navigation.
+        location.reload();
+        return;
     }
 });
 
@@ -538,6 +545,15 @@ function VerifyMinSegmentSelection() {
     if ($("#selection-segments .target-selection").length === 0){
       showAlert("Please select at least 1 segment item to continue", "danger");
       // Remove active button class => stop spinner after short timeout
+      setTimeout(function(){ $(".has-spinner.active").removeClass("active"); }, 1000);
+      return false;
+    }
+    // Site-search-only check: every selected site residue must have a chemical feature
+    // chosen (its <select id="sel-feature-*"> defaults to value "any" until changed).
+    // This selector only ever matches markup rendered by selection_lists_sitesearch.html,
+    // so it is a no-op for every other app's segment-selection page.
+    if ($("#selection-segments select[id^='sel-feature-']").filter(function(){ return this.value === 'any'; }).length > 0){
+      showAlert("Please select a chemical feature for every selected residue before continuing", "danger");
       setTimeout(function(){ $(".has-spinner.active").removeClass("active"); }, 1000);
       return false;
     }

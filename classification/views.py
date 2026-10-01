@@ -57,8 +57,8 @@ class ClassificationVisualizationMixin:
         ("B2", {"label": "Class B2", "title": "Class B2 (Adhesion)", "slug": "003"}),
         ("C", {"label": "Class C", "title": "Class C (Glutamate)", "slug": "004"}),
         ("F", {"label": "Class F", "title": "Class F (Frizzled)", "slug": "006"}),
-        ("O1", {"label": "Class O1", "title": "Class O1 (Fish-like olfactory receptors)", "slug": "007"}),
-        ("O2", {"label": "Class O2", "title": "Class O2 (Tetrapod-specific olfactory receptors)", "slug": "008"}),
+        ("O1", {"label": "Class O1", "title": "Class O1 (Olfactory/extra-nasal 1)", "slug": "007"}),
+        ("O2", {"label": "Class O2", "title": "Class O2 (Olfactory/extra-nasal 2)", "slug": "008"}),
         ("T2", {"label": "Class T2", "title": "Class T2 (Taste 2)", "slug": "009"}),
         ("V", {"label": "Class V", "title": "Class V (Vomeronasal)", "slug": "010"}),
         ("U", {"label": "Unclassified", "title": "Unclassified", "slug": "011"}),
@@ -983,8 +983,6 @@ class Classification(ClassificationVisualizationMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        ctx["gpcr_rows"] = json.dumps(_build_gpcr_browser_rows())
-
         slug_to_key = self.class_slug_to_key_map()
         rows = [
             dict(row, class_symbol=slug_to_key.get(row["class_slug"]))
@@ -1122,6 +1120,16 @@ class Classification(ClassificationVisualizationMixin, TemplateView):
         ctx["rf_sens_rows"] = json.dumps(rf_sens_rows)
         ctx["rf_orphan_rows"] = json.dumps(rf_orphan_rows)
 
+        return ctx
+
+
+class GPCRList(TemplateView):
+    template_name = "classification/GPCRList.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["page_title"] = "All GPCRs"
+        ctx["gpcr_rows"] = json.dumps(_build_gpcr_browser_rows())
         return ctx
 
 
@@ -1328,8 +1336,10 @@ def _build_gpcr_browser_rows():
             "uniprot": row["uniprot"],
             "entry_name": row["entry_name"],
             "gene": row["gene"],
+            "gene_link": row.get("gene_entrez_link", ""),
             "protein_name_html": row["protein_name"],
             "protein_name_text": _strip_tags(row["protein_name"]),
+            "gtopdb_link": row.get("gtopdb_link", ""),
             "class": row["class_family_name"],
             "family": row["receptor_family"],
             "modality": row["modality"],

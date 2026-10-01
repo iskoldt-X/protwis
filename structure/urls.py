@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^structure_models/receptor/$', cache_page(60*60*24)(ServeHomologyModels.as_view()), name='structure_models_receptor'),
     url(r'^structure_models/receptor/(?P<modelname>\w+)_(?P<state>\w+)$', cache_page(60*60*24*7)(HomologyModelDetails), name='structure_models_receptor_details'),    
     path('ligand_complex_models', LigandComplexModels.as_view(), name='ligand_complex_models'),
+    url(r'^ligand_complex_models/data/$', cache_page(60 * 60 * 24)(LigandComplexModelsDataJsonView.as_view()), name='ligand_complex_models_data_json'),
     url(r'^ligand_complex_models/(?P<header>[^/]+)$', LigandComplexDetails, name='ligand_complex_details'),
     url(r'^ligand_complex_models/view/(?P<modelname>[^/]+)$', ServeComplexModDiagram, name='complexmod_serve_view'),
     path('lig_complexmod_download', LigComplexmodDownload, name='lig_complexmod_download'),
@@ -75,5 +76,6 @@ urlpatterns = [
     ### LEGACY LINKS ###
     url(r'^gprot_statistics$', cache_page(60*60*24)(StructureStatistics.as_view(origin='gprotein')), name='structure_statistics'),
     url(r'^arrestin_statistics$', cache_page(60*60*24)(StructureStatistics.as_view(origin='arrestin')), name='structure_statistics'),
-    url(r'^homology_models/$', cache_page(60*60*24)(ServeHomologyModels.as_view()), name='homology_models')
+    url(r'^homology_models/$', cache_page(60*60*24)(ServeHomologyModels.as_view()), name='homology_models'),
+    url(r'^homology_models/view/(?P<modelname>\w+)_(?P<state>\w+)$', ServeHomModDiagram, name='hommod_serve_view')
 ]

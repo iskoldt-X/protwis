@@ -14,7 +14,7 @@ if settings.PYTHON_SMILES_VALIDATION:
 
 from random import SystemRandom
 from copy import deepcopy
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, Counter
 
 from django.middleware.csrf import get_token
 from django.shortcuts import render, redirect, get_object_or_404
@@ -27,6 +27,7 @@ from django.db.models import Q, Count, Subquery, OuterRef, Value, CharField
 from django.db.models.functions import Coalesce, Concat
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
+from django.utils.html import escape
 from django_rdkit.models import *
 from django.core.cache import cache
 
@@ -2730,7 +2731,7 @@ class LigandStatistics(TemplateView):
         context['release_notes'] = ReleaseNotes.objects.all()[0]
 
         tree = PhylogeneticTreeGenerator()
-        class_a_data = tree.get_tree_data(ProteinFamily.objects.get(name='Class A (Rhodopsin)'))
+        class_a_data = tree.get_tree_data(ProteinFamily.objects.get(slug='001'))
         context['class_a_options'] = deepcopy(tree.d3_options)
         context['class_a_options']['anchor'] = 'class_a'
         context['class_a_options']['leaf_offset'] = 50
@@ -2745,7 +2746,7 @@ class LigandStatistics(TemplateView):
                 break
         context['class_a'] = json.dumps(whole_class_a)
         class_b1_data = tree.get_tree_data(
-            ProteinFamily.objects.get(name__startswith='Class B1 (Secretin)'))
+            ProteinFamily.objects.get(slug='002'))
         context['class_b1_options'] = deepcopy(tree.d3_options)
         context['class_b1_options']['anchor'] = 'class_b1'
         context['class_b1_options']['branch_trunc'] = 60
@@ -2753,27 +2754,27 @@ class LigandStatistics(TemplateView):
         context['class_b1'] = json.dumps(
             class_b1_data.get_nodes_dict(self.page))
         class_b2_data = tree.get_tree_data(
-            ProteinFamily.objects.get(name__startswith='Class B2 (Adhesion)'))
+            ProteinFamily.objects.get(slug='003'))
         context['class_b2_options'] = deepcopy(tree.d3_options)
         context['class_b2_options']['anchor'] = 'class_b2'
         context['class_b2_options']['label_free'] = [1, ]
         context['class_b2'] = json.dumps(
             class_b2_data.get_nodes_dict(self.page))
         class_c_data = tree.get_tree_data(
-            ProteinFamily.objects.get(name__startswith='Class C (Glutamate)'))
+            ProteinFamily.objects.get(slug='004'))
         context['class_c_options'] = deepcopy(tree.d3_options)
         context['class_c_options']['anchor'] = 'class_c'
         context['class_c_options']['branch_trunc'] = 50
         context['class_c_options']['label_free'] = [1, ]
         context['class_c'] = json.dumps(class_c_data.get_nodes_dict(self.page))
         class_f_data = tree.get_tree_data(
-            ProteinFamily.objects.get(name__startswith='Class F (Frizzled)'))
+            ProteinFamily.objects.get(slug='006'))
         context['class_f_options'] = deepcopy(tree.d3_options)
         context['class_f_options']['anchor'] = 'class_f'
         context['class_f_options']['label_free'] = [1, ]
         context['class_f'] = json.dumps(class_f_data.get_nodes_dict(self.page))
         class_t2_data = tree.get_tree_data(
-            ProteinFamily.objects.get(name__startswith='Class T2 (Taste 2)'))
+            ProteinFamily.objects.get(slug='009'))
         context['class_t2_options'] = deepcopy(tree.d3_options)
         context['class_t2_options']['anchor'] = 'class_t2'
         context['class_t2_options']['label_free'] = [1, ]
@@ -2802,7 +2803,7 @@ class LigandStatistics(TemplateView):
         #Adding section for addressing the data for tree against balanced reference ONLY for ligand_bias page
         if self.page == 'ligand_bias':
             tree = PhylogeneticTreeGenerator()
-            class_a_data_bal = tree.get_tree_data(ProteinFamily.objects.get(name='Class A (Rhodopsin)'))
+            class_a_data_bal = tree.get_tree_data(ProteinFamily.objects.get(slug='001'))
             context['class_a_options_bal'] = deepcopy(tree.d3_options)
             context['class_a_options_bal']['anchor'] = 'class_a_bal'
             context['class_a_options_bal']['leaf_offset'] = 50
@@ -2817,7 +2818,7 @@ class LigandStatistics(TemplateView):
                     break
             context['class_a_bal'] = json.dumps(whole_class_a_bal)
             class_b1_data_bal = tree.get_tree_data(
-                ProteinFamily.objects.get(name__startswith='Class B1 (Secretin)'))
+                ProteinFamily.objects.get(slug='002'))
             context['class_b1_options_bal'] = deepcopy(tree.d3_options)
             context['class_b1_options_bal']['anchor'] = 'class_b1_bal'
             context['class_b1_options_bal']['branch_trunc'] = 60
@@ -2825,27 +2826,27 @@ class LigandStatistics(TemplateView):
             context['class_b1_bal'] = json.dumps(
                 class_b1_data_bal.get_nodes_dict(self.page+'_bal'))
             class_b2_data_bal = tree.get_tree_data(
-                ProteinFamily.objects.get(name__startswith='Class B2 (Adhesion)'))
+                ProteinFamily.objects.get(slug='003'))
             context['class_b2_options_bal'] = deepcopy(tree.d3_options)
             context['class_b2_options_bal']['anchor'] = 'class_b2_bal'
             context['class_b2_options_bal']['label_free'] = [1, ]
             context['class_b2_bal'] = json.dumps(
                 class_b2_data_bal.get_nodes_dict(self.page+"_bal"))
             class_c_data_bal = tree.get_tree_data(
-                ProteinFamily.objects.get(name__startswith='Class C (Glutamate)'))
+                ProteinFamily.objects.get(slug='004'))
             context['class_c_options_bal'] = deepcopy(tree.d3_options)
             context['class_c_options_bal']['anchor'] = 'class_c_bal'
             context['class_c_options_bal']['branch_trunc'] = 50
             context['class_c_options_bal']['label_free'] = [1, ]
             context['class_c_bal'] = json.dumps(class_c_data_bal.get_nodes_dict(self.page+"_bal"))
             class_f_data_bal = tree.get_tree_data(
-                ProteinFamily.objects.get(name__startswith='Class F (Frizzled)'))
+                ProteinFamily.objects.get(slug='006'))
             context['class_f_options_bal'] = deepcopy(tree.d3_options)
             context['class_f_options_bal']['anchor'] = 'class_f_bal'
             context['class_f_options_bal']['label_free'] = [1, ]
             context['class_f_bal'] = json.dumps(class_f_data_bal.get_nodes_dict(self.page+"_bal"))
             class_t2_data_bal = tree.get_tree_data(
-                ProteinFamily.objects.get(name__startswith='Class T2 (Taste 2)'))
+                ProteinFamily.objects.get(slug='009'))
             context['class_t2_options_bal'] = deepcopy(tree.d3_options)
             context['class_t2_options_bal']['anchor'] = 'class_t2_bal'
             context['class_t2_options_bal']['label_free'] = [1, ]
@@ -3052,8 +3053,8 @@ class LigandStatistics(TemplateView):
                 "Class F (Frizzled)": 'Teal',
                 "Other GPCR orphans": "Grey",
                 "Class T2 (Taste 2)": 'MediumPurple',
-                "Class O1 (fish-like odorant)": "Tomato",
-                "Class O2 (tetrapod specific odorant)": "Peru",
+                "Class O1 (Olfactory/extra-nasal 1)": "Tomato",
+                "Class O2 (Olfactory/extra-nasal 2)": "Peru",
                 "Odorant receptors": "DarkOliveGreen",
                 }
             heatmap_receptors = Protein.objects.filter(family__slug__startswith='0', species_id=1).exclude(
@@ -3062,7 +3063,10 @@ class LigandStatistics(TemplateView):
             MasterDict = {}
             color_cache = {}
             for rec in heatmap_receptors:
-                if 'CONSENSUS' in rec.entry_short():
+                # entry_short() only keeps the part of entry_name before the first "_", so a
+                # "..._NNN-consensus" placeholder's "-consensus" suffix never actually reaches it --
+                # check entry_name directly instead of the always-false 'CONSENSUS' in entry_short().
+                if 'consensus' in rec.entry_name.lower():
                     continue
                 if (rec.entry_short()[0].isdigit()) and (rec.entry_short()[0] != '5'):
                     continue
@@ -3070,15 +3074,15 @@ class LigandStatistics(TemplateView):
                     continue
                 if rec.family.parent.name.startswith('Class'):
                     class_name = rec.family.parent.name.split(' (')[0]
-                    class_color = CSS_COLORS[rec.family.parent.name]
+                    class_color = CSS_COLORS.get(rec.family.parent.name, 'Black')
                     lig_type_color = "NA"
                     lig_type_name = "NA"
                     rec_family_color = "NA"
                     rec_family_name = "NA"
                 if rec.family.parent.parent.name.startswith('Class') or rec.family.parent.parent.name.startswith('Orphan'):
                     class_name = rec.family.parent.parent.name.split(' (')[0]
-                    class_color = CSS_COLORS[rec.family.parent.parent.name]
-                    lig_type_color = CSS_COLORS[rec.family.parent.name]
+                    class_color = CSS_COLORS.get(rec.family.parent.parent.name, 'Black')
+                    lig_type_color = CSS_COLORS.get(rec.family.parent.name, 'Black')
                     lig_type_name = rec.family.parent.name
                     if rec.family.name not in color_cache:
                         color_cache[rec.family.name] = '#%02x%02x%02x' % (BiasedSignallingOnTheFlyCalculation.create_rgb_color(), BiasedSignallingOnTheFlyCalculation.create_rgb_color(), BiasedSignallingOnTheFlyCalculation.create_rgb_color())
@@ -3086,8 +3090,8 @@ class LigandStatistics(TemplateView):
                     rec_family_name = rec.family.name
                 if rec.family.parent.parent.parent.name.startswith('Class'):
                     class_name = rec.family.parent.parent.parent.name.split(' (')[0]
-                    class_color = CSS_COLORS[rec.family.parent.parent.parent.name]
-                    lig_type_color = CSS_COLORS[rec.family.parent.parent.name]
+                    class_color = CSS_COLORS.get(rec.family.parent.parent.parent.name, 'Black')
+                    lig_type_color = CSS_COLORS.get(rec.family.parent.parent.name, 'Black')
                     lig_type_name = rec.family.parent.parent.name
                     if rec.family.parent.name not in color_cache:
                         color_cache[rec.family.parent.name] = '#%02x%02x%02x' % (BiasedSignallingOnTheFlyCalculation.create_rgb_color(), BiasedSignallingOnTheFlyCalculation.create_rgb_color(), BiasedSignallingOnTheFlyCalculation.create_rgb_color())
@@ -3240,12 +3244,13 @@ class AbsLigand(TemplateView):
     @staticmethod
     def get_related_ligands(ligand_id):
         _assay_count = Count(Concat('assayexperiment__protein_id', Value('|'), 'assayexperiment__source', Value('|'), 'assayexperiment__value_type', output_field=CharField()), distinct=True, filter=Q(assayexperiment__isnull=False) & ~Q(assayexperiment__value_type='-'))
-        this_ligand = Ligand.objects.filter(gpcrdb_id=ligand_id).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'))
+        _model_structure_count = Count('ligandpeptidestructure', filter=Q(ligandpeptidestructure__structure__structure_type__origin='model'), distinct=True)
+        this_ligand = Ligand.objects.filter(gpcrdb_id=ligand_id).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'), model_structure_count=_model_structure_count)
         if this_ligand[0].parent:
-            parent_ligand = Ligand.objects.filter(id=this_ligand[0].parent.id).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'))[0]
+            parent_ligand = Ligand.objects.filter(id=this_ligand[0].parent.id).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'), model_structure_count=_model_structure_count)[0]
         else:
             parent_ligand = this_ligand[0]
-        children = Ligand.objects.filter(parent=parent_ligand).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'))
+        children = Ligand.objects.filter(parent=parent_ligand).prefetch_related('ligand_type').annotate(assay_count=_assay_count, structure_count=Count('structureligandinteraction'), model_structure_count=_model_structure_count)
 
         ### Keeping this line for debugging - shows also parent object on group page
         # ligands = [parent_ligand]+list(children)
@@ -3265,6 +3270,14 @@ class LigandGroup(AbsLigand):
 
         return super().get(request, *args, **kwargs)
 
+    @staticmethod
+    def _attr_line(value, label, max_len=None):
+        if value in (None, '', '-'):
+            return None
+        text = str(value)
+        display = text if not max_len or len(text) <= max_len else text[:max_len] + '…'
+        return f'<div class="lig-attr" title="{escape(text)}"><span class="lig-attr-label">{label}:</span> {escape(display)}</div>'
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -3274,27 +3287,30 @@ class LigandGroup(AbsLigand):
             mutations = MutationExperiment.objects.filter(ligand=l).count()
             assay_count = l.assay_count
             structure_count = l.structure_count
+            structure_model_count = l.model_structure_count
             drug_indications = l.drugs_set.all().count()
-            lig_dict = {'ligand_object':None, 'chemical_properties':0, 'chemical_identifiers':0, 'bioactivities':assay_count, 
-                        'structures':structure_count, 'sequence':None, 'gpcrdb_id':l.gpcrdb_id, 'db_ids':ids, 'drug_indications':drug_indications, 'mutations':mutations}
-            if l.hacc!=None:
-                lig_dict['chemical_properties']+=1
-            if l.hdon!=None:
-                lig_dict['chemical_properties']+=1
-            if l.logp:
-                lig_dict['chemical_properties']+=1
-            if l.mw:
-                lig_dict['chemical_properties']+=1
-            if l.rotatable_bonds!=None:
-                lig_dict['chemical_properties']+=1
-            if l.stereo_status:
-                lig_dict['chemical_properties']+=1
-            if l.inchikey:
-                lig_dict['chemical_identifiers']+=1
-            if l.smiles:
-                lig_dict['chemical_identifiers']+=1
-            if l.helm:
-                lig_dict['chemical_identifiers']+=1
+            is_peptide_like = l.ligand_type.slug in ['peptide', 'protein'] and bool(l.sequence)
+            lig_dict = {'ligand_object':None, 'chemical_properties':None, 'chemical_identifiers':None, 'bioactivities':assay_count,
+                        'structures':structure_count, 'structure_models':structure_model_count, 'sequence':None, 'gpcrdb_id':l.gpcrdb_id, 'db_ids':ids, 'drug_indications':drug_indications, 'mutations':mutations,
+                        'ligand_type': 'peptide' if is_peptide_like else 'small_molecule'}
+
+            identifier_lines = [self._attr_line(l.inchikey, "InChIKey", max_len=27)]
+            if is_peptide_like:
+                identifier_lines.append(self._attr_line(l.helm, "HELM", max_len=30))
+            else:
+                identifier_lines.append(self._attr_line(l.smiles, "SMILES", max_len=30))
+            identifier_lines = [line for line in identifier_lines if line]
+            lig_dict['chemical_identifiers'] = ''.join(identifier_lines) if identifier_lines else None
+
+            if not is_peptide_like:
+                property_lines = [
+                    self._attr_line(l.logp, "Log P"),
+                    self._attr_line(l.mw, "MW"),
+                    self._attr_line(l.stereo_status, "Stereo"),
+                ]
+                property_lines = [line for line in property_lines if line]
+                lig_dict['chemical_properties'] = ''.join(property_lines) if property_lines else None
+
             if l.sequence:
                 lig_dict['sequence'] = l.sequence
 
@@ -3314,28 +3330,7 @@ class LigandGroup(AbsLigand):
                 icon = '<i class="bi bi-radioactive" style="display: inline-block; width: 1em; height: 1em; line-height: 1; background-color: yellow; border-radius: 50%; font-size: 14px; margin-right: 4px;"data-html="true" data-toggle="popover" data-trigger="hover" data-placement="right" data-content="Radioactive ligand"></i>'
             else:
                 icon = ''
-            if l.ligand_type.slug in ['peptide', 'protein'] and l.sequence:
-                lig_dict['ligand_object'] = f"""{icon}<a class="struct"
-                                                    href='/ligand/{l.gpcrdb_id}/info'
-                                                    data-ligand-type="peptide"
-                                                    data-sequence="{l.sequence}">
-                                                    {l.name}
-                                                </a>"""
-            else:
-                if l.smiles:
-                    lig_dict['ligand_object'] = f"""{icon}<a class="struct"
-                                                        href='/ligand/{l.gpcrdb_id}/info'
-                                                        data-smiles="{smiles_for_image}"
-                                                        rel="{picture_flag}">
-                                                        {l.name}
-                                                    </a>"""
-                else:
-                    lig_dict['ligand_object'] = f"""{icon}<a class="struct"
-                                                        href='/ligand/{l.gpcrdb_id}/info'
-                                                        data-smiles=""
-                                                        rel="Not_available">
-                                                        {l.name}
-                                                    </a>"""
+            lig_dict['ligand_object'] = f"""{icon}{l.name}"""
 
         context.update({'ligands': json.dumps(ligands_parsed)})
         context.update({'this_ligand': self.this_ligand[0]})
@@ -3361,6 +3356,7 @@ class LigandInformationView(AbsLigand):
             'protein__family__parent__parent', 'protein__family', 'protein__species'))
         context = dict()
         structures = LigandInformationView.get_structure(ligand_data)
+        model_structures = LigandInformationView.get_model_structures(ligand_data)
         ligand_data = LigandInformationView.process_ligand(ligand_data, endogenous_ligands)
         assay_data_affinity, assay_data_potency = LigandInformationView.process_assay(assay_data)
         mutations = LigandInformationView.get_mutations(ligand_data)
@@ -3372,6 +3368,7 @@ class LigandInformationView(AbsLigand):
         #     endo_values = LigandInformationView.process_endo(endo_data)
         #     assay_data = assay_data + endo_values
         context.update({'structure': structures})
+        context.update({'model_structures': model_structures})
         context.update({'ligand': ligand_data})
         # Convert assay data to JSON
         if len(assay_data_affinity) > 0:
@@ -3745,6 +3742,21 @@ class LigandInformationView(AbsLigand):
         return return_list
 
     @staticmethod
+    def get_model_structures(ligand):
+        interactions = LigandPeptideStructure.objects.filter(
+            ligand=ligand, structure__structure_type__origin='model'
+        ).select_related('structure__structure_type', 'structure__pdb_code',
+                          'structure__protein_conformation__protein')
+        grouped = dict()
+        for i in interactions:
+            type_name = i.structure.structure_type.name
+            grouped.setdefault(type_name, []).append({
+                'structure_pdb': i.structure.pdb_code.index,
+                'receptor_name': i.structure.protein_conformation.protein.short(),
+            })
+        return grouped
+
+    @staticmethod
     def get_mutations(ligand):
         return_set = set()
         return_list = list()
@@ -3927,25 +3939,28 @@ class LigandInformationView(AbsLigand):
         ld['logp'] = ligand_data.logp
         ld['mw'] = round(ligand_data.mw,1) if ligand_data.mw else None
         ld['labels'] = LigandInformationView.get_labels(ligand_data, endogenous_ligands, ld['type'])
-        ld['wl'] = list()
         ld['ligand_smiles'], ld['ligand_smiles_for_image'], ld['picture'] = standardize_smiles(ligand_data.smiles, ld['mw'])
         ld['helm'] = ligand_data.helm
         ld['radioactive'] = ligand_data.radioactive
         ld['stereo_status'] = ligand_data.stereo_status
         ld['related_ids'] = list()
 
+        #Building database connection links, disambiguating duplicate resource names (e.g. multiple UniProt entries)
+        id_rows = list(ligand_data.ids.all())
+        name_counts = Counter(i.web_resource.name for i in id_rows)
+        entries = [
+            {
+                'raw_name': i.web_resource.name,
+                'name': i.web_resource.name if name_counts[i.web_resource.name] == 1 else f"{i.web_resource.name} ({i.index})",
+                'link': str(i),
+            }
+            for i in id_rows
+        ]
         #Sorting links if ligand is endogenous
         if ligand_data.id in endogenous_ligands:
             sorted_list = ['Guide To Pharmacology', 'DrugBank', 'Drug Central', 'ChEMBL_compound_ids', 'PubChem']
-            to_be_sorted = {}
-            for i in ligand_data.ids.all():
-                to_be_sorted[i.web_resource.name] = {'name': i.web_resource.name, "link": str(i)}
-            tmp = sorted(to_be_sorted.items(), key=lambda pair: sorted_list.index(pair[0]))
-            for i in tmp:
-                ld['wl'].append(i[1])
-        else:
-            for i in ligand_data.ids.all():
-                ld['wl'].append({'name': i.web_resource.name, "link": str(i)})
+            entries.sort(key=lambda e: sorted_list.index(e['raw_name']) if e['raw_name'] in sorted_list else len(sorted_list))
+        ld['wl'] = [{'name': e['name'], 'link': e['link']} for e in entries]
         #Adding related ligand object links
         _, related_ligand_objects = AbsLigand.get_related_ligands(ligand_data.gpcrdb_id)
         for r in related_ligand_objects:

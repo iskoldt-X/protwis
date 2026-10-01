@@ -6,6 +6,7 @@ from django.db.models import Count, Q, Prefetch, TextField, Avg, Case, When, Int
 from django.db.models.functions import Concat, Length, Round, Coalesce, Cast
 from django import forms
 from time import perf_counter          # used for quick dev profiling
+from django.http import HttpResponseNotFound
 
 from django.core.serializers.json import DjangoJSONEncoder
 
@@ -21,7 +22,7 @@ from structure.structural_superposition import ProteinSuperpose, FragmentSuperpo
 from structure.forms import *
 from signprot.models import SignprotComplex, SignprotStructure, SignprotStructureExtraProteins
 from interaction.models import ResidueFragmentInteraction,StructureLigandInteraction
-from protein.models import Protein, ProteinFamily, ProteinCouplings, Gene, IdentifiedSites
+from protein.models import Protein, ProteinFamily, ProteinCouplings, Gene, IdentifiedSites, ProteinFamilyClassification
 from construct.models import Construct
 from construct.functions import convert_ordered_to_disordered_annotation,add_construct
 from common.views import AbsSegmentSelection,AbsReferenceSelection
@@ -36,6 +37,7 @@ from mapper.views import DataMapperHome
 from ligand.models import LigandPeptideStructure, Endogenous_GTP
 from ligand.functions import standardize_smiles
 from table_provider.models import GpcrStructureBrowserTable
+from drugs.models import Drugs
 
 # ── Postgres aggregates that do the heavy string/array work ─────
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
@@ -80,7 +82,7 @@ from contextlib import contextmanager
 
 
 
-class_dict = {'001':'A','002':'B1','003':'B2','004':'C','005':'D1','006':'F','007':'O1','008':'O2','009':'T2','010':'O'}
+class_dict = {'001':'A','002':'B1','003':'B2','004':'C','005':'D1','006':'F','007':'O1','008':'O2','009':'T2','010':'V','011':'U'}
 
 class StructureBrowser(TemplateView):
     """
@@ -1106,10 +1108,10 @@ def ServeHomModDiagram(request, modelname, state):
     if model.exists():
         model=model.get()
     else:
-         quit() #quit!
+         return HttpResponseNotFound("Model not found")
 
     if model.pdb_data is None:
-        quit()
+        return HttpResponseNotFound("Model has no PDB data")
 
     response = HttpResponse(model.pdb_data.pdb, content_type='text/plain')
     return response
@@ -1121,10 +1123,10 @@ def ServeComplexModDiagram(request, modelname):
     if model.exists():
         model=model.get()
     else:
-         quit() #quit!
+        return HttpResponseNotFound("Structure not found")
 
     if model.pdb_data is None:
-        quit()
+        return HttpResponseNotFound("No PDB data for this structure")
 
     response = HttpResponse(model.pdb_data.pdb, content_type='text/plain')
     return response
@@ -1539,10 +1541,10 @@ def ServePdbDiagram(request, pdbname):
     if structure.exists():
         structure=structure.get()
     else:
-         quit() #quit!
+        return HttpResponseNotFound("Structure not found")
 
     if structure.pdb_data is None:
-        quit()
+        return HttpResponseNotFound("No PDB data for this structure")
 
     response = HttpResponse(structure.pdb_data.pdb, content_type='text/plain')
     return response
@@ -1553,10 +1555,10 @@ def ServeUprightPdbDiagram(request, pdbname):
     if structure.exists():
         structure = structure.get()
     else:
-         quit() #quit!
+        return HttpResponseNotFound("Structure not found")
 
     if structure.pdb_data is None:
-        quit()
+        return HttpResponseNotFound("No PDB data for this structure")
 
     sv = StructureVectors.objects.filter(structure=structure)
     struct = translation = center_axis = ""
@@ -1621,13 +1623,77 @@ def ServeCleanPdbDiagram(request, pdbname, ligname):
     if structure.exists():
         structure = structure.get()
         if structure.pdb_data is None:
-            quit()
+            return HttpResponseNotFound("No PDB data for this structure")
     else:
-        quit()
+        return HttpResponseNotFound("Structure not found")
+
+    # Resolve the requested ligand either by its 2-3 letter PDB chemical-component
+    # code, or by its GPCRdb ligand id (needed for peptide/protein ligands, whose
+    # pdb_reference is just the literal 'pep' and can be ambiguous per structure -
+    # but any ligand can be looked up this way).
+    interactions = list(StructureLigandInteraction.objects.filter(structure=structure, pdb_reference=ligname.upper()))
+    if not interactions and len(ligname) == 3:
+        # Extended (4-5 char) chemical component codes get truncated to 3 chars
+        # when a .cif gets converted to the legacy fixed-width .pdb format, so the
+        # residue name actually present in pdb_data.pdb no longer matches the full
+        # pdb_reference recorded in the annotation.
+        candidates = StructureLigandInteraction.objects.filter(structure=structure, pdb_reference__istartswith=ligname)
+        interactions = [i for i in candidates if i.pdb_reference and len(i.pdb_reference) > 3]
+    if not interactions and ligname.isdigit():
+        interactions = list(StructureLigandInteraction.objects.filter(structure=structure, ligand__gpcrdb_id=int(ligname)))
+    if not interactions:
+        return HttpResponseNotFound("Ligand not found in this structure")
+
+    lig_code = interactions[0].pdb_reference.upper()
+    lig_code_variants = {lig_code}
+    if len(lig_code) > 3:
+        lig_code_variants.add(lig_code[:3])
+    no_coordinates_anywhere = all(not i.chain_res for i in interactions)
+
+    if interactions[0].ligand.ligand_type.slug in ('peptide', 'protein'):
+        # Peptide/protein ligands are whole polymer chains (plain ATOM records,
+        # no HETATM), so they're extracted by chain rather than by residue name.
+        # Always fetched live from the structure - StructureLigandInteraction.pdb_file
+        # only contains the residues that interact with the ligand, not the full
+        # receptor chain or the full peptide, so it can't be used here.
+        chains_to_keep = []
+        for interaction in interactions:
+            if interaction.chain_res:
+                chains_to_keep += [c.strip() for c in interaction.chain_res.split(',') if c.strip()]
+        cleaned = structure.get_cleaned_pdb(chains_to_keep=chains_to_keep) if chains_to_keep else ''
+        found = any(
+            (l.startswith('ATOM') or l.startswith('HET')) and len(l) > 21 and l[21] in chains_to_keep
+            for l in cleaned.split('\n')
+        )
+    else:
+        residues_to_keep = []
+        for interaction in interactions:
+            if interaction.chain_res:
+                for part in interaction.chain_res.split(','):
+                    part = part.strip()
+                    if ':' in part:
+                        chain, resnum = part.split(':', 1)
+                        try:
+                            residues_to_keep.append((chain.strip(), int(resnum.strip())))
+                        except ValueError:
+                            pass
+
+        if residues_to_keep:
+            cleaned = structure.get_cleaned_pdb(residues_to_keep=residues_to_keep)
+        else:
+            # No usable chain_res - fall back to matching by ligand code on the
+            # preferred chain, same as before this session.
+            cleaned = structure.get_cleaned_pdb(ligands_to_keep=list(lig_code_variants))
+        found = any(l.startswith('HET') and l[17:20].strip() in lig_code_variants for l in cleaned.split('\n'))
+
+    if not found:
+        if no_coordinates_anywhere:
+            return HttpResponseNotFound("Ligand is annotated for this structure but has no resolved atomic coordinates")
+        return HttpResponseNotFound("Ligand not found in this structure")
 
     # Obtain and save cleaned PDB
     parser = PDBParser(QUIET = True)
-    filtered_pdb = StringIO(structure.get_cleaned_pdb(ligands_to_keep=ligname.upper()))
+    filtered_pdb = StringIO(cleaned)
     pdb_out = PDBIO()
     pdb_out.set_structure(parser.get_structure(structure.pdb_code.index, filtered_pdb))
 
@@ -1638,11 +1704,15 @@ def ServeCleanPdbDiagram(request, pdbname, ligname):
 
 class NotDisordered(Select):
     def accept_atom(self, atom):
-        if not atom.is_disordered() or atom.get_altloc() == 'A':
+        if not atom.is_disordered():
             atom.set_altloc(' ')
             return True
-        else:
-            return False
+        disordered_atom = atom.get_parent()[atom.get_name()]
+        first_altloc = disordered_atom.disordered_get_id_list()[0]  # already sorted alphabetically
+        if atom.get_altloc() == first_altloc:
+            atom.set_altloc(' ')
+            return True
+        return False
 
     def accept_residue(self, residue):
         if residue.is_disordered():
@@ -1923,7 +1993,11 @@ class StructureStatistics(TemplateView):
 
             #GPCR year-to-year structure data for chart
             context['family_hierarchy'] = self.get_structure_family_hierarchy(gpcr_structure_queries)
-            context['chart_data'] = self.prepare_chart_data(gpcr_structure_queries, lookup)
+            chart_data = cache.get('structure_stats_yearly_chart_data')
+            if not chart_data:
+                chart_data = self.prepare_chart_data(gpcr_structure_queries, lookup)
+                cache.set('structure_stats_yearly_chart_data', chart_data, None)  #Non-expiring cache, as this data is not expected to change often and is expensive to compute
+            context['chart_data'] = chart_data
 
             group_cols = ["state_id__slug", "protein_conformation__protein__parent__entry_name", "pdb_code_id__index"]
             circle_data = gpcr_structure_queries['redundant']['complexed_or_not']['all_states'] \
@@ -1949,7 +2023,7 @@ class StructureStatistics(TemplateView):
         if self.origin == 'gprotein':
 
             tree = PhylogeneticTreeGenerator()
-            class_a_data = tree.get_tree_data(ProteinFamily.objects.get(name='Class A (Rhodopsin)'))
+            class_a_data = tree.get_tree_data(ProteinFamily.objects.get(slug='001'))
             context['class_a_options'] = deepcopy(tree.d3_options)
             context['class_a_options']['anchor'] = 'class_a'
             context['class_a_options']['leaf_offset'] = 50
@@ -1962,31 +2036,31 @@ class StructureStatistics(TemplateView):
                     whole_class_a['children'].remove(item)
                     break
             context['class_a'] = json.dumps(whole_class_a)
-            class_b1_data = tree.get_tree_data(ProteinFamily.objects.get(name__startswith='Class B1 (Secretin)'))
+            class_b1_data = tree.get_tree_data(ProteinFamily.objects.get(slug='002'))
             context['class_b1_options'] = deepcopy(tree.d3_options)
             context['class_b1_options']['anchor'] = 'class_b1'
             context['class_b1_options']['branch_trunc'] = 60
             context['class_b1_options']['label_free'] = [1,]
             context['class_b1'] = json.dumps(class_b1_data.get_nodes_dict('crystals'))
-            class_b2_data = tree.get_tree_data(ProteinFamily.objects.get(name__startswith='Class B2 (Adhesion)'))
+            class_b2_data = tree.get_tree_data(ProteinFamily.objects.get(slug='003'))
             context['class_b2_options'] = deepcopy(tree.d3_options)
             context['class_b2_options']['anchor'] = 'class_b2'
             context['class_b2_options']['label_free'] = [1,]
             context['class_b2'] = json.dumps(class_b2_data.get_nodes_dict('crystals'))
-            class_c_data = tree.get_tree_data(ProteinFamily.objects.get(name__startswith='Class C (Glutamate)'))
+            class_c_data = tree.get_tree_data(ProteinFamily.objects.get(slug='004'))
             context['class_c_options'] = deepcopy(tree.d3_options)
             context['class_c_options']['anchor'] = 'class_c'
             context['class_c_options']['branch_trunc'] = 50
             context['class_c_options']['label_free'] = [1,]
             context['class_c'] = json.dumps(class_c_data.get_nodes_dict('crystals'))
-            class_f_data = tree.get_tree_data(ProteinFamily.objects.get(name__startswith='Class F (Frizzled)'))
+            class_f_data = tree.get_tree_data(ProteinFamily.objects.get(slug='006'))
             context['class_f_options'] = deepcopy(tree.d3_options)
             context['class_f_options']['anchor'] = 'class_f'
             context['class_f_options']['label_free'] = [1,]
             #json.dump(class_f_data.get_nodes_dict('crystalized'), open('tree_test.json', 'w'), indent=4)
             context['class_f'] = json.dumps(class_f_data.get_nodes_dict('crystals'))
 
-            class_t2_data = tree.get_tree_data(ProteinFamily.objects.get(name='Class T2 (Taste 2)'))
+            class_t2_data = tree.get_tree_data(ProteinFamily.objects.get(slug='009'))
 
             context['class_t2_options'] = deepcopy(tree.d3_options)
             context['class_t2_options']['anchor'] = 'class_t2'
@@ -2497,7 +2571,7 @@ class StructureStatistics(TemplateView):
         n = 0
         for c_v in coverage.values():
             c_v['name'] = c_v['name'].split("(")[0]
-            if c_v['name'].strip() == 'Other GPCRs':
+            if c_v['name'].strip() == 'Unclassified':
                 continue
             children = []
             for lt_v in c_v['children'].values():
@@ -2610,7 +2684,7 @@ class StructureStatistics(TemplateView):
         n = 0
         for c,c_v in coverage.items():
             c_v['name'] = c_v['name'].split("(")[0]
-            if c_v['name'].strip() == 'Other GPCRs':
+            if c_v['name'].strip() == 'Unclassified':
                 continue
             children = []
             for lt,lt_v in c_v['children'].items():
@@ -3783,14 +3857,26 @@ def ConvertStructuresToProteins(request):
     if simple_selection:
         selection.importer(simple_selection)
     if selection.targets != []:
+        # Only convert 'structure'-typed targets -- anything else (e.g. a 'structure_model'
+        # left behind by an abandoned homology-model-browser visit) is a leftover from an
+        # unrelated flow and is dropped rather than blindly processed, since selection.targets
+        # is one session-wide bucket shared by every browsing page.
+        new_targets = []
         for struct in selection.targets:
+            if struct.type != 'structure':
+                continue
             prot = struct.item.protein_conformation.protein.parent
             if not prot:
                 prot = struct.item.protein_conformation.protein
-            selection.remove('targets', 'structure', struct.item.id)
-            selection.add('targets', 'protein', SelectionItem('protein', prot))
+            new_targets.append(SelectionItem('protein', prot))
         if selection.reference != []:
-            selection.add('targets', 'protein', selection.reference[0])
+            new_targets.append(selection.reference[0])
+            selection.clear('reference')
+        # Replace (not mutate) targets, so anything not explicitly converted above -- for
+        # whatever reason it was sitting there -- can't survive into the alignment selection.
+        selection.clear('targets')
+        for item in new_targets:
+            selection.add('targets', 'protein', item)
     # export simple selection that can be serialized
     simple_selection = selection.exporter()
 
@@ -3807,28 +3893,36 @@ def ConvertStructureModelsToProteins(request):
     if simple_selection:
         selection.importer(simple_selection)
     if selection.targets != []:
+        # Only convert the target types this view actually understands -- anything else
+        # (e.g. a leftover 'structure' from an unrelated superposition/browser visit) is
+        # dropped rather than blindly processed, since selection.targets is one session-wide
+        # bucket shared by every browsing page.
+        new_targets = []
         for struct_mod in selection.targets:
-            if hasattr(struct_mod.item, 'protein'):
+            if struct_mod.type == 'structure_model':
                 if not struct_mod.item.protein.accession:
                     prot = struct_mod.item.protein.parent
                 else:
                     prot = struct_mod.item.protein
-                selection.remove('targets', 'structure_model', struct_mod.item.id)
-                selection.add('targets', 'protein', SelectionItem('protein', prot))
-            elif hasattr(struct_mod.item, 'receptor_protein'):
+                new_targets.append(SelectionItem('protein', prot))
+            elif struct_mod.type == 'structure_complex_receptor':
                 if not struct_mod.item.receptor_protein.accession:
                     prot = struct_mod.item.receptor_protein.parent
                 else:
                     prot = struct_mod.item.receptor_protein
-                selection.remove('targets', 'structure_complex_receptor', struct_mod.item.id)
-                selection.add('targets', 'protein', SelectionItem('protein', prot))
-            elif hasattr(struct_mod.item, 'pdb_code'):
+                new_targets.append(SelectionItem('protein', prot))
+            elif struct_mod.type == 'structure':
                 prot = struct_mod.item.protein_conformation.protein.parent
-                selection.remove('targets', 'structure', struct_mod.item.id)
-                selection.add('targets', 'protein', SelectionItem('protein', prot))
+                new_targets.append(SelectionItem('protein', prot))
 
         if selection.reference != []:
-            selection.add('targets', 'protein', selection.reference[0])
+            new_targets.append(selection.reference[0])
+            selection.clear('reference')
+        # Replace (not mutate) targets, so anything not explicitly converted above -- for
+        # whatever reason it was sitting there -- can't survive into the alignment selection.
+        selection.clear('targets')
+        for item in new_targets:
+            selection.add('targets', 'protein', item)
     # export simple selection that can be serialized
     simple_selection = selection.exporter()
 
@@ -3843,25 +3937,37 @@ def ConvertStructureComplexSignprotToProteins(request):
     selection = Selection()
     if simple_selection:
         selection.importer(simple_selection)
+    prot = None
     if selection.targets != []:
+        # Only convert the target types this view actually understands -- anything else
+        # (e.g. a leftover 'structure_model' from an unrelated browser visit) is dropped
+        # rather than blindly assumed to be a signprot-complex Structure (which previously
+        # crashed with SignprotComplex.DoesNotExist for anything that wasn't), since
+        # selection.targets is one session-wide bucket shared by every browsing page.
+        new_targets = []
         for struct_mod in selection.targets:
-            if hasattr(struct_mod.item, 'sign_protein'):
+            if struct_mod.type == 'structure_complex_signprot':
                 prot = struct_mod.item.sign_protein
-                selection.remove('targets', 'structure_complex_signprot', struct_mod.item.id)
-                selection.add('targets', 'protein', SelectionItem('protein', prot))
-            else:
+                new_targets.append(SelectionItem('protein', prot))
+            elif struct_mod.type == 'structure':
                 prot = SignprotComplex.objects.get(structure=struct_mod.item).protein
-                selection.remove('targets', 'structure', struct_mod.item.id)
-                selection.add('targets', 'protein', SelectionItem('protein', prot))
+                new_targets.append(SelectionItem('protein', prot))
+
         if selection.reference != []:
-            selection.add('targets', 'protein', selection.reference[0])
+            new_targets.append(selection.reference[0])
+            selection.clear('reference')
+        # Replace (not mutate) targets, so anything not explicitly converted above -- for
+        # whatever reason it was sitting there -- can't survive into the alignment selection.
+        selection.clear('targets')
+        for item in new_targets:
+            selection.add('targets', 'protein', item)
     # export simple selection that can be serialized
     simple_selection = selection.exporter()
 
     # add simple selection to session
     request.session['selection'] = simple_selection
 
-    if prot.family.parent.parent.name=='Arrestin':
+    if prot and prot.family.parent.parent.name=='Arrestin':
         return HttpResponseRedirect('/alignment/segmentselectionarrestin')
     else:
         return HttpResponseRedirect('/alignment/segmentselectiongprot')
@@ -4992,25 +5098,47 @@ class StructureBlastView(View):
 
 
 class LigandComplexModels(TemplateView):
+    """
+    Lightweight view that just renders the ligand complex models template.
+    The actual data is fetched asynchronously from LigandComplexModelsDataJsonView.
+    """
     template_name = "ligand_complex_models.html"
 
     def get_context_data(self, **kwargs):
         context = super(LigandComplexModels, self).get_context_data(**kwargs)
-        try:
+        return context
 
-            # Get the structure models along with prefetching ligands and related data
-            structures = Structure.objects.filter(
-                structure_type__origin="model", 
+
+class LigandComplexModelsDataJsonView(View):
+    """JSON endpoint for the ligand complex models browser.
+
+    Builds on the same `Structure` queryset `LigandComplexModels` used to
+    server-render the page (structure_type__origin="model", excluding
+    af-signprot-only rows, excluding models superseded by an experimental
+    PDB), plus the extra joins needed for the newer columns:
+      - drugs.Drugs (matched by ligand+target) for Clinical / Pharm. modality
+      - protein.ProteinFamilyClassification (primary/order=1 rows) for
+        receptor Modality / Chemotype
+      - Structure.signprot_complex for the Structure section's signal
+        protein family/subtype (only populated when a G protein/arrestin is
+        part of the model)
+    """
+
+    def get(self, request, *args, **kwargs):
+        try:
+            structures = list(Structure.objects.filter(
+                structure_type__origin="model",
             ).exclude(
                 structure_type__slug__in=['af-signprot']
-            ).prefetch_related(
-                "protein_conformation__protein__family",
-                "protein_conformation__protein",
+            ).select_related(
                 "state",
+                "structure_type",
+                "pdb_code",
                 "protein_conformation__protein__family__parent__parent__parent",
                 "protein_conformation__protein__species",
                 "protein_conformation__protein__parent__family",
-                "pdb_code",
+                "signprot_complex__protein__family__parent__parent__parent",
+            ).prefetch_related(
                 Prefetch(
                     "structuremodelscores_set",
                     queryset=StructureModelScores.objects.all(),
@@ -5030,11 +5158,11 @@ class LigandComplexModels(TemplateView):
                     to_attr="prefetch_ligands"
                 )
             ).annotate(
-            #Fetch single gene name and entrez_id for each target using subqueries, prioritizing lowest entrez_id
-            gene_name=Subquery(
-                Gene.objects.filter(proteins=OuterRef('protein_conformation__protein__pk')).order_by('entrez_id').values('name')[:1]),
-            gene_entrez_id=Subquery(
-                Gene.objects.filter(proteins=OuterRef('protein_conformation__protein__pk')).order_by('entrez_id').values('entrez_id')[:1]),
+                # Fetch single gene name and entrez_id for each target using subqueries, prioritizing lowest entrez_id
+                gene_name=Subquery(
+                    Gene.objects.filter(proteins=OuterRef('protein_conformation__protein__pk')).order_by('entrez_id').values('name')[:1]),
+                gene_entrez_id=Subquery(
+                    Gene.objects.filter(proteins=OuterRef('protein_conformation__protein__pk')).order_by('entrez_id').values('entrez_id')[:1]),
                 experimental_pdb_exists=Exists(
                     StructureLigandInteraction.objects.filter(
                         structure__structure_type__slug__in=[
@@ -5052,48 +5180,176 @@ class LigandComplexModels(TemplateView):
                 )
             ).exclude(
                 experimental_pdb_exists=True
-            )
+            ))
+
+            # Drop rows without a ligand at all -- this page is specifically about ligand complexes
+            # (matches the `{% if model.prefetch_ligands %}` guard the old server-rendered template used).
+            structures = [s for s in structures if getattr(s, 'prefetch_ligands', None)]
 
             entrez_websource = WebResource.objects.get(slug="entrez_gene")
 
-            # Process each ligand using standardize_smiles
-            # We assume that each structure has a prefetch_ligands list with at least one element.
             for structure in structures:
-                if hasattr(structure, 'prefetch_ligands'):
-                    for ligand_struct in structure.prefetch_ligands:
-                        ligand = ligand_struct.ligand
-                        # Get the raw SMILES and molecular weight (adjust attribute names as needed)
-                        raw_smiles = getattr(ligand, 'smiles', None)
-                        mw = getattr(ligand, 'mw', None)
-                        # Process the SMILES using your function
-                        canonical_smiles, smiles_for_image, picture_flag = standardize_smiles(raw_smiles, mw)
-                        # Attach these values to the ligand instance so that your template can access them
-                        ligand.smiles_for_image = smiles_for_image
-                        ligand.picture = picture_flag
-                structure.gene_entrez_weblink = str(WebLink(index=structure.gene_entrez_id, web_resource=entrez_websource)) if structure.gene_entrez_id != "" else None
-
-            context['structure_model'] = structures
+                for ligand_struct in structure.prefetch_ligands:
+                    ligand = ligand_struct.ligand
+                    raw_smiles = getattr(ligand, 'smiles', None)
+                    mw = getattr(ligand, 'mw', None)
+                    canonical_smiles, smiles_for_image, picture_flag = standardize_smiles(raw_smiles, mw)
+                    ligand.smiles_for_image = smiles_for_image
+                    ligand.picture = picture_flag
+                structure.gene_entrez_weblink = str(WebLink(index=structure.gene_entrez_id, web_resource=entrez_websource)) if structure.gene_entrez_id else None
 
             receptor_ids = [s.protein_conformation.protein_id for s in structures]
-            ligand_ids = [s.prefetch_ligands[0].ligand_id for s in structures if getattr(s, 'prefetch_ligands', None)]
+            ligand_ids = [s.prefetch_ligands[0].ligand_id for s in structures]
+            # Canonical receptor identity: model structures always sit directly on the reference
+            # protein (parent is None), while annotated experimental structures are a mix of the
+            # reference protein and PDB-specific construct variants (parent set to the reference).
+            # Normalize both sides to the reference protein's entry_name so the two line up.
+            receptor_canonical_entry_names = {
+                s.protein_conformation.protein.parent.entry_name if s.protein_conformation.protein.parent
+                else s.protein_conformation.protein.entry_name
+                for s in structures
+            }
+
             physiological_pairs = set(
-                 Endogenous_GTP.objects.filter(ligand_id__in=ligand_ids, receptor_id__in=receptor_ids)
-                 .values_list('ligand_id', 'receptor_id')
+                Endogenous_GTP.objects.filter(ligand_id__in=ligand_ids, receptor_id__in=receptor_ids)
+                .values_list('ligand_id', 'receptor_id')
             )
-            is_ligand_physiological_dict = {
-                 s.id: (getattr(s, 'prefetch_ligands', None) and (s.prefetch_ligands[0].ligand_id, s.protein_conformation.protein_id) 
-                        in physiological_pairs)
-                 for s in structures
-             }
-            context['is_ligand_physiological_dict'] = is_ligand_physiological_dict    
 
+            # Drugs, matched by (ligand, receptor target) -- Clinical status only, never Pharm. modality
+            drugs_by_pair = defaultdict(list)
+            for d in Drugs.objects.filter(
+                ligand_id__in=ligand_ids, target_id__in=receptor_ids
+            ).values('ligand_id', 'target_id', 'drug_status', 'indication_max_phase'):
+                drugs_by_pair[(d['ligand_id'], d['target_id'])].append(d)
 
+            def clinical_status(ligand_id, receptor_id):
+                rows = drugs_by_pair.get((ligand_id, receptor_id), [])
+                if not rows:
+                    return "No"
+                approved = any(r['drug_status'] == 'Approved' for r in rows)
+                return "Approved drug" if approved else "Agent in trial"
 
-        except Structure.DoesNotExist as e:
-            # Optionally log the exception
-            pass
+            # Ligand roles, matched by (ligand, receptor's canonical entry_name) -- independent of
+            # Drugs; StructureLigandInteraction.ligand_role is the actual "pharm. modality" source
+            roles_by_pair = defaultdict(set)
+            for r in StructureLigandInteraction.objects.filter(
+                ligand_id__in=ligand_ids,
+                ligand_role__isnull=False,
+            ).annotate(
+                canonical_entry_name=Coalesce(
+                    'structure__protein_conformation__protein__parent__entry_name',
+                    'structure__protein_conformation__protein__entry_name',
+                )
+            ).filter(
+                canonical_entry_name__in=receptor_canonical_entry_names
+            ).values('ligand_id', 'canonical_entry_name', 'ligand_role__name'):
+                roles_by_pair[(r['ligand_id'], r['canonical_entry_name'])].add(r['ligand_role__name'])
 
-        return context
+            def pharm_modality(ligand_id, canonical_entry_name):
+                roles = roles_by_pair.get((ligand_id, canonical_entry_name), set())
+                return " / ".join(sorted(roles)) if roles else "-"
+
+            # ProteinFamilyClassification -- primary (order=1) annotation only
+            family_ids = {s.protein_conformation.protein.family_id for s in structures}
+            pfc_modality = {
+                r.protein_family_id: r.modality.name
+                for r in ProteinFamilyClassification.objects.filter(
+                    protein_family_id__in=family_ids, modality_order=1, modality__isnull=False
+                ).select_related('modality')
+            }
+            pfc_chemotype = {
+                r.protein_family_id: r.chemotype.name
+                for r in ProteinFamilyClassification.objects.filter(
+                    protein_family_id__in=family_ids, chemotype_order=1, chemotype__isnull=False
+                ).select_related('chemotype')
+            }
+
+            out = []
+            for structure in structures:
+                p = structure.protein_conformation.protein
+                ligand = structure.prefetch_ligands[0].ligand
+
+                is_physiological = (ligand.id, p.id) in physiological_pairs
+                canonical_entry_name = p.parent.entry_name if p.parent else p.entry_name
+                clinical = clinical_status(ligand.id, p.id)
+                pharm_modality_value = pharm_modality(ligand.id, canonical_entry_name)
+
+                if ligand.ligand_type and ligand.ligand_type.slug == "small-molecule":
+                    mol_modality = "Small mol"
+                elif ligand.ligand_type and ligand.ligand_type.slug == "peptide":
+                    mol_modality = "Peptide"
+                elif ligand.ligand_type:
+                    mol_modality = (ligand.ligand_type.name or ligand.ligand_type.slug or "N/A").title()
+                else:
+                    mol_modality = "N/A"
+
+                signprot = structure.signprot_complex
+                signal_protein_family = None
+                signal_protein_subtype = None
+                if signprot and signprot.protein and signprot.protein.family and signprot.protein.family.parent:
+                    sp = signprot.protein
+                    bucket = sp.family.parent.parent.name if sp.family.parent.parent else None
+                    subtype_key = sp.entry_name.split('_')[0]
+                    signal_protein_family = sp.family.parent.name
+                    if bucket == "Arrestin":
+                        signal_protein_subtype = ARRESTIN_DISPLAY_NAME.get(subtype_key, sp.entry_name)
+                    else:
+                        signal_protein_subtype = G_PROTEIN_DISPLAY_NAME.get(subtype_key.upper(), sp.family.name)
+
+                af2_score = None
+                boltz2_score = None
+                if structure.structure_type.name == "Model (AF2)" and structure.prefetch_model_scores:
+                    af2_score = structure.prefetch_model_scores[0].pae_mean
+                if structure.structure_type.name == "Model (Boltz2)" and structure.prefetch_model_scores:
+                    boltz2_score = structure.prefetch_model_scores[0].ligand_plddt
+                rfaa_score = structure.prefetch_rfaa_scores[0].plddt_mean if structure.prefetch_rfaa_scores else None
+
+                out.append({
+                    "id": structure.id,
+                    "pdb_code_index": structure.pdb_code.index if structure.pdb_code else None,
+                    "has_signprot": bool(signprot),
+                    "ligand": {
+                        "id": ligand.id,
+                        "name": ligand.name,
+                        "type_slug": ligand.ligand_type.slug if ligand.ligand_type else "other",
+                        "smiles": ligand.smiles_for_image or "",
+                        "picture": ligand.picture or "Not_available",
+                        "sequence": ligand.sequence or "",
+                    },
+                    "mol_modality": mol_modality,
+                    "pharm_modality": pharm_modality_value,
+                    "physiological": "Yes" if is_physiological else "No",
+                    "clinical": clinical,
+                    # Nested (rather than flat gene_name/protein_name + sibling fields) so that
+                    # each cell's render function is a pure function of its own column data --
+                    # the filter-dropdown builder (NorgesDTFilterBuilder.js) calls render(d, 'display')
+                    # with no row/meta argument when building a filtered column's option list.
+                    "gene": {
+                        "name": structure.gene_name,
+                        "entrez_weblink": structure.gene_entrez_weblink,
+                    } if structure.gene_name else None,
+                    "protein": {
+                        "name": p.name,
+                        "entry_name": p.entry_name,
+                    },
+                    "family": p.family.parent.name,
+                    "class": p.family.parent.parent.parent.name,
+                    "modality": pfc_modality.get(p.family_id, "-"),
+                    "chemotype": pfc_chemotype.get(p.family_id, "-"),
+                    "state": structure.state.name if structure.state else "-",
+                    "signal_protein_family": signal_protein_family,
+                    "signal_protein_subtype": signal_protein_subtype,
+                    "af2_score": af2_score,
+                    "boltz2_score": boltz2_score,
+                    "rfaa_score": rfaa_score,
+                    "publication_date": structure.publication_date.strftime("%Y-%m-%d") if structure.publication_date else None,
+                })
+
+            return JsonResponse(out, safe=False, encoder=DjangoJSONEncoder)
+
+        except Exception as exc:
+            traceback.print_exc()
+            return JsonResponse({"error": str(exc)}, status=500)
 
 # This may be momentarily
 def ligand_coloring(structure, ligand_chain, ligand_type):
