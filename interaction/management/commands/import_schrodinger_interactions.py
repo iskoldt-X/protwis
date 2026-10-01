@@ -196,9 +196,9 @@ class Command(BaseCommand):
             # safe.
             raise CommandError(
                 "interaction types missing from the database: {} (the types Engine 1 "
-                "adds are seeded by interaction migrations 0008 and 0009: run migrate, "
+                "adds are seeded by interaction migrations 0009 and 0010: run migrate, "
                 "or, if they are already applied (build_structures --purge deletes "
-                "every type), migrate interaction 0007 and then migrate interaction; "
+                "every type), migrate interaction 0008 and then migrate interaction; "
                 "the others, acc and Van der Waals among them, are created by "
                 "build_structures when it writes the legacy ligand interactions: run "
                 "it before this import)".format(", ".join(missing)))

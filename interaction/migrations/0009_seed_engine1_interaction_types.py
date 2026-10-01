@@ -40,7 +40,7 @@ def seed(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("interaction", "0007_structureligandinteraction_site_chain_res"),
+        ("interaction", "0008_auto_20260921_1803"),
     ]
 
     operations = [

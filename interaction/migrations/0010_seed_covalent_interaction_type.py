@@ -31,7 +31,7 @@ def seed(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("interaction", "0008_seed_engine1_interaction_types"),
+        ("interaction", "0009_seed_engine1_interaction_types"),
     ]
 
     operations = [

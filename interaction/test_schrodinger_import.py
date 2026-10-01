@@ -501,7 +501,7 @@ class RoutingTests(unittest.TestCase):
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
         # Not in the 2026-09-17 tree: the covalent family is new (covalent
-        # topic, 2026-09-28), and its slug comes with migration 0009.
+        # topic, 2026-09-28), and its slug comes with migration 0010.
         ("Covalent", ""): "covalent",
     }
 
@@ -509,14 +509,14 @@ class RoutingTests(unittest.TestCase):
         for (family, direction), slug in self.PRODUCTION_PAIRS.items():
             self.assertEqual(si.resolve_slug(family, direction), slug, (family, direction))
 
-    def test_the_covalent_slug_is_the_one_migration_0009_seeds_and_it_is_visible(self):
+    def test_the_covalent_slug_is_the_one_migration_0010_seeds_and_it_is_visible(self):
         # The map and the migration name the same slug, or the first Covalent
         # row finds no ResidueFragmentInteractionType. And the type must not be
         # "hidden": pages and the scorecard both leave hidden types out, which
         # would import the rows and show them to no one (Binghan 2026-09-28).
         import importlib
         mig = importlib.import_module(
-            "interaction.migrations.0009_seed_covalent_interaction_type")
+            "interaction.migrations.0010_seed_covalent_interaction_type")
         slug, name, type_, direction = mig.COVALENT_TYPE
         self.assertEqual(si.resolve_slug("Covalent", ""), slug)
         self.assertNotEqual(type_, "hidden")
@@ -529,7 +529,7 @@ class RoutingTests(unittest.TestCase):
         # no page and no scorecard (review 2026-09-28).
         import importlib
         mig = importlib.import_module(
-            "interaction.migrations.0009_seed_covalent_interaction_type")
+            "interaction.migrations.0010_seed_covalent_interaction_type")
         seen = []
 
         class _Objects:
