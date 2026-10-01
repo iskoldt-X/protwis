@@ -186,9 +186,16 @@ class Command(BaseCommand):
         present = set(ResidueFragmentInteractionType.objects.values_list("slug", flat=True))
         missing = sorted(si.required_slugs() - present)
         if missing:
+            # Two sources: the types only Engine 1 writes are seeded by the
+            # interaction migrations; every other one, acc and Van der Waals
+            # among them, is created by build_structures (get_or_create) when it
+            # writes the legacy ligand interactions, which this import follows.
             raise CommandError(
-                "interaction types missing from the database: {} "
-                "(run migrate; interaction 0008 and 0009 seed them)".format(", ".join(missing)))
+                "interaction types missing from the database: {} (the types only "
+                "Engine 1 writes are seeded by interaction migrations 0008 and 0009: "
+                "run migrate; the others, acc and Van der Waals among them, are "
+                "created by build_structures when it writes the legacy ligand "
+                "interactions: run it before this import)".format(", ".join(missing)))
 
     def handle(self, *args, **options):
         if not os.path.isdir(options["data_dir"]):
