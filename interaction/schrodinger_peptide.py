@@ -638,16 +638,56 @@ def _clear_anchor(sli, peptide, outcome):
     outcome.interactions_deleted = deleted.get("contactnetwork.InteractionPeptide", 0)
 
 
-def peptide_structure(structure, sli):
-    """The anchor's LigandPeptideStructure: the one of this ligand, on the
-    anchor's chain when the ligand has several."""
-    found = list(LigandPeptideStructure.objects.filter(structure=structure, ligand=sli.ligand))
+def choose_peptide_structure(candidates, chain, label):
+    """The anchor's LigandPeptideStructure among those of its ligand: the only
+    one, or the one on the anchor's chain when the ligand has several."""
+    found = list(candidates)
     if len(found) > 1:
-        found = [p for p in found if p.chain == (sli.chain_res or "").strip()]
+        found = [p for p in found if p.chain == chain]
     if len(found) != 1:
-        raise MissingPeptideStructure("{} anchor {}: {} LigandPeptideStructure rows".format(
-            structure.pdb_code.index, sli.id, len(found)))
+        raise MissingPeptideStructure("{}: {} LigandPeptideStructure rows".format(label, len(found)))
     return found[0]
+
+
+def peptide_structure(structure, sli):
+    return choose_peptide_structure(
+        LigandPeptideStructure.objects.filter(structure=structure, ligand=sli.ligand),
+        (sli.chain_res or "").strip(), "{} anchor {}".format(structure.pdb_code.index, sli.id))
+
+
+def check_receptor(pdb, receptor):
+    """Refuse a map whose receptor is not resolved to a primary segment it lists."""
+    if (receptor.get("status") != "ok" or not receptor.get("segment")
+            or receptor["segment"] not in receptor.get("segments_list", [])):
+        raise MapMismatch("{}: receptor not resolved ({} {})".format(
+            pdb, receptor.get("status"), receptor.get("note")))
+
+
+def anchor_action(pdb, sli_id, chain, chain_rows):
+    """(action, map row) for one anchor, before anything is written.
+
+    "clear" for an anchor with no chain_res (ADR-091: it keeps no rows);
+    "import" for an anchor whose chain has an ok row. A chain the map does
+    not list, or a row that is not ok, raises: the map could not answer it.
+    """
+    if not chain:
+        return "clear", None
+    row = chain_rows.get(chain)
+    if row is None:
+        raise MapMismatch("{}: the map has no row for anchor {} chain {!r}".format(pdb, sli_id, chain))
+    if row["status"] != ROW_OK:
+        raise UnresolvedAnchor("{}: anchor {} chain {}: {}: {}".format(
+            pdb, sli_id, chain, row["status"], row.get("note", "")))
+    return "import", row
+
+
+def claim_peptide_structure(used, peptide_id, sli_id, pdb):
+    """Record that an anchor owns a LigandPeptideStructure; refuse a second owner,
+    whose clear would wipe the first anchor's pairs."""
+    if peptide_id in used:
+        raise MissingPeptideStructure("{}: anchors {} and {} share LigandPeptideStructure {}".format(
+            pdb, used[peptide_id], sli_id, peptide_id))
+    used[peptide_id] = sli_id
 
 
 def check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
@@ -685,10 +725,7 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
                 if is_in_scope(sli)]
         if not slis:
             return outcomes, collections.Counter()
-        if (receptor.get("status") != "ok" or not receptor.get("segment")
-                or receptor["segment"] not in receptor.get("segments_list", [])):
-            raise MapMismatch("{}: receptor not resolved ({} {})".format(
-                pdb, receptor.get("status"), receptor.get("note")))
+        check_receptor(pdb, receptor)
         check_fingerprints(pdb, data_dir, receptor, header,
                            structure.pdb_data.pdb if structure.pdb_data_id else "")
         used = {}
@@ -696,20 +733,10 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             chain = (sli.chain_res or "").strip()
             outcome = AnchorOutcome(sli.id, chain)
             peptide = peptide_structure(structure, sli)
-            if peptide.id in used:
-                # The second clear would wipe the first anchor's pairs.
-                raise MissingPeptideStructure("{}: anchors {} and {} share LigandPeptideStructure "
-                                              "{}".format(pdb, used[peptide.id], sli.id, peptide.id))
-            used[peptide.id] = sli.id
-            row = chain_rows.get(chain) if chain else None
-            if chain and row is None:
-                raise MapMismatch("{}: the map has no row for anchor {} chain {!r}".format(
-                    pdb, sli.id, chain))
-            if row is not None and row["status"] != ROW_OK:
-                raise UnresolvedAnchor("{}: anchor {} chain {}: {}: {}".format(
-                    pdb, sli.id, chain, row["status"], row.get("note", "")))
+            claim_peptide_structure(used, peptide.id, sli.id, pdb)
+            action, row = anchor_action(pdb, sli.id, chain, chain_rows)
             _clear_anchor(sli, peptide, outcome)
-            if row is None:
+            if action == "clear":
                 # ADR-091: an in-scope anchor without a product keeps no rows.
                 outcome.mode = "cleared"
                 outcome.notes.append("anchor names no chain")

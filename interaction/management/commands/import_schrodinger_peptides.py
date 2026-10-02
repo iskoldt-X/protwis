@@ -107,6 +107,10 @@ class Command(BaseCommand):
                     continue
                 path = os.path.join(data_dir, dirs.get(pdb, pdb), sp.MAP_NAME)
                 try:
+                    if dirs.get(pdb, pdb) != pdb:
+                        # The item paths are built from the upper-case code.
+                        raise sp.MapMismatch("directory {!r} under --data-dir is not the upper-case "
+                                             "PDB code {}".format(dirs[pdb], pdb))
                     if not os.path.isfile(path):
                         raise sp.MapMismatch("no {} under {}".format(
                             sp.MAP_NAME, os.path.join(data_dir, dirs.get(pdb, pdb))))

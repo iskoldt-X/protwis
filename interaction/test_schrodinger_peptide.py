@@ -97,6 +97,9 @@ class SegmentTests(unittest.TestCase):
     def test_the_receptor_side_is_every_segment_of_the_receptor_chain(self):
         self.assertEqual(sp.receptor_chain_segments(self.SEGMENTS, "A"),
                          ["A_BRIL_1001_1106", "A_OPRD_1_338"])
+        reordered = dict(reversed(list(self.SEGMENTS.items())))
+        self.assertEqual(sp.receptor_chain_segments(reordered, "A"),
+                         ["A_BRIL_1001_1106", "A_OPRD_1_338"])
 
     def test_peptide_items_take_every_segment_of_the_chain_as_the_ligand_side(self):
         items = [
@@ -454,6 +457,50 @@ class TreeTests(unittest.TestCase):
                 json.dump(broken, fh)
             with self.assertRaises(sp.MalformedProduct):
                 sp.load_plan(self.dir, "6DDF")
+
+
+class AnchorDecisionTests(unittest.TestCase):
+    ROWS = {"D": {"status": "ok", "note": ""}, "E": {"status": "chain_unresolved", "note": "no atom"},
+            "F": {"status": "no_items", "note": "none"}}
+
+    def test_an_anchor_without_a_chain_is_cleared(self):
+        self.assertEqual(sp.anchor_action("X", 1, "", self.ROWS), ("clear", None))
+
+    def test_an_ok_row_is_imported(self):
+        self.assertEqual(sp.anchor_action("X", 1, "D", self.ROWS), ("import", self.ROWS["D"]))
+
+    def test_a_row_that_is_not_ok_fails_the_structure(self):
+        for chain in ("E", "F"):
+            with self.assertRaises(sp.UnresolvedAnchor):
+                sp.anchor_action("X", 1, chain, self.ROWS)
+        self.assertTrue(issubclass(sp.UnresolvedAnchor, si.UnresolvedAnchor))
+
+    def test_a_chain_the_map_does_not_list_fails_the_structure(self):
+        with self.assertRaisesRegex(sp.MapMismatch, "no row"):
+            sp.anchor_action("X", 1, "Z", self.ROWS)
+
+    def test_two_anchors_cannot_share_a_peptide_structure(self):
+        used = {}
+        sp.claim_peptide_structure(used, 7, 101, "X")
+        sp.claim_peptide_structure(used, 8, 102, "X")
+        with self.assertRaisesRegex(sp.MissingPeptideStructure, "share"):
+            sp.claim_peptide_structure(used, 7, 103, "X")
+
+    def test_the_peptide_structure_of_the_anchor_chain(self):
+        a, b = types.SimpleNamespace(chain="D"), types.SimpleNamespace(chain="E")
+        self.assertIs(sp.choose_peptide_structure([a], "Q", "x"), a)
+        self.assertIs(sp.choose_peptide_structure([a, b], "E", "x"), b)
+        for candidates, chain in (([], "D"), ([a, b], "Q"), ([a, types.SimpleNamespace(chain="D")], "D")):
+            with self.assertRaises(sp.MissingPeptideStructure):
+                sp.choose_peptide_structure(candidates, chain, "x")
+
+    def test_the_receptor_must_be_resolved_to_a_listed_primary_segment(self):
+        good = {"status": "ok", "segment": "R_1", "segments_list": ["R_1", "R_2"], "note": ""}
+        sp.check_receptor("X", good)
+        for bad in (dict(good, status="no_segment"), dict(good, segment=""),
+                    dict(good, segments_list=["R_2"])):
+            with self.assertRaises(sp.MapMismatch):
+                sp.check_receptor("X", bad)
 
 
 class BuilderTests(unittest.TestCase):
