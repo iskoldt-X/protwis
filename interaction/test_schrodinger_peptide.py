@@ -497,8 +497,10 @@ class AnchorDecisionTests(unittest.TestCase):
     def test_the_receptor_must_be_resolved_to_a_listed_primary_segment(self):
         good = {"status": "ok", "segment": "R_1", "segments_list": ["R_1", "R_2"], "note": ""}
         sp.check_receptor("X", good)
+        no_key = {k: v for k, v in good.items() if k != "segment"}
+        blank_listed = dict(good, segment="", segments_list=["", "R_2"])
         for bad in (dict(good, status="no_segment"), dict(good, segment=""),
-                    dict(good, segments_list=["R_2"])):
+                    dict(good, segments_list=["R_2"]), no_key, blank_listed):
             with self.assertRaises(sp.MapMismatch):
                 sp.check_receptor("X", bad)
 
