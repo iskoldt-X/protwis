@@ -13,16 +13,22 @@ anchor is decided on this side. build_schrodinger_peptide_maps decides it from
 files only and writes peptide_map.tsv; the import reads that file and never
 recomputes it:
 
-* the receptor is the segment, on the author chain that carries GPCRdb's
-  receptor chain, that covers most of GPCRdb's receptor residues (matched by
-  CA coordinates). The segment's sequence reference is not used: for a
-  quarter of the constructs it names the entry itself, or another species;
+* the receptor's author chain is the one that carries GPCRdb's receptor chain
+  (matched by CA coordinates), and the receptor side is every segment on it,
+  exactly as Engine 1's receptor selection is the whole receptor chain: a
+  receptor can be declared in pieces (an entry-referenced TM6-TM7, a chimeric
+  loop, three unreferenced N-terminal residues), and rows on a fusion partner
+  find no GPCRdb residue and are dropped and counted, as in Engine 1. The
+  segment covering most of GPCRdb's receptor residues is recorded as the
+  primary one; it must exist, or the receptor is not resolved. Sequence
+  references are not used: for a quarter of the constructs they name the
+  entry itself, or another species;
 * a peptide's GPCRdb chain is matched to an author chain by CA coordinates,
   and by all atom coordinates when the chain has no standard CA (peptides of
   D-amino acids are all HETATM);
 * every segment on that author chain is the peptide (a C-terminal amide cap is
-  a segment of its own), and the work items are those with the peptide segment
-  as the ligand side and the receptor segment as the receptor side.
+  a segment of its own), and the work items are those with a peptide segment
+  as the ligand side and a receptor segment as the receptor side.
 
 The import writes two places, both replaced per anchor (ADR-091):
 
@@ -207,12 +213,19 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     return best, "any_atom", "{}/{} atoms".format(n, len(keys))
 
 
-def peptide_items(segments, items, author_chain, receptor_seg):
-    """[(peptide segment, item key)] with the peptide as the ligand side."""
+def receptor_chain_segments(segments, auth_chain):
+    """Every segment on the receptor's author chain, sorted: the receptor side."""
+    return sorted(name for name, s in segments.items() if s.get("chain_id") == auth_chain)
+
+
+def peptide_items(segments, items, author_chain, receptor_segs):
+    """[(peptide segment, item key)] with the peptide as the ligand side and a
+    receptor segment as the receptor side. A segment is never both."""
+    receptor_segs = set(receptor_segs)
     peptide_segs = {name for name, s in segments.items()
-                    if s.get("chain_id") == author_chain and name != receptor_seg}
+                    if s.get("chain_id") == author_chain and name not in receptor_segs}
     return sorted((it["ligand_segment"], it["key"]) for it in items
-                  if it["ligand_segment"] in peptide_segs and it["receptor_segment"] == receptor_seg)
+                  if it["ligand_segment"] in peptide_segs and it["receptor_segment"] in receptor_segs)
 
 
 # ---------------------------------------------------------------------------
@@ -221,8 +234,8 @@ def peptide_items(segments, items, author_chain, receptor_seg):
 
 MAP_SCHEMA = "engine2-peptide-map/1"
 RECEPTOR_PREFIX = "receptor."
-RECEPTOR_KEYS = ("preferred_chain", "auth_chain", "status", "method", "segment",
-                 "n_ca_gpcrdb", "n_ca_matched", "n_covered", "note")
+RECEPTOR_KEYS = ("preferred_chain", "auth_chain", "status", "method", "segment", "segments",
+                 "n_ca_gpcrdb", "n_ca_matched", "n_covered", "gpcrdb_text_sha256", "note")
 MAP_COLUMNS = ("pdb", "gpcrdb_chain", "titles", "types", "auth_chain", "chain_method",
                "status", "segments", "items", "outcomes", "note")
 PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
@@ -238,8 +251,12 @@ class MapMismatch(si.MapMismatch):
     """peptide_map.tsv does not describe what it should."""
 
 
+class UnresolvedAnchor(si.UnresolvedAnchor):
+    """The map could not decide which items answer an anchor."""
+
+
 def load_peptide_map(path):
-    """(pdb, receptor dict, {gpcrdb_chain: row}, provenance) from one peptide_map.tsv."""
+    """(pdb, receptor dict, {gpcrdb_chain: row}, provenance, header) from one peptide_map.tsv."""
     header, fieldnames, rows = si._read_map(path)
     if header.get("schema") != MAP_SCHEMA:
         raise MapMismatch("{}: schema {!r}, this importer reads {!r}".format(
@@ -255,6 +272,7 @@ def load_peptide_map(path):
         if RECEPTOR_PREFIX + key not in header:
             raise MapMismatch("{}: the header has no {}{}".format(path, RECEPTOR_PREFIX, key))
         receptor[key] = header[RECEPTOR_PREFIX + key]
+    receptor["segments_list"] = [x for x in receptor["segments"].split(LIST_SEP) if x]
     table = {}
     for r in rows:
         if (r.get("pdb") or "").strip().upper() != pdb:
@@ -273,7 +291,7 @@ def load_peptide_map(path):
                 path, chain, r["status"]))
         table[chain] = r
     provenance = {k: header.get(k, "") for k in PROVENANCE_KEYS}
-    return pdb, receptor, table, provenance
+    return pdb, receptor, table, provenance, header
 
 
 def write_peptide_map(path, header, receptor, rows):
@@ -540,7 +558,7 @@ class AnchorOutcome(object):
 
 
 class MissingPeptideStructure(ValueError):
-    """An anchor has no LigandPeptideStructure, or more than one."""
+    """An anchor has no LigandPeptideStructure of its own."""
 
 
 def _receptor_residue(structure, seq, amino_acid, dropped):
@@ -621,19 +639,40 @@ def _clear_anchor(sli, peptide, outcome):
 
 
 def peptide_structure(structure, sli):
-    found = list(LigandPeptideStructure.objects.filter(structure=structure, ligand=sli.ligand)[:2])
+    """The anchor's LigandPeptideStructure: the one of this ligand, on the
+    anchor's chain when the ligand has several."""
+    found = list(LigandPeptideStructure.objects.filter(structure=structure, ligand=sli.ligand))
+    if len(found) > 1:
+        found = [p for p in found if p.chain == (sli.chain_res or "").strip()]
     if len(found) != 1:
         raise MissingPeptideStructure("{} anchor {}: {} LigandPeptideStructure rows".format(
             structure.pdb_code.index, sli.id, len(found)))
     return found[0]
 
 
-def import_structure(structure, data_dir, receptor, chain_rows):
+def check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
+    """Refuse a structure whose stored text or plan changed since the map was built."""
+    if receptor.get("gpcrdb_text_sha256") != chain_map.text_sha256(gpcrdb_text):
+        raise MapMismatch("{}: GPCRdb structure text differs from the one the map was built "
+                          "from (new dump?); rebuild the maps".format(pdb))
+    plan = os.path.join(data_dir, pdb, PLAN_NAME)
+    if not os.path.isfile(plan) or header.get("plan_sha256") != sha256_file(plan):
+        raise MapMismatch("{}: plan.json differs from the one the map was built from; check "
+                          "--data-dir or rebuild the maps".format(pdb))
+
+
+def import_structure(structure, data_dir, receptor, chain_rows, header):
     """Replace the peptide-lane rows of one structure, in one transaction.
 
-    ``receptor`` and ``chain_rows`` are this structure's peptide_map.tsv as
-    load_peptide_map returns them. Returns (outcomes, cleanup_counter).
-    Any exception leaves the structure exactly as it was.
+    ``receptor``, ``chain_rows`` and ``header`` are this structure's
+    peptide_map.tsv as load_peptide_map returns them. Returns
+    (outcomes, cleanup_counter). Any exception leaves the structure exactly as
+    it was.
+
+    An anchor with no chain_res names no peptide chain at all; it is cleared
+    (ADR-091) and reported. An anchor whose map row is anything but ok is a
+    question the map could not answer, and fails the structure (as Engine 1's
+    unresolved anchors do) rather than clearing it.
     """
     pdb = structure.pdb_code.index.upper()
     types = {t.slug: t for t in ResidueFragmentInteractionType.objects.all()}
@@ -646,23 +685,34 @@ def import_structure(structure, data_dir, receptor, chain_rows):
                 if is_in_scope(sli)]
         if not slis:
             return outcomes, collections.Counter()
-        if receptor.get("status") != "ok" or not receptor.get("segment"):
+        if (receptor.get("status") != "ok" or not receptor.get("segment")
+                or receptor["segment"] not in receptor.get("segments_list", [])):
             raise MapMismatch("{}: receptor not resolved ({} {})".format(
                 pdb, receptor.get("status"), receptor.get("note")))
+        check_fingerprints(pdb, data_dir, receptor, header,
+                           structure.pdb_data.pdb if structure.pdb_data_id else "")
+        used = {}
         for sli in slis:
             chain = (sli.chain_res or "").strip()
             outcome = AnchorOutcome(sli.id, chain)
             peptide = peptide_structure(structure, sli)
+            if peptide.id in used:
+                # The second clear would wipe the first anchor's pairs.
+                raise MissingPeptideStructure("{}: anchors {} and {} share LigandPeptideStructure "
+                                              "{}".format(pdb, used[peptide.id], sli.id, peptide.id))
+            used[peptide.id] = sli.id
             row = chain_rows.get(chain) if chain else None
             if chain and row is None:
                 raise MapMismatch("{}: the map has no row for anchor {} chain {!r}".format(
                     pdb, sli.id, chain))
+            if row is not None and row["status"] != ROW_OK:
+                raise UnresolvedAnchor("{}: anchor {} chain {}: {}: {}".format(
+                    pdb, sli.id, chain, row["status"], row.get("note", "")))
             _clear_anchor(sli, peptide, outcome)
-            if row is None or row["status"] != ROW_OK:
+            if row is None:
                 # ADR-091: an in-scope anchor without a product keeps no rows.
                 outcome.mode = "cleared"
-                outcome.notes.append("anchor names no chain" if row is None else
-                                     "{}: {}".format(row["status"], row.get("note", "")))
+                outcome.notes.append("anchor names no chain")
                 outcomes.append(outcome)
                 continue
             outcome.mode = "imported"

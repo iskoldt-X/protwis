@@ -110,13 +110,14 @@ class Command(BaseCommand):
                     if not os.path.isfile(path):
                         raise sp.MapMismatch("no {} under {}".format(
                             sp.MAP_NAME, os.path.join(data_dir, dirs.get(pdb, pdb))))
-                    named, receptor, rows, prov = sp.load_peptide_map(path)
+                    named, receptor, rows, prov, header = sp.load_peptide_map(path)
                     if named != pdb:
                         raise sp.MapMismatch("{} names {}".format(path, named))
                     for key, value in prov.items():
                         provenance[key][value] += 1
                     with transaction.atomic():
-                        outcomes, cleanup = sp.import_structure(structure, data_dir, receptor, rows)
+                        outcomes, cleanup = sp.import_structure(structure, data_dir, receptor, rows,
+                                                                header)
                         if options["dry_run"]:
                             raise _Rollback()
                 except _Rollback:

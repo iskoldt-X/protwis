@@ -17,6 +17,7 @@ import unittest
 from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
 from interaction import schrodinger_peptide as sp
+from interaction.management.commands import build_schrodinger_peptide_maps as builder
 
 # A producer peptide line, as the Engine 1 wrapper writes it (no altloc column).
 GLN = "HETATM   93  NE2GLN D  19      50.943 -11.924  33.028  1.00 83.04           N"
@@ -81,10 +82,21 @@ class SegmentTests(unittest.TestCase):
         name, covered, note = sp.receptor_segment(self.SEGMENTS, "A", set(range(40, 300)) | {1050})
         self.assertEqual((name, covered, note), ("A_OPRD_1_338", 260, ""))
 
-    def test_no_coverage_and_ties_are_refused(self):
-        self.assertIsNone(sp.receptor_segment(self.SEGMENTS, "A", {2000})[0])
-        self.assertIsNone(sp.receptor_segment(self.SEGMENTS, "A", {10, 1010})[0])
+    def test_no_coverage_is_refused(self):
+        one = {"A_R_1_300": seg("A_R_1_300", "A", [[1, 300]])}
+        name, covered, note = sp.receptor_segment(one, "A", {2000})
+        self.assertEqual((name, covered), (None, 0))
+        self.assertIn("covers a receptor residue", note)
         self.assertIsNone(sp.receptor_segment(self.SEGMENTS, "B", {10})[0])
+
+    def test_a_tie_is_refused(self):
+        name, covered, note = sp.receptor_segment(self.SEGMENTS, "A", {10, 1010})
+        self.assertEqual((name, covered), (None, 1))
+        self.assertIn("equally", note)
+
+    def test_the_receptor_side_is_every_segment_of_the_receptor_chain(self):
+        self.assertEqual(sp.receptor_chain_segments(self.SEGMENTS, "A"),
+                         ["A_BRIL_1001_1106", "A_OPRD_1_338"])
 
     def test_peptide_items_take_every_segment_of_the_chain_as_the_ligand_side(self):
         items = [
@@ -93,15 +105,21 @@ class SegmentTests(unittest.TestCase):
             {"key": "k3", "ligand_segment": "H_seg_6_6", "receptor_segment": "A_OPRD_1_338"},
             {"key": "k4", "ligand_segment": "H_PEP_1_5", "receptor_segment": "A_BRIL_1001_1106"},
         ]
-        self.assertEqual(sp.peptide_items(self.SEGMENTS, items, "H", "A_OPRD_1_338"),
+        self.assertEqual(sp.peptide_items(self.SEGMENTS, items, "H", {"A_OPRD_1_338"}),
                          [("H_PEP_1_5", "k1"), ("H_seg_6_6", "k3")])
+        # A receptor declared in two pieces (8KIG): items against both.
+        self.assertEqual(sp.peptide_items(self.SEGMENTS, items, "H",
+                                          {"A_OPRD_1_338", "A_BRIL_1001_1106"}),
+                         [("H_PEP_1_5", "k1"), ("H_PEP_1_5", "k4"), ("H_seg_6_6", "k3")])
 
     def test_the_receptor_segment_is_never_its_own_peptide(self):
         segs = {"A_R_1_300": seg("A_R_1_300", "A", [[1, 300]]),
                 "A_PEP_401_410": seg("A_PEP_401_410", "A", [[401, 410]])}
         items = [{"key": "k", "ligand_segment": "A_PEP_401_410", "receptor_segment": "A_R_1_300"},
                  {"key": "self", "ligand_segment": "A_R_1_300", "receptor_segment": "A_R_1_300"}]
-        self.assertEqual(sp.peptide_items(segs, items, "A", "A_R_1_300"), [("A_PEP_401_410", "k")])
+        self.assertEqual(sp.peptide_items(segs, items, "A", {"A_R_1_300"}), [("A_PEP_401_410", "k")])
+        # When every segment of the chain is receptor, the peptide has none.
+        self.assertEqual(sp.peptide_items(segs, items, "A", {"A_R_1_300", "A_PEP_401_410"}), [])
 
 
 def cif_atom(chain, seq, atom, key, group="ATOM", comp="ALA"):
@@ -128,7 +146,7 @@ class PeptideChainTests(unittest.TestCase):
         auth, method, note = sp.peptide_author_chain("X", "C", cif, gp)
         self.assertEqual((auth, method, note), ("C", "any_atom", "2/2 atoms"))
 
-    def test_a_weak_or_split_any_atom_match_is_refused(self):
+    def test_a_weak_any_atom_match_is_refused(self):
         gp = [g_atom("C", 1, a, "k%d" % i, group="HETATM") for i, a in enumerate("ABCD")]
         weak = [cif_atom("C", 1, "A", "k0", group="HETATM")]
         split = [cif_atom("C", 1, "A", "k0", group="HETATM"), cif_atom("C", 1, "B", "k1", group="HETATM"),
@@ -151,9 +169,11 @@ class PeptideLineTests(unittest.TestCase):
         self.assertEqual((a["x"], a["y"], a["z"], a["b"]), (50.943, -11.924, 33.028, 83.04))
 
     def test_prepared_names_become_standard_ones(self):
-        for prepared, standard in (("HIE", "HIS"), ("HIP", "HIS"), ("CYX", "CYS"), ("ASH", "ASP")):
+        for prepared, standard in (("HID", "HIS"), ("HIE", "HIS"), ("HIP", "HIS"), ("CYX", "CYS"),
+                                   ("ASH", "ASP"), ("GLH", "GLU"), ("LYN", "LYS"), ("ARN", "ARG")):
             a = sp.parse_peptide_line(producer_line("CA", prepared, "D", 3), "D")
             self.assertEqual(a["resname"], standard)
+        self.assertEqual(len(sp.PREPARED_NAMES), 8)
 
     def test_negative_numbers_and_long_names(self):
         a = sp.parse_peptide_line(producer_line("C1", "A1ABC", "D", -3), "D")
@@ -172,6 +192,17 @@ class PeptideLineTests(unittest.TestCase):
         self.assertEqual(len(line), 78)
         self.assertEqual((line[:6], line[12:16], line[17:20], line[21], line[22:26]),
                          ("HETATM", " NE2", "GLN", "P", "  19"))
+        self.assertFalse(capped)
+
+    def test_every_standard_column_with_a_long_name_and_a_long_chain(self):
+        line = producer_line("NZ", "A1D5B", "CCC", 1007, x=-12.345, b=33.5, element="N", serial=99999)
+        a = sp.parse_peptide_line(line, "CCC")
+        out, capped = sp.standard_peptide_line(a, "C")
+        self.assertEqual(len(out), 78)
+        self.assertEqual((out[0:6], out[6:11], out[12:16], out[16], out[17:20], out[21], out[22:26], out[26]),
+                         ("HETATM", "99999", " NZ ", " ", "A1D", "C", "1007", " "))
+        self.assertEqual((out[30:38], out[38:46], out[46:54], out[54:60], out[60:66], out[76:78]),
+                         (" -12.345", "   2.000", "   3.000", "  1.00", " 33.50", " N"))
         self.assertFalse(capped)
 
     def test_a_large_b_factor_is_capped(self):
@@ -247,6 +278,21 @@ class PlanPeptidePairsTests(unittest.TestCase):
         pairs, _ = sp.plan_peptide_pairs([row("HPhob", seq=100, aa="F", atom="CZ", lig=lig)], "R", "D")
         self.assertEqual(sorted(pairs), [(2, "", "ALA", 100, "F"), (3, "", "LEU", 100, "F")])
 
+    def test_rings_and_cations_through_the_planner(self):
+        ring = "\n".join(producer_line(n, "PHE", "D", 4, serial=i)
+                         for i, n in enumerate(("CG", "CD1", "CZ")))
+        nz = producer_line("NZ", "LYS", "D", 5, element="N")
+        rows = [row("PiCat", "receptor-cation", seq=200, aa="R", atom="NH1", lig=ring),
+                row("PiCat", "ligand-cation", seq=300, aa="W", atom="CD2", lig=nz),
+                row("Aromatic", "face-to-face", seq=310, aa="F", atom="CG", lig=ring)]
+        pairs, _ = sp.plan_peptide_pairs(rows, "R", "D")
+        self.assertEqual(pairs[(4, "", "PHE", 200, "R")], [("RN1", "NH1", "aromatic", "cation-pi")])
+        self.assertEqual(pairs[(5, "", "LYS", 300, "W")], [("NZ", "RN1", "aromatic", "pi-cation")])
+        self.assertEqual(pairs[(4, "", "PHE", 310, "F")], [("RN1", "RN1", "aromatic", "face-to-face")])
+
+    def test_the_level_is_the_normal_definition(self):
+        self.assertEqual(sp.LEVEL, 0)
+
     def test_an_unroutable_row_raises_before_anything_is_planned(self):
         with self.assertRaises(si.UnroutableRow):
             sp.plan_peptide_pairs([row("HPhob", lig=GLN), row("Donor", "odd", lig=GLN)], "R", "D")
@@ -257,8 +303,9 @@ class MapFileTests(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.path = os.path.join(self.dir, "peptide_map.tsv")
         self.receptor = {"preferred_chain": "R", "auth_chain": "R", "status": "ok", "method": "exact",
-                         "segment": "R_OPRM_1_300", "n_ca_gpcrdb": 281, "n_ca_matched": 281,
-                         "n_covered": 281, "note": ""}
+                         "segment": "R_OPRM_1_300", "segments": "R_OPRM_1_300,R_seg_24_26",
+                         "n_ca_gpcrdb": 281, "n_ca_matched": 281, "n_covered": 281,
+                         "gpcrdb_text_sha256": "abc", "note": ""}
         self.rows = [
             dict({c: "" for c in sp.MAP_COLUMNS}, pdb="6DDF", gpcrdb_chain="D", auth_chain="D",
                  chain_method="ca", status="ok", segments="D_X_1_5,D_seg_6_6", items="k1,k2",
@@ -276,9 +323,11 @@ class MapFileTests(unittest.TestCase):
 
     def test_round_trip(self):
         self.write()
-        pdb, receptor, table, prov = sp.load_peptide_map(self.path)
+        pdb, receptor, table, prov, header = sp.load_peptide_map(self.path)
         self.assertEqual(pdb, "6DDF")
         self.assertEqual(receptor["segment"], "R_OPRM_1_300")
+        self.assertEqual(receptor["segments_list"], ["R_OPRM_1_300", "R_seg_24_26"])
+        self.assertEqual(header["annotation_commit"], "abc")
         self.assertEqual(table["D"]["items_list"], ["k1", "k2"])
         self.assertEqual(table["D"]["outcomes_list"], ["done", "selections_apart"])
         self.assertEqual(table["E"]["items_list"], [])
@@ -295,8 +344,28 @@ class MapFileTests(unittest.TestCase):
             self.write(rows)
             with self.assertRaises(sp.MapMismatch):
                 sp.load_peptide_map(self.path)
-        self.write(header=[("annotation_commit", "abc")])
-        with self.assertRaises(sp.MapMismatch):
+
+    def test_a_header_without_pdb_is_refused(self):
+        self.write(rows=[], header=[("annotation_commit", "abc")])
+        with self.assertRaisesRegex(sp.MapMismatch, "names no pdb"):
+            sp.load_peptide_map(self.path)
+
+    def test_a_missing_receptor_key_is_refused(self):
+        self.write()
+        with open(self.path) as fh:
+            text = fh.read().replace("# receptor.gpcrdb_text_sha256\tabc\n", "")
+        with open(self.path, "w") as fh:
+            fh.write(text)
+        with self.assertRaisesRegex(sp.MapMismatch, "gpcrdb_text_sha256"):
+            sp.load_peptide_map(self.path)
+
+    def test_other_columns_are_refused(self):
+        self.write()
+        with open(self.path) as fh:
+            text = fh.read().replace("\toutcomes\t", "\toutcome\t")
+        with open(self.path, "w") as fh:
+            fh.write(text)
+        with self.assertRaisesRegex(sp.MapMismatch, "columns"):
             sp.load_peptide_map(self.path)
 
     def test_another_schema_is_refused(self):
@@ -344,9 +413,28 @@ class TreeTests(unittest.TestCase):
             sp.anchor_rows(self.dir, "6DDF", self.map_row(["k2"], ["done"]))
 
     def test_an_open_question_raises(self):
-        self.item("k1", "compute_failed")
-        with self.assertRaises(sp.MalformedProduct):
-            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1"], ["compute_failed"]))
+        for n, outcome in enumerate(("compute_failed", "preparation_failed", "started")):
+            key = "k%d" % n
+            self.item(key, outcome)
+            with self.assertRaisesRegex(sp.MalformedProduct, "leaves the question open"):
+                sp.anchor_rows(self.dir, "6DDF", self.map_row([key], [outcome]))
+
+    def test_a_record_done_where_the_map_says_no_interface_raises(self):
+        self.item("k1", "done", [row("HPhob", lig=GLN)])
+        with self.assertRaisesRegex(sp.MalformedProduct, "the map says"):
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1"], ["selections_apart"]))
+
+    def test_fingerprints(self):
+        plan = os.path.join(self.dir, "6DDF", "plan.json")
+        with open(plan, "w") as fh:
+            fh.write("{}")
+        receptor = {"gpcrdb_text_sha256": cm.text_sha256("ATOM text\n")}
+        header = {"plan_sha256": sp.sha256_file(plan)}
+        sp.check_fingerprints("6DDF", self.dir, receptor, header, "ATOM text\n")
+        with self.assertRaisesRegex(sp.MapMismatch, "structure text"):
+            sp.check_fingerprints("6DDF", self.dir, receptor, header, "ATOM other\n")
+        with self.assertRaisesRegex(sp.MapMismatch, "plan.json"):
+            sp.check_fingerprints("6DDF", self.dir, receptor, {"plan_sha256": "0" * 64}, "ATOM text\n")
 
     def test_a_done_item_without_its_yaml_raises(self):
         self.item("k1", "done")
@@ -366,6 +454,25 @@ class TreeTests(unittest.TestCase):
                 json.dump(broken, fh)
             with self.assertRaises(sp.MalformedProduct):
                 sp.load_plan(self.dir, "6DDF")
+
+
+class BuilderTests(unittest.TestCase):
+    def test_every_pep_chain_whatever_its_type(self):
+        rows = [
+            {"PDB": "6ddf", "Name": "pep", "Type": "peptide", "Title": "DAMGO", "ChainID": "D"},
+            {"PDB": "8K3Z", "Name": "pep", "Type": "protein", "Title": "CXCL12", "ChainID": "D"},
+            {"PDB": "10TM", "Name": "pep", "Type": "peptide", "Title": "DAMGO", "ChainID": "H, S"},
+            {"PDB": "10TM", "Name": "pep", "Type": "small-molecule", "Title": "a, b", "ChainID": "H"},
+            {"PDB": "2RH1", "Name": "CAU", "Type": "small-molecule", "Title": "carazolol", "ChainID": "A"},
+        ]
+        out = builder.peptide_chains(rows)
+        self.assertEqual(sorted(out), ["10TM", "6DDF", "8K3Z"])
+        self.assertEqual(sorted(out["10TM"]), ["H", "S"])
+        self.assertEqual(out["10TM"]["H"], ({"DAMGO", "a  b"}, {"peptide", "small-molecule"}))
+        self.assertEqual(out["8K3Z"]["D"][1], {"protein"})
+
+    def test_flat_keeps_one_field(self):
+        self.assertEqual(builder._flat("a\tb\nc,d"), "a b c d")
 
 
 if __name__ == "__main__":

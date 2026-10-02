@@ -140,7 +140,9 @@ class Command(BaseCommand):
                 os.path.join(pdb_dir, pdb + ".pdb"))
             header = [("pdb", pdb)] + [(k, dict(common, **values).get(k, "")) for k in HEADER_KEYS]
             sp.write_peptide_map(os.path.join(data_dir, name, sp.MAP_NAME), header,
-                                 {k: _flat(v) for k, v in receptor.items()}, rows)
+                                 # Header values may hold commas (segments is a list);
+                                 # only what breaks a header line is replaced.
+                                 {k: e1._flat(v) for k, v in receptor.items()}, rows)
             written += 1
             for r in rows:
                 counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -176,7 +178,8 @@ class Command(BaseCommand):
                 cif_atoms = cm.parse_mmcif_atoms(fh.read())
             values["gpcrdb_pdb_sha256"] = sp.sha256_file(gpcrdb_pdb_path)
             with open(gpcrdb_pdb_path) as fh:
-                gatoms = cm.parse_gpcrdb_pdb(fh.read())
+                gtext = fh.read()
+            gatoms = cm.parse_gpcrdb_pdb(gtext)
         except (OSError, UnicodeDecodeError, sp.MalformedProduct, cm.ParseError,
                 KeyError, ValueError) as exc:
             return unresolved("input unreadable: {}: {}".format(type(exc).__name__, exc))
@@ -184,8 +187,8 @@ class Command(BaseCommand):
         res = cm.resolve_receptor(pdb, receptor["preferred_chain"], cif_atoms, gatoms)
         receptor.update(auth_chain=res["auth_chain"], status=res["status"], method=res["method"],
                         n_ca_gpcrdb=res["n_ca_gpcrdb"], n_ca_matched=res["n_ca_matched"],
-                        note=res["note"])
-        rseg = None
+                        note=res["note"], gpcrdb_text_sha256=cm.text_sha256(gtext))
+        rseg, rsegs = None, []
         if res["status"] == "ok":
             numbers = sp.receptor_ca_numbers(res["auth_chain"], receptor["preferred_chain"],
                                              cif_atoms, gatoms)
@@ -193,6 +196,9 @@ class Command(BaseCommand):
             receptor.update(segment=rseg or "", n_covered=covered)
             if rseg is None:
                 receptor.update(status="no_segment", note=why)
+            else:
+                rsegs = sp.receptor_chain_segments(segments, res["auth_chain"])
+                receptor.update(segments=sp.LIST_SEP.join(rsegs))
         rows = []
         for chain, info in sorted(chain_info.items()):
             if rseg is None:
@@ -203,11 +209,13 @@ class Command(BaseCommand):
             if not auth:
                 rows.append(self._row(pdb, chain, info, status="chain_unresolved", note=note))
                 continue
-            found = sp.peptide_items(segments, items, auth, rseg)
+            found = sp.peptide_items(segments, items, auth, rsegs)
             if not found:
                 rows.append(self._row(pdb, chain, info, auth_chain=auth, chain_method=method,
                                       status="no_items",
-                                      note="no peptide-as-ligand item against {}".format(rseg)))
+                                      note="no peptide-as-ligand item against chain {} "
+                                           "(peptide on the receptor chain?)".format(
+                                               receptor["auth_chain"])))
                 continue
             outcomes = []
             for _, key in found:
@@ -216,7 +224,7 @@ class Command(BaseCommand):
                 outcomes.append(str(record.get("outcome") or ""))
             rows.append(self._row(pdb, chain, info, auth_chain=auth, chain_method=method,
                                   status=sp.ROW_OK, note=note,
-                                  segments=sp.LIST_SEP.join(s for s, _ in found),
+                                  segments=sp.LIST_SEP.join(sorted({s for s, _ in found})),
                                   items=sp.LIST_SEP.join(k for _, k in found),
                                   outcomes=sp.LIST_SEP.join(outcomes)))
         return receptor, rows, values
