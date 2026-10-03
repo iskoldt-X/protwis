@@ -54,15 +54,9 @@ from structure.models import Fragment, PdbData, Rotamer
 # Scope
 # ---------------------------------------------------------------------------
 
-# Ligand types the annotation gives the anchors Engine 1 serves. The chain-map
-# builder filters ligands.tsv by them; there every row that names a chemical
-# component carries one of these two types, so the filter and the reference
-# test of is_in_scope select the same anchors. Peptide and protein ligands are
-# chains, referenced as PEP, and belong to Engine 2.
-IN_SCOPE_LIGAND_TYPES = frozenset({"small-molecule", "lipid"})
-
 # pdb_reference values that name no chemical component (lower case in the
-# 2026-09 database, upper case in older dumps).
+# 2026-09 database, upper case in older dumps). Every other reference names one
+# and is Engine 1's (is_in_scope); PEP anchors are chains, served by Engine 2.
 PLACEHOLDER_REFERENCES = frozenset({"PEP", "APO"})
 
 # Families never written to the database. Wat-HBond: the bridging water is not

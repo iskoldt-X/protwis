@@ -44,11 +44,13 @@ class ReadTsvTests(unittest.TestCase):
         with self.assertRaises(CommandError):
             b.read_tsv(path)
 
-    def test_a_short_row_is_padded_and_drops_the_anchor(self):
-        """The safe direction: the importer then refuses the structure."""
+    def test_a_short_row_is_padded_and_loses_its_token(self):
+        """The safe direction: the anchor keeps its component but no residue,
+        so the map cannot cover the database's token and the importer refuses
+        the structure."""
         path = self.write(tsv([["PDB", "Name", "Type"], ["2RH1", "CAU"]]))
         self.assertEqual(b.read_tsv(path), [{"PDB": "2RH1", "Name": "CAU", "Type": ""}])
-        self.assertEqual(b.annotation_anchors(b.read_tsv(path)), {})
+        self.assertEqual(b.annotation_anchors(b.read_tsv(path)), {"2RH1": [("CAU", "", "")]})
 
 
 class PreferredChainTests(unittest.TestCase):
@@ -72,13 +74,33 @@ class AnnotationAnchorTests(unittest.TestCase):
         r.update(kw)
         return r
 
-    def test_only_the_types_engine_1_serves(self):
+    def test_every_component_reference_whatever_its_type(self):
         rows = [self.row(), self.row(Name="OLA", Type="lipid", Residue_seq_id="A:1"),
                 self.row(Name="PEP", Type="peptide", Residue_seq_id="B:1"),
+                self.row(Name="D2U", Type="peptide", Residue_seq_id="A:1201"),
                 self.row(Name="X", Type="protein", Residue_seq_id="B:2"),
-                self.row(Name="Y", Type="None", Residue_seq_id="B:3")]
+                self.row(Name="Y", Type="None", Residue_seq_id="B:3"),
+                self.row(Name="Z", Type="small molecule", Residue_seq_id="B:4")]
         got = b.annotation_anchors(rows)
-        self.assertEqual([(h, t) for h, t, _ in got["2RH1"]], [("CAU", "A:408"), ("OLA", "A:1")])
+        self.assertEqual([(h, t) for h, t, _ in got["2RH1"]],
+                         [("CAU", "A:408"), ("OLA", "A:1"), ("D2U", "A:1201"), ("X", "B:2"),
+                          ("Y", "B:3"), ("Z", "B:4")])
+
+    def test_the_map_selects_what_the_importer_serves(self):
+        """annotation_anchors and schrodinger_import.is_in_scope agree on every
+        combination of reference and type (reviewer SC-1, 2026-10-03: they had
+        drifted apart, the builder testing the type and the importer not)."""
+        import types as pytypes
+        references = ["CAU", "D2U", "PEP", "pep", "APO", " apo ", "", None]
+        kinds = ["small-molecule", "lipid", "peptide", "protein", "none", "None", "small molecule", ""]
+        for ref in references:
+            for kind in kinds:
+                sli = pytypes.SimpleNamespace(
+                    pdb_reference=ref,
+                    ligand=pytypes.SimpleNamespace(ligand_type=pytypes.SimpleNamespace(slug=kind)))
+                row = self.row(Name=ref if ref is not None else "", Type=kind)
+                mapped = bool(b.annotation_anchors([row]))
+                self.assertEqual(mapped, si.is_in_scope(sli), (ref, kind))
 
     def test_a_placeholder_name_is_not_an_anchor(self):
         rows = [self.row(Name=name) for name in sorted(si.PLACEHOLDER_REFERENCES)]

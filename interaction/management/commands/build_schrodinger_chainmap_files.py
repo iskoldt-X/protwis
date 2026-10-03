@@ -17,7 +17,6 @@ Where each input comes from:
     ------------------------------------  ---------------------------------------
     StructureLigandInteraction            structure_data/annotation/ligands.tsv
       pdb_reference / chain_res             Name / Residue_seq_id
-      ligand.ligand_type.slug               Type
     Structure.preferred_chain             structure_data/annotation/structures.tsv
                                             ChainID (column 6)
     Structure.pdb_data.pdb                structure_data/pdbs/<PDB>.pdb
@@ -173,10 +172,14 @@ def preferred_chains(rows):
 def annotation_anchors(rows):
     """PDB -> [(HET, token, chain_res)] in file order, for the anchors Engine 1 serves.
 
-    Mirrors schrodinger_import.is_in_scope: a real chemical component whose
-    annotated type is one Engine 1 serves. The (HET, token) pairs are the same
-    set check_map_covers compares against the database, so the ligand_role axis
-    -- which the annotation does not have -- never enters.
+    Mirrors schrodinger_import.is_in_scope: every row whose Name is a real
+    chemical component, whatever its Type. The reference says what the anchor
+    is in the structure; the type does not always agree between the annotation
+    and the database (6K1Q's IRL 2500, D2U: small-molecule here, peptide there),
+    and a type test on either side alone drops an anchor the other side keeps.
+    The (HET, token) pairs are the same set check_map_covers compares against
+    the database, so the ligand_role axis -- which the annotation does not
+    have -- never enters.
     """
     out = {}
     seen = set()
@@ -184,12 +187,6 @@ def annotation_anchors(rows):
         pdb = (r.get("PDB") or "").upper()
         het = (r.get("Name") or "").strip().upper()
         if not pdb or not het or het in si.PLACEHOLDER_REFERENCES:
-            continue
-        # The exact annotation spelling, as is_in_scope reads the slug. A new
-        # upstream spelling (for instance "small molecule" with a space) drops
-        # the anchor here while the database keeps it, which the importer then
-        # refuses loudly -- the safe direction.
-        if (r.get("Type") or "") not in si.IN_SCOPE_LIGAND_TYPES:
             continue
         chain_res = r.get("Residue_seq_id") or ""
         for tok in cm.split_tokens(chain_res) or [""]:
@@ -313,7 +310,7 @@ class Command(BaseCommand):
         # one.
         builder_sha = _sha256_parts([
             _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
-            repr(sorted(si.IN_SCOPE_LIGAND_TYPES)), repr(sorted(si.PLACEHOLDER_REFERENCES)),
+            repr(sorted(si.PLACEHOLDER_REFERENCES)),
             si.INSTANCE_DIR_RE.pattern, repr(si.INSTANCE_DIR_RE.flags),
             inspect.getsource(si.instance_yaml_paths),
             si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME,
