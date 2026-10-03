@@ -54,8 +54,11 @@ from structure.models import Fragment, PdbData, Rotamer
 # Scope
 # ---------------------------------------------------------------------------
 
-# Ligand types whose anchors Engine 1 serves. Peptide and protein ligands
-# belong to Engine 2, which is frozen; their rows are left as they are.
+# Ligand types the annotation gives the anchors Engine 1 serves. The chain-map
+# builder filters ligands.tsv by them; there every row that names a chemical
+# component carries one of these two types, so the filter and the reference
+# test of is_in_scope select the same anchors. Peptide and protein ligands are
+# chains, referenced as PEP, and belong to Engine 2.
 IN_SCOPE_LIGAND_TYPES = frozenset({"small-molecule", "lipid"})
 
 # pdb_reference values that name no chemical component (lower case in the
@@ -591,11 +594,17 @@ def read_instance_rows(path):
 # ---------------------------------------------------------------------------
 
 def is_in_scope(sli):
-    """True iff this SLI anchor is served by Engine 1."""
+    """True iff this SLI anchor is served by Engine 1: it names a chemical
+    component (a HET code), whatever type the database gives the ligand.
+
+    The reference says what the anchor is in the structure; the database's
+    ligand type does not always agree with the annotation's. 6K1Q's IRL 2500 is
+    a peptide in the database and a small molecule in ligands.tsv, referenced
+    as the one component D2U: Engine 1 computes it and the chain map maps it,
+    and a type test here left it out of both lanes.
+    """
     reference = (sli.pdb_reference or "").strip().upper()
-    if not reference or reference in PLACEHOLDER_REFERENCES:
-        return False
-    return sli.ligand.ligand_type.slug in IN_SCOPE_LIGAND_TYPES
+    return bool(reference) and reference not in PLACEHOLDER_REFERENCES
 
 
 # ---------------------------------------------------------------------------

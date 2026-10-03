@@ -700,8 +700,13 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(si.is_in_scope(self.sli("CLR", "lipid")))
         self.assertFalse(si.is_in_scope(self.sli("pep", "small-molecule")))
         self.assertFalse(si.is_in_scope(self.sli("APO", "none")))
-        self.assertFalse(si.is_in_scope(self.sli("XYZ", "peptide")))
-        self.assertFalse(si.is_in_scope(self.sli("XYZ", "protein")))
+        # A component reference is Engine 1's whatever the database calls the
+        # ligand (6K1Q: IRL 2500, D2U, typed peptide in the database).
+        self.assertTrue(si.is_in_scope(self.sli("D2U", "peptide")))
+        self.assertTrue(si.is_in_scope(self.sli("XYZ", "protein")))
+        self.assertFalse(si.is_in_scope(self.sli("PEP", "peptide")))
+        self.assertFalse(si.is_in_scope(self.sli("PEP", "protein")))
+        self.assertFalse(si.is_in_scope(self.sli(" apo ", "none")))
         self.assertFalse(si.is_in_scope(self.sli("", "small-molecule")))
         self.assertFalse(si.is_in_scope(self.sli(None, "small-molecule")))
 
