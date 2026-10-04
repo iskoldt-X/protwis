@@ -57,6 +57,7 @@ import yaml
 from django.db import transaction
 
 from interaction import schrodinger_chain_map as chain_map
+from interaction import schrodinger_complex as complex_file
 from interaction import schrodinger_import as si
 
 from contactnetwork.models import InteractingPeptideResiduePair, InteractionPeptide
@@ -551,7 +552,7 @@ class AnchorOutcome(object):
     __slots__ = ("sli_id", "chain", "mode", "items", "notes", "rfi_deleted", "rfi_written",
                  "rfi_counts", "rfi_dropped", "fragments_created", "pairs_deleted",
                  "interactions_deleted", "pairs_written", "interactions_written",
-                 "pair_counts", "pair_dropped")
+                 "pair_counts", "pair_dropped", "complex_file")
 
     def __init__(self, sli_id, chain):
         self.sli_id = sli_id
@@ -570,6 +571,7 @@ class AnchorOutcome(object):
         self.interactions_written = 0
         self.pair_counts = collections.Counter()
         self.pair_dropped = collections.Counter()
+        self.complex_file = ""
 
 
 class MissingPeptideStructure(ValueError):
@@ -592,6 +594,8 @@ def _receptor_residue(structure, seq, amino_acid, dropped):
 
 
 def _write_rfi(structure, sli, records, types, outcome):
+    """Write the RFI rows; returns the receptor residue numbers written."""
+    written = set()
     for rec in records:
         residue = _receptor_residue(structure, rec["sequence_number"], rec["amino_acid"],
                                     outcome.rfi_dropped)
@@ -615,6 +619,8 @@ def _write_rfi(structure, sli, records, types, outcome):
             structure_ligand_pair=sli, rotamer=rotamers[0], fragment=fragment,
             interaction_type=types[rec["slug"]])
         outcome.rfi_written += 1
+        written.add(rec["sequence_number"])
+    return written
 
 
 def _write_pairs(structure, peptide, pairs, outcome):
@@ -731,6 +737,8 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
     pdb = structure.pdb_code.index.upper()
     types = {t.slug: t for t in ResidueFragmentInteractionType.objects.all()}
     outcomes = []
+    replaced_files = set()
+    gpcrdb_text = structure.pdb_data.pdb if structure.pdb_data_id else ""
     with transaction.atomic():
         slis = [sli for sli in (StructureLigandInteraction.objects
                                 .filter(structure=structure)
@@ -754,6 +762,8 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
                 # ADR-091: an in-scope anchor without a product keeps no rows.
                 outcome.mode = "cleared"
                 outcome.notes.append("anchor names no chain")
+                outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")
+                replaced_files.add(replaced)
                 outcomes.append(outcome)
                 continue
             outcome.items = list(row["items_list"])
@@ -761,6 +771,8 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             if failed:
                 outcome.mode = "no_product"
                 outcome.notes.append("items failed: " + LIST_SEP.join(failed))
+                outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")
+                replaced_files.add(replaced)
                 outcomes.append(outcome)
                 continue
             outcome.mode = "imported"
@@ -773,8 +785,19 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             outcome.rfi_counts["ligand_lines_bfactor_capped"] = len(capped)
             records, rfi_counts, _ = si.plan_rows(rows, receptor["auth_chain"])
             outcome.rfi_counts.update(rfi_counts)
-            _write_rfi(structure, sli, records, types, outcome)
+            written_seqs = _write_rfi(structure, sli, records, types, outcome)
             _write_pairs(structure, peptide, pairs, outcome)
+            # The anchor's 3D file: the peptide chain and the residues just written.
+            text = ""
+            if outcome.rfi_written:
+                text = complex_file.complex_text(gpcrdb_text, receptor["preferred_chain"],
+                                                 written_seqs, ligand_chain=chain)
+                if not text:
+                    outcome.notes.append("chain {} not found in the stored structure text; "
+                                         "no 3D file".format(chain))
+            outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
+            replaced_files.add(replaced)
             outcomes.append(outcome)
         cleanup = si.delete_orphan_fragments(structure)
+        cleanup.update(si.delete_unreferenced_pdbdata(replaced_files))
     return outcomes, cleanup

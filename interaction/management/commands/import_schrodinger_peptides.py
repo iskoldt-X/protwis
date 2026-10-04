@@ -154,7 +154,9 @@ class Command(BaseCommand):
                         "pairs_written": o.pairs_written,
                         "interactions_written": o.interactions_written,
                         "pair_counts": dict(o.pair_counts), "pair_dropped": dict(o.pair_dropped),
+                        "complex_file": o.complex_file,
                     })
+                    totals["complex_file_" + o.complex_file] += 1
                     totals["anchors"] += 1
                     totals["cleared"] += o.mode in ("cleared", "no_product")
                     for key in ("rfi_deleted", "rfi_written", "pairs_deleted", "pairs_written",
@@ -173,11 +175,13 @@ class Command(BaseCommand):
                 self.stdout.write("{}: {} distinct values across the tree".format(key, len(values)))
         self.stdout.write(
             "{} structures, {} anchors ({} cleared); RFI deleted {} written {}; peptide pairs "
-            "deleted {} written {}; peptide interactions deleted {} written {}; orphan fragments "
-            "deleted {}{}; anomalies INFO={} WARNING={} ERROR={}".format(
+            "deleted {} written {}; peptide interactions deleted {} written {}; 3D files {}; "
+            "orphan fragments deleted {}{}; anomalies INFO={} WARNING={} ERROR={}".format(
                 len(codes), totals["anchors"], totals["cleared"], totals["rfi_deleted"],
                 totals["rfi_written"], totals["pairs_deleted"], totals["pairs_written"],
                 totals["interactions_deleted"], totals["interactions_written"],
+                {k[len("complex_file_"):]: v for k, v in sorted(totals.items())
+                 if k.startswith("complex_file_")},
                 totals["fragments_deleted"], " (dry run: rolled back)" if options["dry_run"] else "",
                 log.levels["INFO"], log.levels["WARNING"], log.levels["ERROR"]))
         if failed:

@@ -239,6 +239,7 @@ class Command(BaseCommand):
         failed = []
         totals = {"anchors": 0, "cleared": 0, "deleted": 0, "written": 0,
                   "fragments_deleted": 0, "pdbdata_deleted": 0, "pdbdata_kept_referenced": 0}
+        files = collections.Counter()
         try:
             for pdb in codes:
                 entry = {"pdb": pdb}
@@ -340,8 +341,9 @@ class Command(BaseCommand):
                         "deleted": o.deleted, "written": o.written,
                         "fragments_created": o.fragments_created, "counts": dict(o.counts),
                         "other_chain_by_chain": o.other_chain_by_chain,
-                        "dropped": dict(o.dropped),
+                        "dropped": dict(o.dropped), "complex_file": o.complex_file,
                     })
+                    files[o.complex_file] += 1
                     totals["anchors"] += 1
                     totals["cleared"] += o.mode == "no_product"
                     totals["deleted"] += o.deleted
@@ -352,16 +354,17 @@ class Command(BaseCommand):
                 _make_room_for(options["report_json"])
                 with open(options["report_json"], "w") as fh:
                     json.dump({"dry_run": options["dry_run"], "totals": totals,
+                               "complex_files": dict(files),
                                "provenance": provenance, "not_run": not_run,
                                "failed": failed, "structures": report}, fh, indent=1)
 
         self.stdout.write(
             "{} structures, {} in-scope anchors ({} cleared, no product), {} RFI rows deleted, "
-            "{} written; orphan fragments deleted {}, PdbData deleted {} (kept, referenced "
-            "elsewhere: {}){}; anomalies INFO={} WARNING={} ERROR={}".format(
+            "{} written; 3D files {}; orphan fragments deleted {}, PdbData deleted {} (kept, "
+            "referenced elsewhere: {}){}; anomalies INFO={} WARNING={} ERROR={}".format(
                 len(codes), totals["anchors"], totals["cleared"], totals["deleted"],
-                totals["written"], totals["fragments_deleted"], totals["pdbdata_deleted"],
-                totals["pdbdata_kept_referenced"],
+                totals["written"], dict(sorted(files.items())), totals["fragments_deleted"],
+                totals["pdbdata_deleted"], totals["pdbdata_kept_referenced"],
                 " (dry run: rolled back)" if options["dry_run"] else "",
                 log.levels["INFO"], log.levels["WARNING"], log.levels["ERROR"]))
         if failed:

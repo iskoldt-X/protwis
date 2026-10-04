@@ -40,6 +40,7 @@ import yaml
 from django.db import transaction
 
 from interaction import schrodinger_chain_map as chain_map
+from interaction import schrodinger_complex as complex_file
 
 from interaction.models import (
     ResidueFragmentInteraction,
@@ -609,7 +610,8 @@ class AnchorOutcome(object):
     """What happened to one in-scope anchor."""
 
     __slots__ = ("sli_id", "het", "mode", "instances", "notes", "deleted", "written",
-                 "counts", "other_chain_by_chain", "dropped", "fragments_created")
+                 "counts", "other_chain_by_chain", "dropped", "fragments_created",
+                 "complex_file")
 
     def __init__(self, sli_id, het):
         self.sli_id = sli_id
@@ -623,6 +625,7 @@ class AnchorOutcome(object):
         self.other_chain_by_chain = {}
         self.dropped = collections.Counter()
         self.fragments_created = 0
+        self.complex_file = ""
 
 
 class UnexpectedCascade(RuntimeError):
@@ -739,7 +742,22 @@ def delete_orphan_fragments(structure):
     _only_deleted(deleted, {"structure.Fragment"})
     out["fragments_deleted"] = deleted.get("structure.Fragment", 0)
 
-    candidates = {pd for _, pd in orphans}
+    out.update(delete_unreferenced_pdbdata({pd for _, pd in orphans}))
+    return out
+
+
+def delete_unreferenced_pdbdata(candidates):
+    """Delete the PdbData rows of ``candidates`` that no row of any model references.
+
+    Every reference to PdbData cascades (a StructureLigandInteraction whose
+    pdb_file is deleted goes with it), so a row still referenced is kept. The
+    referencing models are read from Django's model metadata. Returns a Counter
+    with pdbdata_deleted and pdbdata_kept_referenced.
+    """
+    out = collections.Counter()
+    candidates = {pd for pd in candidates if pd is not None}
+    if not candidates:
+        return out
     still_used = set()
     for rel in PdbData._meta.related_objects:
         still_used.update(rel.related_model._base_manager
@@ -830,6 +848,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
     outcomes = []
     out_of_scope = 0
     unused = []
+    replaced_files = set()
     with transaction.atomic():
         slis = list(StructureLigandInteraction.objects
                     .filter(structure=structure)
@@ -842,6 +861,8 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             check_fingerprints(pdb_code, receptor_map,
                                structure.pdb_data.pdb if structure.pdb_data_id else "", instances)
             chain = receptor_chain(pdb_code, receptor_map)
+            gpcrdb_text = structure.pdb_data.pdb if structure.pdb_data_id else ""
+            label_chain = receptor_map[pdb_code]["preferred_chain"]
         for sli in in_scope:
             outcome = AnchorOutcome(sli.id, sli.pdb_reference.upper())
             names, outcome.mode, outcome.notes = anchor_instances(
@@ -871,6 +892,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             _only_deleted(deleted_by_model, {"interaction.ResidueFragmentInteraction"})
             outcome.deleted = deleted_by_model.get("interaction.ResidueFragmentInteraction", 0)
 
+            written_seqs = set()
             for rec in records:
                 residues = list(Residue.objects.filter(
                     protein_conformation=structure.protein_conformation,
@@ -909,6 +931,21 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                     interaction_type=types[rec["slug"]],
                 )
                 outcome.written += 1
+                written_seqs.add(rec["sequence_number"])
+            # The anchor's 3D file: its ligand and the residues just written.
+            text = ""
+            if outcome.written:
+                text = complex_file.complex_text(
+                    gpcrdb_text, label_chain, written_seqs,
+                    ligand_xyz=complex_file.ligand_line_xyz(
+                        line for row in rows
+                        for line in (row.get("ligand_pdb_block") or "").splitlines()))
+                if not text:
+                    outcome.notes.append("ligand not found in the stored structure text; "
+                                         "no 3D file")
+            outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
+            replaced_files.add(replaced)
             outcomes.append(outcome)
         cleanup = delete_orphan_fragments(structure) if in_scope else collections.Counter()
+        cleanup.update(delete_unreferenced_pdbdata(replaced_files))
     return outcomes, out_of_scope, cleanup, unused
