@@ -11,7 +11,10 @@ has none fails, and is never passed over -- its anchors would otherwise keep
 the legacy rows without a word. --pdb / --pdb-list narrow the corpus.
 
 Each structure is imported in its own transaction and replaces, for each of
-its peptide anchors, the anchor's RFI rows and its peptide pairs. A structure
+its "pep" anchors, the anchor's RFI rows and its peptide pairs. An anchor whose
+items the run failed (preparation_failed, compute_failed, timed_out, crashed)
+gets no rows and is reported as a WARNING (anchor_cleared), as Engine 1 treats
+a structure it ran without a product; the structure and the run go on. A structure
 that fails is rolled back and reported; the others are unaffected, and the
 command exits non-zero after all were attempted. --dry-run runs every
 structure and rolls each one back.
@@ -153,7 +156,7 @@ class Command(BaseCommand):
                         "pair_counts": dict(o.pair_counts), "pair_dropped": dict(o.pair_dropped),
                     })
                     totals["anchors"] += 1
-                    totals["cleared"] += o.mode == "cleared"
+                    totals["cleared"] += o.mode in ("cleared", "no_product")
                     for key in ("rfi_deleted", "rfi_written", "pairs_deleted", "pairs_written",
                                 "interactions_deleted", "interactions_written"):
                         totals[key] += getattr(o, key)
@@ -183,7 +186,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def _log_outcome(log, pdb, o):
-        if o.mode == "cleared":
+        if o.mode in ("cleared", "no_product"):
             log.log(pdb, "WARNING", "anchor_cleared", o.sli_id, o.chain,
                     o.rfi_deleted + o.pairs_deleted,
                     detail="no product rows; {} RFI rows and {} peptide pairs deleted; {}".format(

@@ -93,6 +93,12 @@ MAP_NAME = "peptide_map.tsv"
 DONE = "done"
 # Outcomes that answer the question with "no interface": no rows, not a gap.
 NO_INTERFACE = frozenset({"selections_apart", "selection_empty", "selections_overlap"})
+# Terminal outcomes of a run that looked and could not answer (Engine 2's
+# status.py): the anchor gets no rows and is reported, as Engine 1 treats a
+# structure it ran without a product. Anything else that is not done
+# (started, an unknown word) is an unfinished or unreadable delivery and
+# fails the structure.
+FAILED = frozenset({"preparation_failed", "compute_failed", "timed_out", "crashed"})
 
 
 class MalformedProduct(si.MalformedProduct):
@@ -509,13 +515,16 @@ def standardise_blocks(rows, product_chain, gpcrdb_chain):
 
 
 def anchor_rows(data_dir, pdb, map_row):
-    """The product rows of one anchor, from the items its map row names.
+    """(rows, failed) of one anchor, from the items its map row names.
 
-    Each item's record is read again and must still say what the map says;
-    a done item must have its YAML. An item that is neither done nor a
-    no-interface answer means the question is still open, and raises.
+    Each item's record is read again and must still say what the map says.
+    ``failed`` lists "key:outcome" for the items the run could not answer
+    (FAILED); when it is not empty ``rows`` is empty too, so an anchor is
+    never half imported. Otherwise ``rows`` are the rows of the done items,
+    each of which must have its YAML. An item that is neither done, a
+    no-interface answer nor failed leaves the question open, and raises.
     """
-    rows = []
+    rows, failed = [], []
     for key, expected in zip(map_row["items_list"], map_row["outcomes_list"]):
         rec_path, yaml_path = item_paths(data_dir, pdb, key)
         record = read_json(rec_path)
@@ -524,10 +533,12 @@ def anchor_rows(data_dir, pdb, map_row):
                 rec_path, record.get("work_item_key"), record.get("outcome"), key, expected))
         if expected == DONE:
             rows.extend(si.read_instance_rows(yaml_path))
+        elif expected in FAILED:
+            failed.append("{}:{}".format(key, expected))
         elif expected not in NO_INTERFACE:
             raise MalformedProduct("{}: outcome {} leaves the question open".format(
                 rec_path, expected))
-    return rows
+    return ([] if failed else rows), failed
 
 
 # ---------------------------------------------------------------------------
@@ -711,9 +722,11 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
     it was.
 
     An anchor with no chain_res names no peptide chain at all; it is cleared
-    (ADR-091) and reported. An anchor whose map row is anything but ok is a
+    (ADR-091) and reported. An anchor with an item the run failed gets no
+    rows and is reported (mode no_product), as Engine 1 treats a structure it
+    ran without a product. An anchor whose map row is anything but ok is a
     question the map could not answer, and fails the structure (as Engine 1's
-    unresolved anchors do) rather than clearing it.
+    unresolved anchors do).
     """
     pdb = structure.pdb_code.index.upper()
     types = {t.slug: t for t in ResidueFragmentInteractionType.objects.all()}
@@ -743,9 +756,14 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
                 outcome.notes.append("anchor names no chain")
                 outcomes.append(outcome)
                 continue
-            outcome.mode = "imported"
             outcome.items = list(row["items_list"])
-            rows = anchor_rows(data_dir, pdb, row)
+            rows, failed = anchor_rows(data_dir, pdb, row)
+            if failed:
+                outcome.mode = "no_product"
+                outcome.notes.append("items failed: " + LIST_SEP.join(failed))
+                outcomes.append(outcome)
+                continue
+            outcome.mode = "imported"
             # Both tables are planned before either is written: a row the
             # vocabulary cannot route fails the structure, not half of it. The
             # peptide pairs read the producer's lines, so they come first.

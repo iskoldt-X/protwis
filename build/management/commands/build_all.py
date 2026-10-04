@@ -8,6 +8,8 @@ import datetime
 # Where the Engine 1 products and their per-PDB chain maps are delivered,
 # relative to DATA_DIR.
 ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
+# Where the Engine 2 products and their per-PDB peptide maps are delivered.
+ENGINE2_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine2'])
 
 # Where each import run leaves its accounting, relative to BASE_DIR. Not in
 # DATA_DIR: that is a git checkout of shared, versioned input, and a per-run,
@@ -16,6 +18,7 @@ ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
 # ignored by git in full. One directory per run, so a later build cannot
 # overwrite the record of an earlier one.
 ENGINE1_RUN_DIR = os.sep.join(['logs', 'engine1_import'])
+ENGINE2_RUN_DIR = os.sep.join(['logs', 'engine2_peptide_import'])
 
 
 class Command(BaseCommand):
@@ -60,48 +63,70 @@ class Command(BaseCommand):
                             default=None,
                             help='Where this run leaves its Engine 1 import accounting; '
                                  'default BASE_DIR/' + ENGINE1_RUN_DIR + '/<timestamp>')
-        parser.add_argument('--skip_engine1',
+        parser.add_argument('--engine2_data_dir',
+                            action='store',
+                            dest='engine2_data_dir',
+                            default=None,
+                            help='Engine 2 product tree; default DATA_DIR/' + ENGINE2_DIR)
+        parser.add_argument('--engine2_report_dir',
+                            action='store',
+                            dest='engine2_report_dir',
+                            default=None,
+                            help='Where this run leaves its Engine 2 peptide import accounting; '
+                                 'default BASE_DIR/' + ENGINE2_RUN_DIR + '/<timestamp>')
+        parser.add_argument('--skip_ligand_import',
                             action='store_true',
-                            dest='skip_engine1',
+                            dest='skip_ligand_import',
                             default=False,
-                            help='Do not import the Engine 1 ligand interactions, leaving the '
-                                 'legacy ones build_structures wrote')
+                            help='Do not import the Schrodinger ligand interactions (Engine 1 '
+                                 'small molecules, Engine 2 "pep" chains). build_structures '
+                                 'does not compute them, so the build then has none')
 
     def engine1_dir(self, options):
         return options['engine1_data_dir'] or os.sep.join([settings.DATA_DIR, ENGINE1_DIR])
 
-    def engine1_steps(self, options):
-        """The Engine 1 import: a dry run that gates, then the real one.
+    def engine2_dir(self, options):
+        return options['engine2_data_dir'] or os.sep.join([settings.DATA_DIR, ENGINE2_DIR])
 
-        build_structures writes the legacy small-molecule interactions; this
-        replaces them. The dry run rolls every structure back, so a structure
-        that would fail stops the build with nothing imported rather than half
-        imported: recovering is a re-run, not an excavation. Both runs write
-        their accounting next to the products they read.
+    def ligand_import_steps(self, options):
+        """The ligand interactions: both imports dry-run first, then both for real.
+
+        build_structures computes no ligand interaction; these two imports are
+        where the ligand tables come from. Engine 1 serves anchors named by a
+        HET code, Engine 2's peptide lane the "pep" chains. Each dry run rolls
+        every structure back, and both run before either import writes, so a
+        structure that would fail stops the build with nothing imported rather
+        than half imported: recovering is a re-run, not an excavation. Each
+        run writes its accounting next to the others of the same build.
         """
-        if options['skip_engine1']:
-            print('{} SKIPPING the Engine 1 import: the small-molecule ligand interactions '
-                  'in this build are the ones build_structures computes with the legacy '
-                  'pipeline'.format(datetime.datetime.strftime(
+        if options['skip_ligand_import']:
+            print('{} SKIPPING the ligand imports: this build has no ligand '
+                  'interactions'.format(datetime.datetime.strftime(
                       datetime.datetime.now(), '%Y-%m-%d %H:%M:%S')))
             return []
-        data_dir = self.engine1_dir(options)
-        run_dir = options['engine1_report_dir'] or os.sep.join([
-            settings.BASE_DIR, ENGINE1_RUN_DIR,
-            datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')])
-        print('{} Engine 1 import accounting goes to {}'.format(
-            datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'), run_dir))
-        common = {'data_dir': data_dir}
-        return [
-            ['import_schrodinger_interactions',
-             dict(common, dry_run=True,
-                  anomaly_csv=os.path.join(run_dir, 'anomalies.dryrun.csv'),
-                  report_json=os.path.join(run_dir, 'report.dryrun.json'))],
-            ['import_schrodinger_interactions',
-             dict(common,
-                  anomaly_csv=os.path.join(run_dir, 'anomalies.csv'),
-                  report_json=os.path.join(run_dir, 'report.json'))],
-        ]
+        stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+        lanes = []
+        for command, data_dir, report_dir, default_dir in (
+                ('import_schrodinger_interactions', self.engine1_dir(options),
+                 options['engine1_report_dir'], ENGINE1_RUN_DIR),
+                ('import_schrodinger_peptides', self.engine2_dir(options),
+                 options['engine2_report_dir'], ENGINE2_RUN_DIR)):
+            run_dir = report_dir or os.sep.join([settings.BASE_DIR, default_dir, stamp])
+            print('{} {} accounting goes to {}'.format(
+                datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'),
+                command, run_dir))
+            lanes.append((command, data_dir, run_dir))
+        dry = [[command,
+                {'data_dir': data_dir, 'dry_run': True,
+                 'anomaly_csv': os.path.join(run_dir, 'anomalies.dryrun.csv'),
+                 'report_json': os.path.join(run_dir, 'report.dryrun.json')}]
+               for command, data_dir, run_dir in lanes]
+        real = [[command,
+                 {'data_dir': data_dir,
+                  'anomaly_csv': os.path.join(run_dir, 'anomalies.csv'),
+                  'report_json': os.path.join(run_dir, 'report.json')}]
+                for command, data_dir, run_dir in lanes]
+        return dry + real
 
     def handle(self, *args, **options):
         if options['test']:
@@ -127,9 +152,9 @@ class Command(BaseCommand):
             # ['build_chembl_data', {'test_run': options['test']}],
             ['build_mutant_data', {'test_run': options['test']}],
             ['build_structures', {'proc': options['proc'], 'skip_cn': options['test']}],
-            # Engine 1 replaces the small-molecule ligand interactions that
-            # build_structures just wrote, before anything reads them.
-            *self.engine1_steps(options),
+            # The ligand interactions come from the Schrodinger deliveries,
+            # imported before anything reads them.
+            *self.ligand_import_steps(options),
             ['build_consensus_sequences', {'proc': options['proc']}],
             ['build_g_proteins'],
             ['build_consensus_sequences', {'proc': options['proc'], 'signprot': 'Alpha'}],
@@ -190,14 +215,14 @@ class Command(BaseCommand):
         else:
             commands = phase1+phase2+phase3
 
-        if any(c[0] == 'import_schrodinger_interactions' for c in commands):
-            data_dir = self.engine1_dir(options)
-            if not os.path.isdir(data_dir):
+        for command, label, data_dir in (
+                ('import_schrodinger_interactions', 'Engine 1', self.engine1_dir(options)),
+                ('import_schrodinger_peptides', 'Engine 2', self.engine2_dir(options))):
+            if any(c[0] == command for c in commands) and not os.path.isdir(data_dir):
                 raise CommandError(
-                    'Engine 1 products are missing: {} is not a directory. Deliver them, or '
-                    'pass --skip_engine1 to leave the legacy ligand interactions in place. '
-                    'Refusing to build a table that mixes the two without saying which is '
-                    'which.'.format(data_dir))
+                    '{} products are missing: {} is not a directory. Deliver them, or pass '
+                    '--skip_ligand_import to build without ligand interactions.'.format(
+                        label, data_dir))
 
         for c in commands:
             print('{} Running {}'.format(

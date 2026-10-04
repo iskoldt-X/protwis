@@ -420,8 +420,9 @@ class TreeTests(unittest.TestCase):
     def test_rows_of_done_items_and_nothing_from_no_interface_answers(self):
         self.item("k1", "done", [row("HPhob", lig=GLN)])
         self.item("k2", "selections_apart")
-        rows = sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1", "k2"], ["done", "selections_apart"]))
-        self.assertEqual(len(rows), 1)
+        rows, failed = sp.anchor_rows(self.dir, "6DDF",
+                                      self.map_row(["k1", "k2"], ["done", "selections_apart"]))
+        self.assertEqual((len(rows), failed), (1, []))
 
     def test_a_record_that_disagrees_with_the_map_raises(self):
         self.item("k1", "selections_apart")
@@ -432,11 +433,36 @@ class TreeTests(unittest.TestCase):
             sp.anchor_rows(self.dir, "6DDF", self.map_row(["k2"], ["done"]))
 
     def test_an_open_question_raises(self):
-        for n, outcome in enumerate(("compute_failed", "preparation_failed", "started")):
+        for n, outcome in enumerate(("started", "eligible", "done_maybe", "")):
             key = "k%d" % n
             self.item(key, outcome)
             with self.assertRaisesRegex(sp.MalformedProduct, "leaves the question open"):
                 sp.anchor_rows(self.dir, "6DDF", self.map_row([key], [outcome]))
+
+    def test_a_failed_item_is_reported_and_gives_no_row(self):
+        self.assertEqual(sp.FAILED, {"preparation_failed", "compute_failed", "timed_out", "crashed"})
+        for n, outcome in enumerate(sorted(sp.FAILED)):
+            key = "f%d" % n
+            self.item(key, outcome)
+            self.assertEqual(sp.anchor_rows(self.dir, "6DDF", self.map_row([key], [outcome])),
+                             ([], [key + ":" + outcome]))
+
+    def test_one_failed_item_drops_the_rows_of_the_done_ones(self):
+        self.item("k1", "done", [row("HPhob", lig=GLN)])
+        self.item("k2", "preparation_failed")
+        self.item("k3", "selections_apart")
+        self.assertEqual(
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(
+                ["k1", "k2", "k3"], ["done", "preparation_failed", "selections_apart"])),
+            ([], ["k2:preparation_failed"]))
+
+    def test_a_failed_record_must_agree_with_the_map(self):
+        self.item("k1", "done", [row("HPhob", lig=GLN)])
+        with self.assertRaisesRegex(sp.MalformedProduct, "the map says"):
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1"], ["compute_failed"]))
+        self.item("k2", "compute_failed")
+        with self.assertRaisesRegex(sp.MalformedProduct, "the map says"):
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k2"], ["done"]))
 
     def test_a_record_done_where_the_map_says_no_interface_raises(self):
         self.item("k1", "done", [row("HPhob", lig=GLN)])

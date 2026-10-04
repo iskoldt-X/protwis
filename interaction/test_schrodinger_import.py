@@ -711,5 +711,49 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(si.is_in_scope(self.sli(None, "small-molecule")))
 
 
+class SeedTests(unittest.TestCase):
+    """build_structures creates no interaction type any more, so the seed
+    migrations must create every slug the imports can write."""
+
+    @staticmethod
+    def _seeded():
+        import importlib
+        rows = list(importlib.import_module(
+            "interaction.migrations.0009_seed_engine1_interaction_types").ENGINE1_TYPES)
+        rows.append(importlib.import_module(
+            "interaction.migrations.0010_seed_covalent_interaction_type").COVALENT_TYPE)
+        rows.extend(importlib.import_module(
+            "interaction.migrations.0011_seed_imported_interaction_types").IMPORTED_TYPES)
+        return rows
+
+    def test_the_seeds_cover_every_slug_the_imports_write(self):
+        slugs = [row[0] for row in self._seeded()]
+        self.assertEqual(len(slugs), len(set(slugs)), "a slug is seeded twice")
+        self.assertEqual(set(slugs), set(si.required_slugs()))
+
+    def test_0011_hands_every_row_to_the_orm(self):
+        import importlib
+        mig = importlib.import_module("interaction.migrations.0011_seed_imported_interaction_types")
+        seen = []
+
+        class _Objects:
+            def get_or_create(self, **kwargs):
+                seen.append(kwargs)
+                return object(), True
+
+        class _Model:
+            objects = _Objects()
+
+        class _Apps:
+            def get_model(self, app, name):
+                assert (app, name) == ("interaction", "ResidueFragmentInteractionType")
+                return _Model
+
+        mig.seed(_Apps(), None)
+        self.assertEqual(
+            [(k["slug"], k["defaults"]["name"], k["defaults"]["type"], k["defaults"]["direction"])
+             for k in seen], list(mig.IMPORTED_TYPES))
+
+
 if __name__ == "__main__":
     unittest.main()

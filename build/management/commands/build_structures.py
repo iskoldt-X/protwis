@@ -29,7 +29,7 @@ from structure.assign_generic_numbers_gpcr import GenericNumbering
 from structure.functions import StructureBuildCheck, AbsParseStructureCSV, ParseStructureCSV
 from ligand.models import Ligand, LigandType, LigandRole, LigandPeptideStructure
 from interaction.models import *
-from interaction.views import runcalculation_2022, regexaa, check_residue, extract_fragment_rotamer
+from interaction.views import regexaa, check_residue, extract_fragment_rotamer
 from residue.functions import dgn
 
 import django.apps
@@ -228,7 +228,8 @@ class Command(BaseBuild):
     def purge_structures(self):
         Structure.objects.all().delete()
         ResidueFragmentInteraction.objects.all().delete()
-        ResidueFragmentInteractionType.objects.all().delete()
+        # Interaction types are reference data seeded by migrations; the imports
+        # need them and nothing in this build recreates them.
         StructureLigandInteraction.objects.all().delete()
         #Remove previous Rotamers/Residues to prepare repopulate
         Fragment.objects.all().delete()
@@ -1371,7 +1372,8 @@ class Command(BaseBuild):
     def build_contact_network(self, pdb_code):
         try:
             # interacting_pairs, distances  = compute_interactions(pdb_code, save_to_db=True)
-            compute_interactions(pdb_code, protein=None, lig=None, do_interactions=True, do_complexes=False, do_peptide_ligand=True, save_to_db=True, file_input=False)
+            # The receptor x peptide pairs come from import_schrodinger_peptides.
+            compute_interactions(pdb_code, protein=None, lig=None, do_interactions=True, do_complexes=False, do_peptide_ligand=False, save_to_db=True, file_input=False)
             # compute_interactions(pdb_code, do_interactions=True, do_peptide_ligand=True, save_to_db=True)
         except:
             self.logger.error('Error with computing interactions (%s)' % (pdb_code))
@@ -2160,64 +2162,11 @@ class Command(BaseBuild):
 
                     self.contactnetwork_errors.append(s)
 
-            for ligand in ligands:
-                ligand_type = ligand['type'].strip().replace('-', ' ')
-                if ligand_type in ['small molecule', 'protein', 'peptide', 'lipid'] and ligand['in_structure']:
-                    try:
-                        current = time.time()
-                        peptide_chain = ""
-                        if ligand['chain']!='' and ligand_type in ['protein', 'peptide']:
-                            peptide_chain = ligand['chain']
-                        if ligand_type in ['protein', 'peptide'] and peptide_chain and peptide_chain == s.preferred_chain:
-                            # same chain as the receptor's own preferred chain - the ligand
-                            # DB-creation loop already skipped creating a Ligand/
-                            # StructureLigandInteraction for this entry, so there is nothing
-                            # here to run interaction calculations against
-                            print('WARNING: Ligand {} ({}) in structure {} shares chain ID {} with the receptor preferred chain - skipping interaction calculation'.format(ligand['name'], ligand_type, s, peptide_chain))
-                            continue
-                        if id(ligand) in ligands_missing_uaa:
-                            # Loop A already skipped this ligand (missing unnatural amino acid
-                            # definition), so there is no StructureLigandInteraction row to
-                            # calculate interactions against
-                            print('ERROR: Ligand {} ({}) in structure {} was skipped earlier due to a missing unnatural amino acid definition - skipping interaction calculation'.format(ligand['name'], ligand_type, s))
-                            continue
-                        # mypath = '/tmp/interactions/results/' + sd['pdb'] + '/output'
-                        # if not os.path.isdir(mypath):
-                        #     #Only run calcs, if not already in temp
-                        # runcalculation(sd['pdb'],peptide_chain)
-                        target_chain, target_resnum = None, None
-                        residue_seq_id = ligand.get('residue_seq_id')
-                        if residue_seq_id and ':' in residue_seq_id:
-                            chain_part, resnum_part = residue_seq_id.split(':', 1)
-                            try:
-                                target_chain = chain_part.strip()
-                                target_resnum = int(resnum_part.strip())
-                            except ValueError:
-                                target_chain, target_resnum = None, None
-                        data_results = runcalculation_2022(sd['pdb'], peptide_chain, target_ligand=ligand['name'], target_chain=target_chain, target_resnum=target_resnum)
-                        if 'NAG' in data_results:
-                            del data_results['NAG']
-                        ligand_role = None
-                        if ligand.get('role') and ligand['name'] != 'apo':
-                            role_qs = find_role(ligand['role'])
-                            if role_qs.exists():
-                                ligand_role = role_qs[0]
-                        self.parsecalculation(sd['pdb'], data_results, ligand['name'], False, ligand_role=ligand_role, peptide_chain=peptide_chain)
-                        end = time.time()
-                        diff = round(end - current,1)
-                        print('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                        self.logger.info('Interaction calculations done for {}. {} seconds.'.format(
-                                    s.protein_conformation.protein.entry_name, diff))
-                    except Exception as msg:
-                        print(msg)
-                        # print(traceback.format_exc())
-                        print('ERROR WITH INTERACTIONS {}'.format(sd['pdb']))
-                        self.logger.error('Error parsing interactions output for {}'.format(sd['pdb']))
-
-                        self.interaction_errors.append(s)
-
-                        # print('{} done'.format(sd['pdb']))
+            # Ligand interactions are not computed here: build_all imports them from
+            # the Schrodinger deliveries (import_schrodinger_interactions for HET
+            # anchors, import_schrodinger_peptides for "pep" chains). The legacy
+            # calculation (interaction.views.runcalculation_2022) is kept only for
+            # the user-upload page.
 
             s.build_check = True
             s.save()
