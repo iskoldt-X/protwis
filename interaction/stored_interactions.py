@@ -36,6 +36,24 @@ def ligand_key(pdb_reference, ligand_name):
     return reference, False
 
 
+def anchor_keys(anchors):
+    """{anchor id: (results key, is pep)} for (id, pdb_reference, ligand name, chain_res).
+
+    Anchors that would share a key -- two copies of one HET code at different
+    sites (6D32 CY8 A:1201 and A:1202) -- each get their chain_res appended,
+    so one site is never built from two pockets.
+    """
+    base = {sid: ligand_key(ref, name) for sid, ref, name, _chain in anchors}
+    count = collections.Counter(base.values())
+    out = {}
+    for sid, _ref, _name, chain_res in anchors:
+        key, is_pep = base[sid]
+        if count[(key, is_pep)] > 1:
+            key = "{} {}".format(key, (chain_res or "").strip() or sid)
+        out[sid] = (key, is_pep)
+    return out
+
+
 def build_results(rows, chain):
     """Results from ((ligand key, is pep), one-letter amino acid, residue number, slug,
     name, type, direction) rows, in the shape calculate_interactions returns.
@@ -75,16 +93,18 @@ def stored_results(pdbname):
     if structure is None or structure.pdb_data is None:
         return None
     chain = (structure.preferred_chain or "").split(",")[0].strip()
-    rows = (ResidueFragmentInteraction.objects
-            .filter(structure_ligand_pair__structure=structure)
-            .order_by("structure_ligand_pair_id", "rotamer__residue__sequence_number",
-                      "interaction_type__slug", "id")
-            .values_list("structure_ligand_pair__pdb_reference",
-                         "structure_ligand_pair__ligand__name",
-                         "rotamer__residue__amino_acid",
-                         "rotamer__residue__sequence_number",
-                         "interaction_type__slug", "interaction_type__name",
-                         "interaction_type__type", "interaction_type__direction"))
-    return (build_results(((ligand_key(ref, name), aa, number, slug, tname, ttype, direction)
-                           for ref, name, aa, number, slug, tname, ttype, direction in rows), chain),
+    rows = list(ResidueFragmentInteraction.objects
+                .filter(structure_ligand_pair__structure=structure)
+                .order_by("structure_ligand_pair_id", "rotamer__residue__sequence_number",
+                          "interaction_type__slug", "id")
+                .values_list("structure_ligand_pair_id",
+                             "structure_ligand_pair__pdb_reference",
+                             "structure_ligand_pair__ligand__name",
+                             "structure_ligand_pair__chain_res",
+                             "rotamer__residue__amino_acid",
+                             "rotamer__residue__sequence_number",
+                             "interaction_type__slug", "interaction_type__name",
+                             "interaction_type__type", "interaction_type__direction"))
+    keys = anchor_keys({(r[0], r[1], r[2], r[3]) for r in rows})
+    return (build_results(((keys[r[0]],) + tuple(r[4:]) for r in rows), chain),
             structure.pdb_data.pdb)

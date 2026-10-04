@@ -44,6 +44,12 @@ class BuildResultsTests(unittest.TestCase):
         self.assertEqual(list(out), ["A", "B"])
         self.assertEqual(si.build_results([], "R"), {})
 
+    def test_two_copies_of_one_het_stay_apart(self):
+        keys = si.anchor_keys({(1, "CY8", "x", "A:1201"), (2, "CY8", "x", "A:1202"),
+                               (3, "ZMA", "y", "A:401"), (4, "pep", "DAMGO", "B")})
+        self.assertEqual(keys, {1: ("CY8 A:1201", False), 2: ("CY8 A:1202", False),
+                                3: ("ZMA", False), 4: ("DAMGO", True)})
+
     def test_ligand_key(self):
         self.assertEqual(si.ligand_key("zma", "ZM241385"), ("ZMA", False))
         self.assertEqual(si.ligand_key(" pep ", "DAMGO"), ("DAMGO", True))
