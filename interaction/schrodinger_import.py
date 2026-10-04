@@ -939,11 +939,11 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                     gpcrdb_text, label_chain, written_seqs,
                     ligand_xyz=complex_file.ligand_line_xyz(
                         line for row in rows
-                        for line in (row.get("ligand_pdb_block") or "").splitlines()))
-                if not text:
-                    outcome.notes.append("ligand not found in the stored structure text; "
-                                         "no 3D file")
+                        for line in (row.get("ligand_pdb_block") or "").splitlines()),
+                    ligand_resname=sli.pdb_reference)
             outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
+            if outcome.written and not text:
+                outcome.complex_file = "ligand_not_found"
             replaced_files.add(replaced)
             outcomes.append(outcome)
         cleanup = delete_orphan_fragments(structure) if in_scope else collections.Counter()

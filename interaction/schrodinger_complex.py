@@ -8,18 +8,25 @@ for, as lines of GPCRdb's own stored structure text, so the viewer shows the
 residues the table lists, with the names and coordinates the rest of the site
 uses.
 
-The ligand is found in that text by coordinates. Product coordinates come
-through structure preparation and are written again with three decimals; on
-the corpus they differ from the stored text by at most 0.007 A (measured
-2026-10-04 on 533 ligand atoms of 60 instances), far below any bond length.
+A HET ligand is found in that text by residue name and position: a HETATM
+residue named like the ligand (a five-character code is cut to three in the
+stored text) with an atom within LIGAND_NEAR of a product ligand atom. HETATM
+only, because some ligands carry an amino acid's name (free TRP in 7DD5, GLU
+in 8JD3) and the receptor residue of that name next to them is ATOM. Product
+coordinates come through structure preparation; most are within 0.01 A of the
+stored text, but on the 2026-10-04 corpus 8 anchors (3RZE, 7V68 x2, 8IU2,
+8JEF, 8VVG, 8WJX) are 0.6-1.9 A away, so an exact match would miss them.
+Atoms of two different molecules are not that close, and the name keeps a
+neighbouring molecule of another kind out. An alternate conformer stored as
+its own residue (7B6W T0B A:602) is taken too.
 """
 
 from interaction import schrodinger_chain_map as cm
 from structure.models import PdbData
 
-# A product ligand atom names the residue of the stored text that has an atom
-# within this distance of it.
-LIGAND_MATCH_TOL = 0.05  # A
+# A product ligand atom names the residue of the stored text, of the ligand's
+# own name, that has an atom within this distance of it.
+LIGAND_NEAR = 2.5  # A
 
 
 def _is_hydrogen(line):
@@ -63,22 +70,25 @@ def ligand_line_xyz(lines):
 
 
 def _cell(xyz):
-    return tuple(int(c // LIGAND_MATCH_TOL) for c in xyz)
+    return tuple(int(c // LIGAND_NEAR) for c in xyz)
 
 
-def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), ligand_chain=""):
+def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), ligand_resname="",
+                 ligand_chain=""):
     """The anchor's 3D file, or "" when no residue of the text is the ligand.
 
-    The ligand is every residue of the text with a heavy atom within
-    LIGAND_MATCH_TOL of a ``ligand_xyz`` atom, or, for an anchor that is a
-    chain, every residue on ``ligand_chain``. The receptor part is every
-    residue on ``receptor_chain`` whose number is in ``receptor_seqs`` (no
-    insertion code). Lines keep the text's order and columns.
+    The ligand is, for an anchor that is a chain, every residue on
+    ``ligand_chain``; otherwise every HETATM residue named ``ligand_resname``
+    (cut to three characters, as the stored text has it) with a heavy atom
+    within LIGAND_NEAR of a ``ligand_xyz`` atom. The receptor part is every residue
+    on ``receptor_chain`` whose number is in ``receptor_seqs`` (no insertion
+    code). Lines keep the text's order and columns.
     """
+    resname = (ligand_resname or "").strip().upper()[:3]
     grid = {}
     for xyz in ligand_xyz:
         grid.setdefault(_cell(xyz), []).append(xyz)
-    tol2 = LIGAND_MATCH_TOL ** 2
+    tol2 = LIGAND_NEAR ** 2
 
     def matches(xyz):
         cx, cy, cz = _cell(xyz)
@@ -91,8 +101,13 @@ def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), liga
         return False
 
     residues = text_residues(gpcrdb_text)
-    ligand = {rid for rid, _lines, atoms in residues
-              if (ligand_chain and rid[0] == ligand_chain) or any(matches(a) for a in atoms)}
+    if ligand_chain:
+        ligand = {rid for rid, _lines, _atoms in residues if rid[0] == ligand_chain}
+    else:
+        ligand = {rid for rid, lines, atoms in residues
+                  if resname and rid[3].upper() == resname
+                  and any(line.startswith("HETATM") for line in lines)
+                  and any(matches(a) for a in atoms)}
     if not ligand:
         return ""
     seqs = {int(s) for s in receptor_seqs}

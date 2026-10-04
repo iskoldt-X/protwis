@@ -25,6 +25,8 @@ TEXT = "\n".join([
     line("HETATM", 8, "H1", "ZMA", "R", 401, 6.500, 5.000, 5.000, "H"),
     line("HETATM", 9, "C1", "CLR", "R", 402, 40.0, 0.0, 0.0, "C"),
     line("HETATM", 10, "O", "HOH", "R", 501, 5.010, 5.000, 5.000, "O"),
+    line("ATOM", 15, "CZ2", "TRP", "R", 70, 12.0, 0.0, 0.0, "C"),
+    line("HETATM", 16, "CZ2", "TRP", "R", 1108, 13.5, 0.0, 0.0, "C"),
     line("ATOM", 11, "N", "TYR", "P", 1, 3.0, 3.0, 3.0, "N"),
     line("ATOM", 12, "CA", "TYR", "P", 1, 3.5, 3.0, 3.0, "C"),
     line("ATOM", 13, "N", "GLY", "P", 2, 4.0, 3.0, 3.0, "N"),
@@ -38,9 +40,10 @@ def rows(text):
 
 
 class ComplexTextTests(unittest.TestCase):
-    def test_the_ligand_by_coordinates_and_the_written_residues(self):
-        # A product coordinate 0.007 A off, as measured on the corpus.
-        out = cx.complex_text(TEXT, "R", {147, 293}, ligand_xyz=[(5.007, 5.0, 5.0)])
+    def test_the_ligand_by_name_and_position_and_the_written_residues(self):
+        # A product coordinate 1.9 A off, as measured on 8IU2 RET.
+        out = cx.complex_text(TEXT, "R", {147, 293}, ligand_xyz=[(6.9, 5.0, 5.0)],
+                              ligand_resname="ZMA")
         names = [(l[17:20], l[22:26].strip(), l[26]) for l in rows(out)]
         self.assertEqual(names, [("ASP", "147", " "), ("ASP", "147", " "), ("TRP", "293", " "),
                                  ("ZMA", "401", " "), ("ZMA", "401", " "), ("ZMA", "401", " ")])
@@ -49,10 +52,32 @@ class ComplexTextTests(unittest.TestCase):
         self.assertIn(TEXT.splitlines()[7], out.splitlines())
         self.assertNotIn("HOH", out)
 
+    def test_the_distance_bound(self):
+        # The nearest heavy ZMA atom is (6, 5, 5); hydrogens do not count.
+        near = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(8.49, 5.0, 5.0)], ligand_resname="ZMA")
+        far = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(8.51, 5.0, 5.0)], ligand_resname="ZMA")
+        self.assertEqual(len(rows(near)), 3)
+        self.assertEqual(far, "")
+        self.assertEqual(cx.LIGAND_NEAR, 2.5)
+
+    def test_only_a_residue_of_the_ligand_name(self):
+        # The water and the receptor atoms near the product atom are not the ligand.
+        self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)],
+                                         ligand_resname="CLR"), "")
+        self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)]), "")
+        # A five-character code is cut to three, as in the stored text.
+        out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="zma1x")
+        self.assertEqual({l[17:20] for l in rows(out)}, {"ZMA"})
+
+    def test_a_ligand_named_like_an_amino_acid_is_the_hetatm_one(self):
+        # Free tryptophan next to the receptor's own Trp (7DD5 TRP 1108, Trp 70).
+        out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(13.4, 0.0, 0.0)], ligand_resname="TRP")
+        self.assertEqual([(l[:6].strip(), l[22:26].strip()) for l in rows(out)], [("HETATM", "1108")])
+
     def test_no_ligand_no_file(self):
-        self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.06, 5.0, 5.0)]), "")
-        self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[]), "")
-        self.assertEqual(cx.complex_text("", "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)]), "")
+        self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[], ligand_resname="ZMA"), "")
+        self.assertEqual(cx.complex_text("", "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)],
+                                         ligand_resname="ZMA"), "")
 
     def test_a_chain_anchor_takes_the_whole_chain(self):
         out = cx.complex_text(TEXT, "R", {300}, ligand_chain="P")
@@ -60,13 +85,13 @@ class ComplexTextTests(unittest.TestCase):
                          [("SER", "R", "300"), ("TYR", "P", "1"), ("TYR", "P", "1"), ("GLY", "P", "2")])
 
     def test_only_the_receptor_chain_and_no_insertion_code(self):
-        out = cx.complex_text(TEXT, "Q", {147}, ligand_xyz=[(5.0, 5.0, 5.0)])
+        out = cx.complex_text(TEXT, "Q", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA")
         self.assertEqual({l[17:20] for l in rows(out)}, {"ZMA"})
-        out = cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)])
+        out = cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA")
         self.assertNotIn("GLY", out)
 
     def test_only_the_first_model(self):
-        out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(5.0, 5.0, 5.0)])
+        out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA")
         self.assertEqual(len(rows(out)), 3)
 
     def test_ligand_line_xyz_skips_hydrogens(self):

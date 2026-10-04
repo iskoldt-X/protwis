@@ -196,6 +196,10 @@ class Command(BaseCommand):
                     detail="no product rows; {} RFI rows and {} peptide pairs deleted; {}".format(
                         o.rfi_deleted, o.pairs_deleted, "; ".join(o.notes)))
             return
+        if o.complex_file == "ligand_not_found":
+            log.log(pdb, "WARNING", "complex_file_missing", o.sli_id, o.chain,
+                    detail="rows written but the chain was not found in the stored structure "
+                           "text; the anchor has no 3D file")
         if o.rfi_counts["rows_in"] == 0:
             log.log(pdb, "INFO", "product_has_zero_rows", o.sli_id, o.chain,
                     detail=",".join(o.items))

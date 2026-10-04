@@ -379,6 +379,10 @@ class Command(BaseCommand):
                     detail="no product instance; {} existing rows deleted; {}".format(
                         o.deleted, "; ".join(o.notes)))
             return
+        if o.complex_file == "ligand_not_found":
+            log.log(pdb, "WARNING", "complex_file_missing", o.sli_id, o.het,
+                    detail="rows written but the ligand was not found in the stored structure "
+                           "text; the anchor has no 3D file")
         if o.mode == "mapped_partial":
             log.log(pdb, "WARNING", "anchor_instances_partial", o.sli_id, o.het,
                     detail="; ".join(o.notes))

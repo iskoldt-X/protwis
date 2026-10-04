@@ -792,10 +792,9 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             if outcome.rfi_written:
                 text = complex_file.complex_text(gpcrdb_text, receptor["preferred_chain"],
                                                  written_seqs, ligand_chain=chain)
-                if not text:
-                    outcome.notes.append("chain {} not found in the stored structure text; "
-                                         "no 3D file".format(chain))
             outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
+            if outcome.rfi_written and not text:
+                outcome.complex_file = "ligand_not_found"
             replaced_files.add(replaced)
             outcomes.append(outcome)
         cleanup = si.delete_orphan_fragments(structure)
