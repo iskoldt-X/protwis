@@ -1,7 +1,7 @@
 """The Schrodinger ligand imports, as build_all and build_all_interactions run them.
 
-No command computes ligand interactions with the legacy calculation any more;
-they come from two imports of the Schrodinger deliveries: Engine 1 serves the
+Neither command computes ligand interactions with the legacy calculation; they
+come from two imports of the Schrodinger deliveries: Engine 1 serves the
 anchors named by a HET code (import_schrodinger_interactions), Engine 2's
 peptide lane the "pep" chains (import_schrodinger_peptides). Both dry-run
 first, then both run for real, so a structure that would fail stops the
@@ -67,8 +67,8 @@ def add_arguments(parser):
                         dest='skip_ligand_import',
                         default=False,
                         help='Do not import the Schrodinger ligand interactions (Engine 1 '
-                             'small molecules, Engine 2 "pep" chains). Nothing computes '
-                             'them otherwise, so the database then has none')
+                             'small molecules, Engine 2 "pep" chains) in this run; nothing '
+                             'else computes them, so the ligand tables keep what they hold')
 
 
 def engine1_dir(options):

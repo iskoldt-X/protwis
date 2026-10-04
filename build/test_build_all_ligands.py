@@ -63,6 +63,45 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  ("import_schrodinger_interactions", False),
                                  ("import_schrodinger_peptides", False)])
 
+    def test_skip_is_off_by_default_and_skipping_needs_no_delivery(self):
+        from tools.management.commands import build_all_interactions as bai
+        cmd = bai.Command()
+        opts = vars(cmd.create_parser("manage.py", "build_all_interactions").parse_args([]))
+        self.assertIs(opts["skip_ligand_import"], False)
+        calls = []
+        opts.update(options(skip_ligand_import=True, engine1_data_dir="/nonexistent-e1",
+                            engine2_data_dir="/nonexistent-e2"))
+        with mock.patch.object(bai.Command, "prepare_input",
+                               lambda self, proc, pdbs: calls.append("contacts")), \
+                mock.patch.object(ligand_imports, "call_command",
+                                  lambda name, **kw: calls.append(name)):
+            cmd.handle(**opts)
+        self.assertEqual(calls, ["contacts"])
+
+    def test_a_failing_import_makes_the_command_fail(self):
+        from tools.management.commands import build_all_interactions as bai
+
+        def fail(name, **kw):
+            raise CommandError("1 structure(s) failed")
+
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            with mock.patch.object(bai.Command, "prepare_input", lambda self, proc, pdbs: None), \
+                    mock.patch.object(ligand_imports, "call_command", fail):
+                with self.assertRaisesRegex(CommandError, "failed"):
+                    bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
+                                                   proc=1))
+
+    def test_a_missing_engine2_delivery_alone_stops_it_before_the_contacts(self):
+        from tools.management.commands import build_all_interactions as bai
+        calls = []
+        with tempfile.TemporaryDirectory() as d1:
+            with mock.patch.object(bai.Command, "prepare_input",
+                                   lambda self, proc, pdbs: calls.append("contacts")):
+                with self.assertRaisesRegex(CommandError, "Engine 2 products are missing"):
+                    bai.Command().handle(**options(engine1_data_dir=d1,
+                                                   engine2_data_dir="/nonexistent-e2", proc=1))
+        self.assertEqual(calls, [])
+
     def test_a_missing_delivery_stops_it_before_the_contacts(self):
         from tools.management.commands import build_all_interactions as bai
         calls = []
