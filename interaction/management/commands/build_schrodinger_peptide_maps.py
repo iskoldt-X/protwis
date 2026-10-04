@@ -23,9 +23,8 @@ The map lists every chain the annotation names for a "pep" ligand of the
 structure, whatever its type and not only the one the database anchor chose:
 the annotation can list both copies of a homodimer's peptide, and which one the
 database kept is the importer's to look up. Which anchors are served is the
-importer's decision too, on the database's ligand type -- the annotation's own
-Type column disagrees with it for a dozen chemokines, C5a and toxins, which it
-calls protein while the database calls them peptides. The rules themselves are in
+importer's decision too (every "pep" anchor, whatever its type); the
+annotation's own Type column is not read. The rules themselves are in
 interaction.schrodinger_peptide, which the importer imports too.
 
 The command issues no database query and touches no model.
@@ -47,9 +46,9 @@ from interaction.management.commands import build_schrodinger_chainmap_files as 
 def peptide_chains(rows):
     """PDB -> {gpcrdb chain: (titles, types)} for every "pep" ligand of the annotation.
 
-    No type filter: scope is decided by the importer on the database's ligand
-    type, which differs from the annotation's for some ligands, and a map that
-    left a chain out would make the importer refuse the structure.
+    No type filter: the importer serves every "pep" anchor whatever its type,
+    and a map that left a chain out would make the importer refuse the
+    structure.
     """
     out = {}
     for r in rows:

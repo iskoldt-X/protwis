@@ -11,7 +11,8 @@ has none fails, and is never passed over -- its anchors would otherwise keep
 the legacy rows without a word. --pdb / --pdb-list narrow the corpus.
 
 Each structure is imported in its own transaction and replaces, for each of
-its peptide anchors, the anchor's RFI rows and its peptide pairs. A structure
+its "pep" anchors, the anchor's RFI rows and its peptide pairs; an anchor the
+product cannot answer is cleared and logged as anchor_cleared with the reason. A structure
 that fails is rolled back and reported; the others are unaffected, and the
 command exits non-zero after all were attempted. --dry-run runs every
 structure and rolls each one back.
