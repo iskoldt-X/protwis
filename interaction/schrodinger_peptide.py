@@ -43,9 +43,6 @@ The anchors served are those whose pdb_reference is "pep", whatever the
 ligand type: peptides, peptide drugs typed as small molecules, and proteins
 (antibodies, nanobodies, chemokine domains). Engine 1 skips every "pep"
 anchor, so the two lanes never meet.
-
-An anchor the product cannot answer -- its map row is not ok, or one of its
-items failed -- is cleared and reported, never left with the legacy rows.
 """
 
 import collections
@@ -95,10 +92,6 @@ MAP_NAME = "peptide_map.tsv"
 DONE = "done"
 # Outcomes that answer the question with "no interface": no rows, not a gap.
 NO_INTERFACE = frozenset({"selections_apart", "selection_empty", "selections_overlap"})
-# Terminal outcomes that mean the run could not answer: the anchor is cleared.
-# Anything else that is not done (started, an unknown word) is an unfinished
-# or unreadable delivery, and fails the structure instead.
-FAILED = frozenset({"preparation_failed", "compute_failed", "timed_out", "crashed"})
 
 
 class MalformedProduct(si.MalformedProduct):
@@ -251,6 +244,10 @@ ROW_STATUSES = frozenset({ROW_OK, "chain_unresolved", "no_receptor_segment", "no
 
 class MapMismatch(si.MapMismatch):
     """peptide_map.tsv does not describe what it should."""
+
+
+class UnresolvedAnchor(si.UnresolvedAnchor):
+    """The map could not decide which items answer an anchor."""
 
 
 def load_peptide_map(path):
@@ -503,17 +500,13 @@ def standardise_blocks(rows, product_chain, gpcrdb_chain):
 
 
 def anchor_rows(data_dir, pdb, map_row):
-    """(rows, failed) of one anchor, from the items its map row names.
+    """The product rows of one anchor, from the items its map row names.
 
-    Each item's record is read again and must still say what the map says.
-    ``failed`` lists "key:outcome" for the items the run could not answer
-    (FAILED); when it is not empty, ``rows`` is empty and the anchor is to be
-    cleared, never half imported. Otherwise ``rows`` are the rows of the done
-    items, each of which must have its YAML. An item that is neither done, a
-    no-interface answer nor failed means the question is still open, and
-    raises.
+    Each item's record is read again and must still say what the map says;
+    a done item must have its YAML. An item that is neither done nor a
+    no-interface answer means the question is still open, and raises.
     """
-    rows, failed = [], []
+    rows = []
     for key, expected in zip(map_row["items_list"], map_row["outcomes_list"]):
         rec_path, yaml_path = item_paths(data_dir, pdb, key)
         record = read_json(rec_path)
@@ -522,12 +515,10 @@ def anchor_rows(data_dir, pdb, map_row):
                 rec_path, record.get("work_item_key"), record.get("outcome"), key, expected))
         if expected == DONE:
             rows.extend(si.read_instance_rows(yaml_path))
-        elif expected in FAILED:
-            failed.append("{}:{}".format(key, expected))
         elif expected not in NO_INTERFACE:
             raise MalformedProduct("{}: outcome {} leaves the question open".format(
                 rec_path, expected))
-    return ([] if failed else rows), failed
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -668,22 +659,21 @@ def check_receptor(pdb, receptor):
 
 
 def anchor_action(pdb, sli_id, chain, chain_rows):
-    """(action, map row, reason) for one anchor, before anything is written.
+    """(action, map row) for one anchor, before anything is written.
 
-    "clear" for an anchor with no chain_res, or whose chain's map row is not
-    ok: the product cannot answer it, so it keeps no rows (ADR-091) and the
-    reason is reported. "import" for an anchor whose chain has an ok row. A
-    chain the map does not list raises: the map does not describe this
-    database, which is a stale map, not an unanswerable anchor.
+    "clear" for an anchor with no chain_res (ADR-091: it keeps no rows);
+    "import" for an anchor whose chain has an ok row. A chain the map does
+    not list, or a row that is not ok, raises: the map could not answer it.
     """
     if not chain:
-        return "clear", None, "anchor names no chain"
+        return "clear", None
     row = chain_rows.get(chain)
     if row is None:
         raise MapMismatch("{}: the map has no row for anchor {} chain {!r}".format(pdb, sli_id, chain))
     if row["status"] != ROW_OK:
-        return "clear", row, "map row {}: {}".format(row["status"], row.get("note", ""))
-    return "import", row, ""
+        raise UnresolvedAnchor("{}: anchor {} chain {}: {}: {}".format(
+            pdb, sli_id, chain, row["status"], row.get("note", "")))
+    return "import", row
 
 
 def claim_peptide_structure(used, peptide_id, sli_id, pdb):
@@ -714,10 +704,10 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
     (outcomes, cleanup_counter). Any exception leaves the structure exactly as
     it was.
 
-    An anchor the product cannot answer is cleared (ADR-091) and reported:
-    one with no chain_res, one whose map row is not ok, and one with an item
-    the run failed (anchor_rows). Legacy rows are never kept beside
-    Schrodinger ones.
+    An anchor with no chain_res names no peptide chain at all; it is cleared
+    (ADR-091) and reported. An anchor whose map row is anything but ok is a
+    question the map could not answer, and fails the structure (as Engine 1's
+    unresolved anchors do) rather than clearing it.
     """
     pdb = structure.pdb_code.index.upper()
     types = {t.slug: t for t in ResidueFragmentInteractionType.objects.all()}
@@ -739,20 +729,17 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             outcome = AnchorOutcome(sli.id, chain)
             peptide = peptide_structure(structure, sli)
             claim_peptide_structure(used, peptide.id, sli.id, pdb)
-            action, row, reason = anchor_action(pdb, sli.id, chain, chain_rows)
-            rows, failed = anchor_rows(data_dir, pdb, row) if action == "import" else ([], [])
-            if failed:
-                action, reason = "clear", "items failed: " + LIST_SEP.join(failed)
+            action, row = anchor_action(pdb, sli.id, chain, chain_rows)
             _clear_anchor(sli, peptide, outcome)
-            if row is not None:
-                outcome.items = list(row["items_list"])
             if action == "clear":
                 # ADR-091: an in-scope anchor without a product keeps no rows.
                 outcome.mode = "cleared"
-                outcome.notes.append(reason)
+                outcome.notes.append("anchor names no chain")
                 outcomes.append(outcome)
                 continue
             outcome.mode = "imported"
+            outcome.items = list(row["items_list"])
+            rows = anchor_rows(data_dir, pdb, row)
             # Both tables are planned before either is written: a row the
             # vocabulary cannot route fails the structure, not half of it. The
             # peptide pairs read the producer's lines, so they come first.
