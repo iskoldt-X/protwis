@@ -501,6 +501,28 @@ class TreeTests(unittest.TestCase):
                 sp.load_plan(self.dir, "6DDF")
 
 
+class OutcomeLogTests(unittest.TestCase):
+    def test_an_anchor_without_product_is_a_cleared_warning(self):
+        from interaction.management.commands.import_schrodinger_peptides import Command
+        logged = []
+
+        class _Log:
+            def log(self, *args, **kwargs):
+                logged.append((args, kwargs))
+
+        for mode in ("no_product", "cleared"):
+            del logged[:]
+            o = sp.AnchorOutcome(2471, "P")
+            o.mode = mode
+            o.rfi_deleted, o.pairs_deleted = 101, 36
+            o.notes.append("items failed: k:preparation_failed")
+            Command._log_outcome(_Log(), "9BUD", o)
+            self.assertEqual(len(logged), 1, mode)
+            args, kwargs = logged[0]
+            self.assertEqual(args[:5], ("9BUD", "WARNING", "anchor_cleared", 2471, "P"), mode)
+            self.assertIn("preparation_failed", kwargs["detail"])
+
+
 class AnchorDecisionTests(unittest.TestCase):
     ROWS = {"D": {"status": "ok", "note": ""}, "E": {"status": "chain_unresolved", "note": "no atom"},
             "F": {"status": "no_items", "note": "none"}}

@@ -8,7 +8,7 @@ The corpus is the database: every experimental structure with an anchor this
 lane serves (schrodinger_peptide.is_in_scope). Each must have a directory with
 a peptide_map.tsv under --data-dir (build_schrodinger_peptide_maps); one that
 has none fails, and is never passed over -- its anchors would otherwise keep
-the legacy rows without a word. --pdb / --pdb-list narrow the corpus.
+their old rows, or none, without a word. --pdb / --pdb-list narrow the corpus.
 
 Each structure is imported in its own transaction and replaces, for each of
 its "pep" anchors, the anchor's RFI rows and its peptide pairs. An anchor whose

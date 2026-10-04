@@ -731,6 +731,24 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(len(slugs), len(set(slugs)), "a slug is seeded twice")
         self.assertEqual(set(slugs), set(si.required_slugs()))
 
+    def test_0011_keeps_the_legacy_names(self):
+        # Written out, not read back from the module: a page shows the name
+        # and leaves "hidden" types out, so a changed value must fail here.
+        import importlib
+        mig = importlib.import_module("interaction.migrations.0011_seed_imported_interaction_types")
+        self.assertEqual(sorted(mig.IMPORTED_TYPES), sorted([
+            ("acc", "accessible", "hidden", ""),
+            ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
+            ("aro_ff", "aromatic (face-to-face)", "aromatic", "none"),
+            ("hyd", "hydrophobic", "hydrophobic", ""),
+            ("polar_acceptor_protein", "polar (hydrogen bond)", "polar", "protein"),
+            ("polar_backbone", "polar (hydrogen bond with backbone)", "polar", "protein"),
+            ("polar_donor_protein", "polar (hydrogen bond)", "polar", "protein"),
+            ("polar_double_neg_protein", "polar (charge-charge)", "polar", ""),
+            ("polar_double_pos_protein", "polar (charge-charge)", "polar", ""),
+            ("Van der Waals", "Van der Waals", "waals", ""),
+        ]))
+
     def test_0011_hands_every_row_to_the_orm(self):
         import importlib
         mig = importlib.import_module("interaction.migrations.0011_seed_imported_interaction_types")

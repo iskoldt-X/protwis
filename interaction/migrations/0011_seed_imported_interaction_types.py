@@ -2,9 +2,11 @@
 
 build_structures no longer computes ligand interactions, so nothing in a build
 creates the types the legacy calculation used to create on the fly. These ten
-are the remaining targets of interaction_type_map.yaml (0009 and 0010 seed the
-other four), with the slug, name, type and direction the legacy calculation
-gave them, so a database built either way names them alike.
+complete schrodinger_import.required_slugs() -- the targets of
+interaction_type_map.yaml outside the excluded families, plus polar_backbone,
+the backbone override -- with 0009 and 0010 seeding the other four. Each keeps
+the slug, name, type and direction the legacy calculation gave it, so a
+database built either way names them alike.
 
 Existing rows are never modified. The reverse operation is a deliberate no-op:
 deleting interaction types would cascade to every ResidueFragmentInteraction

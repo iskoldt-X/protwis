@@ -154,7 +154,7 @@ class Command(BaseCommand):
             ['build_structures', {'proc': options['proc'], 'skip_cn': options['test']}],
             # The ligand interactions come from the Schrodinger deliveries,
             # imported before anything reads them.
-            *self.ligand_import_steps(options),
+            *(self.ligand_import_steps(options) if options['phase'] in (None, 1) else []),
             ['build_consensus_sequences', {'proc': options['proc']}],
             ['build_g_proteins'],
             ['build_consensus_sequences', {'proc': options['proc'], 'signprot': 'Alpha'}],

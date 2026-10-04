@@ -29,7 +29,6 @@ from structure.assign_generic_numbers_gpcr import GenericNumbering
 from structure.functions import StructureBuildCheck, AbsParseStructureCSV, ParseStructureCSV
 from ligand.models import Ligand, LigandType, LigandRole, LigandPeptideStructure
 from interaction.models import *
-from interaction.views import regexaa, check_residue, extract_fragment_rotamer
 from residue.functions import dgn
 
 import django.apps
@@ -1437,109 +1436,6 @@ class Command(BaseBuild):
             return None
         return min(np.linalg.norm(a - b) for a in ref_atoms for b in cand_atoms)
 
-    @staticmethod
-    def parsecalculation(pdb_id, data, ligand_name, debug=True, ignore_ligand_preset=False, ligand_role=None, peptide_chain=None):
-        module_dir = '/tmp/interactions'
-        web_resource = WebResource.objects.get(slug='pdb')
-        web_link, _ = WebLink.objects.get_or_create(web_resource=web_resource, index=pdb_id)
-        structure = Structure.objects.filter(pdb_code=web_link)
-        if structure.exists():
-            structure = Structure.objects.get(pdb_code=web_link)
-
-            if structure.pdb_data is None:
-                f = module_dir + "/pdbs/" + pdb_id + ".pdb"
-                if os.path.isfile(f):
-                    pdbdata_text = open(f, 'r').read()  # does this close the file?
-                    pdbdata = PdbData.objects.filter(pdb=pdbdata_text).first()
-                    if pdbdata is None:
-                        pdbdata = PdbData.objects.create(pdb=pdbdata_text)
-                else:
-                    print('quitting due to no pdb in filesystem')
-                    quit()
-                structure.pdb_data = pdbdata
-                structure.save()
-
-            protein = structure.protein_conformation
-            lig_keys = list(data.keys())
-            if len(lig_keys)>1:
-                for l in lig_keys:
-                    if l==ligand_name:
-                        lig_key = l
-                    elif len(ligand_name)==5 and ligand_name[:3]==l:
-                        lig_key = l
-            else:
-                lig_key = list(data.keys())[0]
-
-            f = module_dir + "/results/" + pdb_id + "/interaction" + "/" + pdb_id + "_" + lig_key + ".pdb"
-            if os.path.isfile(f):
-                pdbdata_text = open(f, 'r').read()  # does this close the file?
-                pdbdata = PdbData.objects.filter(pdb=pdbdata_text).first()
-                if pdbdata is None:
-                    pdbdata = PdbData.objects.create(pdb=pdbdata_text)
-                print("Found file" + f)
-            else:
-                print('quitting due to no pdb for fragment in filesystem', f)
-                quit()
-
-            lig_db_key = lig_key
-            if lig_key!=ligand_name and len(lig_key)==3 and len(ligand_name)==5:
-                lig_db_key = ligand_name
-                if '.' in lig_db_key:
-                    lig_db_key = lig_db_key.split('.')[0]
-            base_filter = {'pdb_reference': lig_db_key, 'structure': structure}
-            if ligand_role is not None:
-                base_filter['ligand_role'] = ligand_role
-            if peptide_chain:
-                base_filter['chain_res'] = peptide_chain
-
-            struct_lig_interactions = StructureLigandInteraction.objects.filter(annotated=True, **base_filter) #, pdb_file=None
-            if struct_lig_interactions.exists():  # if the annotated exists
-                try:
-                    struct_lig_interactions = struct_lig_interactions.get()
-                    struct_lig_interactions.pdb_file = pdbdata
-                    ligand = struct_lig_interactions.ligand
-                except Exception as msg:
-                    print('error with duplication structureligand',lig_db_key,msg)
-                    return data
-            elif StructureLigandInteraction.objects.filter(**base_filter).exists():
-                try:
-                    struct_lig_interactions = StructureLigandInteraction.objects.filter(**base_filter).get()
-                    struct_lig_interactions.pdb_file = pdbdata
-                except StructureLigandInteraction.DoesNotExist: #already there
-                    struct_lig_interactions = StructureLigandInteraction.objects.filter(pdb_file=pdbdata, **base_filter).get()
-                ligand = struct_lig_interactions.ligand
-            else:  # no matching StructureLigandInteraction row exists for this ligand/structure/role
-                print(pdb_id, "Skipping interactions with ", pdb_id, "no StructureLigandInteraction match for", base_filter)
-                return data
-
-            struct_lig_interactions.save()
-
-            ResidueFragmentInteraction.objects.filter(structure_ligand_pair=struct_lig_interactions).delete()
-
-            for interaction in data[lig_key]['interactions']:
-                aa = interaction[0]
-                if aa[-1] != structure.preferred_chain:
-                    continue
-                aa_single, pos, _ = regexaa(aa)
-                residue = check_residue(protein, pos, aa_single)
-                f = interaction[1]
-                fragment, rotamer = extract_fragment_rotamer(f, residue, structure, ligand)
-                if fragment is not None:
-                    interaction_type, created = ResidueFragmentInteractionType.objects.get_or_create(
-                                                slug=interaction[2],
-                                                name=interaction[3],
-                                                type=interaction[4], direction=interaction[5])
-                    fragment_interaction, created = ResidueFragmentInteraction.objects.get_or_create(
-                                                    structure_ligand_pair=struct_lig_interactions,
-                                                    interaction_type=interaction_type,
-                                                    fragment=fragment, rotamer=rotamer)
-        else:
-            pass
-
-        # results = sorted(results, key=itemgetter(3), reverse=True)
-
-        return data
-
     def main_func(self, positions, iterations, count, lock):
         # setting up processes
         # if not positions[1]:
@@ -1812,7 +1708,6 @@ class Command(BaseBuild):
 
             # ligands
             peptide_chain = ""
-            ligands_missing_uaa = set()
             if self.debug:
                 print(sd)
             if 'ligand' in sd and sd['ligand'] and sd['ligand']!='None':
@@ -1924,7 +1819,6 @@ class Command(BaseBuild):
                                     s, ligand_title, ', '.join(missing_residues))
                                 print(msg)
                                 self.logger.warning(msg)
-                                ligands_missing_uaa.add(id(ligand))
                                 continue
                             ids['sequence'] = seq
 
@@ -2164,9 +2058,7 @@ class Command(BaseBuild):
 
             # Ligand interactions are not computed here: build_all imports them from
             # the Schrodinger deliveries (import_schrodinger_interactions for HET
-            # anchors, import_schrodinger_peptides for "pep" chains). The legacy
-            # calculation (interaction.views.runcalculation_2022) is kept only for
-            # the user-upload page.
+            # anchors, import_schrodinger_peptides for "pep" chains).
 
             s.build_check = True
             s.save()
