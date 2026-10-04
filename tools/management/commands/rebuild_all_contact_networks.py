@@ -68,7 +68,9 @@ class Command(BaseCommand):
 
     def build_contact_network(self,s,pdb_code):
         # interacting_pairs, distances  = compute_interactions(pdb_code, save_to_db=True)
-        interacting_pairs = compute_interactions(pdb_code, do_interactions=True, do_peptide_ligand=True, do_complexes=True, save_to_db=True)
+        # The receptor x peptide pairs come from import_schrodinger_peptides; computing
+        # them here would add legacy pairs next to the imported ones.
+        interacting_pairs = compute_interactions(pdb_code, do_interactions=True, do_peptide_ligand=False, do_complexes=True, save_to_db=True)
 
 
     def handle(self, *args, **options):

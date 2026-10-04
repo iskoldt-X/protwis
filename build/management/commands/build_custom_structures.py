@@ -19,7 +19,8 @@ class Command(BaseBuild):
         input_folder = options['input_folder'][0]
         pdb_id = input_folder.split('/')[-1].split('_')[0]
 
-        ### Build structure object and ligand interactions
+        ### Build structure object (ligand interactions come from the Schrodinger
+        ### imports, import_schrodinger_interactions and import_schrodinger_peptides)
         call_command('build_structures', structure=pdb_id.upper(), custom=[os.sep.join([input_folder, f'{pdb_id}.json'])])
         files = os.listdir(input_folder)
         signprot = [i for i in files if 'signprot' in i][0]
