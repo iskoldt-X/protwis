@@ -41,8 +41,9 @@ The import writes two places, both replaced per anchor (ADR-091):
 
 The anchors served are those whose pdb_reference is "pep", whatever the
 ligand type: peptides, peptide drugs typed as small molecules, and proteins
-(antibodies, nanobodies, chemokine domains). Engine 1 skips every "pep"
-anchor, so the two lanes never meet.
+(antibodies and nanobodies, chemokines, glycoprotein hormones, toxins and
+other protein partners). Engine 1 skips every "pep" anchor, so the two lanes
+never meet.
 """
 
 import collections
@@ -451,6 +452,11 @@ def plan_peptide_pairs(rows, receptor_chain_name, product_chain):
     specific_type). counts accounts for every input row::
 
         rows_in == not_in_peptide_tables + nonstandard_residue + other_chain + used
+
+    A peptide atom whose residue has an insertion code (antibody Kabat
+    numbering, e.g. TRP 100C) is left out and counted as insertion_code_atoms:
+    the table has no column for the code, and writing 100 would label the
+    position another residue holds. The RFI fragment text keeps the code.
     """
     counts = collections.Counter()
     counts["rows_in"] = len(rows)
@@ -473,6 +479,9 @@ def plan_peptide_pairs(rows, receptor_chain_name, product_chain):
         receptor_atom = RING_ATOM if receptor_ring else str(row.get("receptor_atom_name") or "")
         seq = int(res["pdb_residue_number"])
         for atom in peptide_atoms(row.get("ligand_pdb_block"), product_chain):
+            if atom["icode"]:
+                counts["insertion_code_atoms"] += 1
+                continue
             key = (atom["resnum"], atom["icode"], atom["resname"], seq, amino_acid)
             pairs[key].add((RING_ATOM if peptide_ring else atom["name"], receptor_atom,
                             itype, detail))
@@ -610,9 +619,6 @@ def _write_pairs(structure, peptide, pairs, outcome):
             peptide=peptide,
             receptor_residue=residue)
         outcome.pairs_written += 1
-        if icode:
-            outcome.notes.append("peptide residue {}{} has an insertion code the table "
-                                 "cannot hold".format(resnum, icode))
         for peptide_atom, receptor_atom, itype, detail in interactions:
             bulk.append(InteractionPeptide(
                 interacting_peptide_pair=pair, peptide_atom=peptide_atom[:10],

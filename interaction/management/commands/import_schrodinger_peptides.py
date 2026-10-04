@@ -196,7 +196,8 @@ class Command(BaseCommand):
                                 ("duplicate", "INFO"), ("other_chain", "WARNING")):
             if o.rfi_counts[category]:
                 log.log(pdb, level, "rfi_" + category, o.sli_id, o.chain, o.rfi_counts[category])
-        for category in ("not_in_peptide_tables", "nonstandard_residue", "other_chain"):
+        for category in ("not_in_peptide_tables", "nonstandard_residue", "other_chain",
+                         "insertion_code_atoms"):
             if o.pair_counts[category]:
                 log.log(pdb, "INFO", "pairs_" + category, o.sli_id, o.chain,
                         o.pair_counts[category])

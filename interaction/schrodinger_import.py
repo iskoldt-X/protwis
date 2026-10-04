@@ -24,8 +24,8 @@ names, and the two differ for a few dozen structures.
 Replacement semantics (ADR-089, ADR-091): every in-scope anchor loses all its
 existing rows. Anchors with a product instance get the Schrodinger rows;
 anchors without one (the map says no_product) are left empty and reported
-with the map's reason. Anchors outside Engine 1 scope (peptide, protein and
-placeholder ligands) are never touched. Fragments left unreferenced are
+with the map's reason. Anchors outside Engine 1 scope ("pep" chains and
+placeholder references, see is_in_scope) are never touched. Fragments left unreferenced are
 deleted, and so is their PdbData text when nothing else references it.
 """
 

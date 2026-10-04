@@ -24,7 +24,7 @@ structure, whatever its type and not only the one the database anchor chose:
 the annotation can list both copies of a homodimer's peptide, and which one the
 database kept is the importer's to look up. Which anchors are served is the
 importer's decision too (every "pep" anchor, whatever its type); the
-annotation's own Type column is not read. The rules themselves are in
+annotation's own Type column is recorded only, never used for scope. The rules themselves are in
 interaction.schrodinger_peptide, which the importer imports too.
 
 The command issues no database query and touches no model.

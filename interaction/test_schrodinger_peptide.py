@@ -53,6 +53,8 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(sp.is_in_scope(fake_sli("PEP", "small-molecule")))
         self.assertTrue(sp.is_in_scope(fake_sli("pep", "protein")))
         self.assertTrue(sp.is_in_scope(fake_sli(" Pep ", "protein")))
+        for ltype in ("lipid", "na", "", "anything"):
+            self.assertTrue(sp.is_in_scope(fake_sli("pep", ltype)), ltype)
         self.assertFalse(sp.is_in_scope(fake_sli("ZMA", "peptide")))
         self.assertFalse(sp.is_in_scope(fake_sli("", "peptide")))
         self.assertFalse(sp.is_in_scope(fake_sli(None, "peptide")))
@@ -293,6 +295,19 @@ class PlanPeptidePairsTests(unittest.TestCase):
         self.assertEqual(pairs[(4, "", "PHE", 200, "R")], [("RN1", "NH1", "aromatic", "cation-pi")])
         self.assertEqual(pairs[(5, "", "LYS", 300, "W")], [("NZ", "RN1", "aromatic", "pi-cation")])
         self.assertEqual(pairs[(4, "", "PHE", 310, "F")], [("RN1", "RN1", "aromatic", "face-to-face")])
+
+    def test_a_residue_with_an_insertion_code_makes_no_pair(self):
+        plain = producer_line("CZ2", "TRP", "D", 100)
+        coded = plain[:25] + "C" + plain[26:]
+        self.assertEqual(sp.parse_peptide_line(coded, "D")["icode"], "C")
+        ser = producer_line("OG", "SER", "D", 100, element="O")
+        pairs, counts = sp.plan_peptide_pairs(
+            [row("HPhob", seq=185, aa="F", atom="CZ", lig=coded + "\n" + ser)], "R", "D")
+        self.assertEqual(sorted(pairs), [(100, "", "SER", 185, "F")])
+        self.assertEqual(counts["insertion_code_atoms"], 1)
+        pairs, counts = sp.plan_peptide_pairs([row("HPhob", seq=185, aa="F", atom="CZ", lig=coded)],
+                                              "R", "D")
+        self.assertEqual((pairs, counts["used"], counts["insertion_code_atoms"]), ({}, 1, 1))
 
     def test_the_level_is_the_normal_definition(self):
         self.assertEqual(sp.LEVEL, 0)
