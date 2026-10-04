@@ -6,6 +6,12 @@
 
 import unittest
 
+import tempfile
+from unittest import mock
+
+from django.core.management.base import CommandError
+
+from build import ligand_imports
 from build.management.commands import build_all
 
 
@@ -31,6 +37,41 @@ class LigandImportStepsTests(unittest.TestCase):
 
     def test_skipping_imports_nothing(self):
         self.assertEqual(build_all.Command().ligand_import_steps(options(skip_ligand_import=True)), [])
+
+
+class BuildAllInteractionsTests(unittest.TestCase):
+    """build_all_interactions keeps its job: contact network, then the same imports."""
+
+    def test_it_takes_the_import_options_and_runs_the_imports_after_the_contacts(self):
+        from tools.management.commands import build_all_interactions as bai
+        cmd = bai.Command()
+        parser = cmd.create_parser("manage.py", "build_all_interactions")
+        opts = vars(parser.parse_args([]))
+        for key in ("engine1_data_dir", "engine2_data_dir", "skip_ligand_import"):
+            self.assertIn(key, opts)
+        calls = []
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            opts.update(options(engine1_data_dir=d1, engine2_data_dir=d2))
+            with mock.patch.object(bai.Command, "prepare_input",
+                                   lambda self, proc, pdbs: calls.append("contacts")), \
+                    mock.patch.object(ligand_imports, "call_command",
+                                      lambda name, **kw: calls.append((name, kw.get("dry_run", False)))):
+                cmd.handle(**opts)
+        self.assertEqual(calls, ["contacts",
+                                 ("import_schrodinger_interactions", True),
+                                 ("import_schrodinger_peptides", True),
+                                 ("import_schrodinger_interactions", False),
+                                 ("import_schrodinger_peptides", False)])
+
+    def test_a_missing_delivery_stops_it_before_the_contacts(self):
+        from tools.management.commands import build_all_interactions as bai
+        calls = []
+        with mock.patch.object(bai.Command, "prepare_input",
+                               lambda self, proc, pdbs: calls.append("contacts")):
+            with self.assertRaisesRegex(CommandError, "Engine 1 products are missing"):
+                bai.Command().handle(**options(engine1_data_dir="/nonexistent-e1",
+                                               engine2_data_dir="/nonexistent-e2", proc=1))
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":
