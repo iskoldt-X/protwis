@@ -25,34 +25,44 @@ THREE_LETTER = {
 }
 
 
+HIDDEN_TYPE = "hidden"
+
+
 def ligand_key(pdb_reference, ligand_name):
-    """The results key of an anchor: its HET code, or the ligand's name for a "pep" chain."""
+    """(results key, is a "pep" chain) of an anchor: its HET code, or the ligand's name."""
     reference = (pdb_reference or "").strip().upper()
-    return ligand_name if reference == PEPTIDE_REFERENCE else reference
+    if reference == PEPTIDE_REFERENCE:
+        return ligand_name, True
+    return reference, False
 
 
 def build_results(rows, chain):
-    """Results from (ligand key, one-letter amino acid, residue number, slug, name, type,
-    direction) rows, in the shape calculate_interactions returns.
+    """Results from ((ligand key, is pep), one-letter amino acid, residue number, slug,
+    name, type, direction) rows, in the shape calculate_interactions returns.
 
     Each interaction is [residue, fragment file, slug, name, type, direction]
     with residue as three-letter name, number and chain (ASP113A, what
     interaction.views.regexaa reads); the fragment file is left empty, the page
     does not read it. A residue that is not a standard amino acid is left out.
-    The ligand with most rows comes first, ties in key order: calculate takes the
-    first ligand as the main one. The score is the number of rows.
+    calculate takes the first ligand as the main one, so HET ligands come before
+    "pep" chains (the legacy calculation never returned a chain), each by the
+    number of visible rows, then by key. The score is that number.
     """
     per = collections.OrderedDict()
-    for key, amino_acid, number, slug, name, type_, direction in rows:
+    for (key, is_pep), amino_acid, number, slug, name, type_, direction in rows:
         three = THREE_LETTER.get((amino_acid or "").upper())
         if three is None:
             continue
-        per.setdefault(key, []).append(
+        per.setdefault((key, is_pep), []).append(
             ["{}{}{}".format(three, number, chain), "", slug, name, type_ or "", direction or ""])
-    ordered = sorted(per.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+
+    def visible(interactions):
+        return sum(1 for i in interactions if i[4] != HIDDEN_TYPE)
+
+    ordered = sorted(per.items(), key=lambda kv: (kv[0][1], -visible(kv[1]), kv[0][0]))
     return collections.OrderedDict(
-        (key, {"score": len(interactions), "interactions": interactions})
-        for key, interactions in ordered)
+        (key, {"score": visible(interactions), "interactions": interactions})
+        for (key, _is_pep), interactions in ordered)
 
 
 def stored_results(pdbname):

@@ -1986,6 +1986,8 @@ def calculate(request, redirect=None):
                 stored = stored_results(pdbname)
                 if stored is not None:
                     results, pdbdata = stored
+                    if not results and redirect:
+                        return HttpResponseNotFound("GPCRdb has no ligand interactions stored for %s, so no binding site can be selected from it." % pdbname)
                     with open(temp_path, 'w') as f:
                         f.write(pdbdata)
                 else:
