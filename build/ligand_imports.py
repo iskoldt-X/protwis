@@ -6,7 +6,8 @@ anchors named by a HET code (import_schrodinger_interactions), Engine 2's
 peptide lane the "pep" chains (import_schrodinger_peptides). Both dry-run
 first, then both run for real, so a structure that would fail stops the
 caller with nothing imported rather than half imported: recovering is a
-re-run, not an excavation.
+re-run, not an excavation. build_all_interactions runs the dry runs before its
+long contact-network pass and the imports after it.
 """
 
 import datetime
@@ -117,10 +118,18 @@ def check_deliveries(options, command_names):
                     label, data_dir))
 
 
-def run(options):
-    """Run the import steps in order; a failing import raises and stops the caller."""
-    planned = steps(options)
-    check_deliveries(options, [c for c, _o in planned])
+def split(planned):
+    """(dry runs, real imports) of the steps ``steps`` planned, each in its order.
+
+    Plan once and split, so the dry runs and the imports they vouch for share
+    one accounting directory per lane.
+    """
+    return ([s for s in planned if s[1].get('dry_run')],
+            [s for s in planned if not s[1].get('dry_run')])
+
+
+def run(planned):
+    """Run [[command, options]] in order; a failing import raises and stops the caller."""
     for command, kwargs in planned:
         print('{} Running {}{}'.format(_now(), command,
                                        ' (dry run)' if kwargs.get('dry_run') else ''))

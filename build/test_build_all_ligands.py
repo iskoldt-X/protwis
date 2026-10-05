@@ -6,6 +6,8 @@
 
 import unittest
 
+import datetime
+import os
 import tempfile
 from unittest import mock
 
@@ -40,9 +42,10 @@ class LigandImportStepsTests(unittest.TestCase):
 
 
 class BuildAllInteractionsTests(unittest.TestCase):
-    """build_all_interactions keeps its job: contact network, then the same imports."""
+    """build_all_interactions keeps its job: contact network and the same imports,
+    dry-run before the contacts and imported after them."""
 
-    def test_it_takes_the_import_options_and_runs_the_imports_after_the_contacts(self):
+    def test_it_takes_the_import_options_and_dry_runs_before_the_contacts(self):
         from tools.management.commands import build_all_interactions as bai
         cmd = bai.Command()
         parser = cmd.create_parser("manage.py", "build_all_interactions")
@@ -57,11 +60,80 @@ class BuildAllInteractionsTests(unittest.TestCase):
                     mock.patch.object(ligand_imports, "call_command",
                                       lambda name, **kw: calls.append((name, kw.get("dry_run", False)))):
                 cmd.handle(**opts)
-        self.assertEqual(calls, ["contacts",
-                                 ("import_schrodinger_interactions", True),
+        self.assertEqual(calls, [("import_schrodinger_interactions", True),
                                  ("import_schrodinger_peptides", True),
+                                 "contacts",
                                  ("import_schrodinger_interactions", False),
                                  ("import_schrodinger_peptides", False)])
+
+    def test_a_failing_dry_run_stops_it_before_the_contacts_and_imports_nothing(self):
+        from tools.management.commands import build_all_interactions as bai
+        calls = []
+
+        def dry_fails(name, **kw):
+            calls.append((name, kw.get("dry_run", False)))
+            if kw.get("dry_run") and name == "import_schrodinger_peptides":
+                raise CommandError("1 structure(s) failed")
+
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            with mock.patch.object(bai.Command, "prepare_input",
+                                   lambda self, proc, pdbs: calls.append("contacts")), \
+                    mock.patch.object(ligand_imports, "call_command", dry_fails):
+                with self.assertRaisesRegex(CommandError, "failed"):
+                    bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
+                                                   proc=1))
+        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+                                 ("import_schrodinger_peptides", True)])
+
+    def test_a_failing_import_after_the_contacts_makes_the_command_fail(self):
+        from tools.management.commands import build_all_interactions as bai
+        calls = []
+
+        def real_fails(name, **kw):
+            calls.append((name, kw.get("dry_run", False)))
+            if not kw.get("dry_run"):
+                raise CommandError("1 structure(s) failed")
+
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            with mock.patch.object(bai.Command, "prepare_input",
+                                   lambda self, proc, pdbs: calls.append("contacts")), \
+                    mock.patch.object(ligand_imports, "call_command", real_fails):
+                with self.assertRaisesRegex(CommandError, "failed"):
+                    bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
+                                                   proc=1))
+        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+                                 ("import_schrodinger_peptides", True),
+                                 "contacts",
+                                 ("import_schrodinger_interactions", False)])
+
+    def test_dry_run_and_import_of_a_lane_share_one_accounting_directory(self):
+        from tools.management.commands import build_all_interactions as bai
+
+        class Clock(datetime.datetime):
+            """A clock that moves one second per reading: planning twice shows."""
+            ticks = [datetime.datetime(2026, 1, 1)]
+
+            @classmethod
+            def utcnow(cls):
+                cls.ticks[0] += datetime.timedelta(seconds=1)
+                return cls.ticks[0]
+
+        reports = []
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            with mock.patch.object(bai.Command, "prepare_input", lambda self, proc, pdbs: None), \
+                    mock.patch.object(ligand_imports.datetime, "datetime", Clock), \
+                    mock.patch.object(ligand_imports, "call_command",
+                                      lambda name, **kw: reports.append((name, kw["report_json"]))):
+                bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
+                                               engine1_report_dir=None, engine2_report_dir=None,
+                                               proc=1))
+        dirs = {}
+        for name, path in reports:
+            dirs.setdefault(name, set()).add(os.path.dirname(path))
+        self.assertEqual(sorted(dirs), ["import_schrodinger_interactions",
+                                        "import_schrodinger_peptides"])
+        for name, found in dirs.items():
+            self.assertEqual(len(found), 1, name)
 
     def test_skip_is_off_by_default_and_skipping_needs_no_delivery(self):
         from tools.management.commands import build_all_interactions as bai

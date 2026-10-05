@@ -14,8 +14,9 @@ class Command(BaseBuild):
 
     help = ("Recompute the interactions of all experimental GPCR structures: the "
             "intra-receptor contact network (legacy calculation; no Schrodinger lane yet), "
-            "then the ligand interactions by importing the Schrodinger deliveries, as "
-            "build_all does (Engine 1 for HET anchors, Engine 2 for \"pep\" chains).")
+            "and the ligand interactions by importing the Schrodinger deliveries, as "
+            "build_all does (Engine 1 for HET anchors, Engine 2 for \"pep\" chains). "
+            "Both imports dry-run before the contact network and import after it.")
 
     logger = logging.getLogger(__name__)
     pdbs = Structure.objects.filter(structure_type__origin='experiment').values_list('pdb_code__index', flat=True)
@@ -31,18 +32,21 @@ class Command(BaseBuild):
         ligand_imports.add_arguments(parser)
 
     def handle(self, *args, **options):
-        # Refuse before the long contact-network pass, not after it.
-        if not options['skip_ligand_import']:
-            ligand_imports.check_deliveries(options, ligand_imports.COMMANDS)
+        # Ligand interactions: the same imports build_all runs; a failing
+        # import raises, so the command exits non-zero. Refuse before the long
+        # contact-network pass, not after it: the deliveries must exist and
+        # both dry runs pass first. The contact network writes other tables
+        # than the imports, so what the dry runs found still holds after it.
+        dry_runs, imports = ligand_imports.split(ligand_imports.steps(options))
+        ligand_imports.check_deliveries(options, [c for c, _o in dry_runs + imports])
+        ligand_imports.run(dry_runs)
         try:
             self.logger.info('CREATING ALL INTERACTIONS')
             self.prepare_input(options['proc'], self.pdbs)
         except Exception as msg:
             print(msg)
             self.logger.error(msg)
-        # Ligand interactions: the same imports build_all runs; a failing
-        # import raises, so the command exits non-zero.
-        ligand_imports.run(options)
+        ligand_imports.run(imports)
         self.logger.info('COMPLETED ALL INTERACTIONS')
 
     def main_func(self, positions, iteration,count,lock):
@@ -54,7 +58,7 @@ class Command(BaseBuild):
             try:
                 # compute_interactions(pdb, True)
                 # The contact network only: the receptor x peptide pairs are imported
-                # by ligand_imports.run (import_schrodinger_peptides) in handle().
+                # in handle() (import_schrodinger_peptides, via ligand_imports.run).
                 compute_interactions(pdb, do_interactions=True, do_peptide_ligand=False, save_to_db=True)
             except:
                 print('Issue making interactions for',pdb)
