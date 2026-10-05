@@ -1,14 +1,13 @@
-"""Unit tests for the ligand import steps of build_all (no database).
+"""Unit tests for the ligand import steps of build_all and build_all_interactions
+(no database: every import command is replaced by a stub).
 
     python -c "import django; django.setup(); import unittest; \\
         unittest.main(module='build.test_build_all_ligands', argv=['x'])"
 """
 
-import unittest
-
-import datetime
 import os
 import tempfile
+import unittest
 from unittest import mock
 
 from django.core.management.base import CommandError
@@ -22,6 +21,10 @@ def options(**kw):
            "engine1_report_dir": "/r1", "engine2_report_dir": "/r2", "phase": None}
     out.update(kw)
     return out
+
+
+def no_import(name, **kw):
+    raise AssertionError("a real import command was reached: %s" % name)
 
 
 class LigandImportStepsTests(unittest.TestCase):
@@ -106,34 +109,55 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  "contacts",
                                  ("import_schrodinger_interactions", False)])
 
-    def test_dry_run_and_import_of_a_lane_share_one_accounting_directory(self):
+    def test_a_contact_network_that_raises_does_not_stop_the_imports(self):
+        # The contact network is the legacy calculation; its failures are
+        # printed and logged as before, and the ligand imports still run.
         from tools.management.commands import build_all_interactions as bai
+        calls = []
 
-        class Clock(datetime.datetime):
-            """A clock that moves one second per reading: planning twice shows."""
-            ticks = [datetime.datetime(2026, 1, 1)]
+        def contacts_fail(self, proc, pdbs):
+            calls.append("contacts")
+            raise RuntimeError("contact network failed")
 
-            @classmethod
-            def utcnow(cls):
-                cls.ticks[0] += datetime.timedelta(seconds=1)
-                return cls.ticks[0]
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            with mock.patch.object(bai.Command, "prepare_input", contacts_fail), \
+                    mock.patch.object(ligand_imports, "call_command",
+                                      lambda name, **kw: calls.append((name, kw.get("dry_run", False)))):
+                bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2, proc=1))
+        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+                                 ("import_schrodinger_peptides", True),
+                                 "contacts",
+                                 ("import_schrodinger_interactions", False),
+                                 ("import_schrodinger_peptides", False)])
 
-        reports = []
+    def test_each_lane_keeps_its_own_accounting_directory_from_one_plan(self):
+        from tools.management.commands import build_all_interactions as bai
+        paths = []
         with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
             with mock.patch.object(bai.Command, "prepare_input", lambda self, proc, pdbs: None), \
-                    mock.patch.object(ligand_imports.datetime, "datetime", Clock), \
+                    mock.patch.object(ligand_imports, "steps", wraps=ligand_imports.steps) as plan, \
                     mock.patch.object(ligand_imports, "call_command",
-                                      lambda name, **kw: reports.append((name, kw["report_json"]))):
+                                      lambda name, **kw: paths.append(
+                                          (name, kw["report_json"], kw["anomaly_csv"]))):
                 bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
                                                engine1_report_dir=None, engine2_report_dir=None,
                                                proc=1))
+        self.assertEqual(plan.call_count, 1)
+        self.assertEqual(len(paths), 4)
         dirs = {}
-        for name, path in reports:
-            dirs.setdefault(name, set()).add(os.path.dirname(path))
+        for name, report, anomalies in paths:
+            # A run's report and anomaly list sit side by side.
+            self.assertEqual(os.path.dirname(report), os.path.dirname(anomalies))
+            dirs.setdefault(name, set()).add(os.path.dirname(report))
         self.assertEqual(sorted(dirs), ["import_schrodinger_interactions",
                                         "import_schrodinger_peptides"])
         for name, found in dirs.items():
             self.assertEqual(len(found), 1, name)
+        # The lanes do not share a directory, and no run overwrites another's file.
+        self.assertNotEqual(dirs["import_schrodinger_interactions"],
+                            dirs["import_schrodinger_peptides"])
+        files = [p for _n, report, anomalies in paths for p in (report, anomalies)]
+        self.assertEqual(len(set(files)), 8)
 
     def test_skip_is_off_by_default_and_skipping_needs_no_delivery(self):
         from tools.management.commands import build_all_interactions as bai
@@ -150,25 +174,13 @@ class BuildAllInteractionsTests(unittest.TestCase):
             cmd.handle(**opts)
         self.assertEqual(calls, ["contacts"])
 
-    def test_a_failing_import_makes_the_command_fail(self):
-        from tools.management.commands import build_all_interactions as bai
-
-        def fail(name, **kw):
-            raise CommandError("1 structure(s) failed")
-
-        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
-            with mock.patch.object(bai.Command, "prepare_input", lambda self, proc, pdbs: None), \
-                    mock.patch.object(ligand_imports, "call_command", fail):
-                with self.assertRaisesRegex(CommandError, "failed"):
-                    bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
-                                                   proc=1))
-
     def test_a_missing_engine2_delivery_alone_stops_it_before_the_contacts(self):
         from tools.management.commands import build_all_interactions as bai
         calls = []
         with tempfile.TemporaryDirectory() as d1:
             with mock.patch.object(bai.Command, "prepare_input",
-                                   lambda self, proc, pdbs: calls.append("contacts")):
+                                   lambda self, proc, pdbs: calls.append("contacts")), \
+                    mock.patch.object(ligand_imports, "call_command", no_import):
                 with self.assertRaisesRegex(CommandError, "Engine 2 products are missing"):
                     bai.Command().handle(**options(engine1_data_dir=d1,
                                                    engine2_data_dir="/nonexistent-e2", proc=1))
@@ -178,7 +190,8 @@ class BuildAllInteractionsTests(unittest.TestCase):
         from tools.management.commands import build_all_interactions as bai
         calls = []
         with mock.patch.object(bai.Command, "prepare_input",
-                               lambda self, proc, pdbs: calls.append("contacts")):
+                               lambda self, proc, pdbs: calls.append("contacts")), \
+                mock.patch.object(ligand_imports, "call_command", no_import):
             with self.assertRaisesRegex(CommandError, "Engine 1 products are missing"):
                 bai.Command().handle(**options(engine1_data_dir="/nonexistent-e1",
                                                engine2_data_dir="/nonexistent-e2", proc=1))
