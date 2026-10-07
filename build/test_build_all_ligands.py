@@ -30,13 +30,14 @@ def no_import(name, **kw):
 class LigandImportStepsTests(unittest.TestCase):
     def test_maps_then_both_dry_runs_then_both_imports(self):
         steps = build_all.Command().ligand_import_steps(options())
-        self.assertEqual([(c, o.get("dry_run", False), o["data_dir"]) for c, o in steps], [
+        self.assertEqual([(c, o.get("dry_run", False), o.get("data_dir")) for c, o in steps], [
             ("build_schrodinger_chainmap_files", False, "/e1"),
             ("build_schrodinger_peptide_maps", False, "/e2"),
             ("import_schrodinger_interactions", True, "/e1"),
             ("import_schrodinger_peptides", True, "/e2"),
             ("import_schrodinger_interactions", False, "/e1"),
             ("import_schrodinger_peptides", False, "/e2"),
+            ("remove_schrodinger_maps", False, None),
         ])
         self.assertEqual([o["report_json"] for c, o in steps if c in ligand_imports.COMMANDS],
                          ["/r1/report.dryrun.json", "/r2/report.dryrun.json",
@@ -61,7 +62,13 @@ class LigandImportStepsTests(unittest.TestCase):
             ("import_schrodinger_peptides", True)])
         self.assertEqual([(c, o.get("dry_run", False)) for c, o in imports], [
             ("import_schrodinger_interactions", False),
-            ("import_schrodinger_peptides", False)])
+            ("import_schrodinger_peptides", False),
+            ("remove_schrodinger_maps", False)])
+
+    def test_the_clean_up_names_both_trees(self):
+        steps = build_all.Command().ligand_import_steps(options())
+        self.assertEqual(steps[-1], ["remove_schrodinger_maps",
+                                     {"engine1_dir": "/e1", "engine2_dir": "/e2"}])
 
     def test_the_peptide_maps_alone_need_the_engine1_delivery(self):
         with tempfile.TemporaryDirectory() as d2:
@@ -102,7 +109,8 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  ("import_schrodinger_peptides", True),
                                  "contacts",
                                  ("import_schrodinger_interactions", False),
-                                 ("import_schrodinger_peptides", False)])
+                                 ("import_schrodinger_peptides", False),
+                                 ("remove_schrodinger_maps", False)])
 
     def test_a_failing_dry_run_stops_it_before_the_contacts_and_imports_nothing(self):
         from tools.management.commands import build_all_interactions as bai
@@ -169,7 +177,8 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  ("import_schrodinger_peptides", True),
                                  "contacts",
                                  ("import_schrodinger_interactions", False),
-                                 ("import_schrodinger_peptides", False)])
+                                 ("import_schrodinger_peptides", False),
+                                 ("remove_schrodinger_maps", False)])
 
     def test_each_lane_keeps_its_own_accounting_directory_from_one_plan(self):
         from tools.management.commands import build_all_interactions as bai

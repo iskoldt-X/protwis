@@ -17,8 +17,8 @@ class Command(BaseBuild):
             "and the ligand interactions by importing the Schrodinger deliveries, as "
             "build_all does (Engine 1 for HET anchors, Engine 2 for \"pep\" chains). "
             "The maps both imports read are built and both imports dry-run before the "
-            "contact network, and they import after it; do not change the deliveries "
-            "while it runs.")
+            "contact network, and they import after it, then the maps are removed; do "
+            "not change the deliveries while it runs.")
 
     logger = logging.getLogger(__name__)
     pdbs = Structure.objects.filter(structure_type__origin='experiment').values_list('pdb_code__index', flat=True)

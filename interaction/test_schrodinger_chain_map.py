@@ -10,7 +10,12 @@ from interaction import schrodinger_chain_map as cm
 
 SHA = "ab" * 32
 INDEX_HEAD = ("# schema\tstructure-index/1\n# source\t2RH1.cif\n# cif_sha256\t" + SHA + "\n"
+              "# atoms\t{n}\n"
               "label_asym\tauth_asym\tcomp\tauth_seq\ticode\tatom\tgroup\tx\ty\tz\n")
+
+
+def index(*lines, head=INDEX_HEAD, n=None):
+    return head.format(n=len(lines) if n is None else n) + "".join(lines)
 
 
 def index_line(label, auth_asym, comp, auth_seq, icode, atom, group, x, y, z):
@@ -26,9 +31,8 @@ def pdb_line(group, n, atom, resname, chain, resnum, x, y, z, element):
 class ParseTests(unittest.TestCase):
 
     def test_index_gives_the_sha256_and_the_atoms_in_file_order(self):
-        text = INDEX_HEAD + (
-            index_line("A", "AAA", "ASP", "113", "", "CA", "ATOM", 1, 2, 3)
-            + index_line("B", "AAA", "Q6Q", "1000", "A", "C1", "HETATM", 7, 8, 9))
+        text = index(index_line("A", "AAA", "ASP", "113", "", "CA", "ATOM", 1, 2, 3),
+                     index_line("B", "AAA", "Q6Q", "1000", "A", "C1", "HETATM", 7, 8, 9))
         sha, atoms = cm.parse_structure_index(text)
         self.assertEqual(sha, SHA)
         self.assertEqual([(a["comp"], a["auth_asym"], a["auth_seq"], a["label_asym"], a["icode"],
@@ -40,32 +44,53 @@ class ParseTests(unittest.TestCase):
 
     def test_index_keeps_a_quote_inside_an_atom_name(self):
         _sha, atoms = cm.parse_structure_index(
-            INDEX_HEAD + index_line("C", "A", "NAG", "901", "", "C1'", "HETATM", 1, 2, 3))
+            index(index_line("C", "A", "NAG", "901", "", "C1'", "HETATM", 1, 2, 3)))
         self.assertEqual(atoms[0]["atom"], "C1'")
 
     def test_index_of_another_schema_is_refused(self):
         with self.assertRaisesRegex(cm.ParseError, "schema"):
-            cm.parse_structure_index(INDEX_HEAD.replace("structure-index/1", "structure-index/2")
-                                     + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+            cm.parse_structure_index(index(index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3),
+                                           head=INDEX_HEAD.replace("structure-index/1",
+                                                                   "structure-index/2")))
 
     def test_index_without_a_sha256_is_refused(self):
         for bad in ("", "abc", "AB" * 32):
             with self.assertRaisesRegex(cm.ParseError, "cif_sha256"):
-                cm.parse_structure_index(INDEX_HEAD.replace(SHA, bad)
-                                         + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+                cm.parse_structure_index(index(index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3),
+                                               head=INDEX_HEAD.replace(SHA, bad)))
 
     def test_index_with_other_columns_is_refused(self):
         with self.assertRaisesRegex(cm.ParseError, "columns"):
-            cm.parse_structure_index(INDEX_HEAD.replace("\tatom\tgroup", "\tgroup\tatom")
-                                     + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+            cm.parse_structure_index(index(index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3),
+                                           head=INDEX_HEAD.replace("\tatom\tgroup", "\tgroup\tatom")))
 
     def test_index_row_shape_and_content_are_checked(self):
         with self.assertRaisesRegex(cm.ParseError, "fields"):
-            cm.parse_structure_index(INDEX_HEAD + "A\tA\tALA\t1\t\tCA\tATOM\t1.000\t2.000\n")
+            cm.parse_structure_index(index("A\tA\tALA\t1\t\tCA\tATOM\t1.000\t2.000\n"))
         with self.assertRaisesRegex(cm.ParseError, "coordinate"):
-            cm.parse_structure_index(INDEX_HEAD + "A\tA\tALA\t1\t\tCA\tATOM\tx\t2.000\t3.000\n")
+            cm.parse_structure_index(index("A\tA\tALA\t1\t\tCA\tATOM\tx\t2.000\t3.000\n"))
         with self.assertRaisesRegex(cm.ParseError, "no atom"):
-            cm.parse_structure_index(INDEX_HEAD)
+            cm.parse_structure_index(index())
+
+    def test_index_coordinates_must_have_three_decimals(self):
+        for bad in ("1.00", "1.0000", "1", "nan", "inf", "1e3", "+1.000"):
+            with self.assertRaisesRegex(cm.ParseError, "coordinate"):
+                cm.parse_structure_index(index(
+                    "A\tA\tALA\t1\t\tCA\tATOM\t%s\t2.000\t3.000\n" % bad))
+        _sha, atoms = cm.parse_structure_index(index(
+            "A\tA\tALA\t1\t\tCA\tATOM\t-0.000\t2.000\t-31.500\n"))
+        self.assertEqual(atoms[0]["key"], cm.coord_key("-0.000", 2, -31.5))
+
+    def test_index_record_type_is_atom_or_hetatm(self):
+        with self.assertRaisesRegex(cm.ParseError, "record type"):
+            cm.parse_structure_index(index(index_line("A", "A", "ALA", "1", "", "CA", "atom", 1, 2, 3)))
+
+    def test_index_atom_count_catches_a_truncated_file(self):
+        line = index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3)
+        with self.assertRaisesRegex(cm.ParseError, "truncated"):
+            cm.parse_structure_index(index(line, n=2))
+        with self.assertRaisesRegex(cm.ParseError, "atom count"):
+            cm.parse_structure_index(index(line, head=INDEX_HEAD.replace("# atoms\t{n}\n", "")))
 
     def test_index_lives_beside_the_products(self):
         self.assertEqual(cm.index_path("/e1", "2RH1"), "/e1/2RH1/2RH1_structure_index.tsv")

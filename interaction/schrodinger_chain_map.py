@@ -45,6 +45,11 @@ INDEX_SUFFIX = "_structure_index.tsv"
 INDEX_COLUMNS = ("label_asym", "auth_asym", "comp", "auth_seq", "icode", "atom", "group",
                  "x", "y", "z")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+# Exactly the producer's "%.3f": anything else is a producer regression, and a
+# coordinate that does not match GPCRdb's text to the digit sends the matching
+# down its name-based fallbacks without a sound.
+_COORD = re.compile(r"^-?[0-9]+\.[0-9]{3}$")
+_GROUPS = frozenset({"ATOM", "HETATM"})
 
 
 class ParseError(ValueError):
@@ -66,9 +71,11 @@ def parse_structure_index(text):
 
     Each atom is a dict with label_asym, auth_asym, comp, auth_seq, icode, atom,
     group, key -- the shape the resolvers below take. The header must name this
-    schema and a sha256, the column line must be INDEX_COLUMNS, and every row
-    must have one value per column; anything else is a ParseError, because a
-    half-read index would resolve to the wrong chain without a sound.
+    schema, a sha256 and the number of atoms that follow; the column line must be
+    INDEX_COLUMNS; every row must have one value per column, a record type of
+    ATOM or HETATM and coordinates with three decimals. Anything else is a
+    ParseError, because a half-read or reformatted index would resolve to the
+    wrong chain, or through a fallback, without a sound.
     """
     header = {}
     lines = text.splitlines()
@@ -83,6 +90,8 @@ def parse_structure_index(text):
     sha = header.get("cif_sha256", "")
     if not _SHA256.match(sha):
         raise ParseError("index header has no cif_sha256")
+    if not header.get("atoms", "").isdigit():
+        raise ParseError("index header has no atom count")
     if i >= len(lines) or tuple(lines[i].split("\t")) != INDEX_COLUMNS:
         raise ParseError("index columns are not {}".format(INDEX_COLUMNS))
     atoms = []
@@ -92,15 +101,19 @@ def parse_structure_index(text):
             raise ParseError("index row has {} fields, expected {}".format(
                 len(fields), len(INDEX_COLUMNS)))
         row = dict(zip(INDEX_COLUMNS, fields))
-        try:
-            key = coord_key(row["x"], row["y"], row["z"])
-        except ValueError:
-            raise ParseError("index row has an unreadable coordinate: {!r}".format(line))
+        if not all(_COORD.match(row[c]) for c in ("x", "y", "z")):
+            raise ParseError("index row has a coordinate not written as -?d.ddd: {!r}".format(line))
+        if row["group"] not in _GROUPS:
+            raise ParseError("index row has record type {!r}".format(row["group"]))
+        key = coord_key(row["x"], row["y"], row["z"])
         atoms.append({"label_asym": row["label_asym"], "auth_asym": row["auth_asym"],
                       "comp": row["comp"], "auth_seq": row["auth_seq"], "icode": row["icode"],
                       "atom": row["atom"], "group": row["group"], "key": key})
     if not atoms:
         raise ParseError("index lists no atom")
+    if len(atoms) != int(header["atoms"]):
+        raise ParseError("index lists {} atoms, its header says {}: a truncated file".format(
+            len(atoms), header["atoms"]))
     return sha, atoms
 
 

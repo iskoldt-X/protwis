@@ -6,8 +6,11 @@
 
 build_all runs it before the imports, so the maps always match the annotation
 and structure text of that build. The author side comes from the coordinate
-index the producer delivers with the Engine 1 products (Engine 2 computes on
-Engine 1's prepared structures, so both share that mmCIF); no mmCIF is read here.
+index the producer delivers with the Engine 1 products; no mmCIF is read here.
+This relies on Engine 2 computing on Engine 1's prepared structure of the same
+mmCIF, which is how the producer runs it today: the Engine 2 products carry no
+record of their own input, so the index is checked against Engine 1's
+summary.yaml only.
 
 Where each input comes from:
 
@@ -145,7 +148,7 @@ class Command(BaseCommand):
             receptor, rows, values = self.build_one(
                 pdb, os.path.join(data_dir, name), chains.get(pdb) or "",
                 peptides.get(pdb, {}), cm.index_path(index_dir, pdb),
-                os.path.join(pdb_dir, pdb + ".pdb"))
+                os.path.join(pdb_dir, pdb + ".pdb"), e1.product_input_sha256(index_dir, pdb))
             header = [("pdb", pdb)] + [(k, dict(common, **values).get(k, "")) for k in HEADER_KEYS]
             sp.write_peptide_map(os.path.join(data_dir, name, sp.MAP_NAME), header,
                                  # Header values may hold commas (segments is a list);
@@ -162,7 +165,8 @@ class Command(BaseCommand):
         self.stdout.write("peptide chain rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor {}".format(sorted(rstatus.items())))
 
-    def build_one(self, pdb, tree, preferred_chain, chain_info, index_path, gpcrdb_pdb_path):
+    def build_one(self, pdb, tree, preferred_chain, chain_info, index_path, gpcrdb_pdb_path,
+                  summary_sha=None):
         """(receptor, rows, header values) for one structure.
 
         An unreadable input is not a reason to skip: the receptor is written
@@ -184,6 +188,7 @@ class Command(BaseCommand):
             # The header records the sha256 of the mmCIF the index was read from.
             with open(index_path) as fh:
                 values["cif_sha256"], cif_atoms = cm.parse_structure_index(fh.read())
+            mismatch = e1.index_mismatch(summary_sha, values["cif_sha256"])
             values["gpcrdb_pdb_sha256"] = sp.sha256_file(gpcrdb_pdb_path)
             with open(gpcrdb_pdb_path) as fh:
                 gtext = fh.read()
@@ -191,6 +196,8 @@ class Command(BaseCommand):
         except (OSError, UnicodeDecodeError, sp.MalformedProduct, cm.ParseError,
                 KeyError, ValueError) as exc:
             return unresolved("input unreadable: {}: {}".format(type(exc).__name__, exc))
+        if mismatch:
+            return unresolved(mismatch)
 
         res = cm.resolve_receptor(pdb, receptor["preferred_chain"], cif_atoms, gatoms)
         receptor.update(auth_chain=res["auth_chain"], status=res["status"], method=res["method"],

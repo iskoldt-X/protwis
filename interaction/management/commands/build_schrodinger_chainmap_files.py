@@ -49,6 +49,8 @@ import io
 import os
 import subprocess
 
+import yaml
+
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
@@ -70,20 +72,51 @@ def _sha256_file(path):
 
 
 def annotation_commit(given, gdata):
-    """The gpcrdb_data commit to record: the one given, else the checkout's HEAD.
+    """The gpcrdb_data commit to record: the one given, else the HEAD of ``gdata``.
 
-    Only recorded in the map headers, never compared, so a checkout that is not a
-    git repository is no reason to stop a build: it is recorded as "unknown".
+    Only recorded in the map headers, never compared, so anything that keeps git
+    from answering for that very directory -- no git binary (the test container
+    has none), a directory that is not a repository's top level (git would
+    otherwise answer for an enclosing repository), a worktree whose git directory
+    is not reachable -- records "unknown" rather than stopping a build.
     """
     if given:
         return given
+
+    def git(*args):
+        return subprocess.run(["git", "-C", gdata] + list(args), stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, universal_newlines=True,
+                              check=True, timeout=30).stdout.strip()
     try:
-        out = subprocess.run(["git", "-C", gdata, "rev-parse", "--short=7", "HEAD"],
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                             universal_newlines=True, check=True).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
+        if os.path.realpath(git("rev-parse", "--show-toplevel")) != os.path.realpath(gdata):
+            return "unknown"
+        return git("rev-parse", "--short=7", "HEAD") or "unknown"
+    except (OSError, subprocess.SubprocessError):
         return "unknown"
-    return out or "unknown"
+
+
+def product_input_sha256(tree, pdb):
+    """The input sha256 Engine 1 recorded in <tree>/<PDB>/summary.yaml, or None.
+
+    None when there is no summary or it predates the field: there is then
+    nothing to compare the coordinate index with.
+    """
+    path = os.path.join(tree, pdb, si.PRODUCT_SUMMARY_NAME)
+    try:
+        with open(path) as fh:
+            doc = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError):
+        return None
+    value = doc.get("input_sha256") if isinstance(doc, dict) else None
+    return value or None
+
+
+def index_mismatch(summary_sha, index_sha):
+    """The reason to refuse an index read from another mmCIF than the products, or None."""
+    if summary_sha and summary_sha != index_sha:
+        return ("the coordinate index was read from another mmCIF than the products "
+                "(index {}, summary.yaml {})".format(index_sha[:12], summary_sha[:12]))
+    return None
 
 
 def _sha256_parts(parts):
@@ -251,7 +284,8 @@ class Command(BaseCommand):
                                  "producer delivers them.")
         parser.add_argument("--annotation-commit", default=None,
                             help="gpcrdb_data commit the annotation was read at; recorded only. "
-                                 "Defaults to the HEAD of --gpcrdb-data, or 'unknown'.")
+                                 "Defaults to the HEAD of --gpcrdb-data when git can read it "
+                                 "there, 'unknown' otherwise.")
         parser.add_argument("--out-dir", default=None,
                             help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
                                  "so the map ships with the products.")
@@ -352,7 +386,8 @@ class Command(BaseCommand):
             rows, receptor, note = self.build_one(
                 pdb, anchors.get(pdb, []), chains.get(pdb), labels,
                 cm.index_path(index_dir, pdb), os.path.join(pdb_dir, pdb + ".pdb"),
-                si.instance_yaml_paths(data_dir, pdb), has_summary)
+                si.instance_yaml_paths(data_dir, pdb), has_summary,
+                product_input_sha256(data_dir, pdb))
             no_products += receptor["product_instances_sha256"] == cm.instances_sha256([])
             header = chainmap_header(pdb, dict(
                 annotation_commit=commit, ligands_sha256=ligands_sha,
@@ -381,7 +416,7 @@ class Command(BaseCommand):
         self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
 
     def build_one(self, pdb, anchor_keys, preferred_chain, labels, index_path, gpcrdb_pdb_path,
-                  instances, has_summary):
+                  instances, has_summary, summary_sha=None):
         """(anchor_rows, receptor_row, provenance) for one structure.
 
         An unreadable input is not a reason to skip: every anchor is written as
@@ -392,7 +427,8 @@ class Command(BaseCommand):
         if preferred_chain is None:
             preferred_chain = ""
         def unresolved(exc):
-            reason = "input unreadable: {}: {}".format(type(exc).__name__, exc)[:200]
+            reason = (exc if isinstance(exc, str)
+                      else "input unreadable: {}: {}".format(type(exc).__name__, exc))[:200]
             rows = [dict({c: "" for c in cm.ANCHOR_COLUMNS}, pdb=pdb, het=het, token=tok,
                          status="unresolved", note=reason)
                     for het, tok, _ in anchor_keys]
@@ -420,6 +456,9 @@ class Command(BaseCommand):
             gatoms = cm.parse_gpcrdb_pdb(gtext)
         except (cm.ParseError, KeyError, ValueError) as exc:
             return unresolved(exc)
+        mismatch = index_mismatch(summary_sha, note["cif_sha256"])
+        if mismatch:
+            return unresolved(mismatch)
 
         receptor = cm.resolve_receptor(pdb, preferred_chain, cif_atoms, gatoms)
         receptor["gpcrdb_text_sha256"] = cm.text_sha256(gtext)

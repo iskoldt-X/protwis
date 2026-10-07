@@ -197,7 +197,12 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     peptide chain. A renumbered match is still a match -- the peptide numbers
     written come from the product -- and is noted. method "any_atom": the
     chain has no standard CA in GPCRdb's text (a peptide of D-amino acids is
-    all HETATM), so every atom coordinate is compared instead.
+    all HETATM), so every atom of the chain there is looked up among the
+    author-side atoms. Those come from the producer's coordinate index, which
+    holds every HETATM record, every CA and every atom of a residue without a
+    CA: an all-HETATM chain is complete in it. A chain GPCRdb stores as HETATM
+    but the mmCIF as ATOM records with CA atoms would fall under the share and
+    be refused -- loudly; none in the 2026-10 corpus.
     """
     res = chain_map.resolve_receptor(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms)
     if res["status"] in ("ok", "renumbered") and res["auth_chain"]:
@@ -208,7 +213,7 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
         return "", "", "GPCRdb text has no atom on chain {}".format(gpcrdb_chain)
     per = collections.Counter(a["auth_asym"] for a in cif_atoms if a["key"] in keys)
     if not per:
-        return "", "", "no atom of GPCRdb chain {} is in the mmCIF".format(gpcrdb_chain)
+        return "", "", "no atom of GPCRdb chain {} is in the coordinate index".format(gpcrdb_chain)
     (best, n), = per.most_common(1)
     if n < ANY_ATOM_MIN_SHARE * len(keys) or list(per.values()).count(n) > 1:
         return "", "", "GPCRdb chain {}: {} of {} atoms on author chain {}".format(

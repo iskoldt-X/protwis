@@ -9,8 +9,11 @@ from this build's annotation and structure text (build_schrodinger_chainmap_file
 build_schrodinger_peptide_maps), so they can never be older than the data they
 describe. Then both imports dry-run, then both run for real, so a structure that
 would fail stops the caller with nothing imported rather than half imported:
-recovering is a re-run, not an excavation. build_all_interactions runs the maps
-and the dry runs before its long contact-network pass and the imports after it.
+recovering is a re-run, not an excavation. When both imports are done the maps
+are removed again (remove_schrodinger_maps), so the deliveries are left as they
+came; after a failed import they stay for the inspection. build_all_interactions
+runs the maps and the dry runs before its long contact-network pass and the
+imports and the clean-up after it.
 """
 
 import datetime
@@ -37,11 +40,13 @@ ENGINE2_RUN_DIR = os.sep.join(['logs', 'engine2_peptide_import'])
 
 COMMANDS = ('import_schrodinger_interactions', 'import_schrodinger_peptides')
 MAP_COMMANDS = ('build_schrodinger_chainmap_files', 'build_schrodinger_peptide_maps')
+CLEAN_COMMAND = 'remove_schrodinger_maps'
 
 # The deliveries each command reads. The peptide maps read Engine 1's tree too:
 # the producer delivers the coordinate indexes there.
 READS = {COMMANDS[0]: ('Engine 1',), COMMANDS[1]: ('Engine 2',),
-         MAP_COMMANDS[0]: ('Engine 1',), MAP_COMMANDS[1]: ('Engine 2', 'Engine 1')}
+         MAP_COMMANDS[0]: ('Engine 1',), MAP_COMMANDS[1]: ('Engine 2', 'Engine 1'),
+         CLEAN_COMMAND: ('Engine 1', 'Engine 2')}
 
 
 def _now():
@@ -90,7 +95,7 @@ def engine2_dir(options):
 
 
 def steps(options):
-    """[[command, options]]: the two maps, both imports as dry runs, then both for real."""
+    """[[command, options]]: the two maps, both imports as dry runs, both for real, the clean-up."""
     if options['skip_ligand_import']:
         print('{} SKIPPING the ligand imports: no ligand interactions are '
               'written'.format(_now()))
@@ -119,7 +124,9 @@ def steps(options):
     maps = [[MAP_COMMANDS[0], {'data_dir': engine1_dir(options), 'allow_stray': True}],
             [MAP_COMMANDS[1], {'data_dir': engine2_dir(options),
                                'index_dir': engine1_dir(options)}]]
-    return maps + dry + real
+    clean = [[CLEAN_COMMAND, {'engine1_dir': engine1_dir(options),
+                              'engine2_dir': engine2_dir(options)}]]
+    return maps + dry + real + clean
 
 
 def check_deliveries(options, command_names):
@@ -135,15 +142,16 @@ def check_deliveries(options, command_names):
 
 
 def split(planned):
-    """(maps and dry runs, real imports) of the steps ``steps`` planned, each in its order.
+    """(maps and dry runs, real imports and the clean-up) of the steps ``steps`` planned.
 
-    Plan once and split, so the dry runs and the imports they vouch for share
-    one accounting directory per lane, and read the same maps.
+    Each part keeps its order. Plan once and split, so the dry runs and the
+    imports they vouch for share one accounting directory per lane, and read the
+    same maps.
     """
-    def is_import(step):
-        return step[0] in COMMANDS and not step[1].get('dry_run')
-    return ([s for s in planned if not is_import(s)],
-            [s for s in planned if is_import(s)])
+    def after(step):
+        return step[0] == CLEAN_COMMAND or (step[0] in COMMANDS and not step[1].get('dry_run'))
+    return ([s for s in planned if not after(s)],
+            [s for s in planned if after(s)])
 
 
 def run(planned):
