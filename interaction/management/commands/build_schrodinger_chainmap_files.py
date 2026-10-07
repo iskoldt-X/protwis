@@ -8,8 +8,13 @@ the database, and the output is one file per structure, written next to that
 structure's products so the two can never drift apart::
 
     python manage.py build_schrodinger_chainmap_files \\
-        --gpcrdb-data /app/data/gpcrdb_data --cif-dir /app/data/cif \\
-        --data-dir /app/data/schrodinger --annotation-commit 9fe1875
+        --data-dir <DATA_DIR>/structure_data/schrodinger/engine1
+
+build_all runs it before the imports, so the maps always match the annotation
+and structure text of that build. The author side of the matching is the
+coordinate index the producer delivers in each structure's product directory
+(<PDB>/<PDB>_structure_index.tsv, the atoms of the mmCIF the products were
+computed from); no mmCIF is read here.
 
 Where each input comes from:
 
@@ -21,6 +26,7 @@ Where each input comes from:
                                             ChainID (column 6)
     Structure.pdb_data.pdb                structure_data/pdbs/<PDB>.pdb
     structure_type.origin == experiment   structures.tsv holds experimental only
+    author chains, numbering, coordinates <index-dir>/<PDB>/<PDB>_structure_index.tsv
 
 The command issues no database query and imports no model of its own; the
 importer module it borrows constants and instance discovery from pulls in
@@ -41,6 +47,7 @@ import hashlib
 import inspect
 import io
 import os
+import subprocess
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -60,6 +67,23 @@ def _sha256_file(path):
         for block in iter(lambda: fh.read(1 << 20), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def annotation_commit(given, gdata):
+    """The gpcrdb_data commit to record: the one given, else the checkout's HEAD.
+
+    Only recorded in the map headers, never compared, so a checkout that is not a
+    git repository is no reason to stop a build: it is recorded as "unknown".
+    """
+    if given:
+        return given
+    try:
+        out = subprocess.run(["git", "-C", gdata, "rev-parse", "--short=7", "HEAD"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             universal_newlines=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return out or "unknown"
 
 
 def _sha256_parts(parts):
@@ -220,10 +244,14 @@ class Command(BaseCommand):
                             help="gpcrdb_data checkout (uses structure_data/annotation and "
                                  "structure_data/pdbs). Defaults to DATA_DIR, so the maps are "
                                  "built from the same annotation the build will run on.")
-        parser.add_argument("--cif-dir", required=True, help="Directory of the input mmCIFs, <PDB>.cif.")
         parser.add_argument("--data-dir", required=True, help="Product tree {data_dir}/{PDB}/{instance}/.")
-        parser.add_argument("--annotation-commit", required=True,
-                            help="gpcrdb_data commit the annotation was read at.")
+        parser.add_argument("--index-dir", default=None,
+                            help="Where the coordinate indexes are, {index_dir}/{PDB}/{PDB}"
+                                 + cm.INDEX_SUFFIX + "; defaults to --data-dir, where the "
+                                 "producer delivers them.")
+        parser.add_argument("--annotation-commit", default=None,
+                            help="gpcrdb_data commit the annotation was read at; recorded only. "
+                                 "Defaults to the HEAD of --gpcrdb-data, or 'unknown'.")
         parser.add_argument("--out-dir", default=None,
                             help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
                                  "so the map ships with the products.")
@@ -238,9 +266,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opt):
         gdata = opt["gpcrdb_data"] or settings.DATA_DIR
-        cif_dir, data_dir = opt["cif_dir"], opt["data_dir"]
+        data_dir = opt["data_dir"]
+        index_dir = opt["index_dir"] or data_dir
         out_dir = opt["out_dir"] or data_dir
-        for label, path in (("--gpcrdb-data", gdata), ("--cif-dir", cif_dir), ("--data-dir", data_dir)):
+        commit = annotation_commit(opt["annotation_commit"], gdata)
+        for label, path in (("--gpcrdb-data", gdata), ("--index-dir", index_dir), ("--data-dir", data_dir)):
             if not os.path.isdir(path):
                 raise CommandError("{} {!r} is not a directory".format(label, path))
         # The out dir itself is created; its parent is not, so a typo there
@@ -321,11 +351,11 @@ class Command(BaseCommand):
             has_summary = has_product_summary(data_dir, pdb)
             rows, receptor, note = self.build_one(
                 pdb, anchors.get(pdb, []), chains.get(pdb), labels,
-                os.path.join(cif_dir, pdb + ".cif"), os.path.join(pdb_dir, pdb + ".pdb"),
+                cm.index_path(index_dir, pdb), os.path.join(pdb_dir, pdb + ".pdb"),
                 si.instance_yaml_paths(data_dir, pdb), has_summary)
             no_products += receptor["product_instances_sha256"] == cm.instances_sha256([])
             header = chainmap_header(pdb, dict(
-                annotation_commit=opt["annotation_commit"], ligands_sha256=ligands_sha,
+                annotation_commit=commit, ligands_sha256=ligands_sha,
                 structures_sha256=structures_sha, builder_sha256=builder_sha,
                 # The bytes on disk. receptor.gpcrdb_text_sha256 is what the
                 # importer compares against the database, hashed as decoded
@@ -343,14 +373,14 @@ class Command(BaseCommand):
 
         self.stdout.write("out-dir {}".format(out_dir))
         self.stdout.write("annotation_commit {} ligands_sha256 {} structures_sha256 {} "
-                          "builder_sha256 {}".format(opt["annotation_commit"], ligands_sha,
+                          "builder_sha256 {}".format(commit, ligands_sha,
                                                      structures_sha, builder_sha))
         self.stdout.write("chainmap.tsv written: {} ({} with no product instance)".format(
             written, no_products))
         self.stdout.write("anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
 
-    def build_one(self, pdb, anchor_keys, preferred_chain, labels, cif_path, gpcrdb_pdb_path,
+    def build_one(self, pdb, anchor_keys, preferred_chain, labels, index_path, gpcrdb_pdb_path,
                   instances, has_summary):
         """(anchor_rows, receptor_row, provenance) for one structure.
 
@@ -373,21 +403,20 @@ class Command(BaseCommand):
             return rows, receptor, note
 
         try:
-            note["cif_sha256"] = _sha256_file(cif_path)
-            with open(cif_path) as fh:
-                cif_text = fh.read()
+            with open(index_path) as fh:
+                index_text = fh.read()
             note["gpcrdb_pdb_sha256"] = _sha256_file(gpcrdb_pdb_path)
             with open(gpcrdb_pdb_path) as fh:
                 gtext = fh.read()
         except (OSError, UnicodeDecodeError) as exc:
             return unresolved(exc)
         try:
-            # Only the parsers get the wide clause: parse_mmcif_atoms raises a
-            # bare KeyError for an absent _atom_site column and a ValueError
-            # for an unparsable coordinate, and one malformed input must cost
-            # one structure rather than the whole run. Anything raised outside
-            # these two calls is a bug and is left to surface as one.
-            cif_atoms = cm.parse_mmcif_atoms(cif_text)
+            # Only the parsers get the wide clause: one malformed input must
+            # cost one structure rather than the whole run. Anything raised
+            # outside these two calls is a bug and is left to surface as one.
+            # The header records the sha256 of the mmCIF the index was read
+            # from, the file the products were computed from.
+            note["cif_sha256"], cif_atoms = cm.parse_structure_index(index_text)
             gatoms = cm.parse_gpcrdb_pdb(gtext)
         except (cm.ParseError, KeyError, ValueError) as exc:
             return unresolved(exc)

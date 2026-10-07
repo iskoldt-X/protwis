@@ -28,17 +28,50 @@ def no_import(name, **kw):
 
 
 class LigandImportStepsTests(unittest.TestCase):
-    def test_both_dry_runs_come_before_either_import(self):
+    def test_maps_then_both_dry_runs_then_both_imports(self):
         steps = build_all.Command().ligand_import_steps(options())
         self.assertEqual([(c, o.get("dry_run", False), o["data_dir"]) for c, o in steps], [
+            ("build_schrodinger_chainmap_files", False, "/e1"),
+            ("build_schrodinger_peptide_maps", False, "/e2"),
             ("import_schrodinger_interactions", True, "/e1"),
             ("import_schrodinger_peptides", True, "/e2"),
             ("import_schrodinger_interactions", False, "/e1"),
             ("import_schrodinger_peptides", False, "/e2"),
         ])
-        self.assertEqual([o["report_json"] for _c, o in steps],
+        self.assertEqual([o["report_json"] for c, o in steps if c in ligand_imports.COMMANDS],
                          ["/r1/report.dryrun.json", "/r2/report.dryrun.json",
                           "/r1/report.json", "/r2/report.json"])
+
+    def test_the_peptide_maps_read_the_indexes_from_the_engine1_tree(self):
+        steps = dict((c, o) for c, o in build_all.Command().ligand_import_steps(options())
+                     if c in ligand_imports.MAP_COMMANDS)
+        self.assertEqual(steps["build_schrodinger_peptide_maps"],
+                         {"data_dir": "/e2", "index_dir": "/e1"})
+        # The annotation decides which structures get a map; a product directory
+        # it no longer lists is not a reason to stop the build.
+        self.assertEqual(steps["build_schrodinger_chainmap_files"],
+                         {"data_dir": "/e1", "allow_stray": True})
+
+    def test_split_runs_the_maps_with_the_dry_runs(self):
+        before, imports = ligand_imports.split(ligand_imports.steps(options()))
+        self.assertEqual([(c, o.get("dry_run", False)) for c, o in before], [
+            ("build_schrodinger_chainmap_files", False),
+            ("build_schrodinger_peptide_maps", False),
+            ("import_schrodinger_interactions", True),
+            ("import_schrodinger_peptides", True)])
+        self.assertEqual([(c, o.get("dry_run", False)) for c, o in imports], [
+            ("import_schrodinger_interactions", False),
+            ("import_schrodinger_peptides", False)])
+
+    def test_the_peptide_maps_alone_need_the_engine1_delivery(self):
+        with tempfile.TemporaryDirectory() as d2:
+            with self.assertRaisesRegex(CommandError, "Engine 1 products are missing"):
+                ligand_imports.check_deliveries(
+                    options(engine1_data_dir="/nonexistent-e1", engine2_data_dir=d2),
+                    ["build_schrodinger_peptide_maps"])
+            ligand_imports.check_deliveries(
+                options(engine1_data_dir="/nonexistent-e1", engine2_data_dir=d2),
+                ["import_schrodinger_peptides"])
 
     def test_skipping_imports_nothing(self):
         self.assertEqual(build_all.Command().ligand_import_steps(options(skip_ligand_import=True)), [])
@@ -63,7 +96,9 @@ class BuildAllInteractionsTests(unittest.TestCase):
                     mock.patch.object(ligand_imports, "call_command",
                                       lambda name, **kw: calls.append((name, kw.get("dry_run", False)))):
                 cmd.handle(**opts)
-        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+        self.assertEqual(calls, [("build_schrodinger_chainmap_files", False),
+                                 ("build_schrodinger_peptide_maps", False),
+                                 ("import_schrodinger_interactions", True),
                                  ("import_schrodinger_peptides", True),
                                  "contacts",
                                  ("import_schrodinger_interactions", False),
@@ -85,7 +120,9 @@ class BuildAllInteractionsTests(unittest.TestCase):
                 with self.assertRaisesRegex(CommandError, "failed"):
                     bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
                                                    proc=1))
-        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+        self.assertEqual(calls, [("build_schrodinger_chainmap_files", False),
+                                 ("build_schrodinger_peptide_maps", False),
+                                 ("import_schrodinger_interactions", True),
                                  ("import_schrodinger_peptides", True)])
 
     def test_a_failing_import_after_the_contacts_makes_the_command_fail(self):
@@ -94,7 +131,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
 
         def real_fails(name, **kw):
             calls.append((name, kw.get("dry_run", False)))
-            if not kw.get("dry_run"):
+            if name in ligand_imports.COMMANDS and not kw.get("dry_run"):
                 raise CommandError("1 structure(s) failed")
 
         with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
@@ -104,7 +141,9 @@ class BuildAllInteractionsTests(unittest.TestCase):
                 with self.assertRaisesRegex(CommandError, "failed"):
                     bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
                                                    proc=1))
-        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+        self.assertEqual(calls, [("build_schrodinger_chainmap_files", False),
+                                 ("build_schrodinger_peptide_maps", False),
+                                 ("import_schrodinger_interactions", True),
                                  ("import_schrodinger_peptides", True),
                                  "contacts",
                                  ("import_schrodinger_interactions", False)])
@@ -124,7 +163,9 @@ class BuildAllInteractionsTests(unittest.TestCase):
                     mock.patch.object(ligand_imports, "call_command",
                                       lambda name, **kw: calls.append((name, kw.get("dry_run", False)))):
                 bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2, proc=1))
-        self.assertEqual(calls, [("import_schrodinger_interactions", True),
+        self.assertEqual(calls, [("build_schrodinger_chainmap_files", False),
+                                 ("build_schrodinger_peptide_maps", False),
+                                 ("import_schrodinger_interactions", True),
                                  ("import_schrodinger_peptides", True),
                                  "contacts",
                                  ("import_schrodinger_interactions", False),
@@ -138,7 +179,8 @@ class BuildAllInteractionsTests(unittest.TestCase):
                     mock.patch.object(ligand_imports, "steps", wraps=ligand_imports.steps) as plan, \
                     mock.patch.object(ligand_imports, "call_command",
                                       lambda name, **kw: paths.append(
-                                          (name, kw["report_json"], kw["anomaly_csv"]))):
+                                          (name, kw["report_json"], kw["anomaly_csv"]))
+                                      if name in ligand_imports.COMMANDS else None):
                 bai.Command().handle(**options(engine1_data_dir=d1, engine2_data_dir=d2,
                                                engine1_report_dir=None, engine2_report_dir=None,
                                                proc=1))

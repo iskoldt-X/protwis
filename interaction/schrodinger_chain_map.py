@@ -3,7 +3,9 @@
 The products name chains as the RCSB mmCIF does (author chain, up to four
 characters). GPCRdb names them as its stored PDB-format structure text does
 (one character, sometimes renamed, split or hand-edited by curators). This
-module builds two maps offline, once per (GPCRdb dump, product run):
+module builds two maps, from GPCRdb's text on one side and, on the other, the
+coordinate index the producer delivers with the products (the atoms of the
+mmCIF they were computed from, see below):
 
 * anchor map: one row per GPCRdb ligand-anchor copy (pdb, HET, chain_res
   token) naming the product instance that is the same ligand copy;
@@ -15,36 +17,38 @@ independent witness: it confirms coordinate answers, flags annotation errors
 when it disagrees, and is the only thing that can confirm a name-based
 fallback where GPCRdb stores an older model whose coordinates no longer match.
 
-No database access and no Django imports: the command in
-interaction/management/commands/build_schrodinger_chain_map.py feeds this
-module with text it reads from the database and the file system.
+No database access and no Django imports: the commands that build the maps
+(build_schrodinger_chainmap_files and build_schrodinger_peptide_maps from files,
+build_schrodinger_chain_map from the database) feed this module with text.
 """
 
 import collections
 import hashlib
+import os
 import re
 
 # ---------------------------------------------------------------------------
-# mmCIF _atom_site (author side)
+# Coordinate index (author side)
 # ---------------------------------------------------------------------------
-
-_CIF_TOKEN = re.compile(r"""'(?:[^']|'(?=\S))*'(?=\s|$)|"(?:[^"]|"(?=\S))*"(?=\s|$)|\S+""")
+#
+# The producer delivers, beside each structure's products, the atoms of the
+# mmCIF it read that this matching uses: the CA atoms and the HETATM records of
+# the first model, without hydrogen and water, with the sha256 of that mmCIF.
+# The producer writes the file (structure_index.py in schrodinger_interaction);
+# this side only reads it, so the rules for which atoms an mmCIF yields live in
+# one place, next to the mmCIF itself.
 
 WATER = frozenset({"HOH", "DOD", "WAT"})
+
+INDEX_SCHEMA = "structure-index/1"
+INDEX_SUFFIX = "_structure_index.tsv"
+INDEX_COLUMNS = ("label_asym", "auth_asym", "comp", "auth_seq", "icode", "atom", "group",
+                 "x", "y", "z")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ParseError(ValueError):
     """An input file does not have the shape this module relies on."""
-
-
-def _cif_tokens(line):
-    out = []
-    for m in _CIF_TOKEN.finditer(line):
-        tok = m.group(0)
-        if len(tok) > 1 and tok[0] == tok[-1] and tok[0] in "'\"":
-            tok = tok[1:-1]
-        out.append(tok)
-    return out
 
 
 def coord_key(x, y, z):
@@ -52,53 +56,52 @@ def coord_key(x, y, z):
     return "%.3f %.3f %.3f" % (float(x), float(y), float(z))
 
 
-def parse_mmcif_atoms(text):
-    """Return first-model, non-hydrogen, non-water atoms of an mmCIF _atom_site loop.
+def index_path(index_dir, pdb):
+    """Where the producer puts the coordinate index of ``pdb``."""
+    return os.path.join(index_dir, pdb, pdb + INDEX_SUFFIX)
 
-    Columns are read by name; every data row must have exactly as many tokens
-    as the loop declares, otherwise ParseError. Each atom is a dict with
-    label_asym, auth_asym, comp, auth_seq, icode, atom, group, key.
+
+def parse_structure_index(text):
+    """(cif_sha256, atoms) of a coordinate index.
+
+    Each atom is a dict with label_asym, auth_asym, comp, auth_seq, icode, atom,
+    group, key -- the shape the resolvers below take. The header must name this
+    schema and a sha256, the column line must be INDEX_COLUMNS, and every row
+    must have one value per column; anything else is a ParseError, because a
+    half-read index would resolve to the wrong chain without a sound.
     """
+    header = {}
     lines = text.splitlines()
     i = 0
-    cols = []
-    while i < len(lines):
-        if lines[i].startswith("loop_") and i + 1 < len(lines) and lines[i + 1].startswith("_atom_site."):
-            i += 1
-            while i < len(lines) and lines[i].startswith("_atom_site."):
-                cols.append(lines[i].split(".", 1)[1].strip())
-                i += 1
-            break
+    while i < len(lines) and lines[i].startswith("# "):
+        key, _, value = lines[i][2:].partition("\t")
+        header[key] = value
         i += 1
-    rows = []
-    while i < len(lines) and lines[i].startswith(("ATOM", "HETATM")):
-        tokens = _cif_tokens(lines[i])
-        if len(tokens) != len(cols):
-            raise ParseError("atom_site row has %d fields, loop declares %d" % (len(tokens), len(cols)))
-        rows.append(dict(zip(cols, tokens)))
-        i += 1
-    if not rows:
-        raise ParseError("no _atom_site rows found")
-    first_model = rows[0].get("pdbx_PDB_model_num")
+    if header.get("schema") != INDEX_SCHEMA:
+        raise ParseError("index schema {!r}, this reader reads {!r}".format(
+            header.get("schema"), INDEX_SCHEMA))
+    sha = header.get("cif_sha256", "")
+    if not _SHA256.match(sha):
+        raise ParseError("index header has no cif_sha256")
+    if i >= len(lines) or tuple(lines[i].split("\t")) != INDEX_COLUMNS:
+        raise ParseError("index columns are not {}".format(INDEX_COLUMNS))
     atoms = []
-    for r in rows:
-        if r.get("pdbx_PDB_model_num") != first_model:
-            continue
-        comp = r.get("auth_comp_id", r["label_comp_id"])
-        if comp in WATER or r.get("type_symbol") in ("H", "D"):
-            continue
-        icode = r.get("pdbx_PDB_ins_code", "?")
-        atoms.append({
-            "label_asym": r["label_asym_id"],
-            "auth_asym": r["auth_asym_id"],
-            "comp": comp,
-            "auth_seq": r["auth_seq_id"],
-            "icode": "" if icode in ("?", ".") else icode,
-            "atom": r.get("auth_atom_id", r["label_atom_id"]),
-            "group": r["group_PDB"],
-            "key": coord_key(r["Cartn_x"], r["Cartn_y"], r["Cartn_z"]),
-        })
-    return atoms
+    for line in lines[i + 1:]:
+        fields = line.split("\t")
+        if len(fields) != len(INDEX_COLUMNS):
+            raise ParseError("index row has {} fields, expected {}".format(
+                len(fields), len(INDEX_COLUMNS)))
+        row = dict(zip(INDEX_COLUMNS, fields))
+        try:
+            key = coord_key(row["x"], row["y"], row["z"])
+        except ValueError:
+            raise ParseError("index row has an unreadable coordinate: {!r}".format(line))
+        atoms.append({"label_asym": row["label_asym"], "auth_asym": row["auth_asym"],
+                      "comp": row["comp"], "auth_seq": row["auth_seq"], "icode": row["icode"],
+                      "atom": row["atom"], "group": row["group"], "key": key})
+    if not atoms:
+        raise ParseError("index lists no atom")
+    return sha, atoms
 
 
 # ---------------------------------------------------------------------------

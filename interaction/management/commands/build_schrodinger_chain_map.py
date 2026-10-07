@@ -3,14 +3,16 @@
 Usage::
 
     python manage.py build_schrodinger_chain_map \\
-        --cif-dir /app/data/cif --data-dir /app/data/schrodinger \\
+        --data-dir <DATA_DIR>/structure_data/schrodinger/engine1 \\
         --annotation /runs/ligands.tsv --annotation-commit b2af5d6 \\
         --dump-id 20260917_phase2 --out-dir /runs/chainmap [--pdb 2RH1 ...]
 
 Writes anchor_instance_map.tsv and receptor_chain_map.tsv. Both start with
 '#'-prefixed provenance lines (dump id, annotation commit and sha256, input
-and product manifests, builder sha256). Read-only with respect to the
-database. Rebuild after every new GPCRdb dump or product run, and diff the
+and product manifests, builder sha256). The author side is the coordinate
+index the producer delivers in each structure's product directory (the input
+manifest lists the sha256 of the mmCIF each index was read from). Read-only
+with respect to the database. Rebuild after every new GPCRdb dump or product run, and diff the
 result against the previous maps before using it.
 """
 
@@ -45,8 +47,10 @@ class Command(BaseCommand):
     help = "Build the anchor and receptor chain-name maps for the Schrodinger importer."
 
     def add_arguments(self, parser):
-        parser.add_argument("--cif-dir", required=True, help="Directory of the input mmCIFs, <PDB>.cif.")
         parser.add_argument("--data-dir", required=True, help="Product tree {data_dir}/{PDB}/{instance}/.")
+        parser.add_argument("--index-dir", default=None,
+                            help="Where the coordinate indexes are, {index_dir}/{PDB}/{PDB}"
+                                 + cm.INDEX_SUFFIX + "; defaults to --data-dir.")
         parser.add_argument("--annotation", required=True, help="Upstream ligands.tsv at a pinned commit.")
         parser.add_argument("--annotation-commit", required=True, help="gpcrdb_data commit of --annotation.")
         parser.add_argument("--dump-id", required=True, help="Name of the GPCRdb dump the database holds.")
@@ -54,7 +58,8 @@ class Command(BaseCommand):
         parser.add_argument("--pdb", action="append", default=[], help="Restrict to these PDB codes.")
 
     def handle(self, *args, **opt):
-        for key in ("cif_dir", "data_dir"):
+        opt["index_dir"] = opt["index_dir"] or opt["data_dir"]
+        for key in ("index_dir", "data_dir"):
             if not os.path.isdir(opt[key]):
                 raise CommandError("--{} {!r} is not a directory".format(key.replace("_", "-"), opt[key]))
         os.makedirs(opt["out_dir"], exist_ok=True)
@@ -85,12 +90,12 @@ class Command(BaseCommand):
             structure = Structure.objects.select_related("pdb_data").get(pk=anchors[pdb][0].structure_id)
             instances = si.instance_yaml_paths(opt["data_dir"], pdb)
             product_manifest.extend("{}\t{}".format(pdb, name) for name in sorted(instances))
-            cif_path = os.path.join(opt["cif_dir"], pdb + ".cif")
+            index_path = cm.index_path(opt["index_dir"], pdb)
             gtext = structure.pdb_data.pdb if structure.pdb_data else ""
             try:
-                cif_manifest.append("{}\t{}".format(pdb, _sha256_file(cif_path)))
-                with open(cif_path) as fh:
-                    cif_atoms = cm.parse_mmcif_atoms(fh.read())
+                with open(index_path) as fh:
+                    cif_sha, cif_atoms = cm.parse_structure_index(fh.read())
+                cif_manifest.append("{}\t{}".format(pdb, cif_sha))
                 gatoms = cm.parse_gpcrdb_pdb(gtext)
             except (OSError, cm.ParseError) as exc:
                 note = "input unreadable: {}".format(exc)[:200]

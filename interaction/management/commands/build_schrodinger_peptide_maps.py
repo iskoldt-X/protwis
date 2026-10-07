@@ -1,9 +1,13 @@
 """Build one peptide_map.tsv per structure of an Engine 2 tree, from files only.
 
     python manage.py build_schrodinger_peptide_maps \\
-        --cif-dir /app/data/cif \\
-        --data-dir /app/data/protwis/gpcr/structure_data/schrodinger/engine2 \\
-        --annotation-commit 2468ad4
+        --data-dir <DATA_DIR>/structure_data/schrodinger/engine2 \\
+        --index-dir <DATA_DIR>/structure_data/schrodinger/engine1
+
+build_all runs it before the imports, so the maps always match the annotation
+and structure text of that build. The author side comes from the coordinate
+index the producer delivers with the Engine 1 products (Engine 2 computes on
+Engine 1's prepared structures, so both share that mmCIF); no mmCIF is read here.
 
 Where each input comes from:
 
@@ -15,7 +19,7 @@ Where each input comes from:
     GPCRdb's receptor chain               structure_data/annotation/structures.tsv
                                             ChainID
     GPCRdb's coordinates                  structure_data/pdbs/<PDB>.pdb
-    author chains and numbering           --cif-dir/<PDB>.cif
+    author chains and numbering           --index-dir/<PDB>/<PDB>_structure_index.tsv
     segments, work items, outcomes        --data-dir/<PDB>/plan.json and the
                                             item records beside it
 
@@ -81,17 +85,22 @@ class Command(BaseCommand):
         parser.add_argument("--gpcrdb-data", default=None,
                             help="gpcrdb_data checkout (structure_data/annotation and "
                                  "structure_data/pdbs). Defaults to DATA_DIR.")
-        parser.add_argument("--cif-dir", required=True, help="Directory of the input mmCIFs, <PDB>.cif.")
         parser.add_argument("--data-dir", required=True, help="Engine 2 tree {data_dir}/{PDB}/plan.json.")
-        parser.add_argument("--annotation-commit", required=True,
-                            help="gpcrdb_data commit the annotation was read at.")
+        parser.add_argument("--index-dir", required=True,
+                            help="Where the coordinate indexes are, {index_dir}/{PDB}/{PDB}"
+                                 + cm.INDEX_SUFFIX + ": the Engine 1 tree, where the producer "
+                                 "delivers them.")
+        parser.add_argument("--annotation-commit", default=None,
+                            help="gpcrdb_data commit the annotation was read at; recorded only. "
+                                 "Defaults to the HEAD of --gpcrdb-data, or 'unknown'.")
         parser.add_argument("--pdb", action="append", default=[],
                             help="Restrict to these PDB codes.")
 
     def handle(self, *args, **opt):
         gdata = opt["gpcrdb_data"] or settings.DATA_DIR
-        cif_dir, data_dir = opt["cif_dir"], opt["data_dir"]
-        for label, path in (("--gpcrdb-data", gdata), ("--cif-dir", cif_dir), ("--data-dir", data_dir)):
+        index_dir, data_dir = opt["index_dir"], opt["data_dir"]
+        commit = e1.annotation_commit(opt["annotation_commit"], gdata)
+        for label, path in (("--gpcrdb-data", gdata), ("--index-dir", index_dir), ("--data-dir", data_dir)):
             if not os.path.isdir(path):
                 raise CommandError("{} {!r} is not a directory".format(label, path))
         ann = os.path.join(gdata, "structure_data", "annotation")
@@ -125,7 +134,7 @@ class Command(BaseCommand):
             sp.sha256_file(sp.__file__), sp.sha256_file(cm.__file__),
             sp.sha256_file(os.path.abspath(__file__)),
             inspect.getsource(e1.read_tsv), inspect.getsource(e1.preferred_chains)])
-        common = dict(annotation_commit=opt["annotation_commit"],
+        common = dict(annotation_commit=commit,
                       ligands_sha256=sp.sha256_file(ligands_tsv),
                       structures_sha256=sp.sha256_file(structures_tsv),
                       builder_sha256=builder_sha)
@@ -135,7 +144,7 @@ class Command(BaseCommand):
             name = planned[pdb]
             receptor, rows, values = self.build_one(
                 pdb, os.path.join(data_dir, name), chains.get(pdb) or "",
-                peptides.get(pdb, {}), os.path.join(cif_dir, pdb + ".cif"),
+                peptides.get(pdb, {}), cm.index_path(index_dir, pdb),
                 os.path.join(pdb_dir, pdb + ".pdb"))
             header = [("pdb", pdb)] + [(k, dict(common, **values).get(k, "")) for k in HEADER_KEYS]
             sp.write_peptide_map(os.path.join(data_dir, name, sp.MAP_NAME), header,
@@ -148,12 +157,12 @@ class Command(BaseCommand):
             rstatus[receptor["status"]] = rstatus.get(receptor["status"], 0) + 1
 
         self.stdout.write("annotation_commit {} builder_sha256 {}".format(
-            opt["annotation_commit"], builder_sha))
+            commit, builder_sha))
         self.stdout.write("peptide_map.tsv written: {}".format(written))
         self.stdout.write("peptide chain rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor {}".format(sorted(rstatus.items())))
 
-    def build_one(self, pdb, tree, preferred_chain, chain_info, cif_path, gpcrdb_pdb_path):
+    def build_one(self, pdb, tree, preferred_chain, chain_info, index_path, gpcrdb_pdb_path):
         """(receptor, rows, header values) for one structure.
 
         An unreadable input is not a reason to skip: the receptor is written
@@ -172,9 +181,9 @@ class Command(BaseCommand):
         try:
             values["plan_sha256"] = sp.sha256_file(os.path.join(tree, sp.PLAN_NAME))
             segments, items = sp.load_plan(os.path.dirname(tree), os.path.basename(tree))
-            values["cif_sha256"] = sp.sha256_file(cif_path)
-            with open(cif_path) as fh:
-                cif_atoms = cm.parse_mmcif_atoms(fh.read())
+            # The header records the sha256 of the mmCIF the index was read from.
+            with open(index_path) as fh:
+                values["cif_sha256"], cif_atoms = cm.parse_structure_index(fh.read())
             values["gpcrdb_pdb_sha256"] = sp.sha256_file(gpcrdb_pdb_path)
             with open(gpcrdb_pdb_path) as fh:
                 gtext = fh.read()

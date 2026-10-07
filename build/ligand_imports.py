@@ -3,11 +3,14 @@
 Neither command computes ligand interactions with the legacy calculation; they
 come from two imports of the Schrodinger deliveries: Engine 1 serves the
 anchors named by a HET code (import_schrodinger_interactions), Engine 2's
-peptide lane the "pep" chains (import_schrodinger_peptides). Both dry-run
-first, then both run for real, so a structure that would fail stops the
-caller with nothing imported rather than half imported: recovering is a
-re-run, not an excavation. build_all_interactions runs the dry runs before its
-long contact-network pass and the imports after it.
+peptide lane the "pep" chains (import_schrodinger_peptides). First the maps
+that tell each import which product answers which database anchor are built
+from this build's annotation and structure text (build_schrodinger_chainmap_files,
+build_schrodinger_peptide_maps), so they can never be older than the data they
+describe. Then both imports dry-run, then both run for real, so a structure that
+would fail stops the caller with nothing imported rather than half imported:
+recovering is a re-run, not an excavation. build_all_interactions runs the maps
+and the dry runs before its long contact-network pass and the imports after it.
 """
 
 import datetime
@@ -33,6 +36,12 @@ ENGINE1_RUN_DIR = os.sep.join(['logs', 'engine1_import'])
 ENGINE2_RUN_DIR = os.sep.join(['logs', 'engine2_peptide_import'])
 
 COMMANDS = ('import_schrodinger_interactions', 'import_schrodinger_peptides')
+MAP_COMMANDS = ('build_schrodinger_chainmap_files', 'build_schrodinger_peptide_maps')
+
+# The deliveries each command reads. The peptide maps read Engine 1's tree too:
+# the producer delivers the coordinate indexes there.
+READS = {COMMANDS[0]: ('Engine 1',), COMMANDS[1]: ('Engine 2',),
+         MAP_COMMANDS[0]: ('Engine 1',), MAP_COMMANDS[1]: ('Engine 2', 'Engine 1')}
 
 
 def _now():
@@ -81,7 +90,7 @@ def engine2_dir(options):
 
 
 def steps(options):
-    """[[command, options]]: both imports dry-run first, then both for real."""
+    """[[command, options]]: the two maps, both imports as dry runs, then both for real."""
     if options['skip_ligand_import']:
         print('{} SKIPPING the ligand imports: no ligand interactions are '
               'written'.format(_now()))
@@ -104,14 +113,21 @@ def steps(options):
               'anomaly_csv': os.path.join(run_dir, 'anomalies.csv'),
               'report_json': os.path.join(run_dir, 'report.json')}]
             for command, data_dir, run_dir in lanes]
-    return dry + real
+    # allow_stray: a product directory the annotation no longer lists gets no
+    # map. The database is built from the same annotation, so it has no anchor
+    # there for the import to miss; the annotation decides, not the delivery.
+    maps = [[MAP_COMMANDS[0], {'data_dir': engine1_dir(options), 'allow_stray': True}],
+            [MAP_COMMANDS[1], {'data_dir': engine2_dir(options),
+                               'index_dir': engine1_dir(options)}]]
+    return maps + dry + real
 
 
 def check_deliveries(options, command_names):
-    """Refuse to start when a delivery an import in ``command_names`` reads is missing."""
-    for command, label, data_dir in ((COMMANDS[0], 'Engine 1', engine1_dir(options)),
-                                     (COMMANDS[1], 'Engine 2', engine2_dir(options))):
-        if command in command_names and not os.path.isdir(data_dir):
+    """Refuse to start when a delivery a command in ``command_names`` reads is missing."""
+    needed = {label for command in command_names for label in READS.get(command, ())}
+    for label, data_dir in (('Engine 1', engine1_dir(options)),
+                            ('Engine 2', engine2_dir(options))):
+        if label in needed and not os.path.isdir(data_dir):
             raise CommandError(
                 '{} products are missing: {} is not a directory. Deliver them, or pass '
                 '--skip_ligand_import to go on without ligand interactions.'.format(
@@ -119,13 +135,15 @@ def check_deliveries(options, command_names):
 
 
 def split(planned):
-    """(dry runs, real imports) of the steps ``steps`` planned, each in its order.
+    """(maps and dry runs, real imports) of the steps ``steps`` planned, each in its order.
 
     Plan once and split, so the dry runs and the imports they vouch for share
-    one accounting directory per lane.
+    one accounting directory per lane, and read the same maps.
     """
-    return ([s for s in planned if s[1].get('dry_run')],
-            [s for s in planned if not s[1].get('dry_run')])
+    def is_import(step):
+        return step[0] in COMMANDS and not step[1].get('dry_run')
+    return ([s for s in planned if not is_import(s)],
+            [s for s in planned if is_import(s)])
 
 
 def run(planned):

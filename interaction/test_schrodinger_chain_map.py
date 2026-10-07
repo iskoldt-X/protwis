@@ -8,30 +8,14 @@ import unittest
 from interaction import schrodinger_chain_map as cm
 
 
-CIF_HEAD = """data_TEST
-loop_
-_atom_site.group_PDB
-_atom_site.id
-_atom_site.type_symbol
-_atom_site.label_atom_id
-_atom_site.label_comp_id
-_atom_site.label_asym_id
-_atom_site.label_seq_id
-_atom_site.pdbx_PDB_ins_code
-_atom_site.Cartn_x
-_atom_site.Cartn_y
-_atom_site.Cartn_z
-_atom_site.auth_seq_id
-_atom_site.auth_comp_id
-_atom_site.auth_asym_id
-_atom_site.auth_atom_id
-_atom_site.pdbx_PDB_model_num
-"""
+SHA = "ab" * 32
+INDEX_HEAD = ("# schema\tstructure-index/1\n# source\t2RH1.cif\n# cif_sha256\t" + SHA + "\n"
+              "label_asym\tauth_asym\tcomp\tauth_seq\ticode\tatom\tgroup\tx\ty\tz\n")
 
 
-def cif_line(group, n, el, atom, comp, label, seq, x, y, z, auth_seq, auth_asym, model=1, icode="?"):
-    return "%s %d %s %s %s %s %s %s %.3f %.3f %.3f %s %s %s %s %d\n" % (
-        group, n, el, atom, comp, label, seq, icode, x, y, z, auth_seq, comp, auth_asym, atom, model)
+def index_line(label, auth_asym, comp, auth_seq, icode, atom, group, x, y, z):
+    return "\t".join([label, auth_asym, comp, auth_seq, icode, atom, group,
+                      "%.3f" % x, "%.3f" % y, "%.3f" % z]) + "\n"
 
 
 def pdb_line(group, n, atom, resname, chain, resnum, x, y, z, element):
@@ -41,29 +25,50 @@ def pdb_line(group, n, atom, resname, chain, resnum, x, y, z, element):
 
 class ParseTests(unittest.TestCase):
 
-    def test_mmcif_reads_by_name_first_model_no_h_no_water(self):
-        text = CIF_HEAD + (
-            cif_line("ATOM", 1, "C", "CA", "ASP", "A", "1", 1, 2, 3, "113", "AAA")
-            + cif_line("ATOM", 2, "H", "H", "ASP", "A", "1", 1, 2, 4, "113", "AAA")
-            + cif_line("HETATM", 3, "O", "O", "HOH", "C", ".", 5, 5, 5, "901", "AAA")
-            + cif_line("HETATM", 4, "C", "C1", "Q6Q", "B", ".", 7, 8, 9, "1000", "AAA")
-            + cif_line("ATOM", 5, "C", "CA", "ASP", "A", "1", 1, 2, 3, "113", "AAA", model=2)
-            + "#\n")
-        atoms = cm.parse_mmcif_atoms(text)
-        self.assertEqual([(a["comp"], a["auth_asym"], a["auth_seq"], a["label_asym"]) for a in atoms],
-                         [("ASP", "AAA", "113", "A"), ("Q6Q", "AAA", "1000", "B")])
+    def test_index_gives_the_sha256_and_the_atoms_in_file_order(self):
+        text = INDEX_HEAD + (
+            index_line("A", "AAA", "ASP", "113", "", "CA", "ATOM", 1, 2, 3)
+            + index_line("B", "AAA", "Q6Q", "1000", "A", "C1", "HETATM", 7, 8, 9))
+        sha, atoms = cm.parse_structure_index(text)
+        self.assertEqual(sha, SHA)
+        self.assertEqual([(a["comp"], a["auth_asym"], a["auth_seq"], a["label_asym"], a["icode"],
+                           a["atom"], a["group"]) for a in atoms],
+                         [("ASP", "AAA", "113", "A", "", "CA", "ATOM"),
+                          ("Q6Q", "AAA", "1000", "B", "A", "C1", "HETATM")])
         self.assertEqual(atoms[1]["key"], "7.000 8.000 9.000")
+        self.assertEqual(atoms[0]["key"], cm.coord_key(1, 2, 3))
 
-    def test_mmcif_quoted_atom_name(self):
-        line = "HETATM 1 C \"C1'\" NAG C . ? 1.000 2.000 3.000 901 NAG A \"C1'\" 1\n"
-        atoms = cm.parse_mmcif_atoms(CIF_HEAD + line + "#\n")
+    def test_index_keeps_a_quote_inside_an_atom_name(self):
+        _sha, atoms = cm.parse_structure_index(
+            INDEX_HEAD + index_line("C", "A", "NAG", "901", "", "C1'", "HETATM", 1, 2, 3))
         self.assertEqual(atoms[0]["atom"], "C1'")
 
-    def test_mmcif_field_count_mismatch_is_loud(self):
-        with self.assertRaises(cm.ParseError):
-            cm.parse_mmcif_atoms(CIF_HEAD + "ATOM 1 C CA ASP A 1 ? 1 2 3 113\n")
-        with self.assertRaises(cm.ParseError):
-            cm.parse_mmcif_atoms("data_X\n#\n")
+    def test_index_of_another_schema_is_refused(self):
+        with self.assertRaisesRegex(cm.ParseError, "schema"):
+            cm.parse_structure_index(INDEX_HEAD.replace("structure-index/1", "structure-index/2")
+                                     + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+
+    def test_index_without_a_sha256_is_refused(self):
+        for bad in ("", "abc", "AB" * 32):
+            with self.assertRaisesRegex(cm.ParseError, "cif_sha256"):
+                cm.parse_structure_index(INDEX_HEAD.replace(SHA, bad)
+                                         + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+
+    def test_index_with_other_columns_is_refused(self):
+        with self.assertRaisesRegex(cm.ParseError, "columns"):
+            cm.parse_structure_index(INDEX_HEAD.replace("\tatom\tgroup", "\tgroup\tatom")
+                                     + index_line("A", "A", "ALA", "1", "", "CA", "ATOM", 1, 2, 3))
+
+    def test_index_row_shape_and_content_are_checked(self):
+        with self.assertRaisesRegex(cm.ParseError, "fields"):
+            cm.parse_structure_index(INDEX_HEAD + "A\tA\tALA\t1\t\tCA\tATOM\t1.000\t2.000\n")
+        with self.assertRaisesRegex(cm.ParseError, "coordinate"):
+            cm.parse_structure_index(INDEX_HEAD + "A\tA\tALA\t1\t\tCA\tATOM\tx\t2.000\t3.000\n")
+        with self.assertRaisesRegex(cm.ParseError, "no atom"):
+            cm.parse_structure_index(INDEX_HEAD)
+
+    def test_index_lives_beside_the_products(self):
+        self.assertEqual(cm.index_path("/e1", "2RH1"), "/e1/2RH1/2RH1_structure_index.tsv")
 
     def test_gpcrdb_text_reads_like_build_structures(self):
         text = (pdb_line("ATOM", 1, "CA", "ASP", "A", 113, 1, 2, 3, "C")
