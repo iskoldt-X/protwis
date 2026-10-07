@@ -95,7 +95,8 @@ class Command(BaseCommand):
                                  "delivers them.")
         parser.add_argument("--annotation-commit", default=None,
                             help="gpcrdb_data commit the annotation was read at; recorded only. "
-                                 "Defaults to the HEAD of --gpcrdb-data, or 'unknown'.")
+                                 "Defaults to the HEAD of --gpcrdb-data when git can read it "
+                                 "there, 'unknown' otherwise.")
         parser.add_argument("--pdb", action="append", default=[],
                             help="Restrict to these PDB codes.")
 
@@ -142,13 +143,15 @@ class Command(BaseCommand):
                       structures_sha256=sp.sha256_file(structures_tsv),
                       builder_sha256=builder_sha)
 
-        counts, rstatus, written = {}, {}, 0
+        counts, rstatus, written, checked = {}, {}, 0, 0
         for pdb in pdbs:
             name = planned[pdb]
+            summary_sha = e1.product_input_sha256(index_dir, pdb)
+            checked += summary_sha is not None
             receptor, rows, values = self.build_one(
                 pdb, os.path.join(data_dir, name), chains.get(pdb) or "",
                 peptides.get(pdb, {}), cm.index_path(index_dir, pdb),
-                os.path.join(pdb_dir, pdb + ".pdb"), e1.product_input_sha256(index_dir, pdb))
+                os.path.join(pdb_dir, pdb + ".pdb"), summary_sha)
             header = [("pdb", pdb)] + [(k, dict(common, **values).get(k, "")) for k in HEADER_KEYS]
             sp.write_peptide_map(os.path.join(data_dir, name, sp.MAP_NAME), header,
                                  # Header values may hold commas (segments is a list);
@@ -162,6 +165,8 @@ class Command(BaseCommand):
         self.stdout.write("annotation_commit {} builder_sha256 {}".format(
             commit, builder_sha))
         self.stdout.write("peptide_map.tsv written: {}".format(written))
+        self.stdout.write("index checked against summary.yaml input_sha256: {} (no field: {})".format(
+            checked, written - checked))
         self.stdout.write("peptide chain rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor {}".format(sorted(rstatus.items())))
 

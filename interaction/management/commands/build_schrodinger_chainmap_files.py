@@ -380,14 +380,15 @@ class Command(BaseCommand):
             si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME,
             si.PRODUCT_SUMMARY_KEY])
 
-        counts, rstatus, written, no_products = {}, {}, 0, 0
+        counts, rstatus, written, no_products, checked = {}, {}, 0, 0, 0
         for pdb in pdbs:
             has_summary = has_product_summary(data_dir, pdb)
+            summary_sha = product_input_sha256(data_dir, pdb)
+            checked += summary_sha is not None
             rows, receptor, note = self.build_one(
                 pdb, anchors.get(pdb, []), chains.get(pdb), labels,
                 cm.index_path(index_dir, pdb), os.path.join(pdb_dir, pdb + ".pdb"),
-                si.instance_yaml_paths(data_dir, pdb), has_summary,
-                product_input_sha256(data_dir, pdb))
+                si.instance_yaml_paths(data_dir, pdb), has_summary, summary_sha)
             no_products += receptor["product_instances_sha256"] == cm.instances_sha256([])
             header = chainmap_header(pdb, dict(
                 annotation_commit=commit, ligands_sha256=ligands_sha,
@@ -412,6 +413,8 @@ class Command(BaseCommand):
                                                      structures_sha, builder_sha))
         self.stdout.write("chainmap.tsv written: {} ({} with no product instance)".format(
             written, no_products))
+        self.stdout.write("index checked against summary.yaml input_sha256: {} (no field: {})".format(
+            checked, written - checked))
         self.stdout.write("anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
 

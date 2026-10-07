@@ -206,6 +206,22 @@ class MapBuilderTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(d.engine1, PDB, "summary.yaml")))
         self.assertTrue(os.path.isfile(os.path.join(d.engine2, PDB, sp.PLAN_NAME)))
 
+    def test_the_clean_up_touches_only_the_maps_and_the_directories_they_emptied(self):
+        d = Delivery(self.root)
+        os.makedirs(os.path.join(d.engine1, "EMPT"))                 # empty, held no map
+        write(os.path.join(d.engine1, "STRY", "notes.txt"), "x\n")  # holds only a stray file
+        outside = os.path.join(self.root, "outside")
+        write(os.path.join(outside, si.CHAINMAP_NAME), "keep\n")
+        os.symlink(outside, os.path.join(d.engine1, "LINK"))        # a symlinked directory
+        d.run(*ligand_imports.MAP_COMMANDS)
+        d.run(ligand_imports.CLEAN_COMMAND)
+        self.assertTrue(os.path.isdir(os.path.join(d.engine1, "EMPT")))
+        self.assertTrue(os.path.isfile(os.path.join(d.engine1, "STRY", "notes.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(outside, si.CHAINMAP_NAME)))
+        self.assertFalse(os.path.exists(os.path.join(d.engine1, EMPTY)))
+        d.run(ligand_imports.CLEAN_COMMAND)                         # a second run is harmless
+        self.assertTrue(os.path.isdir(os.path.join(d.engine1, "EMPT")))
+
 
 class AnnotationCommitTests(unittest.TestCase):
     def test_a_given_commit_wins(self):

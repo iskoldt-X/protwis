@@ -90,7 +90,7 @@ def parse_structure_index(text):
     sha = header.get("cif_sha256", "")
     if not _SHA256.match(sha):
         raise ParseError("index header has no cif_sha256")
-    if not header.get("atoms", "").isdigit():
+    if not re.match(r"^[0-9]+$", header.get("atoms", "")):
         raise ParseError("index header has no atom count")
     if i >= len(lines) or tuple(lines[i].split("\t")) != INDEX_COLUMNS:
         raise ParseError("index columns are not {}".format(INDEX_COLUMNS))

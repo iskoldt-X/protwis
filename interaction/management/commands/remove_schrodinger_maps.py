@@ -4,9 +4,11 @@ build_all builds chainmap.tsv (Engine 1 tree) and peptide_map.tsv (Engine 2 tree
 from the annotation of that build, imports with them, and then runs this, so the
 deliveries -- a gpcrdb_data checkout -- are left as they came: no build output in
 them, and no map of one build for the next to trip over. It removes those two
-file names one level below each tree and then every structure directory left
-empty: git does not keep empty directories, so an empty one was made by the map
-builder, for a structure with no delivered product. Nothing else is touched.
+file names one level below each tree, and a structure directory only when the
+map it just removed was the last thing in it -- the map builder makes such a
+directory for a structure with no delivered product. Nothing else is touched:
+an empty directory that held no map, symlinked directories, files of any other
+name.
 
 When an import fails the caller stops before this step, and the maps stay for
 the inspection; the next build rebuilds them.
@@ -30,9 +32,10 @@ def remove_maps(tree, name):
         if not os.path.isdir(sub) or os.path.islink(sub):
             continue
         path = os.path.join(sub, name)
-        if os.path.isfile(path):
-            os.remove(path)
-            maps += 1
+        if not os.path.isfile(path):
+            continue
+        os.remove(path)
+        maps += 1
         if not os.listdir(sub):
             os.rmdir(sub)
             dirs += 1

@@ -74,9 +74,11 @@ class ParseTests(unittest.TestCase):
 
     def test_index_coordinates_must_have_three_decimals(self):
         for bad in ("1.00", "1.0000", "1", "nan", "inf", "1e3", "+1.000"):
-            with self.assertRaisesRegex(cm.ParseError, "coordinate"):
-                cm.parse_structure_index(index(
-                    "A\tA\tALA\t1\t\tCA\tATOM\t%s\t2.000\t3.000\n" % bad))
+            for line in ("A\tA\tALA\t1\t\tCA\tATOM\t%s\t2.000\t3.000\n",
+                         "A\tA\tALA\t1\t\tCA\tATOM\t1.000\t%s\t3.000\n",
+                         "A\tA\tALA\t1\t\tCA\tATOM\t1.000\t2.000\t%s\n"):
+                with self.assertRaisesRegex(cm.ParseError, "coordinate"):
+                    cm.parse_structure_index(index(line % bad))
         _sha, atoms = cm.parse_structure_index(index(
             "A\tA\tALA\t1\t\tCA\tATOM\t-0.000\t2.000\t-31.500\n"))
         self.assertEqual(atoms[0]["key"], cm.coord_key("-0.000", 2, -31.5))
@@ -91,6 +93,8 @@ class ParseTests(unittest.TestCase):
             cm.parse_structure_index(index(line, n=2))
         with self.assertRaisesRegex(cm.ParseError, "atom count"):
             cm.parse_structure_index(index(line, head=INDEX_HEAD.replace("# atoms\t{n}\n", "")))
+        with self.assertRaisesRegex(cm.ParseError, "atom count"):
+            cm.parse_structure_index(index(line, head=INDEX_HEAD.replace("# atoms\t{n}", "# atoms\t\u0661")))
 
     def test_index_lives_beside_the_products(self):
         self.assertEqual(cm.index_path("/e1", "2RH1"), "/e1/2RH1/2RH1_structure_index.tsv")
