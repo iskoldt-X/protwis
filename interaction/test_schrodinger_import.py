@@ -558,7 +558,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "c2682e73b9f7e929dc8ef0ee61f5cae7ccb0ea373803affbd022b6a6455cd902")
+            digest, "1fa2153a6a18e71fbd4bd76303460c8623808ac387091457a01d0f4b4307fc73")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")

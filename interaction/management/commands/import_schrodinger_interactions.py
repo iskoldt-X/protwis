@@ -9,8 +9,8 @@ each structure directory, so nothing else has to be passed::
         --anomaly-csv /runs/anomalies.csv
 
 Every directory under --data-dir is one structure; whether Engine 1 ran it is
-read from its chain map (see not_run below). --pdb / --pdb-list narrow that to
-a few.
+read from its chain map and checked against the tree (see not_run below).
+--pdb / --pdb-list narrow that to a few.
 
 The older two-file maps are still accepted for comparing against a map built
 from the database::

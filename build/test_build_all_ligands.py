@@ -180,7 +180,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  ("import_schrodinger_peptides", False),
                                  ("remove_schrodinger_maps", False)])
 
-    def test_each_lane_keeps_its_own_accounting_directory_from_one_plan(self):
+    def test_each_import_keeps_its_own_accounting_directory_from_one_plan(self):
         from tools.management.commands import build_all_interactions as bai
         paths = []
         with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:

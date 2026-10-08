@@ -7,15 +7,16 @@
 # require on every rule) and the rest are for the reader.
 #
 # -----------------------------------------------------------------------------
-# THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL: this one,
-# which the import reads, and the producer's own copy, which only the producer's
-# tests read. Both test suites pin the same sha256 of the file (here in
-# interaction/test_schrodinger_import.py), so a change on one side only fails
-# that side's tests. Nothing else compares them. A rule missing on this side is
-# not harmless: resolve_slug raises on a row of an unknown (family, direction),
-# so every structure holding such a row is rolled back and reported, the others
-# import, and the command exits non-zero, which stops build_all. So a change
-# here is a change to both files, and to both pinned digests, at once.
+# THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL. One copy
+# is read by the GPCRdb import (protwis, interaction/schrodinger_import.py); the
+# other, in the Schrodinger producer, only by that producer's tests. Each
+# repository's tests pin the same sha256 of the file, so a change on one side
+# only fails that side's tests. Nothing else compares them. A rule missing from
+# the import's copy is not harmless: resolve_slug raises on a receptor row of an
+# unknown (family, direction), so the import command fails every structure
+# holding one and exits non-zero; under build_all the dry run fails first, and
+# the build stops with nothing imported. So a change here is a change to both
+# files, and to both pinned digests, at once.
 #
 # -----------------------------------------------------------------------------
 # DESIGN: the target slug is fully determined by (feature_family, direction).
@@ -94,8 +95,8 @@ rules:
 
   # ---- Halogen bond, water bridge, metal coordination ------------------------
   # The producer emits the Schrodinger Suite's own SHORTFORM strings ('XBond',
-  # 'Wat-HBond', 'Metal') unchanged. direction is '' because these contact types carry no
-  # donor/acceptor or pos/neg axis.
+  # 'Wat-HBond', 'Metal') unchanged. direction is '' because these contact
+  # types carry no donor/acceptor or pos/neg axis.
   - family: XBond
     direction: ''
     slug: halogen_protein
@@ -122,8 +123,8 @@ rules:
   # ---- Hydrophobic -------------------------------------------------------------
   # The Suite emits its SHORTFORM 'HPhob' verbatim, and the producer builds the
   # contact with no direction, so direction arrives as '' -- the same shape as
-  # the three rules above. Without this rule every structure with an HPhob row
-  # would fail in resolve_slug.
+  # the three rules above. Without this rule every structure with a receptor
+  # HPhob row would fail in resolve_slug.
   - family: HPhob
     direction: ''
     slug: hyd

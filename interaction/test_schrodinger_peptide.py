@@ -59,7 +59,7 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(sp.is_in_scope(fake_sli("", "peptide")))
         self.assertFalse(sp.is_in_scope(fake_sli(None, "peptide")))
 
-    def test_no_anchor_is_served_by_both_lanes(self):
+    def test_no_anchor_is_served_by_both_imports(self):
         for ref in ("pep", "PEP", "ZMA", "apo", ""):
             for ltype in ("peptide", "small-molecule", "lipid", "protein"):
                 sli = fake_sli(ref, ltype)
@@ -168,7 +168,7 @@ class PeptideChainTests(unittest.TestCase):
 
 
 class PeptideLineTests(unittest.TestCase):
-    def test_the_wrapper_layout_is_read(self):
+    def test_the_producer_layout_is_read(self):
         a = sp.parse_peptide_line(GLN, "D")
         self.assertEqual((a["name"], a["resname"], a["resnum"], a["icode"], a["element"]),
                          ("NE2", "GLN", 19, "", "N"))

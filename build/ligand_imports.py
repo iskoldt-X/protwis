@@ -23,11 +23,12 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-# Where the Engine 1 products are delivered, relative to DATA_DIR (the build
-# writes the per-PDB chain maps there for the duration of the import).
+# Where the Engine 1 products are delivered, relative to DATA_DIR. The build
+# writes the per-PDB chain maps there and removes them once both imports
+# succeed.
 ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
-# Where the Engine 2 products are delivered (and, during the import, the
-# per-PDB peptide maps).
+# Where the Engine 2 products are delivered; the per-PDB peptide maps come and
+# go the same way.
 ENGINE2_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine2'])
 
 # Where each import run leaves its accounting, relative to BASE_DIR. Not in
@@ -102,23 +103,23 @@ def steps(options):
               'written'.format(_now()))
         return []
     stamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    lanes = []
+    imports = []
     for command, data_dir, report_dir, default_dir in (
             (COMMANDS[0], engine1_dir(options), options['engine1_report_dir'], ENGINE1_RUN_DIR),
             (COMMANDS[1], engine2_dir(options), options['engine2_report_dir'], ENGINE2_RUN_DIR)):
         run_dir = report_dir or os.sep.join([settings.BASE_DIR, default_dir, stamp])
         print('{} {} accounting goes to {}'.format(_now(), command, run_dir))
-        lanes.append((command, data_dir, run_dir))
+        imports.append((command, data_dir, run_dir))
     dry = [[command,
             {'data_dir': data_dir, 'dry_run': True,
              'anomaly_csv': os.path.join(run_dir, 'anomalies.dryrun.csv'),
              'report_json': os.path.join(run_dir, 'report.dryrun.json')}]
-           for command, data_dir, run_dir in lanes]
+           for command, data_dir, run_dir in imports]
     real = [[command,
              {'data_dir': data_dir,
               'anomaly_csv': os.path.join(run_dir, 'anomalies.csv'),
               'report_json': os.path.join(run_dir, 'report.json')}]
-            for command, data_dir, run_dir in lanes]
+            for command, data_dir, run_dir in imports]
     # allow_stray: a product directory the annotation no longer lists gets no
     # map. The database is built from the same annotation, so it has no anchor
     # there for the import to miss; the annotation decides, not the delivery.

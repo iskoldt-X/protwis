@@ -341,8 +341,9 @@ class Command(BaseCommand):
                 raise CommandError("not in {}: {}".format(structures_tsv, ", ".join(unknown)))
         else:
             pdbs = corpus
-            # A directory holding products but absent from the corpus would
-            # ship with no chainmap.tsv at all. Housekeeping directories (.git,
+            # A directory holding products but absent from the corpus gets no
+            # chainmap.tsv, and the importer fails on it if the database knows
+            # the structure. Housekeeping directories (.git,
             # logs) hold no instance and are only worth a quiet note -- keeping
             # the two apart is the point, so that the day a real structure
             # lands in the list it is not read as noise.
@@ -356,8 +357,8 @@ class Command(BaseCommand):
                     _some(housekeeping)))
             if dropped and not opt["allow_stray"]:
                 raise CommandError(
-                    "these directories hold Engine 1 products but are not in {}, so they would "
-                    "ship without a chainmap: {}. Pass --allow-stray if that is intended, for "
+                    "these directories hold Engine 1 products but are not in {}, so they get "
+                    "no chainmap: {}. Pass --allow-stray if that is intended, for "
                     "instance after a structure was retired from the annotation.".format(
                         structures_tsv, _some(dropped)))
             if dropped:
@@ -368,10 +369,9 @@ class Command(BaseCommand):
         structures_sha = _sha256_file(structures_tsv)
         # What produced these rows: the algorithm module, this command, and what
         # it borrows from the importer module (scope, instance discovery and the
-        # chainmap format constants). Hashing the whole of
-        # that module instead would move this stamp on every unrelated importer
-        # edit, and a merged tree would then report a difference that is not
-        # one.
+        # chainmap format constants). Hashing the whole of that module instead
+        # would move this stamp on every unrelated importer edit, and a merged
+        # tree would then report a difference that is not one.
         builder_sha = _sha256_parts([
             _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
             repr(sorted(si.PLACEHOLDER_REFERENCES)),

@@ -8,13 +8,13 @@ Usage::
         --dump-id <name of the dump> --out-dir /runs/chainmap [--pdb 2RH1 ...]
 
 Writes anchor_instance_map.tsv and receptor_chain_map.tsv. Both start with
-'#'-prefixed provenance lines (dump id, annotation commit and sha256, the
-sha256 of the input and product manifests, builder sha256). The author side is
-the coordinate index the producer delivers in each structure's product
-directory (the input manifest is built from the sha256 of the mmCIF each index
-was read from). Read-only
-with respect to the database. Rebuild after every new GPCRdb dump or product run, and diff the
-result against the previous maps before using it.
+'#'-prefixed provenance lines: dump id, annotation commit and sha256, the
+sha256 of the mmCIF manifest (the sha256 of the mmCIF each coordinate index
+was read from) and of the product manifest, builder sha256 and the number of
+structures. The author side is the coordinate index the producer delivers in
+each structure's product directory. Read-only with respect to the database.
+Rebuild after every new GPCRdb dump or product run, and diff the result
+against the previous maps before using it.
 """
 
 import csv

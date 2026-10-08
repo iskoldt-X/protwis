@@ -95,8 +95,9 @@ DONE = "done"
 # Outcomes that answer the question with "no interface": no rows, not a gap.
 NO_INTERFACE = frozenset({"selections_apart", "selection_empty", "selections_overlap"})
 # Terminal outcomes of a run that looked and could not answer (outcome words
-# Engine 2 writes in each item's record): the anchor gets no rows and is reported, as Engine 1 treats a
-# structure it ran without a product. Anything else that is not done
+# Engine 2 writes in each item's record): the anchor gets no rows and is
+# reported, as Engine 1 treats a structure it ran without a product. Anything
+# else that is not done
 # (started, an unknown word) is an unfinished or unreadable delivery and
 # fails the structure.
 FAILED = frozenset({"preparation_failed", "compute_failed", "timed_out", "crashed"})
