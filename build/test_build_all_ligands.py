@@ -204,7 +204,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                         "import_schrodinger_peptides"])
         for name, found in dirs.items():
             self.assertEqual(len(found), 1, name)
-        # The lanes do not share a directory, and no run overwrites another's file.
+        # The two imports do not share a directory, and no run overwrites another's file.
         self.assertNotEqual(dirs["import_schrodinger_interactions"],
                             dirs["import_schrodinger_peptides"])
         files = [p for _n, report, anomalies in paths for p in (report, anomalies)]

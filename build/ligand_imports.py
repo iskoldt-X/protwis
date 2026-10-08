@@ -3,7 +3,7 @@
 Neither command computes ligand interactions with the legacy calculation; they
 come from two imports of the Schrodinger deliveries: Engine 1 serves the
 anchors named by a HET code (import_schrodinger_interactions), Engine 2's
-peptide lane the "pep" chains (import_schrodinger_peptides). First the maps
+peptide import the "pep" chains (import_schrodinger_peptides). First the maps
 that tell each import which product answers which database anchor are built
 from this build's annotation and structure text (build_schrodinger_chainmap_files,
 build_schrodinger_peptide_maps), so they can never be older than the data they
@@ -23,10 +23,11 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-# Where the Engine 1 products and their per-PDB chain maps are delivered,
-# relative to DATA_DIR.
+# Where the Engine 1 products are delivered, relative to DATA_DIR (the build
+# writes the per-PDB chain maps there for the duration of the import).
 ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
-# Where the Engine 2 products and their per-PDB peptide maps are delivered.
+# Where the Engine 2 products are delivered (and, during the import, the
+# per-PDB peptide maps).
 ENGINE2_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine2'])
 
 # Where each import run leaves its accounting, relative to BASE_DIR. Not in
@@ -145,7 +146,7 @@ def split(planned):
     """(maps and dry runs, real imports and the clean-up) of the steps ``steps`` planned.
 
     Each part keeps its order. Plan once and split, so the dry runs and the
-    imports they vouch for share one accounting directory per lane, and read the
+    imports they vouch for share one accounting directory per import, and read the
     same maps.
     """
     def after(step):

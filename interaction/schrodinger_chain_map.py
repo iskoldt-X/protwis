@@ -32,9 +32,9 @@ import re
 # ---------------------------------------------------------------------------
 #
 # The producer delivers, beside each structure's products, the atoms of the
-# mmCIF it read that this matching uses: the CA atoms and the HETATM records of
-# the first model, without hydrogen and water, with the sha256 of that mmCIF.
-# The producer writes the file (structure_index.py in schrodinger_interaction);
+# mmCIF it read that this matching uses -- every HETATM record, every CA and
+# every atom of a residue without a CA, from the first model, without hydrogen
+# and water -- with the sha256 of that mmCIF. The producer writes the file and
 # this side only reads it, so the rules for which atoms an mmCIF yields live in
 # one place, next to the mmCIF itself.
 

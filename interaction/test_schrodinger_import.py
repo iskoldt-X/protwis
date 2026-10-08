@@ -550,16 +550,15 @@ class RoutingTests(unittest.TestCase):
             "name": "covalent bond", "type": "covalent", "direction": ""}}])
 
     def test_the_map_is_the_one_the_producer_pins(self):
-        # The producer copy (schrodinger_interaction interaction_type_map/
-        # interaction_type_map.yaml) pins the same digest in
-        # tests/unit/test_interaction_type_map.py. Nothing else compares the
-        # two files; a one-sided change fails that side's suite.
+        # The producer keeps an identical copy of the map and pins the same
+        # digest in its own tests. Nothing else compares the two files; a
+        # one-sided change fails that side's tests.
         import hashlib
         path = os.path.join(os.path.dirname(si.__file__), "interaction_type_map.yaml")
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "7a5a7664fd259cf2c3416eef304da5051ef72040b268da7ac65b44bb77b5d04d")
+            digest, "c2682e73b9f7e929dc8ef0ee61f5cae7ccb0ea373803affbd022b6a6455cd902")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -638,7 +637,7 @@ class PlanRowsTests(unittest.TestCase):
             si.plan_rows([row("Bogus", "x")], "A")
 
     def test_receptor_chain_is_the_product_chain(self):
-        # The receptor chain is now the product (author) chain from the map.
+        # The receptor chain is the product (author) chain from the map.
         records, counts, _ = si.plan_rows([row("HPhob", chain="AAA")], "AAA")
         self.assertEqual((len(records), counts["other_chain"]), (1, 0))
 

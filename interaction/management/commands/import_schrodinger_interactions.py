@@ -1,14 +1,16 @@
 """Import Schrodinger Engine 1 interaction YAMLs, one transaction per structure.
 
-Usage, the way a build calls it -- the delivered tree says what to import and
-carries its own chain maps, so nothing else has to be passed::
+Usage, the way a build calls it -- the tree under --data-dir says what to
+import, and build_schrodinger_chainmap_files has written a chainmap.tsv into
+each structure directory, so nothing else has to be passed::
 
     python manage.py import_schrodinger_interactions \\
         --data-dir DATA_DIR/structure_data/schrodinger/engine1 \\
         --anomaly-csv /runs/anomalies.csv
 
-Every directory under --data-dir is one structure that was run, and each holds
-the chainmap.tsv built for it. --pdb / --pdb-list narrow that to a few.
+Every directory under --data-dir is one structure; whether Engine 1 ran it is
+read from its chain map (see not_run below). --pdb / --pdb-list narrow that to
+a few.
 
 The older two-file maps are still accepted for comparing against a map built
 from the database::

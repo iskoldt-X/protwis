@@ -13,7 +13,7 @@ import logging, json, os
 class Command(BaseBuild):
 
     help = ("Recompute the interactions of all experimental GPCR structures: the "
-            "intra-receptor contact network (legacy calculation; no Schrodinger lane yet), "
+            "intra-receptor contact network (computed here, as before), "
             "and the ligand interactions by importing the Schrodinger deliveries, as "
             "build_all does (Engine 1 for HET anchors, Engine 2 for \"pep\" chains). "
             "The maps both imports read are built and both imports dry-run before the "

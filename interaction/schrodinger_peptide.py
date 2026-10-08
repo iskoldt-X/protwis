@@ -42,7 +42,7 @@ The import writes two places, both replaced per anchor:
 The anchors served are those whose pdb_reference is "pep", whatever the
 ligand type: peptides, peptide drugs typed as small molecules, and proteins
 (antibodies and nanobodies, chemokines, glycoprotein hormones, toxins and
-other protein partners). Engine 1 skips every "pep" anchor, so the two lanes
+other protein partners). Engine 1 skips every "pep" anchor, so the two imports
 never meet.
 """
 
@@ -79,7 +79,7 @@ PEPTIDE_REFERENCE = "PEP"
 
 
 def is_in_scope(sli):
-    """True iff this anchor is a chain this lane serves: every "pep" anchor."""
+    """True iff this anchor is a chain this import serves: every "pep" anchor."""
     reference = (sli.pdb_reference or "").strip().upper()
     return reference == PEPTIDE_REFERENCE
 
@@ -94,8 +94,8 @@ MAP_NAME = "peptide_map.tsv"
 DONE = "done"
 # Outcomes that answer the question with "no interface": no rows, not a gap.
 NO_INTERFACE = frozenset({"selections_apart", "selection_empty", "selections_overlap"})
-# Terminal outcomes of a run that looked and could not answer (Engine 2's
-# status.py): the anchor gets no rows and is reported, as Engine 1 treats a
+# Terminal outcomes of a run that looked and could not answer (outcome words
+# Engine 2 writes in each item's record): the anchor gets no rows and is reported, as Engine 1 treats a
 # structure it ran without a product. Anything else that is not done
 # (started, an unknown word) is an unfinished or unreadable delivery and
 # fails the structure.
@@ -202,7 +202,7 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     holds every HETATM record, every CA and every atom of a residue without a
     CA: an all-HETATM chain is complete in it. A chain GPCRdb stores as HETATM
     but the mmCIF as ATOM records with CA atoms would fall under the share and
-    be refused -- loudly; none in the 2026-10 corpus.
+    be refused -- loudly; none among the structures delivered in October 2026.
     """
     res = chain_map.resolve_receptor(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms)
     if res["status"] in ("ok", "renumbered") and res["auth_chain"]:
@@ -725,7 +725,7 @@ def check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
 
 
 def import_structure(structure, data_dir, receptor, chain_rows, header):
-    """Replace the peptide-lane rows of one structure, in one transaction.
+    """Replace the peptide-import rows of one structure, in one transaction.
 
     ``receptor``, ``chain_rows`` and ``header`` are this structure's
     peptide_map.tsv as load_peptide_map returns them. Returns
@@ -764,7 +764,8 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             action, row = anchor_action(pdb, sli.id, chain, chain_rows)
             _clear_anchor(sli, peptide, outcome)
             if action == "clear":
-                # An in-scope anchor without a product keeps no rows.
+                # It names no peptide chain, so nothing can answer it, and an
+                # in-scope anchor keeps no rows it was not given.
                 outcome.mode = "cleared"
                 outcome.notes.append("anchor names no chain")
                 outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")

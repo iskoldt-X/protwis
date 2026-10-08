@@ -5,13 +5,14 @@ Usage::
     python manage.py build_schrodinger_chain_map \\
         --data-dir <DATA_DIR>/structure_data/schrodinger/engine1 \\
         --annotation /runs/ligands.tsv --annotation-commit b2af5d6 \\
-        --dump-id 20260917_phase2 --out-dir /runs/chainmap [--pdb 2RH1 ...]
+        --dump-id <name of the dump> --out-dir /runs/chainmap [--pdb 2RH1 ...]
 
 Writes anchor_instance_map.tsv and receptor_chain_map.tsv. Both start with
-'#'-prefixed provenance lines (dump id, annotation commit and sha256, input
-and product manifests, builder sha256). The author side is the coordinate
-index the producer delivers in each structure's product directory (the input
-manifest lists the sha256 of the mmCIF each index was read from). Read-only
+'#'-prefixed provenance lines (dump id, annotation commit and sha256, the
+sha256 of the input and product manifests, builder sha256). The author side is
+the coordinate index the producer delivers in each structure's product
+directory (the input manifest is built from the sha256 of the mmCIF each index
+was read from). Read-only
 with respect to the database. Rebuild after every new GPCRdb dump or product run, and diff the
 result against the previous maps before using it.
 """

@@ -19,7 +19,7 @@ from interaction import schrodinger_import as si
 from interaction import schrodinger_peptide as sp
 from interaction.management.commands import build_schrodinger_peptide_maps as builder
 
-# A producer peptide line, as the Engine 1 wrapper writes it (no altloc column).
+# A peptide atom line as the producer writes it (no altloc column).
 GLN = "HETATM   93  NE2GLN D  19      50.943 -11.924  33.028  1.00 83.04           N"
 
 

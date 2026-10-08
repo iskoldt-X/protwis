@@ -5,7 +5,7 @@
         --anomaly-csv /runs/peptides/anomalies.csv --report-json /runs/peptides/report.json
 
 The corpus is the database: every experimental structure with an anchor this
-lane serves (schrodinger_peptide.is_in_scope). Each must have a directory with
+import serves (schrodinger_peptide.is_in_scope). Each must have a directory with
 a peptide_map.tsv under --data-dir (build_schrodinger_peptide_maps); one that
 has none fails, and is never passed over -- its anchors would otherwise keep
 their old rows, or none, without a word. --pdb / --pdb-list narrow the corpus.

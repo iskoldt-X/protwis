@@ -3,19 +3,18 @@
 # Maps a Schrodinger product row (feature_family, direction) to the protwis
 # ResidueFragmentInteractionType slug it is stored under. The consumer
 # (interaction/schrodinger_import.py, load_type_map and resolve_slug) reads only
-# family, direction and slug of each rule; rationale and the rest are for the
-# reader.
+# family, direction and slug of each rule; rationale (which the producer's tests
+# require on every rule) and the rest are for the reader.
 #
 # -----------------------------------------------------------------------------
-# THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL:
-#     schrodinger_interaction/interaction_type_map/interaction_type_map.yaml
-#     protwis/interaction/interaction_type_map.yaml
-# Both test suites pin the same sha256 of the file
-# (schrodinger_interaction tests/unit/test_interaction_type_map.py and
-# protwis interaction/test_schrodinger_import.py), so a change on one side only
-# fails that side's tests. Nothing else compares them. A rule missing on the
-# consumer side is not harmless: resolve_slug raises on the first row of an
-# unknown (family, direction) and the import of that delivery stops. So a change
+# THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL: this one,
+# which the import reads, and the producer's own copy, which only the producer's
+# tests read. Both test suites pin the same sha256 of the file (here in
+# interaction/test_schrodinger_import.py), so a change on one side only fails
+# that side's tests. Nothing else compares them. A rule missing on this side is
+# not harmless: resolve_slug raises on a row of an unknown (family, direction),
+# so every structure holding such a row is rolled back and reported, the others
+# import, and the command exits non-zero, which stops build_all. So a change
 # here is a change to both files, and to both pinned digests, at once.
 #
 # -----------------------------------------------------------------------------
@@ -94,8 +93,8 @@ rules:
       Face-to-face aromatic stacking; protwis slug direction = none.
 
   # ---- Halogen bond, water bridge, metal coordination ------------------------
-  # The producer emits the Suite's own SHORTFORM strings ('XBond', 'Wat-HBond',
-  # 'Metal') unchanged. direction is '' because these contact types carry no
+  # The producer emits the Schrodinger Suite's own SHORTFORM strings ('XBond',
+  # 'Wat-HBond', 'Metal') unchanged. direction is '' because these contact types carry no
   # donor/acceptor or pos/neg axis.
   - family: XBond
     direction: ''
@@ -109,8 +108,9 @@ rules:
     slug: water_bridge_protein
     rationale: >-
       Water-mediated H-bond: ligand -> water -> receptor, two H-bonds in a
-      chain. The bridging water can be recovered from the ligand and receptor
-      pdb blocks if needed. SHORTFORM 'Wat-HBond' is the Suite's.
+      chain; SHORTFORM 'Wat-HBond' is the Suite's. The import does not write
+      this family (schrodinger_import.py, EXCLUDED_FAMILIES): the bridging water
+      is not recorded in the product, so no row of it can be checked.
   - family: Metal
     direction: ''
     slug: metal_coordination_protein
@@ -122,8 +122,8 @@ rules:
   # ---- Hydrophobic -------------------------------------------------------------
   # The Suite emits its SHORTFORM 'HPhob' verbatim, and the producer builds the
   # contact with no direction, so direction arrives as '' -- the same shape as
-  # the three rules above. Without this rule the first HPhob row would stop the
-  # import in resolve_slug.
+  # the three rules above. Without this rule every structure with an HPhob row
+  # would fail in resolve_slug.
   - family: HPhob
     direction: ''
     slug: hyd
@@ -137,7 +137,7 @@ rules:
   # Not a vendor family: the Suite has no function that reports a covalent
   # bond, so the producer writes the rows itself, one per ligand-receptor bond,
   # with direction ''. The slug is new (seeded by a data migration), and
-  # its type `covalent` is not `hidden`, so the rows are shown and counted.
+  # its type `covalent` is not `hidden`, so the rows are shown on the pages.
   - family: Covalent
     direction: ''
     slug: covalent
@@ -152,9 +152,10 @@ rules:
   # ---- Contact labels ----------------------------------------------------------
   # LABELS, not interactions: each says a residue lines the ligand, one row per
   # (ligand instance, residue). Not vendor families: the producer writes the
-  # rows itself, with direction ''. Both route to slugs the database already
-  # holds, so they need no migration. The same slugs also hold rows computed by
-  # the previous GPCRdb rule on anchors the Schrodinger imports do not serve.
+  # rows itself, with direction ''. Both route to slugs GPCRdb already used; the
+  # seed migration creates them in a database that lacks them. The same slugs
+  # also hold rows computed by the previous GPCRdb rule on anchors the
+  # Schrodinger imports do not serve.
   - family: VdW
     direction: ''
     slug: Van der Waals
@@ -162,7 +163,7 @@ rules:
       Van der Waals contact label: a heavy-atom pair with 0.89 < d/(ri+rj) < 1.3
       (Maestro's good-contact band, vendor radii), pairs within three bonds
       excluded. By default only on a residue with no other imported row for
-      the same ligand instance (producer config.VDW_ONLY_ON_UNTYPED_RESIDUES).
+      the same ligand instance (a producer setting).
       Existing slug, type waals, shown on the pages.
   - family: Accessible
     direction: ''
@@ -186,6 +187,9 @@ deferred:
     note: >-
       One ligand atom can produce several rows (e.g. Donor + PosCharge +
       PiCat). This map translates one row to one slug; it does not merge rows.
+      The import keeps one record per residue and slug (schrodinger_import.py,
+      plan_rows); unlike remove_hyd in the previous calculation, it keeps a
+      hydrophobic row next to a polar or aromatic one on the same residue.
   aro_fe_protein:
     note: >-
       The protwis face-to-edge slug has no Schrodinger source: the Suite's

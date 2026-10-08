@@ -4,8 +4,8 @@ Same decisions as build_schrodinger_chain_map: the per-anchor and per-receptor
 resolution is interaction.schrodinger_chain_map, imported by both. The branch
 for an anchor whose chain_res names no residue is written out in both commands
 and has to be kept in step by hand. Every input here comes from files instead of
-the database, and the output is one file per structure, written next to that
-structure's products so the two can never drift apart::
+the database, and the output is one file per structure, written into that
+structure's product directory, where the importer looks for it::
 
     python manage.py build_schrodinger_chainmap_files \\
         --data-dir <DATA_DIR>/structure_data/schrodinger/engine1
@@ -75,8 +75,8 @@ def annotation_commit(given, gdata):
     """The gpcrdb_data commit to record: the one given, else the HEAD of ``gdata``.
 
     Only recorded in the map headers, never compared, so anything that keeps git
-    from answering for that very directory -- no git binary (the test container
-    has none), a directory that is not a repository's top level (git would
+    from answering for that very directory -- no git binary (e.g. a container
+    without git), a directory that is not a repository's top level (git would
     otherwise answer for an enclosing repository), a worktree whose git directory
     is not reachable -- records "unknown" rather than stopping a build.
     """
@@ -261,8 +261,8 @@ def write_chainmap(path, header, anchor_rows):
     w = csv.DictWriter(buf, fieldnames=cm.ANCHOR_COLUMNS, delimiter="\t", lineterminator="\n")
     w.writeheader()
     w.writerows(anchor_rows)
-    # The out dir is the product tree that gets delivered; never leave a half
-    # written map behind if the run dies on the next structure.
+    # The out dir is usually the product tree the importer reads; never leave a
+    # half written map behind if the run dies on the next structure.
     tmp = path + ".tmp"
     with open(tmp, "w", newline="") as fh:
         fh.write(buf.getvalue())
@@ -288,12 +288,11 @@ class Command(BaseCommand):
                                  "there, 'unknown' otherwise.")
         parser.add_argument("--out-dir", default=None,
                             help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
-                                 "so the map ships with the products.")
+                                 "where the importer looks for it.")
         parser.add_argument("--allow-stray", action="store_true",
                             help="Do not refuse product directories that are absent from "
                                  "structures.tsv. They still get no chainmap, and the "
-                                 "importer fails on any of them the database still knows, "
-                                 "so delete them before delivering the tree.")
+                                 "importer fails on any of them the database still knows.")
         parser.add_argument("--pdb", action="append", default=[],
                             help="Restrict to these PDB codes; default is every structure in "
                                  "structures.tsv.")
@@ -367,8 +366,9 @@ class Command(BaseCommand):
 
         ligands_sha = _sha256_file(ligands_tsv)
         structures_sha = _sha256_file(structures_tsv)
-        # What produced these rows: the algorithm module, this command, and the
-        # four things it borrows from the importer module. Hashing the whole of
+        # What produced these rows: the algorithm module, this command, and what
+        # it borrows from the importer module (scope, instance discovery and the
+        # chainmap format constants). Hashing the whole of
         # that module instead would move this stamp on every unrelated importer
         # edit, and a merged tree would then report a difference that is not
         # one.

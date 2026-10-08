@@ -16,17 +16,21 @@ Two layers:
 * a database layer that replaces the RFI rows of one structure inside one
   transaction.
 
-Instance selection and the receptor chain come from two maps built offline by
-build_schrodinger_chain_map (interaction/schrodinger_chain_map.py): product
-chain names are mmCIF author names, GPCRdb's are its own stored PDB-format
-names, and the two differ for a few dozen structures.
+Instance selection and the receptor chain come from a per-structure chain
+map, {data_dir}/{PDB}/chainmap.tsv, written by build_schrodinger_chainmap_files
+(or, for comparison, from the two whole-database maps of
+build_schrodinger_chain_map); both use interaction/schrodinger_chain_map.py.
+Product chain names are mmCIF author names, GPCRdb's are its own stored
+PDB-format names, and the two differ for a few dozen structures.
 
-Replacement semantics: every in-scope anchor loses all its
-existing rows. Anchors with a product instance get the Schrodinger rows;
-anchors without one (the map says no_product) are left empty and reported
-with the map's reason. Anchors outside Engine 1 scope ("pep" chains and
-placeholder references, see is_in_scope) are never touched. Fragments left unreferenced are
-deleted, and so is their PdbData text when nothing else references it.
+Replacement semantics: every in-scope anchor loses all its existing rows, so
+an anchor never shows rows of the previous calculation next to, or instead
+of, Schrodinger rows. Anchors with a product instance get the Schrodinger
+rows; anchors without one (the map says no_product) are left empty and
+reported with the map's reason. Anchors outside Engine 1 scope ("pep" chains
+and placeholder references, see is_in_scope) are never touched. Fragments left
+unreferenced are deleted, and so is their PdbData text when nothing else
+references it.
 """
 
 import collections
@@ -66,7 +70,7 @@ EXCLUDED_FAMILIES = frozenset({"Wat-HBond"})
 
 STANDARD_AMINO_ACIDS = frozenset("ACDEFGHIKLMNPQRSTVWY")
 
-# Structure types this import serves (team convention: experiment only).
+# Structure types this import serves: experimental structures only.
 STRUCTURE_ORIGIN = "experiment"
 
 
@@ -596,7 +600,7 @@ def is_in_scope(sli):
     ligand type does not always agree with the annotation's. 6K1Q's IRL 2500 is
     a peptide in the database and a small molecule in ligands.tsv, referenced
     as the one component D2U: Engine 1 computes it and the chain map maps it,
-    and a type test here left it out of both lanes.
+    and a type test here would leave it out of both imports.
     """
     reference = (sli.pdb_reference or "").strip().upper()
     return bool(reference) and reference not in PLACEHOLDER_REFERENCES
@@ -791,8 +795,8 @@ def check_map_covers(pdb, slis, anchor_map):
     annotated) and has no copy dimension, so build_structures keeps one row per
     (structure, ligand, role).
 
-    Measured on dump 20260917_phase2 against ligands.tsv at gpcrdb_data
-    9fe1875, over the 1,672 in-scope structures: the file side is never short
+    Measured on the GPCRdb database dump of 2026-09-17 against ligands.tsv at
+    gpcrdb_data 9fe1875, over the 1,672 in-scope structures: the file side is never short
     of a copy the database has (0 missing) and lists 373 extra copies across
     239 structures. Classifying each extra by whether its chain is one the
     database already uses for the same HET: 328 on another chain, 44 further
