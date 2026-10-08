@@ -288,8 +288,9 @@ class Command(BaseCommand):
                     continue
                 if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
                     log.log(pdb, "WARNING", "no_product_dir",
-                            detail="no product directory; the map must say no_product for every "
-                                   "in-scope anchor, which are then cleared")
+                            detail="no product directory; the structure has no summary.yaml "
+                                   "with a contract version, so it fails if it has in-scope "
+                                   "anchors")
                 try:
                     with transaction.atomic():
                         outcomes, out_of_scope, cleanup, unused = si.import_structure(

@@ -591,7 +591,9 @@ def check_product_contract(data_dir, pdb_code):
     try:
         with open(path) as fh:
             doc = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError) as exc:
+    except OSError as exc:
+        raise MalformedProduct("no summary.yaml, so no contract version ({})".format(exc))
+    except yaml.YAMLError as exc:
         raise MalformedProduct("{}: {}".format(path, exc))
     version = doc.get("contract_version") if isinstance(doc, dict) else None
     if version != PRODUCT_CONTRACT:

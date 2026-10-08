@@ -734,15 +734,24 @@ class ProductContractTests(unittest.TestCase):
             with self.assertRaises(si.MalformedProduct):
                 si.check_product_contract(self.dir, "2RH1")
         os.remove(os.path.join(self.dir, "2RH1", "summary.yaml"))
-        with self.assertRaisesRegex(si.MalformedProduct, "summary.yaml"):
+        with self.assertRaisesRegex(si.MalformedProduct, "no summary.yaml"):
             si.check_product_contract(self.dir, "2RH1")
 
     def test_import_structure_checks_the_contract_before_writing(self):
-        # import_structure needs the database; this pins the call statically.
+        # import_structure needs the database; this pins the call statically,
+        # on the syntax tree, so a commented-out call does not count.
+        import ast
         import inspect
-        src = inspect.getsource(si.import_structure)
-        self.assertIn("check_product_contract(data_dir, pdb_code)", src)
-        self.assertLess(src.index("check_product_contract("), src.index(".delete()"))
+        import textwrap
+        tree = ast.parse(textwrap.dedent(inspect.getsource(si.import_structure)))
+        calls = [(n.lineno, n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)]
+        checks = [line for line, f in calls
+                  if isinstance(f, ast.Name) and f.id == "check_product_contract"]
+        deletes = [line for line, f in calls
+                   if isinstance(f, ast.Attribute) and f.attr == "delete"]
+        self.assertEqual(len(checks), 1)
+        self.assertTrue(deletes)
+        self.assertLess(checks[0], min(deletes))
 
 
 class SeedTests(unittest.TestCase):

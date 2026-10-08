@@ -405,11 +405,12 @@ class TreeTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir)
 
-    def item(self, key, outcome, rows=None, record_key=None):
+    def item(self, key, outcome, rows=None, record_key=None, contract="engine2/3.0"):
         d = os.path.join(self.dir, "6DDF", key)
         os.makedirs(d)
         with open(os.path.join(d, key + ".json"), "w") as fh:
-            json.dump({"work_item_key": record_key or key, "outcome": outcome}, fh)
+            json.dump({"work_item_key": record_key or key, "outcome": outcome,
+                       "provenance": {"contract_version": contract}}, fh)
         if rows is not None:
             with open(os.path.join(d, key + ".yaml"), "w") as fh:
                 fh.write("result:\n  interactions: {}\n".format(json.dumps(rows)))
@@ -480,6 +481,14 @@ class TreeTests(unittest.TestCase):
             sp.check_fingerprints("6DDF", self.dir, receptor, header, "ATOM other\n")
         with self.assertRaisesRegex(sp.MapMismatch, "plan.json"):
             sp.check_fingerprints("6DDF", self.dir, receptor, {"plan_sha256": "0" * 64}, "ATOM text\n")
+
+    def test_a_record_of_another_contract_version_raises(self):
+        self.item("k1", "done", [row("HPhob", lig=GLN)], contract="engine2/2.0")
+        with self.assertRaisesRegex(sp.MalformedProduct, "contract_version"):
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1"], ["done"]))
+        self.item("k2", "done", [row("HPhob", lig=GLN)], contract=None)
+        with self.assertRaisesRegex(sp.MalformedProduct, "contract_version"):
+            sp.anchor_rows(self.dir, "6DDF", self.map_row(["k2"], ["done"]))
 
     def test_a_done_item_without_its_yaml_raises(self):
         self.item("k1", "done")

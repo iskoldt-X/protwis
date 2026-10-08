@@ -117,9 +117,10 @@ def read_json(path):
     return doc
 
 
-# The contract version of the Engine 2 deliveries this importer reads, as each
-# plan.json records it. The producer changes it when the meaning or the
-# required fields of a product record change.
+# The contract version of the Engine 2 deliveries this importer reads, as
+# plan.json and every item record carry it (the map builder checks the plan,
+# anchor_rows each record it reads). The producer changes it when the meaning
+# or the required fields of a product record change.
 PRODUCT_CONTRACT = "engine2/3.0"
 
 
@@ -543,6 +544,11 @@ def anchor_rows(data_dir, pdb, map_row):
     for key, expected in zip(map_row["items_list"], map_row["outcomes_list"]):
         rec_path, yaml_path = item_paths(data_dir, pdb, key)
         record = read_json(rec_path)
+        provenance = record.get("provenance")
+        version = provenance.get("contract_version") if isinstance(provenance, dict) else None
+        if version != PRODUCT_CONTRACT:
+            raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
+                rec_path, version, PRODUCT_CONTRACT))
         if record.get("work_item_key") != key or record.get("outcome") != expected:
             raise MalformedProduct("{}: record says {}/{}, the map says {}/{}".format(
                 rec_path, record.get("work_item_key"), record.get("outcome"), key, expected))
