@@ -797,8 +797,8 @@ def check_map_covers(pdb, slis, anchor_map):
 
     Measured on the GPCRdb database dump of 2026-09-17 against ligands.tsv at
     gpcrdb_data 9fe1875, over the 1,672 in-scope structures: the file side is
-    never short of a copy the database has (0 missing) and lists 373 extra copies across
-    239 structures. Classifying each extra by whether its chain is one the
+    never short of a copy the database has (0 missing) and lists 373 extra
+    copies across 239 structures. Classifying each extra by whether its chain is one the
     database already uses for the same HET: 328 on another chain, 44 further
     copies on a chain the database does use (35 of them the calcium ion), and
     one whole HET -- 7IPG A1CS8, whose SMILES normalises to the same

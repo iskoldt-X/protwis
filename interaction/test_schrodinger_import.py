@@ -560,7 +560,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "1fa2153a6a18e71fbd4bd76303460c8623808ac387091457a01d0f4b4307fc73")
+            digest, "85306bf2da31ee37d5ff18c7cb588b7c507850815fbc138a6833425294272fb7")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -730,7 +730,7 @@ class SeedTests(unittest.TestCase):
         # Written out, not read back from the module: a page shows the name
         # and leaves "hidden" types out, so a changed value must fail here.
         # Every row but covalent, halogen_protein and metal_coordination_protein
-        # is what the legacy calculation wrote.
+        # is what the legacy calculation computes.
         self.assertEqual(sorted(self._migration().SEEDED_TYPES), sorted([
             ("acc", "accessible", "hidden", ""),
             ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
@@ -778,6 +778,15 @@ class SeedTests(unittest.TestCase):
         mig.seed(_Apps(), None)
         self.assertEqual(saved, [("halogen_protein", "halogen contact", ["name"])])
         self.assertEqual(existing["hyd"].name, "something else")
+
+    def test_the_seed_follows_0008_and_reverses_as_a_no_op(self):
+        # The remedy _check_slugs prints (migrate interaction 0008, then
+        # migrate interaction) needs the reverse to be a no-op.
+        from django.db import migrations
+        mig = self._migration().Migration
+        self.assertEqual(mig.dependencies, [("interaction", "0008_auto_20260921_1803")])
+        self.assertEqual(len(mig.operations), 1)
+        self.assertIs(mig.operations[0].reverse_code, migrations.RunPython.noop)
 
     def test_the_seed_hands_every_row_to_the_orm(self):
         mig = self._migration()

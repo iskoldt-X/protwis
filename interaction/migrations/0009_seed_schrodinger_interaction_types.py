@@ -6,9 +6,10 @@ are exactly schrodinger_import.required_slugs(): the targets of
 interaction_type_map.yaml outside the excluded families, plus polar_backbone,
 the backbone override.
 
-Eleven of them are types the legacy calculation also wrote, and keep the slug,
-name, type and direction it gave them, so a database built either way names
-them alike. Three are new:
+Eleven of them are types the legacy calculation also computes, and keep the
+slug, name, type and direction it gives them, so a database built either way
+names them alike (aro_ion_protein the legacy calculation computes but never
+stores: its rows carry no fragment). Three are new:
 
 * halogen_protein and metal_coordination_protein, targets of map rules the
   legacy calculation has no counterpart for. halogen_protein is named "halogen
@@ -31,16 +32,18 @@ that uses them.
 from django.db import migrations
 
 
+# The order is the order rows are created in, so it sets the ids new rows get
+# and with them the order the pages list types in (they order by type id).
 SEEDED_TYPES = (
     # slug, name, type, direction
+    ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
+    ("halogen_protein", "halogen contact", "polar", ""),
+    ("metal_coordination_protein", "metal coordination", "polar", ""),
+    ("covalent", "covalent bond", "covalent", ""),
     ("acc", "accessible", "hidden", ""),
     ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
     ("aro_ff", "aromatic (face-to-face)", "aromatic", "none"),
-    ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
-    ("covalent", "covalent bond", "covalent", ""),
-    ("halogen_protein", "halogen contact", "polar", ""),
     ("hyd", "hydrophobic", "hydrophobic", ""),
-    ("metal_coordination_protein", "metal coordination", "polar", ""),
     ("polar_acceptor_protein", "polar (hydrogen bond)", "polar", "protein"),
     ("polar_backbone", "polar (hydrogen bond with backbone)", "polar", "protein"),
     ("polar_donor_protein", "polar (hydrogen bond)", "polar", "protein"),

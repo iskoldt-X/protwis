@@ -13,10 +13,10 @@
 # repository's tests pin the same sha256 of the file, so a change on one side
 # only fails that side's tests. Nothing else compares them. A rule missing from
 # the import's copy is not harmless: resolve_slug raises on a receptor row of an
-# unknown (family, direction), so the import command fails every structure
-# holding one and exits non-zero; under build_all the dry run fails first, and
-# the build stops with nothing imported. So a change here is a change to both
-# files, and to both pinned digests, at once.
+# unknown (family, direction), so each import command fails every structure
+# holding one and exits non-zero; under build_all and build_all_interactions
+# the dry run fails first, and the build stops with nothing imported. So a
+# change here is a change to both files, and to both pinned digests, at once.
 #
 # -----------------------------------------------------------------------------
 # DESIGN: the target slug is fully determined by (feature_family, direction).
@@ -101,9 +101,11 @@ rules:
     direction: ''
     slug: halogen_protein
     rationale: >-
-      Halogen bond: ligand C-X (X = Cl/Br/I; F rarely qualifies) sigma-hole
-      donates to a receptor lone-pair acceptor (backbone C=O, Asn/Gln O, His N).
-      The Suite's SHORTFORM 'XBond' is kept verbatim rather than renamed.
+      Halogen contact: a ligand halogen within the producer's distance limit
+      of a receptor polar atom (backbone C=O, Asn/Gln O, His N, ...). Its angle
+      limits remove no rows, so these are contacts rather than proven halogen
+      bonds, and the type is named "halogen contact". The Suite's SHORTFORM
+      'XBond' is kept verbatim rather than renamed.
   - family: Wat-HBond
     direction: ''
     slug: water_bridge_protein

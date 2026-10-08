@@ -14,9 +14,9 @@ stored text) with an atom within LIGAND_NEAR of a product ligand atom. HETATM
 only, because some ligands carry an amino acid's name (free TRP in 7DD5, GLU
 in 8JD3) and the receptor residue of that name next to them is ATOM. Product
 coordinates come through structure preparation; most are within 0.01 A of the
-stored text, but among the structures delivered in October 2026, 8 anchors
-(3RZE, 7V68 x2, 8IU2,
-8JEF, 8VVG, 8WJX) are 0.6-1.9 A away, so an exact match would miss them.
+stored text, but in the products delivered on 2026-10-04, 8 anchors (3RZE,
+7V68 x2, 8IU2, 8JEF, 8VVG, 8WJX) are 0.6-1.9 A away, so an exact match would
+miss them.
 Atoms of two different molecules are not that close, and the name keeps a
 neighbouring molecule of another kind out. An alternate conformer stored as
 its own residue (7B6W T0B A:602) is taken too.

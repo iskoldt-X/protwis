@@ -343,10 +343,10 @@ class Command(BaseCommand):
             pdbs = corpus
             # A directory holding products but absent from the corpus gets no
             # chainmap.tsv, and the importer fails on it if the database knows
-            # the structure. Housekeeping directories (.git,
-            # logs) hold no instance and are only worth a quiet note -- keeping
-            # the two apart is the point, so that the day a real structure
-            # lands in the list it is not read as noise.
+            # the structure. Housekeeping directories (.git, logs) hold no
+            # instance and are only worth a quiet note -- keeping the two apart
+            # is the point, so that the day a real structure lands in the list
+            # it is not read as noise.
             dropped, housekeeping = [], []
             for name in sorted(os.listdir(data_dir)):
                 if name.upper() in chains or not os.path.isdir(os.path.join(data_dir, name)):
