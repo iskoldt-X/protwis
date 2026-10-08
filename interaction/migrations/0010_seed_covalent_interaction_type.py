@@ -6,9 +6,8 @@ atom to a receptor atom, as the Suite drew it from the input file's
 _struct_conn rows or as one of its bond builders added it during preparation;
 it says a bond exists, not its order.
 
-The type is ``covalent`` and not ``hidden``: pages leave out hidden types, and
-so does the scorecard (scorecard/score.py counts only types that are not
-hidden). The rows are imported so that both show them (Binghan 2026-09-28).
+The type is ``covalent`` and not ``hidden``: pages leave out hidden types,
+and the rows are imported so that the pages show them.
 
 An existing row with this slug is left as it is. The reverse operation is a
 deliberate no-op: deleting the type would cascade to every

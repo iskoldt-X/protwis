@@ -35,7 +35,7 @@ Each structure is imported in its own transaction. A structure that fails
 is rolled back and reported; the others are unaffected. The command exits
 non-zero when any structure failed, after all structures have been attempted.
 
-An anchor with no product instance loses its existing rows (ADR-091) and is
+An anchor with no product instance loses its existing rows and is
 reported as a WARNING (anchor_cleared) with the map's reason. That applies
 only to a structure Engine 1 actually ran: one whose directory holds neither a
 product instance nor the producer's summary is left untouched and reported as
@@ -286,7 +286,7 @@ class Command(BaseCommand):
                 if not os.path.isdir(os.path.join(options["data_dir"], pdb)):
                     log.log(pdb, "WARNING", "no_product_dir",
                             detail="no product directory; the map must say no_product for every "
-                                   "in-scope anchor, which are then cleared (ADR-091)")
+                                   "in-scope anchor, which are then cleared")
                 try:
                     with transaction.atomic():
                         outcomes, out_of_scope, cleanup, unused = si.import_structure(

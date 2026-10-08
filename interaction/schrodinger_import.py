@@ -21,7 +21,7 @@ build_schrodinger_chain_map (interaction/schrodinger_chain_map.py): product
 chain names are mmCIF author names, GPCRdb's are its own stored PDB-format
 names, and the two differ for a few dozen structures.
 
-Replacement semantics (ADR-089, ADR-091): every in-scope anchor loses all its
+Replacement semantics: every in-scope anchor loses all its
 existing rows. Anchors with a product instance get the Schrodinger rows;
 anchors without one (the map says no_product) are left empty and reported
 with the map's reason. Anchors outside Engine 1 scope ("pep" chains and
@@ -235,7 +235,7 @@ def load_chainmap_dir(data_dir, pdb_codes):
     `not_run` lists the PDB codes whose directory holds neither a product
     instance nor the producer's summary. Nobody ran those structures, and that
     is not the same statement as "Engine 1 ran and found no ligand" -- only the
-    second one justifies clearing an anchor (ADR-091). The caller leaves them
+    second one justifies clearing an anchor. The caller leaves them
     alone and says so.
 
     That judgement is read from the header but checked against the tree it is
@@ -288,7 +288,7 @@ def structure_verdict(in_db, experimental, was_run, has_chainmap, anchors_at_ris
     * a structure this import does not serve needs no chain map at all, so the
       two "not ours" answers come first;
     * a structure nobody ran is left exactly as it is -- clearing its anchors
-      would state that Engine 1 looked and found nothing (ADR-091), and it did
+      would state that Engine 1 looked and found nothing, and it did
       not look. When it has no anchors to lose, and most have none, that costs
       nothing and is worth a note. When it does have anchors, leaving them
       means the table keeps whatever the legacy pipeline wrote for them, which
@@ -877,7 +877,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                     raise MalformedProduct("{}: the anchor map names {} but the product tree "
                                            "under {} has no such instance".format(pdb_code, name, data_dir))
                 for row in read_instance_rows(instances[name]):
-                    # Ligand atoms are stored in standard PDB columns (ADR-095).
+                    # Ligand atoms are stored in standard PDB columns.
                     row["ligand_pdb_block"], n = standard_ligand_block(
                         row.get("ligand_pdb_block"), name, gchains[name])
                     # The same block repeats on every interaction row of an

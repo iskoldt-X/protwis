@@ -500,8 +500,8 @@ class RoutingTests(unittest.TestCase):
         ("PiCat", "receptor-cation"): "aro_ion_protein",
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
-        # Not in the 2026-09-17 tree: the covalent family is new (covalent
-        # topic, 2026-09-28), and its slug comes with migration 0010.
+        # Not in the 2026-09-17 tree: the covalent family is newer, and its
+        # slug comes with migration 0010.
         ("Covalent", ""): "covalent",
     }
 
@@ -512,8 +512,8 @@ class RoutingTests(unittest.TestCase):
     def test_the_covalent_slug_is_the_one_migration_0010_seeds_and_it_is_visible(self):
         # The map and the migration name the same slug, or the first Covalent
         # row finds no ResidueFragmentInteractionType. And the type must not be
-        # "hidden": pages and the scorecard both leave hidden types out, which
-        # would import the rows and show them to no one (Binghan 2026-09-28).
+        # "hidden": the pages leave hidden types out, which would import the
+        # rows and show them to no one.
         import importlib
         mig = importlib.import_module(
             "interaction.migrations.0010_seed_covalent_interaction_type")
@@ -526,7 +526,7 @@ class RoutingTests(unittest.TestCase):
     def test_the_seed_writes_a_visible_covalent_type(self):
         # What seed() actually hands the ORM, not only the constant: a type of
         # "hidden" written here would import every Covalent row and show it to
-        # no page and no scorecard (review 2026-09-28).
+        # no page.
         import importlib
         mig = importlib.import_module(
             "interaction.migrations.0010_seed_covalent_interaction_type")
@@ -559,7 +559,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "27d2bd58c0a208f7cbb799890a3e5317903cb509734fc771c0859038644576b8")
+            digest, "7a5a7664fd259cf2c3416eef304da5051ef72040b268da7ac65b44bb77b5d04d")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")

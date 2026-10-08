@@ -30,7 +30,7 @@ recomputes it:
   a segment of its own), and the work items are those with a peptide segment
   as the ligand side and a receptor segment as the receptor side.
 
-The import writes two places, both replaced per anchor (ADR-091):
+The import writes two places, both replaced per anchor:
 
 * ResidueFragmentInteraction rows on the anchor, which the structure page
   reads, routed exactly as Engine 1 routes them;
@@ -689,7 +689,7 @@ def check_receptor(pdb, receptor):
 def anchor_action(pdb, sli_id, chain, chain_rows):
     """(action, map row) for one anchor, before anything is written.
 
-    "clear" for an anchor with no chain_res (ADR-091: it keeps no rows);
+    "clear" for an anchor with no chain_res (it keeps no rows);
     "import" for an anchor whose chain has an ok row. A chain the map does
     not list, or a row that is not ok, raises: the map could not answer it.
     """
@@ -733,7 +733,7 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
     it was.
 
     An anchor with no chain_res names no peptide chain at all; it is cleared
-    (ADR-091) and reported. An anchor with an item the run failed gets no
+    and reported. An anchor with an item the run failed gets no
     rows and is reported (mode no_product), as Engine 1 treats a structure it
     ran without a product. An anchor whose map row is anything but ok is a
     question the map could not answer, and fails the structure (as Engine 1's
@@ -764,7 +764,7 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             action, row = anchor_action(pdb, sli.id, chain, chain_rows)
             _clear_anchor(sli, peptide, outcome)
             if action == "clear":
-                # ADR-091: an in-scope anchor without a product keeps no rows.
+                # An in-scope anchor without a product keeps no rows.
                 outcome.mode = "cleared"
                 outcome.notes.append("anchor names no chain")
                 outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")

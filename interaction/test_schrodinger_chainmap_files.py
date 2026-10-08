@@ -88,8 +88,8 @@ class AnnotationAnchorTests(unittest.TestCase):
 
     def test_the_map_selects_what_the_importer_serves(self):
         """annotation_anchors and schrodinger_import.is_in_scope agree on every
-        combination of reference and type (reviewer SC-1, 2026-10-03: they had
-        drifted apart, the builder testing the type and the importer not)."""
+        combination of reference and type (they once drifted apart, the builder
+        testing the type and the importer not)."""
         import types as pytypes
         references = ["CAU", "D2U", "PEP", "pep", "APO", " apo ", "", None]
         kinds = ["small-molecule", "lipid", "peptide", "protein", "none", "None", "small molecule", ""]

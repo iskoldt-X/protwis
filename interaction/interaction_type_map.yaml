@@ -1,52 +1,40 @@
-# interaction_type_map.yaml — v0
+# interaction_type_map.yaml
 #
-# Maps Schrodinger Engine 1 YAML (feature_family, feature, direction) -> protwis
-# canonical ResidueFragmentInteractionType slug.
-#
-# Deliverable of Plan C. Consumed by Plan A Step A6 (protwis small-molecule
-# end-to-end integration).
+# Maps a Schrodinger product row (feature_family, direction) to the protwis
+# ResidueFragmentInteractionType slug it is stored under. The consumer
+# (interaction/schrodinger_import.py, load_type_map and resolve_slug) reads only
+# family, direction and slug of each rule; rationale and the rest are for the
+# reader.
 #
 # -----------------------------------------------------------------------------
 # THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL:
 #     schrodinger_interaction/interaction_type_map/interaction_type_map.yaml
-#     protwis-schrod/interaction/interaction_type_map.yaml
-# Nothing in either repository compares the two files. A rule added on one side
-# only produces the failure the HPhob rule was added to fix: the consumer's
-# resolve_slug raises on the first row of an unknown family and, because the
-# import is one transaction, no PDB lands at all. So a change here is a change
-# to both files in the same breath.
-#
-# WHAT THE LOCKS ACTUALLY COVER, stated rather than implied. There is a rule
-# count and slug-set lock on EACH side now:
-#     schrodinger_interaction/tests/unit/test_interaction_type_map.py
-#     protwis-schrod/interaction/tests/test_interaction_type_map_lock.py
-# Each one reads only its own copy, so between them they catch a rule being
-# added or removed on either side, and a rule being retargeted at a different
-# slug. They do NOT catch: an edit that keeps the count and the slug set (a
-# changed direction or family, a changed rationale) and they are NOT a
-# byte-comparison -- nothing is. The earlier version of this paragraph claimed
-# the producer-side count lock "goes red if only one side moves", which was
-# wrong in the direction that matters: the producer imports this file nowhere
-# at runtime, so the locked copy was the dead one and the live one was
-# unlocked.
+#     protwis/interaction/interaction_type_map.yaml
+# Both test suites pin the same sha256 of the file
+# (schrodinger_interaction tests/unit/test_interaction_type_map.py and
+# protwis interaction/test_schrodinger_import.py), so a change on one side only
+# fails that side's tests. Nothing else compares them. A rule missing on the
+# consumer side is not harmless: resolve_slug raises on the first row of an
+# unknown (family, direction) and the import of that delivery stops. So a change
+# here is a change to both files, and to both pinned digests, at once.
 #
 # -----------------------------------------------------------------------------
 # DESIGN: the target slug is fully determined by (feature_family, direction).
 # The specific `feature` name (Hydroxyl vs Carbonyl vs Amine ...) is chemical
-# detail that does NOT change the slug, so this map is keyed on
-# (feature_family, direction). Engine 1's default --contacts hbond,salt,picat,pipi
-# can only ever emit the 8 (family, direction) pairs below, so these rules cover
-# ALL 57 PH4 features by construction (each feature routes via its family).
+# detail that does not change the slug, so the map is keyed on
+# (feature_family, direction), and every pharmacophore feature routes through
+# its family.
 #
-# Spelling is preserved verbatim as cultural heritage (QuarternaryAmine,
-# 2Aminopirydine, Metoxypirydine) — never "correct" it (Q-S1 §2.c).
+# Feature names are the vendor's spelling and are kept verbatim
+# (QuarternaryAmine, 2Aminopirydine, Metoxypirydine); never "correct" them.
 #
-# Decisions ratified by domain owner 2026-05-27 (see Plan C Inbox D1/D3):
-#   * H-bond direction is REVERSED to protwis "protein perspective": protwis
-#     polar_donor/acceptor_protein names the PROTEIN residue's role
-#     (views.py:981/1029/1034), while Engine 1's family names the LIGAND's role.
+# Two conventions:
+#   * H-bond direction is reversed to the protwis protein perspective: protwis
+#     polar_donor_protein / polar_acceptor_protein name the PROTEIN residue's
+#     role (interaction/views.py, analyze_interactions), while the product's
+#     family names the LIGAND's role.
 #   * Salt bridges -> polar_double_*_protein (both partners charged; the pos/neg
-#     suffix follows the RESIDUE charge; views.py:1049-1057).
+#     suffix follows the RESIDUE charge, as in analyze_interactions).
 # -----------------------------------------------------------------------------
 
 version: 0
@@ -58,26 +46,26 @@ rules:
     slug: polar_acceptor_protein
     rationale: >-
       Ligand donates H => protein residue is the acceptor. protwis D/A names the
-      residue role (views.py:981 "set residue as acceptor", :1034).
+      residue role (interaction/views.py, analyze_interactions).
   - family: Acceptor
     direction: ligand-acceptor
     slug: polar_donor_protein
     rationale: >-
-      Ligand accepts H => protein residue is the donor (views.py:1029).
+      Ligand accepts H => protein residue is the donor.
 
   # ---- Salt bridges (double charge; suffix = residue charge sign) ------------
   - family: PosCharge
     direction: pos-neg
     slug: polar_double_neg_protein
     rationale: >-
-      Salt: ligand cation + protein anion (observed: ASP D113/D3.32, D121).
-      Both charged => double; residue is negative (views.py:1049-1057).
+      Salt: ligand cation + protein anion (e.g. Asp 3.32). Both charged =>
+      double; the residue is negative.
   - family: NegCharge
     direction: neg-pos
     slug: polar_double_pos_protein
     rationale: >-
-      Salt: ligand anion + protein cation (observed: ARG R155/R157). Both
-      charged => double; residue is positive (views.py:1049-1057).
+      Salt: ligand anion + protein cation (e.g. Arg). Both charged => double;
+      the residue is positive.
 
   # ---- Pi-cation (protwis only ever writes aro_ion_protein) ------------------
   - family: PiCat
@@ -85,13 +73,13 @@ rules:
     slug: aro_ion_protein
     rationale: >-
       Pi-cation: ligand cation vs protein aromatic ring. protwis writes
-      aro_ion_protein for BOTH directions; aro_ion_ligand is never emitted (Q-B2).
+      aro_ion_protein for both directions; aro_ion_ligand is never written.
   - family: PiCat
     direction: receptor-cation
     slug: aro_ion_protein
     rationale: >-
-      Pi-cation other direction (protein cation vs ligand ring). Still
-      aro_ion_protein. C4 fallback — not present in 6-PDB baseline.
+      Pi-cation, other direction (protein cation vs ligand ring). Still
+      aro_ion_protein.
 
   # ---- Aromatic stacking (direction distinguishes geometry) ------------------
   - family: Aromatic
@@ -103,91 +91,70 @@ rules:
     direction: face-to-face
     slug: aro_ff
     rationale: >-
-      Face-to-face aromatic stacking; protwis slug direction = none. C4 fallback
-      — not present in 6-PDB baseline.
+      Face-to-face aromatic stacking; protwis slug direction = none.
 
-  # ---- Plan D 2026-05-28 (ADR-011/012/013) — halogen / water-bridge / metal ---
-  # Engine 1 default --contacts now includes xbond, water_hbonds, metal. The
-  # wrapper emits Schrödinger's native SHORTFORM strings ('XBond' / 'Wat-HBond' /
-  # 'Metal') unchanged — no per-family override layer is added (ADR-006 default-
-  # trust-Schrödinger). direction is '' because these contact types don't carry a
-  # donor/acceptor or pos/neg axis; protwis canonical slugs match (ADR-011/012/013).
+  # ---- Halogen bond, water bridge, metal coordination ------------------------
+  # The producer emits the Suite's own SHORTFORM strings ('XBond', 'Wat-HBond',
+  # 'Metal') unchanged. direction is '' because these contact types carry no
+  # donor/acceptor or pos/neg axis.
   - family: XBond
     direction: ''
     slug: halogen_protein
     rationale: >-
-      Halogen bond: ligand C-X (X = Cl/Br/I; F rarely qualifies) σ-hole donates
-      to a receptor lone-pair acceptor (C=O backbone, Asn/Gln O, His N). ADR-011
-      adds halogen_protein to the canonical 21. Schrödinger emits SHORTFORM
-      'XBond' verbatim (poseviewer_interactions.py:72-87); we don't rename it to
-      'Halogen' because ADR-006 prefers trusting Schrödinger names.
+      Halogen bond: ligand C-X (X = Cl/Br/I; F rarely qualifies) sigma-hole
+      donates to a receptor lone-pair acceptor (backbone C=O, Asn/Gln O, His N).
+      The Suite's SHORTFORM 'XBond' is kept verbatim rather than renamed.
   - family: Wat-HBond
     direction: ''
     slug: water_bridge_protein
     rationale: >-
-      Water-mediated H-bond: ligand → water → receptor two-hop H-bond chain. ADR-012
-      adds water_bridge_protein. Bridging water identity is recoverable via the
-      ligand/receptor pdb_blocks if needed (Plan A consumer choice). SHORTFORM
-      'Wat-HBond' is verbatim from Schrödinger.
+      Water-mediated H-bond: ligand -> water -> receptor, two H-bonds in a
+      chain. The bridging water can be recovered from the ligand and receptor
+      pdb blocks if needed. SHORTFORM 'Wat-HBond' is the Suite's.
   - family: Metal
     direction: ''
     slug: metal_coordination_protein
     rationale: >-
-      Metal coordination: ligand → metal cofactor → receptor coordinating residue
-      (His/Asp/Cys/Glu) via dative bonds. ADR-013 adds metal_coordination_protein.
-      Note: Schrödinger's metal detection is VdW-relative (metal_cutoff + radii) or
-      LID 2.5 Å absolute — not literal ADR-013 "≤ 3.0 Å" but equivalent in practice
-      (see Plan D Inbox Q3 decision).
+      Metal coordination: ligand -> metal cofactor -> receptor coordinating
+      residue (His/Asp/Cys/Glu). The Suite's metal detection is relative to the
+      van der Waals radii (metal_cutoff + radii) or 2.5 A absolute.
 
-  # ---- ADR-069 / ADR-074 2026-09-11 -- hydrophobic ---------------------------
-  # Engine 1 gains `hphob` in --contacts: the RDKit pipeline this replaces
-  # already computed `hyd`, so omitting it is a capability gap, not a choice
-  # (ADR-069). Schrodinger emits its SHORTFORM 'HPhob' verbatim
-  # (poseviewer_interactions.py:79 -- byte-identical in Suite 2025-4 / 2026-1 /
-  # 2026-3), and find_hphob_contacts builds a vendor Contact with no direction
-  # argument, so direction arrives as '' -- the same shape as the three Plan D
-  # rules above. Without this rule the first HPhob row raises in resolve_slug
-  # and rolls back the whole single-transaction import (0 PDBs committed).
+  # ---- Hydrophobic -------------------------------------------------------------
+  # The Suite emits its SHORTFORM 'HPhob' verbatim, and the producer builds the
+  # contact with no direction, so direction arrives as '' -- the same shape as
+  # the three rules above. Without this rule the first HPhob row would stop the
+  # import in resolve_slug.
   - family: HPhob
     direction: ''
     slug: hyd
     rationale: >-
       Hydrophobic contact: apolar ligand atom against an apolar receptor atom.
-      Routes to the pre-existing protwis canonical slug `hyd`
-      (fixtures/interaction_types.json) -- no new slug is minted here. The
-      chemical criterion is fixed producer-side by ADR-074 (vendor HPHOBIC_ASL
-      five-SMARTS union, dist <= 1.2 * (r_i + r_j)); the consumer only routes.
+      Routes to the existing protwis slug `hyd`; no new slug. The chemical
+      criterion is fixed on the producer side (the Suite's hydrophobic atom
+      definition, dist <= 1.2 * (r_i + r_j)); the consumer only routes.
 
-  # ---- Covalent topic 2026-09-28 -- covalent bond ----------------------------
-  # Engine 1 gains `covalent` in --contacts. Not a vendor family: the Suite has
-  # no function that reports a covalent bond, so the wrapper writes the rows
-  # itself (find_covalent_contacts), one per ligand-receptor bond, with
-  # direction ''. Before this family existed, deleting the false hydrophobic
-  # rows a cut-open covalent bond produced took the bonding residue off the page
-  # altogether (6 key rows of the literature truth set). The slug is new, and
-  # its type `covalent` is not `hidden`, so the rows are shown and counted
-  # (Binghan 2026-09-28: 1A import, type covalent, slug covalent).
+  # ---- Covalent bond -----------------------------------------------------------
+  # Not a vendor family: the Suite has no function that reports a covalent
+  # bond, so the producer writes the rows itself, one per ligand-receptor bond,
+  # with direction ''. The slug is new (seeded by a data migration), and
+  # its type `covalent` is not `hidden`, so the rows are shown and counted.
   - family: Covalent
     direction: ''
     slug: covalent
     rationale: >-
       Covalent bond: a bond of order >= 1 from a ligand atom to a receptor atom,
       as the Suite drew it from the input file's _struct_conn rows (the
-      depositor's, or one the producer's step 0 added for a bond the file left
-      out) or as one of its three bond builders added it in preparation step 1.
-      The row says a bond exists, not its order: the reader gives every
-      declared bond order 1, so a protonated Schiff base reads as a single bond.
+      depositor's, or one the producer added for a bond the file left out) or
+      as one of its bond builders added it in preparation. The row says a bond
+      exists, not its order: the reader gives every declared bond order 1, so a
+      protonated Schiff base reads as a single bond.
 
-  # ---- ADR-105 2026-09-30 -- contact labels ---------------------------------
-  # Engine 1 gains `vdw` and `accessible` in --contacts. LABELS, not
-  # interactions: each says a residue lines the ligand, one row per (ligand
-  # instance, residue), and neither takes part in pipeline comparisons. Not
-  # vendor families: the wrapper writes the rows itself (find_vdw_contacts,
-  # find_accessible_contacts), with direction ''. Both route to slugs the
-  # database already holds (Binghan 2026-09-30: reuse the two existing types),
-  # so the consumer needs no code change and no migration. The same slugs also
-  # hold legacy rows, computed by a different rule, on anchors Engine 1 does not
-  # serve.
+  # ---- Contact labels ----------------------------------------------------------
+  # LABELS, not interactions: each says a residue lines the ligand, one row per
+  # (ligand instance, residue). Not vendor families: the producer writes the
+  # rows itself, with direction ''. Both route to slugs the database already
+  # holds, so they need no migration. The same slugs also hold rows computed by
+  # the previous GPCRdb rule on anchors the Schrodinger imports do not serve.
   - family: VdW
     direction: ''
     slug: Van der Waals
@@ -201,42 +168,25 @@ rules:
     direction: ''
     slug: acc
     rationale: >-
-      Accessible label, legacy GPCRdb's rule copied: a heavy atom of the residue
-      other than the backbone C, O and N (CA counts) strictly within 5 A of a
-      heavy ligand atom. Existing slug, type hidden, as legacy wrote it.
+      Accessible label, the previous GPCRdb rule copied: a heavy atom of the
+      residue other than the backbone C, O and N (CA counts) strictly within
+      5 A of a heavy ligand atom. Existing slug, type hidden, as before.
 
 # -----------------------------------------------------------------------------
-# Deferred / not handled by this map (see Plan C Inbox). These are intentionally
-# NOT routed here; the consumer (Plan A) handles or drops them.
+# Not handled by this map. These are intentionally not routed here.
 # -----------------------------------------------------------------------------
 deferred:
   polar_backbone:
-    inbox: D2
     note: >-
       Backbone H-bonds need the PROTEIN atom identity (backbone N/O), which is
-      not in the (family, feature, direction) key. Plan A consumer must inspect
-      receptor_pdb_block and override the H-bond slug to polar_backbone when the
-      protein partner is a backbone N/O atom (protwis priority: views.py:1008-1019).
+      not in the (family, direction) key. The consumer promotes an H-bond slug
+      to polar_backbone when the receptor atom is backbone N or O
+      (schrodinger_import.py, apply_backbone_override).
   dedup:
-    inbox: D4
     note: >-
-      One ligand atom can produce several entries (e.g. 2Y02_WHJ N2 ->
-      Donor+PosCharge+PiCat). This map does 1->1 translation only; de-duplication
-      / upgrade (protwis remove_hyd) is Plan A's responsibility.
+      One ligand atom can produce several rows (e.g. Donor + PosCharge +
+      PiCat). This map translates one row to one slug; it does not merge rows.
   aro_fe_protein:
-    inbox: D5
     note: >-
-      protwis face-to-edge slug has no Engine 1 source: PIPI only emits
-      face-to-face / edge-to-face directions. Expected to be unmapped.
-
-# Plan D 2026-05-28 resolved (was Inbox D6 — "dropped_interaction_classes"):
-# halogen-bond / metal-coordination / water-mediated H-bond now route via the
-# three rules above (XBond / Wat-HBond / Metal) to halogen_protein /
-# water_bridge_protein / metal_coordination_protein (protwis canonical 21,
-# Phase 1d ADR-011/012/013).
-
-# Traceability: 13 (family, feature, direction) combos in the 6-PDB v0 baseline
-# (see observed_combinations.csv) all resolve via the rules above. Plan D
-# 2026-05-28 enables xbond / water_hbonds / metal by default — Phase 2 baselines
-# regenerated under [[Plan D Engine 1 opt-in 进展]] 阶段 C will refresh
-# observed_combinations.csv with any actually-produced new combos.
+      The protwis face-to-edge slug has no Schrodinger source: the Suite's
+      pi-pi contacts are only face-to-face or edge-to-face. Expected unmapped.
