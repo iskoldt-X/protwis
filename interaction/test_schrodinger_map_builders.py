@@ -79,13 +79,15 @@ class Delivery(object):
         write(os.path.join(ann, "structures.tsv"), "PDB\tChainID\n%s\tA\n%s\tA\n" % (PDB, EMPTY))
         write(os.path.join(self.gdata, "structure_data", "pdbs", PDB + ".pdb"), gpcrdb_text())
         write(os.path.join(self.gdata, "structure_data", "pdbs", EMPTY + ".pdb"), gpcrdb_text())
-        summary = "pdb_id: %s\n" % PDB + ("input_sha256: %s\n" % summary_sha if summary_sha else "")
+        summary = ("contract_version: %s\n" % si.PRODUCT_CONTRACT + "pdb_id: %s\n" % PDB
+                   + ("input_sha256: %s\n" % summary_sha if summary_sha else ""))
         write(os.path.join(self.engine1, PDB, "summary.yaml"), summary + "ligand_interaction_summary: []\n")
         write(os.path.join(self.engine1, PDB, "LIG_R_401", "LIG_R_401.yaml"),
               "result:\n  interactions: []\n")
         if index:
             write(cm.index_path(self.engine1, PDB), index_text(coord=coord))
-        plan = {"segments": [{"name": REC_SEG, "chain_id": "R", "ranges": [[1, 3]]},
+        plan = {"contract_version": sp.PRODUCT_CONTRACT,
+                "segments": [{"name": REC_SEG, "chain_id": "R", "ranges": [[1, 3]]},
                              {"name": PEP_SEG, "chain_id": "P", "ranges": [[1, 2]]}],
                 "items": [{"key": K_PEP, "ligand_segment": PEP_SEG, "receptor_segment": REC_SEG},
                           {"key": K_REC, "ligand_segment": REC_SEG, "receptor_segment": PEP_SEG}]}

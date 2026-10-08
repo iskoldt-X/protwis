@@ -575,6 +575,30 @@ class MalformedProduct(ValueError):
     """A product YAML that cannot be read or lacks result.interactions."""
 
 
+# The contract version of the Engine 1 deliveries this importer reads, the
+# first key of each structure's summary.yaml. The producer changes it when a
+# field this side reads is added, removed, renamed or changes meaning.
+PRODUCT_CONTRACT = "engine1/1.0"
+
+
+def check_product_contract(data_dir, pdb_code):
+    """Raise MalformedProduct unless the structure's summary.yaml carries PRODUCT_CONTRACT.
+
+    A structure whose products are imported was run to the end, and the
+    producer then always writes summary.yaml; one without it is refused too.
+    """
+    path = os.path.join(data_dir, pdb_code, PRODUCT_SUMMARY_NAME)
+    try:
+        with open(path) as fh:
+            doc = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError) as exc:
+        raise MalformedProduct("{}: {}".format(path, exc))
+    version = doc.get("contract_version") if isinstance(doc, dict) else None
+    if version != PRODUCT_CONTRACT:
+        raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
+            path, version, PRODUCT_CONTRACT))
+
+
 def read_instance_rows(path):
     """Return the interaction rows of one instance YAML."""
     try:
@@ -862,6 +886,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
         in_scope = [sli for sli in slis if is_in_scope(sli)]
         out_of_scope = len(slis) - len(in_scope)
         if in_scope:
+            check_product_contract(data_dir, pdb_code)
             unused = check_map_covers(pdb_code, in_scope, anchor_map)
             check_fingerprints(pdb_code, receptor_map,
                                structure.pdb_data.pdb if structure.pdb_data_id else "", instances)

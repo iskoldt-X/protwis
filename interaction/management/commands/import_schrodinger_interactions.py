@@ -33,8 +33,9 @@ the corpus comes from the tree, a database structure with Engine 1 anchors and
 no directory at all stops the run before anything is touched.
 
 Each structure is imported in its own transaction. A structure that fails
-(unreadable YAML, a row the type map cannot route, or any unexpected error)
-is rolled back and reported; the others are unaffected. The command exits
+(unreadable YAML, a summary.yaml without the contract version this importer
+reads, a row the type map cannot route, or any unexpected error) is rolled
+back and reported; the others are unaffected. The command exits
 non-zero when any structure failed, after all structures have been attempted.
 
 An anchor with no product instance loses its existing rows and is

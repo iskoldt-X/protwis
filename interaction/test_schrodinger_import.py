@@ -712,6 +712,39 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(si.is_in_scope(self.sli(None, "small-molecule")))
 
 
+class ProductContractTests(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.dir, "2RH1"))
+        self.addCleanup(shutil.rmtree, self.dir)
+
+    def summary(self, text):
+        with open(os.path.join(self.dir, "2RH1", "summary.yaml"), "w") as fh:
+            fh.write(text)
+
+    def test_the_version_this_importer_reads_passes(self):
+        self.assertEqual(si.PRODUCT_CONTRACT, "engine1/1.0")
+        self.summary("contract_version: engine1/1.0\npdb_id: 2RH1\n")
+        si.check_product_contract(self.dir, "2RH1")
+
+    def test_another_version_no_version_no_summary_or_garbage_is_refused(self):
+        for text in ("contract_version: engine1/2.0\npdb_id: 2RH1\n", "pdb_id: 2RH1\n",
+                     "- a list\n", "contract_version: [unclosed\n"):
+            self.summary(text)
+            with self.assertRaises(si.MalformedProduct):
+                si.check_product_contract(self.dir, "2RH1")
+        os.remove(os.path.join(self.dir, "2RH1", "summary.yaml"))
+        with self.assertRaisesRegex(si.MalformedProduct, "summary.yaml"):
+            si.check_product_contract(self.dir, "2RH1")
+
+    def test_import_structure_checks_the_contract_before_writing(self):
+        # import_structure needs the database; this pins the call statically.
+        import inspect
+        src = inspect.getsource(si.import_structure)
+        self.assertIn("check_product_contract(data_dir, pdb_code)", src)
+        self.assertLess(src.index("check_product_contract("), src.index(".delete()"))
+
+
 class SeedTests(unittest.TestCase):
     """build_structures creates no interaction type any more, so the seed
     migration must create every slug the imports can write."""

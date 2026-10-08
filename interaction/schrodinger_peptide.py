@@ -117,10 +117,19 @@ def read_json(path):
     return doc
 
 
+# The contract version of the Engine 2 deliveries this importer reads, as each
+# plan.json records it. The producer changes it when the meaning or the
+# required fields of a product record change.
+PRODUCT_CONTRACT = "engine2/3.0"
+
+
 def load_plan(data_dir, pdb):
     """(segments by name, items) of one structure's plan.json."""
     path = os.path.join(data_dir, pdb, PLAN_NAME)
     plan = read_json(path)
+    if plan.get("contract_version") != PRODUCT_CONTRACT:
+        raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
+            path, plan.get("contract_version"), PRODUCT_CONTRACT))
     segments = plan.get("segments")
     items = plan.get("items")
     if not isinstance(segments, list) or not isinstance(items, list):

@@ -487,14 +487,17 @@ class TreeTests(unittest.TestCase):
             sp.anchor_rows(self.dir, "6DDF", self.map_row(["k1"], ["done"]))
 
     def test_load_plan(self):
-        plan = {"segments": [seg("A", "A", [[1, 2]])],
+        plan = {"contract_version": "engine2/3.0", "segments": [seg("A", "A", [[1, 2]])],
                 "items": [{"key": "k", "ligand_segment": "A", "receptor_segment": "B"}]}
         with open(os.path.join(self.dir, "6DDF", "plan.json"), "w") as fh:
             json.dump(plan, fh)
         segments, items = sp.load_plan(self.dir, "6DDF")
         self.assertEqual((list(segments), len(items)), (["A"], 1))
-        for broken in ({"segments": []}, {"segments": [seg("A", "A", [])] * 2, "items": []},
-                       {"segments": [], "items": [{"key": "k"}]}, [1]):
+        v = {"contract_version": "engine2/3.0"}
+        other = dict(plan, contract_version="engine2/2.0")
+        unversioned = {k: plan[k] for k in ("segments", "items")}
+        for broken in (dict(v, segments=[]), dict(v, segments=[seg("A", "A", [])] * 2, items=[]),
+                       dict(v, segments=[], items=[{"key": "k"}]), [1], other, unversioned):
             with open(os.path.join(self.dir, "6DDF", "plan.json"), "w") as fh:
                 json.dump(broken, fh)
             with self.assertRaises(sp.MalformedProduct):
