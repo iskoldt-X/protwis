@@ -188,15 +188,15 @@ class Command(BaseCommand):
         present = set(ResidueFragmentInteractionType.objects.values_list("slug", flat=True))
         missing = sorted(si.required_slugs() - present)
         if missing:
-            # Every type the imports write is seeded by interaction migrations
-            # 0009, 0010 and 0011; nothing in the build creates one. A plain
-            # migrate does not run applied migrations again, and the seeds have
-            # a no-op reverse, so unapplying and reapplying them is safe.
+            # Every type the imports write is seeded by interaction migration
+            # 0009; nothing in the build creates one. A plain migrate does not
+            # run an applied migration again, and the seed has a no-op reverse,
+            # so unapplying and reapplying it is safe.
             raise CommandError(
                 "interaction types missing from the database: {} (they are seeded by "
-                "interaction migrations 0009, 0010 and 0011: run migrate, or, if they "
-                "are already applied and the rows were deleted, migrate interaction 0008 "
-                "and then migrate interaction)".format(", ".join(missing)))
+                "interaction migration 0009: run migrate, or, if it is already applied "
+                "and the rows were deleted, migrate interaction 0008 and then migrate "
+                "interaction)".format(", ".join(missing)))
 
     def handle(self, *args, **options):
         if not os.path.isdir(options["data_dir"]):

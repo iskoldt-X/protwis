@@ -501,7 +501,7 @@ class RoutingTests(unittest.TestCase):
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
         # Not in the 2026-09-17 tree: the covalent family is newer, and its
-        # slug comes with migration 0010.
+        # slug comes with the seed migration.
         ("Covalent", ""): "covalent",
     }
 
@@ -509,15 +509,16 @@ class RoutingTests(unittest.TestCase):
         for (family, direction), slug in self.PRODUCTION_PAIRS.items():
             self.assertEqual(si.resolve_slug(family, direction), slug, (family, direction))
 
-    def test_the_covalent_slug_is_the_one_migration_0010_seeds_and_it_is_visible(self):
+    def test_the_covalent_slug_is_the_one_the_seed_migration_seeds_and_it_is_visible(self):
         # The map and the migration name the same slug, or the first Covalent
         # row finds no ResidueFragmentInteractionType. And the type must not be
         # "hidden": the pages leave hidden types out, which would import the
         # rows and show them to no one.
         import importlib
         mig = importlib.import_module(
-            "interaction.migrations.0010_seed_covalent_interaction_type")
-        slug, name, type_, direction = mig.COVALENT_TYPE
+            "interaction.migrations.0009_seed_schrodinger_interaction_types")
+        slug, name, type_, direction = next(
+            row for row in mig.SEEDED_TYPES if row[0] == "covalent")
         self.assertEqual(si.resolve_slug("Covalent", ""), slug)
         self.assertNotEqual(type_, "hidden")
         self.assertEqual((slug, name, type_, direction),
@@ -529,7 +530,7 @@ class RoutingTests(unittest.TestCase):
         # no page.
         import importlib
         mig = importlib.import_module(
-            "interaction.migrations.0010_seed_covalent_interaction_type")
+            "interaction.migrations.0009_seed_schrodinger_interaction_types")
         seen = []
 
         class _Objects:
@@ -546,8 +547,9 @@ class RoutingTests(unittest.TestCase):
                 return _Model
 
         mig.seed(_Apps(), None)
-        self.assertEqual(seen, [{"slug": "covalent", "defaults": {
-            "name": "covalent bond", "type": "covalent", "direction": ""}}])
+        self.assertEqual([k for k in seen if k["slug"] == "covalent"],
+                         [{"slug": "covalent", "defaults": {
+                             "name": "covalent bond", "type": "covalent", "direction": ""}}])
 
     def test_the_map_is_the_one_the_producer_pins(self):
         # The producer keeps an identical copy of the map and pins the same
@@ -712,34 +714,32 @@ class ScopeTests(unittest.TestCase):
 
 class SeedTests(unittest.TestCase):
     """build_structures creates no interaction type any more, so the seed
-    migrations must create every slug the imports can write."""
+    migration must create every slug the imports can write."""
 
     @staticmethod
-    def _seeded():
+    def _migration():
         import importlib
-        rows = list(importlib.import_module(
-            "interaction.migrations.0009_seed_engine1_interaction_types").ENGINE1_TYPES)
-        rows.append(importlib.import_module(
-            "interaction.migrations.0010_seed_covalent_interaction_type").COVALENT_TYPE)
-        rows.extend(importlib.import_module(
-            "interaction.migrations.0011_seed_imported_interaction_types").IMPORTED_TYPES)
-        return rows
+        return importlib.import_module("interaction.migrations.0009_seed_schrodinger_interaction_types")
 
-    def test_the_seeds_cover_every_slug_the_imports_write(self):
-        slugs = [row[0] for row in self._seeded()]
+    def test_the_seed_covers_every_slug_the_imports_write(self):
+        slugs = [row[0] for row in self._migration().SEEDED_TYPES]
         self.assertEqual(len(slugs), len(set(slugs)), "a slug is seeded twice")
         self.assertEqual(set(slugs), set(si.required_slugs()))
 
-    def test_0011_keeps_the_legacy_names(self):
+    def test_the_seed_keeps_the_legacy_names(self):
         # Written out, not read back from the module: a page shows the name
         # and leaves "hidden" types out, so a changed value must fail here.
-        import importlib
-        mig = importlib.import_module("interaction.migrations.0011_seed_imported_interaction_types")
-        self.assertEqual(sorted(mig.IMPORTED_TYPES), sorted([
+        # Every row but covalent, halogen_protein and metal_coordination_protein
+        # is what the legacy calculation wrote.
+        self.assertEqual(sorted(self._migration().SEEDED_TYPES), sorted([
             ("acc", "accessible", "hidden", ""),
             ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
             ("aro_ff", "aromatic (face-to-face)", "aromatic", "none"),
+            ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
+            ("covalent", "covalent bond", "covalent", ""),
+            ("halogen_protein", "halogen contact", "polar", ""),
             ("hyd", "hydrophobic", "hydrophobic", ""),
+            ("metal_coordination_protein", "metal coordination", "polar", ""),
             ("polar_acceptor_protein", "polar (hydrogen bond)", "polar", "protein"),
             ("polar_backbone", "polar (hydrogen bond with backbone)", "polar", "protein"),
             ("polar_donor_protein", "polar (hydrogen bond)", "polar", "protein"),
@@ -748,9 +748,39 @@ class SeedTests(unittest.TestCase):
             ("Van der Waals", "Van der Waals", "waals", ""),
         ]))
 
-    def test_0011_hands_every_row_to_the_orm(self):
-        import importlib
-        mig = importlib.import_module("interaction.migrations.0011_seed_imported_interaction_types")
+    def test_the_seed_renames_an_old_halogen_bond_row_and_nothing_else(self):
+        mig = self._migration()
+        saved = []
+
+        class _Row:
+            def __init__(self, slug, name):
+                self.slug, self.name = slug, name
+
+            def save(self, update_fields):
+                saved.append((self.slug, self.name, update_fields))
+
+        existing = {"halogen_protein": _Row("halogen_protein", "halogen bond"),
+                    "hyd": _Row("hyd", "something else")}
+
+        class _Objects:
+            def get_or_create(self, slug, defaults):
+                if slug in existing:
+                    return existing[slug], False
+                return _Row(slug, defaults["name"]), True
+
+        class _Model:
+            objects = _Objects()
+
+        class _Apps:
+            def get_model(self, app, name):
+                return _Model
+
+        mig.seed(_Apps(), None)
+        self.assertEqual(saved, [("halogen_protein", "halogen contact", ["name"])])
+        self.assertEqual(existing["hyd"].name, "something else")
+
+    def test_the_seed_hands_every_row_to_the_orm(self):
+        mig = self._migration()
         seen = []
 
         class _Objects:
@@ -769,7 +799,7 @@ class SeedTests(unittest.TestCase):
         mig.seed(_Apps(), None)
         self.assertEqual(
             [(k["slug"], k["defaults"]["name"], k["defaults"]["type"], k["defaults"]["direction"])
-             for k in seen], list(mig.IMPORTED_TYPES))
+             for k in seen], list(mig.SEEDED_TYPES))
 
 
 if __name__ == "__main__":
