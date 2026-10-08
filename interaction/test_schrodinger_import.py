@@ -560,7 +560,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "85306bf2da31ee37d5ff18c7cb588b7c507850815fbc138a6833425294272fb7")
+            digest, "070e4d719f6f61e60d5147ddec2540ea5835eb3040205a624e53a8458e476c52")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -725,6 +725,9 @@ class SeedTests(unittest.TestCase):
         slugs = [row[0] for row in self._migration().SEEDED_TYPES]
         self.assertEqual(len(slugs), len(set(slugs)), "a slug is seeded twice")
         self.assertEqual(set(slugs), set(si.required_slugs()))
+        # Creation order sets the ids of the rows a legacy database lacks.
+        self.assertEqual(slugs[:4], ["aro_ion_protein", "halogen_protein",
+                                     "metal_coordination_protein", "covalent"])
 
     def test_the_seed_keeps_the_legacy_names(self):
         # Written out, not read back from the module: a page shows the name

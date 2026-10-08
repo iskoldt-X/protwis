@@ -102,8 +102,9 @@ rules:
     slug: halogen_protein
     rationale: >-
       Halogen contact: a ligand halogen within the producer's distance limit
-      of a receptor polar atom (backbone C=O, Asn/Gln O, His N, ...). Its angle
-      limits remove no rows, so these are contacts rather than proven halogen
+      of a receptor polar atom (backbone C=O, Asn/Gln O, His N, ...). The
+      producer's halogen-end angle floor (90 degrees) removed no row in the
+      measured structures, so these are contacts rather than proven halogen
       bonds, and the type is named "halogen contact". The Suite's SHORTFORM
       'XBond' is kept verbatim rather than renamed.
   - family: Wat-HBond

@@ -14,8 +14,9 @@ stores: its rows carry no fragment). Three are new:
 * halogen_protein and metal_coordination_protein, targets of map rules the
   legacy calculation has no counterpart for. halogen_protein is named "halogen
   contact", not "halogen bond": the producer criterion is a halogen within
-  3.5 A of a polar atom, and its angle limits remove no rows, so the rows are
-  contacts rather than proven halogen bonds.
+  3.5 A of a polar atom, and its halogen-end angle floor (90 degrees) removed
+  no row in the measured structures, so the rows are contacts rather than
+  proven halogen bonds.
 * covalent, for the Covalent rows: a bond of order >= 1 from a ligand atom to
   a receptor atom, as the Suite drew it from the input file's _struct_conn rows
   or as one of its bond builders added it during preparation; it says a bond
@@ -33,7 +34,7 @@ from django.db import migrations
 
 
 # The order is the order rows are created in, so it sets the ids new rows get
-# and with them the order the pages list types in (they order by type id).
+# (the ligand page lists a ligand's interaction rows in type id order).
 SEEDED_TYPES = (
     # slug, name, type, direction
     ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
