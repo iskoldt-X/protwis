@@ -28,7 +28,9 @@ LIGAND_NEAR = 2.5  # A
 
 def _is_hydrogen(line):
     element = line[76:78].strip() if len(line) >= 78 else ""
-    return element in ("H", "D") or (not element and line[12:16].strip().startswith("H"))
+    return element in ("H", "D") or (
+        not element and line[12:16].strip().startswith("H")
+    )
 
 
 def text_residues(gpcrdb_text):
@@ -47,13 +49,20 @@ def text_residues(gpcrdb_text):
         resname = line[17:20].strip()
         if resname in cm.WATER:
             continue
-        rid = (line[21], line[22:26].strip(), line[26].strip() if len(line) > 26 else "", resname)
+        rid = (
+            line[21],
+            line[22:26].strip(),
+            line[26].strip() if len(line) > 26 else "",
+            resname,
+        )
         if rid not in lines:
             order.append(rid)
             lines[rid], atoms[rid] = [], []
         lines[rid].append(line.rstrip("\n"))
         if not _is_hydrogen(line):
-            atoms[rid].append((float(line[30:38]), float(line[38:46]), float(line[46:54])))
+            atoms[rid].append(
+                (float(line[30:38]), float(line[38:46]), float(line[46:54]))
+            )
     return [(rid, lines[rid], atoms[rid]) for rid in order]
 
 
@@ -61,7 +70,11 @@ def ligand_line_xyz(lines):
     """Heavy-atom coordinates of standard-column ligand lines."""
     out = []
     for line in lines:
-        if line.startswith(("ATOM", "HETATM")) and len(line) >= 54 and not _is_hydrogen(line):
+        if (
+            line.startswith(("ATOM", "HETATM"))
+            and len(line) >= 54
+            and not _is_hydrogen(line)
+        ):
             out.append((float(line[30:38]), float(line[38:46]), float(line[46:54])))
     return out
 
@@ -70,8 +83,14 @@ def _cell(xyz):
     return tuple(int(c // LIGAND_NEAR) for c in xyz)
 
 
-def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), ligand_resname="",
-                 ligand_chain=""):
+def complex_text(
+    gpcrdb_text,
+    receptor_chain,
+    receptor_seqs,
+    ligand_xyz=(),
+    ligand_resname="",
+    ligand_chain="",
+):
     """The anchor's 3D file, or "" when no residue of the text is the ligand.
 
     The ligand is, for an anchor that is a chain, every residue on
@@ -85,7 +104,7 @@ def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), liga
     grid = {}
     for xyz in ligand_xyz:
         grid.setdefault(_cell(xyz), []).append(xyz)
-    tol2 = LIGAND_NEAR ** 2
+    tol2 = LIGAND_NEAR**2
 
     def matches(xyz):
         cx, cy, cz = _cell(xyz)
@@ -101,17 +120,25 @@ def complex_text(gpcrdb_text, receptor_chain, receptor_seqs, ligand_xyz=(), liga
     if ligand_chain:
         ligand = {rid for rid, _lines, _atoms in residues if rid[0] == ligand_chain}
     else:
-        ligand = {rid for rid, lines, atoms in residues
-                  if resname and rid[3].upper() == resname
-                  and any(line.startswith("HETATM") for line in lines)
-                  and any(matches(a) for a in atoms)}
+        ligand = {
+            rid
+            for rid, lines, atoms in residues
+            if resname
+            and rid[3].upper() == resname
+            and any(line.startswith("HETATM") for line in lines)
+            and any(matches(a) for a in atoms)
+        }
     if not ligand:
         return ""
     seqs = {int(s) for s in receptor_seqs}
     out = []
     for rid, lines, _atoms in residues:
-        if rid in ligand or (rid[0] == receptor_chain and not rid[2]
-                             and rid[1].lstrip("-").isdigit() and int(rid[1]) in seqs):
+        if rid in ligand or (
+            rid[0] == receptor_chain
+            and not rid[2]
+            and rid[1].lstrip("-").isdigit()
+            and int(rid[1]) in seqs
+        ):
             out.extend(lines)
     return "\n".join(out + ["END"]) + "\n"
 

@@ -80,6 +80,7 @@ INSTANCE_DIR_RE = re.compile(
     r"^(?P<het>[^_]+)_(?P<chain>[^_]+)_(?P<resnum>-?\d+)(?P<icode>[A-Za-z]?)$"
 )
 
+
 def instance_yaml_paths(data_dir, pdb_code):
     """Map instance name -> YAML path for one PDB (flat product layout).
 
@@ -143,8 +144,12 @@ PRODUCT_SUMMARY_KEY = "product_summary"
 
 # Header keys that record where a chainmap came from. Maps built at different
 # times differ in them, so the importer reports the distinct values.
-PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
-                   "builder_sha256")
+PROVENANCE_KEYS = (
+    "annotation_commit",
+    "ligands_sha256",
+    "structures_sha256",
+    "builder_sha256",
+)
 
 
 def load_chainmap(path):
@@ -155,14 +160,22 @@ def load_chainmap(path):
     """
     header, fieldnames, rows = _read_map(path)
     if not header:
-        raise MapMismatch("{}: no '# ' header lines at all; is this a chainmap?".format(path))
+        raise MapMismatch(
+            "{}: no '# ' header lines at all; is this a chainmap?".format(path)
+        )
     schema = header.get("schema")
     if schema != CHAINMAP_SCHEMA:
-        raise MapMismatch("{}: chainmap schema {!r}, this importer reads {!r}".format(
-            path, schema, CHAINMAP_SCHEMA))
+        raise MapMismatch(
+            "{}: chainmap schema {!r}, this importer reads {!r}".format(
+                path, schema, CHAINMAP_SCHEMA
+            )
+        )
     if tuple(fieldnames or ()) != tuple(chain_map.ANCHOR_COLUMNS):
-        raise MapMismatch("{}: columns {}, expected {}".format(
-            path, list(fieldnames or []), list(chain_map.ANCHOR_COLUMNS)))
+        raise MapMismatch(
+            "{}: columns {}, expected {}".format(
+                path, list(fieldnames or []), list(chain_map.ANCHOR_COLUMNS)
+            )
+        )
     pdb = (header.get("pdb") or "").strip().upper()
     if not pdb:
         raise MapMismatch("{}: the header names no pdb".format(path))
@@ -177,16 +190,20 @@ def load_chainmap(path):
     anchors = {}
     for r in rows:
         if (r.get("pdb") or "").strip().upper() != pdb:
-            raise MapMismatch("{}: a row for {!r} in the chainmap of {}".format(
-                path, r.get("pdb"), pdb))
+            raise MapMismatch(
+                "{}: a row for {!r} in the chainmap of {}".format(
+                    path, r.get("pdb"), pdb
+                )
+            )
         key = (pdb, (r.get("het") or "").upper(), r.get("token") or "")
         if key in anchors:
             raise MapMismatch("{}: duplicate anchor key {}".format(path, key))
         anchors[key] = r
     ran = header.get(PRODUCT_SUMMARY_KEY)
     if ran not in ("yes", "no"):
-        raise MapMismatch("{}: {} is {!r}, expected yes or no".format(
-            path, PRODUCT_SUMMARY_KEY, ran))
+        raise MapMismatch(
+            "{}: {} is {!r}, expected yes or no".format(path, PRODUCT_SUMMARY_KEY, ran)
+        )
     provenance = {k: header.get(k, "") for k in PROVENANCE_KEYS}
     return pdb, anchors, receptor, provenance, ran == "yes"
 
@@ -224,10 +241,16 @@ def load_chainmap_dir(data_dir, pdb_codes):
             continue
         named, rows, receptor, prov, ran = load_chainmap(path)
         if named != pdb.upper():
-            raise MapMismatch("{}: names pdb {} but sits in the directory of {}".format(
-                path, named, pdb))
-        if (not ran and receptor.get("product_instances_sha256") == empty_tree
-                and not instance_yaml_paths(data_dir, pdb)):
+            raise MapMismatch(
+                "{}: names pdb {} but sits in the directory of {}".format(
+                    path, named, pdb
+                )
+            )
+        if (
+            not ran
+            and receptor.get("product_instances_sha256") == empty_tree
+            and not instance_yaml_paths(data_dir, pdb)
+        ):
             not_run.append(pdb)
             continue
         anchors.update(rows)
@@ -239,8 +262,9 @@ def load_chainmap_dir(data_dir, pdb_codes):
     return anchors, receptors, missing, provenance, not_run
 
 
-def structure_verdict(in_db, experimental, was_run, has_chainmap, anchors_at_risk=0,
-                      allow_not_run=False):
+def structure_verdict(
+    in_db, experimental, was_run, has_chainmap, anchors_at_risk=0, allow_not_run=False
+):
     """What to do with one delivered structure, before the database is touched.
 
     Returns (status, level, category), or None when the structure is imported.
@@ -278,8 +302,11 @@ def product_pdb_codes(data_dir):
     lower-case directory is found and two differing only in case stay two.
     Names beginning with a dot are skipped.
     """
-    return sorted(name for name in os.listdir(data_dir)
-                  if not name.startswith(".") and os.path.isdir(os.path.join(data_dir, name)))
+    return sorted(
+        name
+        for name in os.listdir(data_dir)
+        if not name.startswith(".") and os.path.isdir(os.path.join(data_dir, name))
+    )
 
 
 # Map statuses that name a product instance to import.
@@ -305,7 +332,9 @@ def anchor_instances(pdb, het, chain_res, anchor_map, instance_names):
     for tok in tokens:
         row = anchor_map.get((pdb, het, tok))
         if row is None:
-            raise MapMismatch("{} {} {!r} is not in the anchor map".format(pdb, het, tok))
+            raise MapMismatch(
+                "{} {} {!r} is not in the anchor map".format(pdb, het, tok)
+            )
         status = row["status"]
         if status == "unresolved":
             raise UnresolvedAnchor("{} {} {!r}: {}".format(pdb, het, tok, row["note"]))
@@ -317,12 +346,16 @@ def anchor_instances(pdb, het, chain_res, anchor_map, instance_names):
             names.extend(n for n in row["instance"].split(";") if n)
         elif status == "no_product":
             if has_copy:
-                raise MapMismatch("{} {}: map says no_product but the product tree has "
-                                  "a copy; the map was built against another tree".format(pdb, het))
+                raise MapMismatch(
+                    "{} {}: map says no_product but the product tree has "
+                    "a copy; the map was built against another tree".format(pdb, het)
+                )
             missing += 1
             notes.append(row["note"])
         else:
-            raise MapMismatch("{} {} {!r}: unknown map status {!r}".format(pdb, het, tok, status))
+            raise MapMismatch(
+                "{} {} {!r}: unknown map status {!r}".format(pdb, het, tok, status)
+            )
     names = sorted(set(names))
     if tokens == [""]:
         return names, ("all_copies" if names else "no_product"), notes
@@ -349,8 +382,10 @@ def instance_chains(pdb, het, chain_res, anchor_map, names):
         if name not in out:
             product_chain = name.split("_")[1]
             if len(product_chain) != 1:
-                raise MapMismatch("{} {}: no GPCRdb chain for {} (multi-character product "
-                                  "chain and no chain_res token)".format(pdb, het, name))
+                raise MapMismatch(
+                    "{} {}: no GPCRdb chain for {} (multi-character product "
+                    "chain and no chain_res token)".format(pdb, het, name)
+                )
             out[name] = product_chain
     return out
 
@@ -368,8 +403,14 @@ def standard_ligand_block(block, instance, gpcrdb_chain):
     for line in (block or "").splitlines():
         if not line.strip():
             continue
-        new, was_capped = standard_ligand_line(line, m.group("het"), m.group("chain"),
-                                               m.group("resnum"), m.group("icode"), gpcrdb_chain)
+        new, was_capped = standard_ligand_line(
+            line,
+            m.group("het"),
+            m.group("chain"),
+            m.group("resnum"),
+            m.group("icode"),
+            gpcrdb_chain,
+        )
         out.append(new)
         if was_capped:
             capped.append(new)
@@ -382,7 +423,9 @@ def receptor_chain(pdb, receptor_map):
     if row is None:
         raise MapMismatch("{} is not in the receptor map".format(pdb))
     if row["status"] != "ok":
-        raise UnresolvedAnchor("{} receptor chain {}: {}".format(pdb, row["status"], row["note"]))
+        raise UnresolvedAnchor(
+            "{} receptor chain {}: {}".format(pdb, row["status"], row["note"])
+        )
     if not row["auth_chain"]:
         raise MapMismatch("{}: receptor map row is ok but names no chain".format(pdb))
     return row["auth_chain"]
@@ -394,11 +437,17 @@ def check_fingerprints(pdb, receptor_map, gpcrdb_text, instance_names):
     if row is None:
         raise MapMismatch("{} is not in the receptor map".format(pdb))
     if row.get("gpcrdb_text_sha256") != chain_map.text_sha256(gpcrdb_text):
-        raise MapMismatch("{}: GPCRdb structure text differs from the one the map was built "
-                          "from (new dump?); rebuild the maps".format(pdb))
-    if row.get("product_instances_sha256") != chain_map.instances_sha256(instance_names):
-        raise MapMismatch("{}: product instances differ from the tree the map was built "
-                          "from; check --data-dir or rebuild the maps".format(pdb))
+        raise MapMismatch(
+            "{}: GPCRdb structure text differs from the one the map was built "
+            "from (new dump?); rebuild the maps".format(pdb)
+        )
+    if row.get("product_instances_sha256") != chain_map.instances_sha256(
+        instance_names
+    ):
+        raise MapMismatch(
+            "{}: product instances differ from the tree the map was built "
+            "from; check --data-dir or rebuild the maps".format(pdb)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +474,8 @@ def load_type_map():
 def required_slugs():
     """Slugs this import can write (map targets minus excluded families)."""
     return frozenset(
-        slug for (family, _), slug in load_type_map().items()
+        slug
+        for (family, _), slug in load_type_map().items()
         if family not in EXCLUDED_FAMILIES
     ) | {"polar_backbone"}
 
@@ -440,7 +490,9 @@ def resolve_slug(feature_family, direction):
     except KeyError:
         raise UnroutableRow(
             "no interaction_type_map rule for family={!r} direction={!r}".format(
-                feature_family, direction))
+                feature_family, direction
+            )
+        )
 
 
 _BACKBONE_PROMOTABLE = frozenset({"polar_donor_protein", "polar_acceptor_protein"})
@@ -449,7 +501,10 @@ _BACKBONE_ATOMS = frozenset({"N", "O"})
 
 def apply_backbone_override(slug, receptor_atom_name):
     """H-bond to a main-chain N or O becomes ``polar_backbone``."""
-    if slug in _BACKBONE_PROMOTABLE and (receptor_atom_name or "").strip() in _BACKBONE_ATOMS:
+    if (
+        slug in _BACKBONE_PROMOTABLE
+        and (receptor_atom_name or "").strip() in _BACKBONE_ATOMS
+    ):
         return "polar_backbone"
     return slug
 
@@ -494,10 +549,14 @@ def plan_rows(interactions, receptor_chain_name):
             other_chain_by_chain[chain] += 1
             continue
         slug = apply_backbone_override(
-            resolve_slug(family, row.get("direction")), row.get("receptor_atom_name"))
+            resolve_slug(family, row.get("direction")), row.get("receptor_atom_name")
+        )
         seq = int(res["pdb_residue_number"])
-        ligand_lines = [line for line in (row.get("ligand_pdb_block") or "").splitlines()
-                        if line.strip()]
+        ligand_lines = [
+            line
+            for line in (row.get("ligand_pdb_block") or "").splitlines()
+            if line.strip()
+        ]
         record = by_key.get((seq, slug))
         if record is not None:
             counts["duplicate"] += 1
@@ -541,13 +600,18 @@ def check_product_contract(data_dir, pdb_code):
         with open(path) as fh:
             doc = yaml.safe_load(fh)
     except OSError as exc:
-        raise MalformedProduct("no summary.yaml, so no contract version ({})".format(exc))
+        raise MalformedProduct(
+            "no summary.yaml, so no contract version ({})".format(exc)
+        )
     except yaml.YAMLError as exc:
         raise MalformedProduct("{}: {}".format(path, exc))
     version = doc.get("contract_version") if isinstance(doc, dict) else None
     if version != PRODUCT_CONTRACT:
-        raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
-            path, version, PRODUCT_CONTRACT))
+        raise MalformedProduct(
+            "{}: contract_version {!r}, this importer reads {!r}".format(
+                path, version, PRODUCT_CONTRACT
+            )
+        )
 
 
 def read_instance_rows(path):
@@ -567,6 +631,7 @@ def read_instance_rows(path):
 # Anchors (database)
 # ---------------------------------------------------------------------------
 
+
 def is_in_scope(sli):
     """True iff this SLI anchor is served by Engine 1: it names a chemical
     component (a HET code), whatever type the database gives the ligand.
@@ -584,12 +649,24 @@ def is_in_scope(sli):
 # Import of one structure (database)
 # ---------------------------------------------------------------------------
 
+
 class AnchorOutcome(object):
     """What happened to one in-scope anchor."""
 
-    __slots__ = ("sli_id", "het", "mode", "instances", "notes", "deleted", "written",
-                 "counts", "other_chain_by_chain", "dropped", "fragments_created",
-                 "complex_file")
+    __slots__ = (
+        "sli_id",
+        "het",
+        "mode",
+        "instances",
+        "notes",
+        "deleted",
+        "written",
+        "counts",
+        "other_chain_by_chain",
+        "dropped",
+        "fragments_created",
+        "complex_file",
+    )
 
     def __init__(self, sli_id, het):
         self.sli_id = sli_id
@@ -627,7 +704,8 @@ def _only_deleted(deleted_by_model, allowed):
 # tail of the line even where widened fields run into each other.
 _LIGAND_TAIL_RE = re.compile(
     r"^\s*(?P<x>-?\d+\.\d{3})\s*(?P<y>-?\d+\.\d{3})\s*(?P<z>-?\d+\.\d{3})"
-    r"\s*(?P<occ>-?\d+\.\d{2})\s*(?P<b>-?\d+\.\d{2})\s+(?P<element>[A-Za-z]{1,2})\s*$")
+    r"\s*(?P<occ>-?\d+\.\d{2})\s*(?P<b>-?\d+\.\d{2})\s+(?P<element>[A-Za-z]{1,2})\s*$"
+)
 
 # Largest B-factor the standard 6-column field can hold.
 _MAX_PDB_B = 999.99
@@ -661,34 +739,56 @@ def standard_ligand_line(line, het, product_chain, resnum, icode, gpcrdb_chain):
     name = line[12:16].strip()
     width = max(3, len(het))
     pos = 16
-    resname = line[pos:pos + width].strip()
+    resname = line[pos : pos + width].strip()
     pos += width + 1
-    chain = line[pos:pos + len(product_chain)]
+    chain = line[pos : pos + len(product_chain)]
     pos += len(product_chain)
     num_width = max(4, len(str(resnum)))
-    number = line[pos:pos + num_width].strip()
+    number = line[pos : pos + num_width].strip()
     pos += num_width
-    ins = line[pos:pos + 1].strip()
+    ins = line[pos : pos + 1].strip()
     pos += 1
     tail = _LIGAND_TAIL_RE.match(line[pos:])
-    if (not serial.isdigit() or not name or resname.upper() != het.upper()
-            or chain != product_chain or number != str(resnum) or ins != (icode or "")
-            or tail is None):
-        raise MalformedLigandLine("{} {}_{}_{}{}: cannot read {!r}".format(
-            record, het, product_chain, resnum, icode, line))
+    if (
+        not serial.isdigit()
+        or not name
+        or resname.upper() != het.upper()
+        or chain != product_chain
+        or number != str(resnum)
+        or ins != (icode or "")
+        or tail is None
+    ):
+        raise MalformedLigandLine(
+            "{} {}_{}_{}{}: cannot read {!r}".format(
+                record, het, product_chain, resnum, icode, line
+            )
+        )
     b = float(tail.group("b"))
     capped = b > _MAX_PDB_B
     element = tail.group("element").upper()
     out = "{:<6}{:>5} {} {:>3} {:1}{:>4}{:1}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2}".format(
-        record, int(serial) % 100000, _pdb_atom_name(name, element), het.upper()[:3],
-        gpcrdb_chain, resnum, icode or "",
-        float(tail.group("x")), float(tail.group("y")), float(tail.group("z")),
-        float(tail.group("occ")), min(b, _MAX_PDB_B), element)
+        record,
+        int(serial) % 100000,
+        _pdb_atom_name(name, element),
+        het.upper()[:3],
+        gpcrdb_chain,
+        resnum,
+        icode or "",
+        float(tail.group("x")),
+        float(tail.group("y")),
+        float(tail.group("z")),
+        float(tail.group("occ")),
+        min(b, _MAX_PDB_B),
+        element,
+    )
     # A value too wide for its field (residue number beyond 4 digits, coordinate
     # beyond 8.3f, negative B below -99.99) would shift every later column.
     if len(out) != _PDB_ATOM_LINE_WIDTH or len(gpcrdb_chain) != 1:
-        raise MalformedLigandLine("{} {}_{}_{}{}: a field does not fit standard PDB columns: {!r}".format(
-            record, het, product_chain, resnum, icode, line))
+        raise MalformedLigandLine(
+            "{} {}_{}_{}{}: a field does not fit standard PDB columns: {!r}".format(
+                record, het, product_chain, resnum, icode, line
+            )
+        )
     return out, capped
 
 
@@ -708,12 +808,18 @@ def delete_orphan_fragments(structure):
     pdbdata_kept_referenced.
     """
     out = collections.Counter()
-    referenced = set(ResidueFragmentInteraction.objects
-                     .filter(fragment__structure=structure)
-                     .values_list("fragment_id", flat=True))
-    orphans = [(f_id, pd_id) for f_id, pd_id in
-               Fragment.objects.filter(structure=structure).values_list("id", "pdbdata_id")
-               if f_id not in referenced]
+    referenced = set(
+        ResidueFragmentInteraction.objects.filter(
+            fragment__structure=structure
+        ).values_list("fragment_id", flat=True)
+    )
+    orphans = [
+        (f_id, pd_id)
+        for f_id, pd_id in Fragment.objects.filter(structure=structure).values_list(
+            "id", "pdbdata_id"
+        )
+        if f_id not in referenced
+    ]
     if not orphans:
         return out
     _, deleted = Fragment.objects.filter(id__in=[f for f, _ in orphans]).delete()
@@ -738,9 +844,11 @@ def delete_unreferenced_pdbdata(candidates):
         return out
     still_used = set()
     for rel in PdbData._meta.related_objects:
-        still_used.update(rel.related_model._base_manager
-                          .filter(**{rel.field.name + "__in": candidates})
-                          .values_list(rel.field.name, flat=True))
+        still_used.update(
+            rel.related_model._base_manager.filter(
+                **{rel.field.name + "__in": candidates}
+            ).values_list(rel.field.name, flat=True)
+        )
     free = candidates - still_used
     out["pdbdata_kept_referenced"] = len(candidates & still_used)
     if free:
@@ -773,10 +881,16 @@ def check_map_covers(pdb, slis, anchor_map):
     listed = {(het, tok) for (p, het, tok) in anchor_map if p == pdb}
     missing = wanted - listed
     if missing:
-        raise MapMismatch("{}: the database has {} copies, the anchor map lists {} of them "
-                          "(plus {} it cannot use); first absent: {}".format(
-                              pdb, len(wanted), len(wanted) - len(missing),
-                              len(listed - wanted), sorted(missing)[:5]))
+        raise MapMismatch(
+            "{}: the database has {} copies, the anchor map lists {} of them "
+            "(plus {} it cannot use); first absent: {}".format(
+                pdb,
+                len(wanted),
+                len(wanted) - len(missing),
+                len(listed - wanted),
+                sorted(missing)[:5],
+            )
+        )
     return sorted(listed - wanted)
 
 
@@ -801,10 +915,11 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
     unused = []
     replaced_files = set()
     with transaction.atomic():
-        slis = list(StructureLigandInteraction.objects
-                    .filter(structure=structure)
-                    .select_related("ligand__ligand_type")
-                    .order_by("id"))
+        slis = list(
+            StructureLigandInteraction.objects.filter(structure=structure)
+            .select_related("ligand__ligand_type")
+            .order_by("id")
+        )
         in_scope = [sli for sli in slis if is_in_scope(sli)]
         out_of_scope = len(slis) - len(in_scope)
         if in_scope:
@@ -813,44 +928,62 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             # Receptor first: an unresolved receptor row carries no text
             # fingerprint, and its note, not a fingerprint mismatch, is the reason.
             chain = receptor_chain(pdb_code, receptor_map)
-            check_fingerprints(pdb_code, receptor_map,
-                               structure.pdb_data.pdb if structure.pdb_data_id else "", instances)
+            check_fingerprints(
+                pdb_code,
+                receptor_map,
+                structure.pdb_data.pdb if structure.pdb_data_id else "",
+                instances,
+            )
             gpcrdb_text = structure.pdb_data.pdb if structure.pdb_data_id else ""
             label_chain = receptor_map[pdb_code]["preferred_chain"]
         for sli in in_scope:
             outcome = AnchorOutcome(sli.id, sli.pdb_reference.upper())
             names, outcome.mode, outcome.notes = anchor_instances(
-                pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, instances)
+                pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, instances
+            )
             outcome.instances = names
 
             rows = []
             capped = set()
-            gchains = instance_chains(pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, names)
+            gchains = instance_chains(
+                pdb_code, sli.pdb_reference, sli.chain_res, anchor_map, names
+            )
             for name in names:
                 if name not in instances:
-                    raise MalformedProduct("{}: the anchor map names {} but the product tree "
-                                           "under {} has no such instance".format(pdb_code, name, data_dir))
+                    raise MalformedProduct(
+                        "{}: the anchor map names {} but the product tree "
+                        "under {} has no such instance".format(pdb_code, name, data_dir)
+                    )
                 for row in read_instance_rows(instances[name]):
                     # Ligand atoms are stored in standard PDB columns.
                     row["ligand_pdb_block"], n = standard_ligand_block(
-                        row.get("ligand_pdb_block"), name, gchains[name])
+                        row.get("ligand_pdb_block"), name, gchains[name]
+                    )
                     # The same block repeats on every interaction row of an
                     # instance; count each capped atom once.
                     capped.update((name, line) for line in n)
                     rows.append(row)
-            records, outcome.counts, outcome.other_chain_by_chain = plan_rows(rows, chain)
+            records, outcome.counts, outcome.other_chain_by_chain = plan_rows(
+                rows, chain
+            )
             outcome.counts["ligand_lines_bfactor_capped"] = len(capped)
 
             _, deleted_by_model = ResidueFragmentInteraction.objects.filter(
-                structure_ligand_pair=sli).delete()
+                structure_ligand_pair=sli
+            ).delete()
             _only_deleted(deleted_by_model, {"interaction.ResidueFragmentInteraction"})
-            outcome.deleted = deleted_by_model.get("interaction.ResidueFragmentInteraction", 0)
+            outcome.deleted = deleted_by_model.get(
+                "interaction.ResidueFragmentInteraction", 0
+            )
 
             written_seqs = set()
             for rec in records:
-                residues = list(Residue.objects.filter(
-                    protein_conformation=structure.protein_conformation,
-                    sequence_number=rec["sequence_number"])[:2])
+                residues = list(
+                    Residue.objects.filter(
+                        protein_conformation=structure.protein_conformation,
+                        sequence_number=rec["sequence_number"],
+                    )[:2]
+                )
                 if not residues:
                     outcome.dropped["residue_not_found"] += 1
                     continue
@@ -861,22 +994,35 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                 if residue.amino_acid != rec["amino_acid"]:
                     outcome.dropped["amino_acid_mismatch"] += 1
                     continue
-                rotamers = list(Rotamer.objects.filter(structure=structure, residue=residue)[:2])
+                rotamers = list(
+                    Rotamer.objects.filter(structure=structure, residue=residue)[:2]
+                )
                 if len(rotamers) != 1:
-                    outcome.dropped["rotamer_not_found" if not rotamers else "rotamer_ambiguous"] += 1
+                    outcome.dropped[
+                        "rotamer_not_found" if not rotamers else "rotamer_ambiguous"
+                    ] += 1
                     continue
                 # The fragment holds the ligand atoms of this contact; reuse only
                 # a fragment with exactly this text (an older fragment of the
                 # same ligand and residue can hold other text).
                 text = fragment_text(rec["ligand_lines"])
-                fragment = (Fragment.objects
-                            .filter(ligand=sli.ligand, structure=structure, residue=residue,
-                                    pdbdata__pdb=text)
-                            .order_by("id").first())
+                fragment = (
+                    Fragment.objects.filter(
+                        ligand=sli.ligand,
+                        structure=structure,
+                        residue=residue,
+                        pdbdata__pdb=text,
+                    )
+                    .order_by("id")
+                    .first()
+                )
                 if fragment is None:
                     fragment = Fragment.objects.create(
-                        ligand=sli.ligand, structure=structure, residue=residue,
-                        pdbdata=PdbData.objects.create(pdb=text))
+                        ligand=sli.ligand,
+                        structure=structure,
+                        residue=residue,
+                        pdbdata=PdbData.objects.create(pdb=text),
+                    )
                     outcome.fragments_created += 1
                 ResidueFragmentInteraction.objects.create(
                     structure_ligand_pair=sli,
@@ -890,16 +1036,23 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
             text = ""
             if outcome.written:
                 text = complex_file.complex_text(
-                    gpcrdb_text, label_chain, written_seqs,
+                    gpcrdb_text,
+                    label_chain,
+                    written_seqs,
                     ligand_xyz=complex_file.ligand_line_xyz(
-                        line for row in rows
-                        for line in (row.get("ligand_pdb_block") or "").splitlines()),
-                    ligand_resname=sli.pdb_reference)
+                        line
+                        for row in rows
+                        for line in (row.get("ligand_pdb_block") or "").splitlines()
+                    ),
+                    ligand_resname=sli.pdb_reference,
+                )
             outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
             if outcome.written and not text:
                 outcome.complex_file = "ligand_not_found"
             replaced_files.add(replaced)
             outcomes.append(outcome)
-        cleanup = delete_orphan_fragments(structure) if in_scope else collections.Counter()
+        cleanup = (
+            delete_orphan_fragments(structure) if in_scope else collections.Counter()
+        )
         cleanup.update(delete_unreferenced_pdbdata(replaced_files))
     return outcomes, out_of_scope, cleanup, unused

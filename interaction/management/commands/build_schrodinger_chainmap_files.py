@@ -76,11 +76,19 @@ def annotation_commit(given, gdata):
         return given
 
     def git(*args):
-        return subprocess.run(["git", "-C", gdata] + list(args), stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, universal_newlines=True,
-                              check=True, timeout=30).stdout.strip()
+        return subprocess.run(
+            ["git", "-C", gdata] + list(args),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True,
+            check=True,
+            timeout=30,
+        ).stdout.strip()
+
     try:
-        if os.path.realpath(git("rev-parse", "--show-toplevel")) != os.path.realpath(gdata):
+        if os.path.realpath(git("rev-parse", "--show-toplevel")) != os.path.realpath(
+            gdata
+        ):
             return "unknown"
         return git("rev-parse", "--short=7", "HEAD") or "unknown"
     except (OSError, subprocess.SubprocessError):
@@ -116,8 +124,10 @@ def index_mismatch(summary_sha, index_sha):
     if summary_sha == "":
         return "summary.yaml has no input_sha256 to check the coordinate index against"
     if summary_sha and summary_sha != index_sha:
-        return ("the coordinate index was read from another mmCIF than the products "
-                "(index {}, summary.yaml {})".format(index_sha[:12], summary_sha[:12]))
+        return (
+            "the coordinate index was read from another mmCIF than the products "
+            "(index {}, summary.yaml {})".format(index_sha[:12], summary_sha[:12])
+        )
     return None
 
 
@@ -136,8 +146,14 @@ def _sha256_parts(parts):
 
 # The header keys that are the same for every structure of a run, plus the two
 # that are not, in the order they are written.
-HEADER_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
-               "gpcrdb_pdb_sha256", "cif_sha256", "builder_sha256")
+HEADER_KEYS = (
+    "annotation_commit",
+    "ligands_sha256",
+    "structures_sha256",
+    "gpcrdb_pdb_sha256",
+    "cif_sha256",
+    "builder_sha256",
+)
 
 
 def has_product_summary(data_dir, pdb):
@@ -162,15 +178,22 @@ def chainmap_header(pdb, values, receptor, has_summary):
     header = [("schema", SCHEMA), ("pdb", pdb)]
     header += [(key, values[key]) for key in HEADER_KEYS]
     header.append((si.PRODUCT_SUMMARY_KEY, "yes" if has_summary else "no"))
-    header += [(RECEPTOR_PREFIX + c, receptor.get(c, "")) for c in cm.RECEPTOR_COLUMNS
-               if c != "pdb"]
+    header += [
+        (RECEPTOR_PREFIX + c, receptor.get(c, ""))
+        for c in cm.RECEPTOR_COLUMNS
+        if c != "pdb"
+    ]
     return header
 
 
 def _some(names, limit=20):
     """A list for a log line, honest about what it left out."""
     head = ", ".join(names[:limit])
-    return head if len(names) <= limit else "{} (+{} more)".format(head, len(names) - limit)
+    return (
+        head
+        if len(names) <= limit
+        else "{} (+{} more)".format(head, len(names) - limit)
+    )
 
 
 def _flat(value):
@@ -197,8 +220,11 @@ def read_tsv(path):
     with open(path, newline="") as fh:
         for n, r in enumerate(csv.DictReader(fh, delimiter="\t"), start=2):
             if None in r:
-                raise CommandError("{} line {}: more fields than the header has columns".format(
-                    path, n))
+                raise CommandError(
+                    "{} line {}: more fields than the header has columns".format(
+                        path, n
+                    )
+                )
             rows.append({(k or "").strip(): (v or "").strip() for k, v in r.items()})
     return rows
 
@@ -249,7 +275,9 @@ def write_chainmap(path, header, anchor_rows):
     buf = io.StringIO()
     for key, value in header:
         buf.write("# {}\t{}\n".format(key, _flat(value)))
-    w = csv.DictWriter(buf, fieldnames=cm.ANCHOR_COLUMNS, delimiter="\t", lineterminator="\n")
+    w = csv.DictWriter(
+        buf, fieldnames=cm.ANCHOR_COLUMNS, delimiter="\t", lineterminator="\n"
+    )
     w.writeheader()
     w.writerows(anchor_rows)
     # The out dir is usually the product tree the importer reads; never leave a
@@ -261,32 +289,58 @@ def write_chainmap(path, header, anchor_rows):
 
 
 class Command(BaseCommand):
-    help = "Build one per-PDB chainmap.tsv for the Schrodinger importer, from files only."
+    help = (
+        "Build one per-PDB chainmap.tsv for the Schrodinger importer, from files only."
+    )
 
     def add_arguments(self, parser):
-        parser.add_argument("--gpcrdb-data", default=None,
-                            help="gpcrdb_data checkout (uses structure_data/annotation and "
-                                 "structure_data/pdbs). Defaults to DATA_DIR, so the maps are "
-                                 "built from the same annotation the build will run on.")
-        parser.add_argument("--data-dir", required=True, help="Product tree {data_dir}/{PDB}/{instance}/.")
-        parser.add_argument("--index-dir", default=None,
-                            help="Where the coordinate indexes are, {index_dir}/{PDB}/{PDB}"
-                                 + cm.INDEX_SUFFIX + "; defaults to --data-dir, where the "
-                                 "producer delivers them.")
-        parser.add_argument("--annotation-commit", default=None,
-                            help="gpcrdb_data commit the annotation was read at; recorded only. "
-                                 "Defaults to the HEAD of --gpcrdb-data when git can read it "
-                                 "there, 'unknown' otherwise.")
-        parser.add_argument("--out-dir", default=None,
-                            help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
-                                 "where the importer looks for it.")
-        parser.add_argument("--allow-stray", action="store_true",
-                            help="Do not refuse product directories that are absent from "
-                                 "structures.tsv. They still get no chainmap, and the "
-                                 "importer fails on any of them the database still knows.")
-        parser.add_argument("--pdb", action="append", default=[],
-                            help="Restrict to these PDB codes; default is every structure in "
-                                 "structures.tsv.")
+        parser.add_argument(
+            "--gpcrdb-data",
+            default=None,
+            help="gpcrdb_data checkout (uses structure_data/annotation and "
+            "structure_data/pdbs). Defaults to DATA_DIR, so the maps are "
+            "built from the same annotation the build will run on.",
+        )
+        parser.add_argument(
+            "--data-dir",
+            required=True,
+            help="Product tree {data_dir}/{PDB}/{instance}/.",
+        )
+        parser.add_argument(
+            "--index-dir",
+            default=None,
+            help="Where the coordinate indexes are, {index_dir}/{PDB}/{PDB}"
+            + cm.INDEX_SUFFIX
+            + "; defaults to --data-dir, where the "
+            "producer delivers them.",
+        )
+        parser.add_argument(
+            "--annotation-commit",
+            default=None,
+            help="gpcrdb_data commit the annotation was read at; recorded only. "
+            "Defaults to the HEAD of --gpcrdb-data when git can read it "
+            "there, 'unknown' otherwise.",
+        )
+        parser.add_argument(
+            "--out-dir",
+            default=None,
+            help="Where to write {PDB}/chainmap.tsv; defaults to --data-dir, "
+            "where the importer looks for it.",
+        )
+        parser.add_argument(
+            "--allow-stray",
+            action="store_true",
+            help="Do not refuse product directories that are absent from "
+            "structures.tsv. They still get no chainmap, and the "
+            "importer fails on any of them the database still knows.",
+        )
+        parser.add_argument(
+            "--pdb",
+            action="append",
+            default=[],
+            help="Restrict to these PDB codes; default is every structure in "
+            "structures.tsv.",
+        )
 
     def handle(self, *args, **opt):
         gdata = opt["gpcrdb_data"] or settings.DATA_DIR
@@ -294,13 +348,19 @@ class Command(BaseCommand):
         index_dir = opt["index_dir"] or data_dir
         out_dir = opt["out_dir"] or data_dir
         commit = annotation_commit(opt["annotation_commit"], gdata)
-        for label, path in (("--gpcrdb-data", gdata), ("--index-dir", index_dir), ("--data-dir", data_dir)):
+        for label, path in (
+            ("--gpcrdb-data", gdata),
+            ("--index-dir", index_dir),
+            ("--data-dir", data_dir),
+        ):
             if not os.path.isdir(path):
                 raise CommandError("{} {!r} is not a directory".format(label, path))
         # The out dir itself is created, its parent is not: a typo fails.
         out_parent = os.path.dirname(os.path.abspath(out_dir))
         if not os.path.isdir(out_parent):
-            raise CommandError("--out-dir {!r}: {} does not exist".format(out_dir, out_parent))
+            raise CommandError(
+                "--out-dir {!r}: {} does not exist".format(out_dir, out_parent)
+            )
         ann = os.path.join(gdata, "structure_data", "annotation")
         ligands_tsv = os.path.join(ann, "ligands.tsv")
         structures_tsv = os.path.join(ann, "structures.tsv")
@@ -326,7 +386,9 @@ class Command(BaseCommand):
             pdbs = sorted({p.upper() for p in opt["pdb"]})
             unknown = [p for p in pdbs if p not in chains]
             if unknown:
-                raise CommandError("not in {}: {}".format(structures_tsv, ", ".join(unknown)))
+                raise CommandError(
+                    "not in {}: {}".format(structures_tsv, ", ".join(unknown))
+                )
         else:
             pdbs = corpus
             # A directory holding products but absent from the corpus gets no
@@ -335,21 +397,33 @@ class Command(BaseCommand):
             # only noted.
             dropped, housekeeping = [], []
             for name in sorted(os.listdir(data_dir)):
-                if name.upper() in chains or not os.path.isdir(os.path.join(data_dir, name)):
+                if name.upper() in chains or not os.path.isdir(
+                    os.path.join(data_dir, name)
+                ):
                     continue
-                (dropped if si.instance_yaml_paths(data_dir, name) else housekeeping).append(name)
+                (
+                    dropped if si.instance_yaml_paths(data_dir, name) else housekeeping
+                ).append(name)
             if housekeeping:
-                self.stdout.write("directories that are not structures, ignored: {}".format(
-                    _some(housekeeping)))
+                self.stdout.write(
+                    "directories that are not structures, ignored: {}".format(
+                        _some(housekeeping)
+                    )
+                )
             if dropped and not opt["allow_stray"]:
                 raise CommandError(
                     "these directories hold Engine 1 products but are not in {}, so they get "
                     "no chainmap: {}. Pass --allow-stray if that is intended, for "
                     "instance after a structure was retired from the annotation.".format(
-                        structures_tsv, _some(dropped)))
+                        structures_tsv, _some(dropped)
+                    )
+                )
             if dropped:
-                self.stdout.write("product directories with no chainmap (--allow-stray): "
-                                  "{}".format(_some(dropped)))
+                self.stdout.write(
+                    "product directories with no chainmap (--allow-stray): {}".format(
+                        _some(dropped)
+                    )
+                )
 
         ligands_sha = _sha256_file(ligands_tsv)
         structures_sha = _sha256_file(structures_tsv)
@@ -357,13 +431,20 @@ class Command(BaseCommand):
         # it borrows from the importer module (scope, instance discovery and the
         # chainmap format constants), so an unrelated importer edit does not move
         # the stamp.
-        builder_sha = _sha256_parts([
-            _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
-            repr(sorted(si.PLACEHOLDER_REFERENCES)),
-            si.INSTANCE_DIR_RE.pattern, repr(si.INSTANCE_DIR_RE.flags),
-            inspect.getsource(si.instance_yaml_paths),
-            si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME,
-            si.PRODUCT_SUMMARY_KEY])
+        builder_sha = _sha256_parts(
+            [
+                _sha256_file(cm.__file__),
+                _sha256_file(os.path.abspath(__file__)),
+                repr(sorted(si.PLACEHOLDER_REFERENCES)),
+                si.INSTANCE_DIR_RE.pattern,
+                repr(si.INSTANCE_DIR_RE.flags),
+                inspect.getsource(si.instance_yaml_paths),
+                si.CHAINMAP_SCHEMA,
+                si.CHAINMAP_RECEPTOR_PREFIX,
+                si.PRODUCT_SUMMARY_NAME,
+                si.PRODUCT_SUMMARY_KEY,
+            ]
+        )
 
         counts, rstatus, written, no_products, checked, refused = {}, {}, 0, 0, 0, 0
         for pdb in pdbs:
@@ -372,60 +453,123 @@ class Command(BaseCommand):
             checked += bool(summary_sha)
             refused += summary_sha == ""
             rows, receptor, note = self.build_one(
-                pdb, anchors.get(pdb, []), chains.get(pdb), labels,
-                cm.index_path(index_dir, pdb), os.path.join(pdb_dir, pdb + ".pdb"),
-                si.instance_yaml_paths(data_dir, pdb), has_summary, summary_sha)
-            no_products += receptor["product_instances_sha256"] == cm.instances_sha256([])
-            header = chainmap_header(pdb, dict(
-                annotation_commit=commit, ligands_sha256=ligands_sha,
-                structures_sha256=structures_sha, builder_sha256=builder_sha,
-                # The bytes on disk. receptor.gpcrdb_text_sha256 is what the
-                # importer compares against the database, hashed as decoded
-                # text; the two differ only on a CRLF file.
-                gpcrdb_pdb_sha256=note["gpcrdb_pdb_sha256"],
-                cif_sha256=note["cif_sha256"]), receptor, has_summary)
+                pdb,
+                anchors.get(pdb, []),
+                chains.get(pdb),
+                labels,
+                cm.index_path(index_dir, pdb),
+                os.path.join(pdb_dir, pdb + ".pdb"),
+                si.instance_yaml_paths(data_dir, pdb),
+                has_summary,
+                summary_sha,
+            )
+            no_products += receptor["product_instances_sha256"] == cm.instances_sha256(
+                []
+            )
+            header = chainmap_header(
+                pdb,
+                dict(
+                    annotation_commit=commit,
+                    ligands_sha256=ligands_sha,
+                    structures_sha256=structures_sha,
+                    builder_sha256=builder_sha,
+                    # The bytes on disk. receptor.gpcrdb_text_sha256 is what the
+                    # importer compares against the database, hashed as decoded
+                    # text; the two differ only on a CRLF file.
+                    gpcrdb_pdb_sha256=note["gpcrdb_pdb_sha256"],
+                    cif_sha256=note["cif_sha256"],
+                ),
+                receptor,
+                has_summary,
+            )
             target = os.path.join(out_dir, pdb)
             os.makedirs(target, exist_ok=True)
             write_chainmap(os.path.join(target, "chainmap.tsv"), header, rows)
             written += 1
             for r in rows:
-                counts[(r["status"], r["source"])] = counts.get((r["status"], r["source"]), 0) + 1
+                counts[(r["status"], r["source"])] = (
+                    counts.get((r["status"], r["source"]), 0) + 1
+                )
             key = (receptor["status"], receptor["method"])
             rstatus[key] = rstatus.get(key, 0) + 1
 
         self.stdout.write("out-dir {}".format(out_dir))
-        self.stdout.write("annotation_commit {} ligands_sha256 {} structures_sha256 {} "
-                          "builder_sha256 {}".format(commit, ligands_sha,
-                                                     structures_sha, builder_sha))
-        self.stdout.write("chainmap.tsv written: {} ({} with no product instance)".format(
-            written, no_products))
-        self.stdout.write("index checked against summary.yaml input_sha256: {} "
-                          "(no summary: {}, refused for a summary without it: {})".format(
-                              checked, written - checked - refused, refused))
-        self.stdout.write("anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
-        self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
+        self.stdout.write(
+            "annotation_commit {} ligands_sha256 {} structures_sha256 {} "
+            "builder_sha256 {}".format(commit, ligands_sha, structures_sha, builder_sha)
+        )
+        self.stdout.write(
+            "chainmap.tsv written: {} ({} with no product instance)".format(
+                written, no_products
+            )
+        )
+        self.stdout.write(
+            "index checked against summary.yaml input_sha256: {} "
+            "(no summary: {}, refused for a summary without it: {})".format(
+                checked, written - checked - refused, refused
+            )
+        )
+        self.stdout.write(
+            "anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items()))
+        )
+        self.stdout.write(
+            "receptor rows {}: {}".format(
+                sum(rstatus.values()), sorted(rstatus.items())
+            )
+        )
 
-    def build_one(self, pdb, anchor_keys, preferred_chain, labels, index_path, gpcrdb_pdb_path,
-                  instances, has_summary, summary_sha=None):
+    def build_one(
+        self,
+        pdb,
+        anchor_keys,
+        preferred_chain,
+        labels,
+        index_path,
+        gpcrdb_pdb_path,
+        instances,
+        has_summary,
+        summary_sha=None,
+    ):
         """(anchor_rows, receptor_row, provenance) for one structure.
 
         An unreadable input is not a reason to skip: every anchor is written as
         unresolved with the reason, and the importer refuses the structure. A
         silently missing structure would instead look like one with no anchors.
         """
-        note = {"cif_sha256": "", "gpcrdb_pdb_sha256": "", "product_summary": has_summary}
+        note = {
+            "cif_sha256": "",
+            "gpcrdb_pdb_sha256": "",
+            "product_summary": has_summary,
+        }
         if preferred_chain is None:
             preferred_chain = ""
+
         def unresolved(exc):
-            reason = (exc if isinstance(exc, str)
-                      else "input unreadable: {}: {}".format(type(exc).__name__, exc))[:200]
-            rows = [dict({c: "" for c in cm.ANCHOR_COLUMNS}, pdb=pdb, het=het, token=tok,
-                         status="unresolved", note=reason)
-                    for het, tok, _ in anchor_keys]
-            receptor = dict({c: "" for c in cm.RECEPTOR_COLUMNS}, pdb=pdb,
-                            preferred_chain=preferred_chain, status="unresolved", note=reason,
-                            gpcrdb_text_sha256="",
-                            product_instances_sha256=cm.instances_sha256(instances))
+            reason = (
+                exc
+                if isinstance(exc, str)
+                else "input unreadable: {}: {}".format(type(exc).__name__, exc)
+            )[:200]
+            rows = [
+                dict(
+                    {c: "" for c in cm.ANCHOR_COLUMNS},
+                    pdb=pdb,
+                    het=het,
+                    token=tok,
+                    status="unresolved",
+                    note=reason,
+                )
+                for het, tok, _ in anchor_keys
+            ]
+            receptor = dict(
+                {c: "" for c in cm.RECEPTOR_COLUMNS},
+                pdb=pdb,
+                preferred_chain=preferred_chain,
+                status="unresolved",
+                note=reason,
+                gpcrdb_text_sha256="",
+                product_instances_sha256=cm.instances_sha256(instances),
+            )
             return rows, receptor, note
 
         try:
@@ -456,15 +600,36 @@ class Command(BaseCommand):
         rows = []
         for het, tok, chain_res in anchor_keys:
             if tok:
-                rows.append(cm.resolve_anchor(pdb, het, tok, cif_atoms, gatoms, instances,
-                                              labels.get((pdb, het, tok))))
+                rows.append(
+                    cm.resolve_anchor(
+                        pdb,
+                        het,
+                        tok,
+                        cif_atoms,
+                        gatoms,
+                        instances,
+                        labels.get((pdb, het, tok)),
+                    )
+                )
                 continue
             copies = sorted(n for n in instances if n.split("_", 1)[0].upper() == het)
-            rows.append(dict(
-                {c: "" for c in cm.ANCHOR_COLUMNS}, pdb=pdb, het=het, token="",
-                instance=";".join(copies),
-                status="all_copies" if copies else "no_product",
-                note=("chain_res {!r} names no residue; every copy used".format(chain_res)
-                      if copies else
-                      "the product has no instance of {} (chain_res {!r})".format(het, chain_res))))
+            rows.append(
+                dict(
+                    {c: "" for c in cm.ANCHOR_COLUMNS},
+                    pdb=pdb,
+                    het=het,
+                    token="",
+                    instance=";".join(copies),
+                    status="all_copies" if copies else "no_product",
+                    note=(
+                        "chain_res {!r} names no residue; every copy used".format(
+                            chain_res
+                        )
+                        if copies
+                        else "the product has no instance of {} (chain_res {!r})".format(
+                            het, chain_res
+                        )
+                    ),
+                )
+            )
         return rows, receptor, note

@@ -41,14 +41,27 @@ class Command(BaseCommand):
     help = "Remove the chainmap.tsv and peptide_map.tsv files a build made, and the empty directories."
 
     def add_arguments(self, parser):
-        parser.add_argument("--engine1-dir", required=True, help="Engine 1 tree (chainmap.tsv).")
-        parser.add_argument("--engine2-dir", required=True, help="Engine 2 tree (peptide_map.tsv).")
+        parser.add_argument(
+            "--engine1-dir", required=True, help="Engine 1 tree (chainmap.tsv)."
+        )
+        parser.add_argument(
+            "--engine2-dir", required=True, help="Engine 2 tree (peptide_map.tsv)."
+        )
 
     def handle(self, *args, **opt):
-        for label, tree in (("--engine1-dir", opt["engine1_dir"]), ("--engine2-dir", opt["engine2_dir"])):
+        for label, tree in (
+            ("--engine1-dir", opt["engine1_dir"]),
+            ("--engine2-dir", opt["engine2_dir"]),
+        ):
             if not os.path.isdir(tree):
                 raise CommandError("{} {!r} is not a directory".format(label, tree))
-        for tree, name in ((opt["engine1_dir"], si.CHAINMAP_NAME), (opt["engine2_dir"], sp.MAP_NAME)):
+        for tree, name in (
+            (opt["engine1_dir"], si.CHAINMAP_NAME),
+            (opt["engine2_dir"], sp.MAP_NAME),
+        ):
             maps, dirs = remove_maps(tree, name)
-            self.stdout.write("{}: removed {} {} and {} empty director{}".format(
-                tree, maps, name, dirs, "y" if dirs == 1 else "ies"))
+            self.stdout.write(
+                "{}: removed {} {} and {} empty director{}".format(
+                    tree, maps, name, dirs, "y" if dirs == 1 else "ies"
+                )
+            )

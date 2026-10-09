@@ -50,7 +50,8 @@ def seed(apps, schema_editor):
     InteractionType = apps.get_model("interaction", "ResidueFragmentInteractionType")
     for slug, name, type_, direction in SEEDED_TYPES:
         row, created = InteractionType.objects.get_or_create(
-            slug=slug, defaults={"name": name, "type": type_, "direction": direction})
+            slug=slug, defaults={"name": name, "type": type_, "direction": direction}
+        )
         # An existing database may name this slug "halogen bond"; the name is
         # the only field corrected.
         if not created and slug == "halogen_protein" and row.name != name:
@@ -59,7 +60,6 @@ def seed(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("interaction", "0008_auto_20260921_1803"),
     ]

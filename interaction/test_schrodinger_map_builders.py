@@ -25,36 +25,61 @@ from interaction import schrodinger_peptide as sp
 from interaction.management.commands import build_schrodinger_chainmap_files as e1
 
 PDB = "1ABC"
-EMPTY = "9XYZ"          # in the annotation, nothing delivered
+EMPTY = "9XYZ"  # in the annotation, nothing delivered
 SHA = hashlib.sha256(b"the mmCIF the products were computed from").hexdigest()
 REC_SEG, PEP_SEG = "R_REC_1_3", "P_1ABC_1_2"
 K_PEP = "1ABC__P_1ABC_1_2__R_REC_1_3__aaaaaaaaaaaa"
 K_REC = "1ABC__R_REC_1_3__P_1ABC_1_2__bbbbbbbbbbbb"
 
 # (GPCRdb chain, author chain, label, group, resname, resnum, atom, x, y, z)
-ATOMS = [("A", "R", "A", "ATOM", "ALA", 1, "CA", 1.0, 0.0, 0.0),
-         ("A", "R", "A", "ATOM", "ALA", 2, "CA", 2.0, 0.0, 0.0),
-         ("A", "R", "A", "ATOM", "ALA", 3, "CA", 3.0, 0.0, 0.0),
-         ("A", "R", "B", "HETATM", "LIG", 401, "C1", 5.0, 5.0, 5.0),
-         ("A", "R", "B", "HETATM", "LIG", 401, "C2", 6.0, 5.0, 5.0),
-         ("P", "P", "C", "ATOM", "GLY", 1, "CA", 10.0, 0.0, 0.0),
-         ("P", "P", "C", "ATOM", "GLY", 2, "CA", 11.0, 0.0, 0.0)]
+ATOMS = [
+    ("A", "R", "A", "ATOM", "ALA", 1, "CA", 1.0, 0.0, 0.0),
+    ("A", "R", "A", "ATOM", "ALA", 2, "CA", 2.0, 0.0, 0.0),
+    ("A", "R", "A", "ATOM", "ALA", 3, "CA", 3.0, 0.0, 0.0),
+    ("A", "R", "B", "HETATM", "LIG", 401, "C1", 5.0, 5.0, 5.0),
+    ("A", "R", "B", "HETATM", "LIG", 401, "C2", 6.0, 5.0, 5.0),
+    ("P", "P", "C", "ATOM", "GLY", 1, "CA", 10.0, 0.0, 0.0),
+    ("P", "P", "C", "ATOM", "GLY", 2, "CA", 11.0, 0.0, 0.0),
+]
 
 
 def gpcrdb_text():
     out = []
-    for n, (chain, _a, _l, group, resname, resnum, atom, x, y, z) in enumerate(ATOMS, start=1):
-        out.append("%-6s%5d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00 20.00          %2s\n" % (
-            group, n, atom, resname, chain, resnum, x, y, z, "C"))
+    for n, (chain, _a, _l, group, resname, resnum, atom, x, y, z) in enumerate(
+        ATOMS, start=1
+    ):
+        out.append(
+            "%-6s%5d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00 20.00          %2s\n"
+            % (group, n, atom, resname, chain, resnum, x, y, z, "C")
+        )
     return "".join(out) + "END\n"
 
 
 def index_text(sha=SHA, coord="%.3f"):
-    rows = ["\t".join([label, auth, resname, str(resnum), "", atom, group,
-                       coord % x, coord % y, coord % z])
-            for _c, auth, label, group, resname, resnum, atom, x, y, z in ATOMS]
-    head = ["# schema\t" + cm.INDEX_SCHEMA, "# source\t%s.cif" % PDB, "# cif_sha256\t" + sha,
-            "# atoms\t%d" % len(rows), "\t".join(cm.INDEX_COLUMNS)]
+    rows = [
+        "\t".join(
+            [
+                label,
+                auth,
+                resname,
+                str(resnum),
+                "",
+                atom,
+                group,
+                coord % x,
+                coord % y,
+                coord % z,
+            ]
+        )
+        for _c, auth, label, group, resname, resnum, atom, x, y, z in ATOMS
+    ]
+    head = [
+        "# schema\t" + cm.INDEX_SCHEMA,
+        "# source\t%s.cif" % PDB,
+        "# cif_sha256\t" + sha,
+        "# atoms\t%d" % len(rows),
+        "\t".join(cm.INDEX_COLUMNS),
+    ]
     return "\n".join(head + rows) + "\n"
 
 
@@ -69,38 +94,76 @@ class Delivery(object):
 
     def __init__(self, root, summary_sha=SHA, index=True, coord="%.3f"):
         self.gdata = os.path.join(root, "gpcrdb_data")
-        self.engine1 = os.path.join(self.gdata, "structure_data", "schrodinger", "engine1")
-        self.engine2 = os.path.join(self.gdata, "structure_data", "schrodinger", "engine2")
+        self.engine1 = os.path.join(
+            self.gdata, "structure_data", "schrodinger", "engine1"
+        )
+        self.engine2 = os.path.join(
+            self.gdata, "structure_data", "schrodinger", "engine2"
+        )
         ann = os.path.join(self.gdata, "structure_data", "annotation")
-        write(os.path.join(ann, "ligands.tsv"),
-              "PDB\tChainID\tName\tType\tTitle\tlabel_asym_id\tResidue_seq_id\n"
-              "%s\tA\tLIG\tsmall-molecule\tA ligand\tB\tA:401\n"
-              "%s\tP\tpep\tpeptide\tA peptide\t\t\n" % (PDB, PDB))
-        write(os.path.join(ann, "structures.tsv"), "PDB\tChainID\n%s\tA\n%s\tA\n" % (PDB, EMPTY))
-        write(os.path.join(self.gdata, "structure_data", "pdbs", PDB + ".pdb"), gpcrdb_text())
-        write(os.path.join(self.gdata, "structure_data", "pdbs", EMPTY + ".pdb"), gpcrdb_text())
-        summary = ("contract_version: %s\n" % si.PRODUCT_CONTRACT + "pdb_id: %s\n" % PDB
-                   + ("input_sha256: %s\n" % summary_sha if summary_sha else ""))
-        write(os.path.join(self.engine1, PDB, "summary.yaml"), summary + "ligand_interaction_summary: []\n")
-        write(os.path.join(self.engine1, PDB, "LIG_R_401", "LIG_R_401.yaml"),
-              "result:\n  interactions: []\n")
+        write(
+            os.path.join(ann, "ligands.tsv"),
+            "PDB\tChainID\tName\tType\tTitle\tlabel_asym_id\tResidue_seq_id\n"
+            "%s\tA\tLIG\tsmall-molecule\tA ligand\tB\tA:401\n"
+            "%s\tP\tpep\tpeptide\tA peptide\t\t\n" % (PDB, PDB),
+        )
+        write(
+            os.path.join(ann, "structures.tsv"),
+            "PDB\tChainID\n%s\tA\n%s\tA\n" % (PDB, EMPTY),
+        )
+        write(
+            os.path.join(self.gdata, "structure_data", "pdbs", PDB + ".pdb"),
+            gpcrdb_text(),
+        )
+        write(
+            os.path.join(self.gdata, "structure_data", "pdbs", EMPTY + ".pdb"),
+            gpcrdb_text(),
+        )
+        summary = (
+            "contract_version: %s\n" % si.PRODUCT_CONTRACT
+            + "pdb_id: %s\n" % PDB
+            + ("input_sha256: %s\n" % summary_sha if summary_sha else "")
+        )
+        write(
+            os.path.join(self.engine1, PDB, "summary.yaml"),
+            summary + "ligand_interaction_summary: []\n",
+        )
+        write(
+            os.path.join(self.engine1, PDB, "LIG_R_401", "LIG_R_401.yaml"),
+            "result:\n  interactions: []\n",
+        )
         if index:
             write(cm.index_path(self.engine1, PDB), index_text(coord=coord))
-        plan = {"contract_version": sp.PRODUCT_CONTRACT,
-                "segments": [{"name": REC_SEG, "chain_id": "R", "ranges": [[1, 3]]},
-                             {"name": PEP_SEG, "chain_id": "P", "ranges": [[1, 2]]}],
-                "items": [{"key": K_PEP, "ligand_segment": PEP_SEG, "receptor_segment": REC_SEG},
-                          {"key": K_REC, "ligand_segment": REC_SEG, "receptor_segment": PEP_SEG}]}
+        plan = {
+            "contract_version": sp.PRODUCT_CONTRACT,
+            "segments": [
+                {"name": REC_SEG, "chain_id": "R", "ranges": [[1, 3]]},
+                {"name": PEP_SEG, "chain_id": "P", "ranges": [[1, 2]]},
+            ],
+            "items": [
+                {"key": K_PEP, "ligand_segment": PEP_SEG, "receptor_segment": REC_SEG},
+                {"key": K_REC, "ligand_segment": REC_SEG, "receptor_segment": PEP_SEG},
+            ],
+        }
         write(os.path.join(self.engine2, PDB, sp.PLAN_NAME), json.dumps(plan))
         for key in (K_PEP, K_REC):
-            write(os.path.join(self.engine2, PDB, key, key + ".json"),
-                  json.dumps({"work_item_key": key, "outcome": "done"}))
-            write(os.path.join(self.engine2, PDB, key, key + ".yaml"), "result:\n  interactions: []\n")
+            write(
+                os.path.join(self.engine2, PDB, key, key + ".json"),
+                json.dumps({"work_item_key": key, "outcome": "done"}),
+            )
+            write(
+                os.path.join(self.engine2, PDB, key, key + ".yaml"),
+                "result:\n  interactions: []\n",
+            )
 
     def options(self):
-        return {"skip_ligand_import": False, "engine1_data_dir": self.engine1,
-                "engine2_data_dir": self.engine2, "engine1_report_dir": "/r1",
-                "engine2_report_dir": "/r2"}
+        return {
+            "skip_ligand_import": False,
+            "engine1_data_dir": self.engine1,
+            "engine2_data_dir": self.engine2,
+            "engine1_report_dir": "/r1",
+            "engine2_report_dir": "/r2",
+        }
 
     def run(self, *commands):
         """Run the planned steps named in ``commands``, as the build plans them."""
@@ -142,14 +205,34 @@ class MapBuilderTests(unittest.TestCase):
         d.run(*ligand_imports.MAP_COMMANDS)
         header, rows = self.chainmap(d)
         self.assertEqual(header["cif_sha256"], SHA)
-        self.assertEqual((header["receptor.auth_chain"], header["receptor.status"]), ("R", "ok"))
-        self.assertEqual([(r["het"], r["token"], r["instance"], r["status"], r["source"]) for r in rows],
-                         [("LIG", "A:401", "LIG_R_401", "ok", "coord+label")])
+        self.assertEqual(
+            (header["receptor.auth_chain"], header["receptor.status"]), ("R", "ok")
+        )
+        self.assertEqual(
+            [
+                (r["het"], r["token"], r["instance"], r["status"], r["source"])
+                for r in rows
+            ],
+            [("LIG", "A:401", "LIG_R_401", "ok", "coord+label")],
+        )
         header, rows = self.peptide_map(d)
         self.assertEqual(header["cif_sha256"], SHA)
-        self.assertEqual((header["receptor.auth_chain"], header["receptor.segment"]), ("R", REC_SEG))
-        self.assertEqual([(r["gpcrdb_chain"], r["auth_chain"], r["status"], r["items"], r["outcomes"])
-                          for r in rows], [("P", "P", "ok", K_PEP, "done")])
+        self.assertEqual(
+            (header["receptor.auth_chain"], header["receptor.segment"]), ("R", REC_SEG)
+        )
+        self.assertEqual(
+            [
+                (
+                    r["gpcrdb_chain"],
+                    r["auth_chain"],
+                    r["status"],
+                    r["items"],
+                    r["outcomes"],
+                )
+                for r in rows
+            ],
+            [("P", "P", "ok", K_PEP, "done")],
+        )
 
     def test_the_peptide_maps_read_the_index_from_the_engine1_tree(self):
         d = Delivery(self.root)
@@ -198,7 +281,9 @@ class MapBuilderTests(unittest.TestCase):
     def test_the_clean_up_removes_the_maps_and_the_directories_the_build_made(self):
         d = Delivery(self.root)
         d.run(*ligand_imports.MAP_COMMANDS)
-        self.assertTrue(os.path.isfile(os.path.join(d.engine1, EMPTY, si.CHAINMAP_NAME)))
+        self.assertTrue(
+            os.path.isfile(os.path.join(d.engine1, EMPTY, si.CHAINMAP_NAME))
+        )
         d.run(ligand_imports.CLEAN_COMMAND)
         self.assertFalse(os.path.exists(os.path.join(d.engine1, PDB, si.CHAINMAP_NAME)))
         self.assertFalse(os.path.exists(os.path.join(d.engine2, PDB, sp.MAP_NAME)))
@@ -210,18 +295,20 @@ class MapBuilderTests(unittest.TestCase):
 
     def test_the_clean_up_touches_only_the_maps_and_the_directories_they_emptied(self):
         d = Delivery(self.root)
-        os.makedirs(os.path.join(d.engine1, "EMPT"))                 # empty, held no map
-        write(os.path.join(d.engine1, "STRY", "notes.txt"), "x\n")  # holds only a stray file
+        os.makedirs(os.path.join(d.engine1, "EMPT"))  # empty, held no map
+        write(
+            os.path.join(d.engine1, "STRY", "notes.txt"), "x\n"
+        )  # holds only a stray file
         outside = os.path.join(self.root, "outside")
         write(os.path.join(outside, si.CHAINMAP_NAME), "keep\n")
-        os.symlink(outside, os.path.join(d.engine1, "LINK"))        # a symlinked directory
+        os.symlink(outside, os.path.join(d.engine1, "LINK"))  # a symlinked directory
         d.run(*ligand_imports.MAP_COMMANDS)
         d.run(ligand_imports.CLEAN_COMMAND)
         self.assertTrue(os.path.isdir(os.path.join(d.engine1, "EMPT")))
         self.assertTrue(os.path.isfile(os.path.join(d.engine1, "STRY", "notes.txt")))
         self.assertTrue(os.path.isfile(os.path.join(outside, si.CHAINMAP_NAME)))
         self.assertFalse(os.path.exists(os.path.join(d.engine1, EMPTY)))
-        d.run(ligand_imports.CLEAN_COMMAND)                         # a second run is harmless
+        d.run(ligand_imports.CLEAN_COMMAND)  # a second run is harmless
         self.assertTrue(os.path.isdir(os.path.join(d.engine1, "EMPT")))
 
 
@@ -230,18 +317,22 @@ class AnnotationCommitTests(unittest.TestCase):
         self.assertEqual(e1.annotation_commit("abc1234", "/nowhere"), "abc1234")
 
     def test_no_git_binary_is_unknown(self):
-        with mock.patch.object(e1.subprocess, "run", side_effect=FileNotFoundError("git")):
+        with mock.patch.object(
+            e1.subprocess, "run", side_effect=FileNotFoundError("git")
+        ):
             self.assertEqual(e1.annotation_commit(None, "/tmp"), "unknown")
 
     def test_a_hanging_git_is_unknown(self):
-        with mock.patch.object(e1.subprocess, "run",
-                               side_effect=subprocess.TimeoutExpired("git", 30)):
+        with mock.patch.object(
+            e1.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 30)
+        ):
             self.assertEqual(e1.annotation_commit(None, "/tmp"), "unknown")
 
     def test_only_the_top_level_of_a_repository_answers(self):
         def fake(cmd, **kw):
             out = {"--show-toplevel": "/repo", "--short=7": "1234567"}[cmd[4]]
             return subprocess.CompletedProcess(cmd, 0, stdout=out + "\n")
+
         with mock.patch.object(e1.subprocess, "run", side_effect=fake):
             self.assertEqual(e1.annotation_commit(None, "/repo/inside"), "unknown")
             self.assertEqual(e1.annotation_commit(None, "/repo"), "1234567")

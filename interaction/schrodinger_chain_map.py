@@ -43,8 +43,18 @@ WATER = frozenset({"HOH", "DOD", "WAT"})
 
 INDEX_SCHEMA = "structure-index/1"
 INDEX_SUFFIX = "_structure_index.tsv"
-INDEX_COLUMNS = ("label_asym", "auth_asym", "comp", "auth_seq", "icode", "atom", "group",
-                 "x", "y", "z")
+INDEX_COLUMNS = (
+    "label_asym",
+    "auth_asym",
+    "comp",
+    "auth_seq",
+    "icode",
+    "atom",
+    "group",
+    "x",
+    "y",
+    "z",
+)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 # Exactly the producer's "%.3f": anything else is a producer regression, and a
 # coordinate that does not match GPCRdb's text to the digit sends the matching
@@ -86,8 +96,11 @@ def parse_structure_index(text):
         header[key] = value
         i += 1
     if header.get("schema") != INDEX_SCHEMA:
-        raise ParseError("index schema {!r}, this reader reads {!r}".format(
-            header.get("schema"), INDEX_SCHEMA))
+        raise ParseError(
+            "index schema {!r}, this reader reads {!r}".format(
+                header.get("schema"), INDEX_SCHEMA
+            )
+        )
     sha = header.get("cif_sha256", "")
     if not _SHA256.match(sha):
         raise ParseError("index header has no cif_sha256")
@@ -96,31 +109,49 @@ def parse_structure_index(text):
     if i >= len(lines) or tuple(lines[i].split("\t")) != INDEX_COLUMNS:
         raise ParseError("index columns are not {}".format(INDEX_COLUMNS))
     atoms = []
-    for line in lines[i + 1:]:
+    for line in lines[i + 1 :]:
         fields = line.split("\t")
         if len(fields) != len(INDEX_COLUMNS):
-            raise ParseError("index row has {} fields, expected {}".format(
-                len(fields), len(INDEX_COLUMNS)))
+            raise ParseError(
+                "index row has {} fields, expected {}".format(
+                    len(fields), len(INDEX_COLUMNS)
+                )
+            )
         row = dict(zip(INDEX_COLUMNS, fields))
         if not all(_COORD.match(row[c]) for c in ("x", "y", "z")):
-            raise ParseError("index row has a coordinate not written as -?d.ddd: {!r}".format(line))
+            raise ParseError(
+                "index row has a coordinate not written as -?d.ddd: {!r}".format(line)
+            )
         if row["group"] not in _GROUPS:
             raise ParseError("index row has record type {!r}".format(row["group"]))
         key = coord_key(row["x"], row["y"], row["z"])
-        atoms.append({"label_asym": row["label_asym"], "auth_asym": row["auth_asym"],
-                      "comp": row["comp"], "auth_seq": row["auth_seq"], "icode": row["icode"],
-                      "atom": row["atom"], "group": row["group"], "key": key})
+        atoms.append(
+            {
+                "label_asym": row["label_asym"],
+                "auth_asym": row["auth_asym"],
+                "comp": row["comp"],
+                "auth_seq": row["auth_seq"],
+                "icode": row["icode"],
+                "atom": row["atom"],
+                "group": row["group"],
+                "key": key,
+            }
+        )
     if not atoms:
         raise ParseError("index lists no atom")
     if len(atoms) != int(header["atoms"]):
-        raise ParseError("index lists {} atoms, its header says {}: a truncated file".format(
-            len(atoms), header["atoms"]))
+        raise ParseError(
+            "index lists {} atoms, its header says {}: a truncated file".format(
+                len(atoms), header["atoms"]
+            )
+        )
     return sha, atoms
 
 
 # ---------------------------------------------------------------------------
 # GPCRdb stored PDB-format text (GPCRdb side)
 # ---------------------------------------------------------------------------
+
 
 def parse_gpcrdb_pdb(text):
     """Return first-model, non-hydrogen, non-water atoms of GPCRdb's stored text.
@@ -138,23 +169,30 @@ def parse_gpcrdb_pdb(text):
         resname = line[17:20].strip()
         element = line[76:78].strip() if len(line) >= 78 else ""
         atom = line[12:16].strip()
-        if resname in WATER or element in ("H", "D") or (not element and atom.startswith("H")):
+        if (
+            resname in WATER
+            or element in ("H", "D")
+            or (not element and atom.startswith("H"))
+        ):
             continue
-        atoms.append({
-            "chain": line[21],
-            "resnum": line[22:26].strip(),
-            "icode": line[26].strip() if len(line) > 26 else "",
-            "resname": resname,
-            "atom": atom,
-            "group": line[:6].strip(),
-            "key": coord_key(line[30:38], line[38:46], line[46:54]),
-        })
+        atoms.append(
+            {
+                "chain": line[21],
+                "resnum": line[22:26].strip(),
+                "icode": line[26].strip() if len(line) > 26 else "",
+                "resname": resname,
+                "atom": atom,
+                "group": line[:6].strip(),
+                "key": coord_key(line[30:38], line[38:46], line[46:54]),
+            }
+        )
     return atoms
 
 
 # ---------------------------------------------------------------------------
 # Annotation (upstream ligands.tsv) -> label_asym_id per copy
 # ---------------------------------------------------------------------------
+
 
 def annotation_labels(rows):
     """Map (PDB, HET, token) -> label_asym_id from ligands.tsv rows.
@@ -164,11 +202,18 @@ def annotation_labels(rows):
     """
     out = {}
     for r in rows:
-        tokens = [t.strip() for t in (r.get("Residue_seq_id") or "").split(",") if t.strip()]
-        labels = [t.strip() for t in (r.get("label_asym_id") or "").split(",") if t.strip()]
+        tokens = [
+            t.strip() for t in (r.get("Residue_seq_id") or "").split(",") if t.strip()
+        ]
+        labels = [
+            t.strip() for t in (r.get("label_asym_id") or "").split(",") if t.strip()
+        ]
         if not tokens or len(tokens) != len(labels):
             continue
-        key = ((r.get("PDB") or "").strip().upper(), (r.get("Name") or "").strip().upper())
+        key = (
+            (r.get("PDB") or "").strip().upper(),
+            (r.get("Name") or "").strip().upper(),
+        )
         for tok, lab in zip(tokens, labels):
             out[key + (tok.replace(" ", ""),)] = lab
     return out
@@ -180,8 +225,19 @@ def annotation_labels(rows):
 
 TOKEN_RE = re.compile(r"^(?P<chain>[A-Za-z0-9]):(?P<resnum>-?\d+)(?P<icode>[A-Za-z]?)$")
 
-ANCHOR_COLUMNS = ("pdb", "het", "token", "instance", "status", "source",
-                  "n_exact", "n_gpcrdb", "label", "label_instance", "note")
+ANCHOR_COLUMNS = (
+    "pdb",
+    "het",
+    "token",
+    "instance",
+    "status",
+    "source",
+    "n_exact",
+    "n_gpcrdb",
+    "label",
+    "label_instance",
+    "note",
+)
 
 
 def instance_name(het, auth_asym, auth_seq, icode):
@@ -214,9 +270,19 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
     """
     het = het.upper()
     copies = sorted(i for i in product_instances if i.split("_", 1)[0].upper() == het)
-    row = {"pdb": pdb, "het": het, "token": token, "instance": "", "status": "",
-           "source": "", "n_exact": 0, "n_gpcrdb": 0, "label": label or "",
-           "label_instance": "", "note": ""}
+    row = {
+        "pdb": pdb,
+        "het": het,
+        "token": token,
+        "instance": "",
+        "status": "",
+        "source": "",
+        "n_exact": 0,
+        "n_gpcrdb": 0,
+        "label": label or "",
+        "label_instance": "",
+        "note": "",
+    }
     m = TOKEN_RE.match(token)
     chain, resnum, icode = m.group("chain"), m.group("resnum"), m.group("icode")
 
@@ -234,20 +300,33 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
     elif len(label_candidates) > 1:
         row["note"] = "label names several residues"
 
-    gkeys = {a["key"] for a in gpcrdb_atoms
-             if a["chain"] == chain and a["resnum"] == resnum and a["icode"] == icode
-             and a["resname"].upper() == het[:3]}
+    gkeys = {
+        a["key"]
+        for a in gpcrdb_atoms
+        if a["chain"] == chain
+        and a["resnum"] == resnum
+        and a["icode"] == icode
+        and a["resname"].upper() == het[:3]
+    }
     row["n_gpcrdb"] = len(gkeys)
 
     if not copies:
-        row["status"], row["note"] = "no_product", (row["note"] or "product has no instance of this HET")
+        row["status"], row["note"] = (
+            "no_product",
+            (row["note"] or "product has no instance of this HET"),
+        )
         return row
 
-    scores = sorted(((len(gkeys & by_instance.get(c, set())), c) for c in copies), reverse=True)
+    scores = sorted(
+        ((len(gkeys & by_instance.get(c, set())), c) for c in copies), reverse=True
+    )
     best, best_name = scores[0]
     if best > 0:
         if len(scores) > 1 and scores[1][0] == best:
-            row["status"], row["note"] = "unresolved", "two instances share the same coordinates"
+            row["status"], row["note"] = (
+                "unresolved",
+                "two instances share the same coordinates",
+            )
             return row
         row["instance"], row["n_exact"] = best_name, best
         if not row["label_instance"]:
@@ -256,7 +335,9 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
             row["status"], row["source"] = "ok", "coord+label"
         else:
             row["status"], row["source"] = "errata", "coord_exact"
-            row["note"] = "annotation label_asym_id points at {}".format(row["label_instance"])
+            row["note"] = "annotation label_asym_id points at {}".format(
+                row["label_instance"]
+            )
         return row
 
     fallback = instance_name(het, chain, resnum, icode)
@@ -265,8 +346,13 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
         row["note"] = "no exact coordinates (older model in GPCRdb?)"
         return row
     row["status"] = "unresolved"
-    row["note"] = "no exact coordinates; name candidate {} {}; label candidate {}".format(
-        fallback, "exists" if fallback in copies else "absent", row["label_instance"] or "-")
+    row["note"] = (
+        "no exact coordinates; name candidate {} {}; label candidate {}".format(
+            fallback,
+            "exists" if fallback in copies else "absent",
+            row["label_instance"] or "-",
+        )
+    )
     return row
 
 
@@ -274,9 +360,19 @@ def resolve_anchor(pdb, het, token, cif_atoms, gpcrdb_atoms, product_instances, 
 # Receptor map
 # ---------------------------------------------------------------------------
 
-RECEPTOR_COLUMNS = ("pdb", "preferred_chain", "auth_chain", "status", "method",
-                    "n_ca_gpcrdb", "n_ca_matched", "renumbered", "note",
-                    "gpcrdb_text_sha256", "product_instances_sha256")
+RECEPTOR_COLUMNS = (
+    "pdb",
+    "preferred_chain",
+    "auth_chain",
+    "status",
+    "method",
+    "n_ca_gpcrdb",
+    "n_ca_matched",
+    "renumbered",
+    "note",
+    "gpcrdb_text_sha256",
+    "product_instances_sha256",
+)
 
 
 def text_sha256(text):
@@ -300,13 +396,28 @@ def resolve_receptor(pdb, preferred_chain, cif_atoms, gpcrdb_atoms):
     pair of the preferred chain.
     """
     pref = (preferred_chain or "").split(",")[0].strip()
-    row = {"pdb": pdb, "preferred_chain": pref, "auth_chain": "", "status": "",
-           "method": "", "n_ca_gpcrdb": 0, "n_ca_matched": 0, "renumbered": 0, "note": ""}
-    g_ca = {a["key"]: (a["resnum"], a["icode"], a["resname"]) for a in gpcrdb_atoms
-            if a["group"] == "ATOM" and a["atom"] == "CA" and a["chain"] == pref}
+    row = {
+        "pdb": pdb,
+        "preferred_chain": pref,
+        "auth_chain": "",
+        "status": "",
+        "method": "",
+        "n_ca_gpcrdb": 0,
+        "n_ca_matched": 0,
+        "renumbered": 0,
+        "note": "",
+    }
+    g_ca = {
+        a["key"]: (a["resnum"], a["icode"], a["resname"])
+        for a in gpcrdb_atoms
+        if a["group"] == "ATOM" and a["atom"] == "CA" and a["chain"] == pref
+    }
     row["n_ca_gpcrdb"] = len(g_ca)
     if not g_ca:
-        row["status"], row["note"] = "unresolved", "GPCRdb text has no CA on the preferred chain"
+        row["status"], row["note"] = (
+            "unresolved",
+            "GPCRdb text has no CA on the preferred chain",
+        )
         return row
     per_chain = collections.Counter()
     renumbered = collections.Counter()
@@ -316,21 +427,35 @@ def resolve_receptor(pdb, preferred_chain, cif_atoms, gpcrdb_atoms):
             if (a["auth_seq"], a["icode"]) != g_ca[a["key"]][:2]:
                 renumbered[a["auth_asym"]] += 1
     if per_chain:
-        (chain, n), = per_chain.most_common(1)
-        row.update(auth_chain=chain, n_ca_matched=n, method="exact",
-                   renumbered=renumbered[chain])
+        ((chain, n),) = per_chain.most_common(1)
+        row.update(
+            auth_chain=chain,
+            n_ca_matched=n,
+            method="exact",
+            renumbered=renumbered[chain],
+        )
         row["status"] = "renumbered" if renumbered[chain] else "ok"
         if len(per_chain) > 1:
             row["note"] = "CA also matched on " + ",".join(
-                "%s:%d" % kv for kv in sorted(per_chain.items()) if kv[0] != chain)
+                "%s:%d" % kv for kv in sorted(per_chain.items()) if kv[0] != chain
+            )
         return row
     wanted = {(v[0], v[1], v[2].upper()) for v in g_ca.values()}
-    have = {(a["auth_seq"], a["icode"], a["comp"].upper()) for a in cif_atoms
-            if a["group"] == "ATOM" and a["atom"] == "CA" and a["auth_asym"] == pref}
+    have = {
+        (a["auth_seq"], a["icode"], a["comp"].upper())
+        for a in cif_atoms
+        if a["group"] == "ATOM" and a["atom"] == "CA" and a["auth_asym"] == pref
+    }
     if have and wanted <= have:
-        row.update(auth_chain=pref, method="identity_drift", status="ok",
-                   note="no CA coordinate matches; every GPCRdb (number, name) found on the same-named chain")
+        row.update(
+            auth_chain=pref,
+            method="identity_drift",
+            status="ok",
+            note="no CA coordinate matches; every GPCRdb (number, name) found on the same-named chain",
+        )
     else:
         row["status"] = "unresolved"
-        row["note"] = "no CA coordinate matches and the same-named chain does not carry the GPCRdb residues"
+        row["note"] = (
+            "no CA coordinate matches and the same-named chain does not carry the GPCRdb residues"
+        )
     return row

@@ -124,8 +124,11 @@ def load_plan(data_dir, pdb):
     path = os.path.join(data_dir, pdb, PLAN_NAME)
     plan = read_json(path)
     if plan.get("contract_version") != PRODUCT_CONTRACT:
-        raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
-            path, plan.get("contract_version"), PRODUCT_CONTRACT))
+        raise MalformedProduct(
+            "{}: contract_version {!r}, this importer reads {!r}".format(
+                path, plan.get("contract_version"), PRODUCT_CONTRACT
+            )
+        )
     segments = plan.get("segments")
     items = plan.get("items")
     if not isinstance(segments, list) or not isinstance(items, list):
@@ -136,8 +139,9 @@ def load_plan(data_dir, pdb):
             raise MalformedProduct("{}: a segment without a unique name".format(path))
         by_name[seg["name"]] = seg
     for it in items:
-        if not isinstance(it, dict) or not all(it.get(k) for k in
-                                               ("key", "ligand_segment", "receptor_segment")):
+        if not isinstance(it, dict) or not all(
+            it.get(k) for k in ("key", "ligand_segment", "receptor_segment")
+        ):
             raise MalformedProduct("{}: an item without key or segments".format(path))
     return by_name, items
 
@@ -160,10 +164,14 @@ def segment_residues(segment):
 # Deciding segments and items (pure; used by the map builder)
 # ---------------------------------------------------------------------------
 
+
 def receptor_ca_numbers(auth_chain, preferred_chain, cif_atoms, gpcrdb_atoms):
     """Author residue numbers of the receptor CA atoms GPCRdb and the mmCIF share."""
-    keys = {a["key"] for a in gpcrdb_atoms
-            if a["group"] == "ATOM" and a["atom"] == "CA" and a["chain"] == preferred_chain}
+    keys = {
+        a["key"]
+        for a in gpcrdb_atoms
+        if a["group"] == "ATOM" and a["atom"] == "CA" and a["chain"] == preferred_chain
+    }
     out = set()
     for a in cif_atoms:
         if a["auth_asym"] == auth_chain and a["atom"] == "CA" and a["key"] in keys:
@@ -180,14 +188,28 @@ def receptor_segment(segments, auth_chain, ca_numbers):
 
     None when no segment covers any; a tie is refused rather than broken.
     """
-    scored = sorted(((len(segment_residues(s) & ca_numbers), name)
-                     for name, s in segments.items() if s.get("chain_id") == auth_chain),
-                    reverse=True)
+    scored = sorted(
+        (
+            (len(segment_residues(s) & ca_numbers), name)
+            for name, s in segments.items()
+            if s.get("chain_id") == auth_chain
+        ),
+        reverse=True,
+    )
     if not scored or scored[0][0] == 0:
-        return None, 0, "no segment on chain {} covers a receptor residue".format(auth_chain)
+        return (
+            None,
+            0,
+            "no segment on chain {} covers a receptor residue".format(auth_chain),
+        )
     if len(scored) > 1 and scored[1][0] == scored[0][0]:
-        return None, scored[0][0], "segments {} and {} cover the receptor equally".format(
-            scored[0][1], scored[1][1])
+        return (
+            None,
+            scored[0][0],
+            "segments {} and {} cover the receptor equally".format(
+                scored[0][1], scored[1][1]
+            ),
+        )
     return scored[0][1], scored[0][0], ""
 
 
@@ -211,33 +233,57 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     res = chain_map.resolve_receptor(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms)
     if res["status"] in ("ok", "renumbered") and res["auth_chain"]:
         note = "renumbered" if res["status"] == "renumbered" else res.get("note", "")
-        return res["auth_chain"], "ca" if res["method"] == "exact" else res["method"], note
+        return (
+            res["auth_chain"],
+            "ca" if res["method"] == "exact" else res["method"],
+            note,
+        )
     keys = {a["key"] for a in gpcrdb_atoms if a["chain"] == gpcrdb_chain}
     if not keys:
         return "", "", "GPCRdb text has no atom on chain {}".format(gpcrdb_chain)
     per = collections.Counter(a["auth_asym"] for a in cif_atoms if a["key"] in keys)
     if not per:
-        return "", "", "no atom of GPCRdb chain {} is in the coordinate index".format(gpcrdb_chain)
-    (best, n), = per.most_common(1)
+        return (
+            "",
+            "",
+            "no atom of GPCRdb chain {} is in the coordinate index".format(
+                gpcrdb_chain
+            ),
+        )
+    ((best, n),) = per.most_common(1)
     if n < ANY_ATOM_MIN_SHARE * len(keys) or list(per.values()).count(n) > 1:
-        return "", "", "GPCRdb chain {}: {} of {} atoms on author chain {}".format(
-            gpcrdb_chain, n, len(keys), best)
+        return (
+            "",
+            "",
+            "GPCRdb chain {}: {} of {} atoms on author chain {}".format(
+                gpcrdb_chain, n, len(keys), best
+            ),
+        )
     return best, "any_atom", "{}/{} atoms".format(n, len(keys))
 
 
 def receptor_chain_segments(segments, auth_chain):
     """Every segment on the receptor's author chain, sorted: the receptor side."""
-    return sorted(name for name, s in segments.items() if s.get("chain_id") == auth_chain)
+    return sorted(
+        name for name, s in segments.items() if s.get("chain_id") == auth_chain
+    )
 
 
 def peptide_items(segments, items, author_chain, receptor_segs):
     """[(peptide segment, item key)] with the peptide as the ligand side and a
     receptor segment as the receptor side. A segment is never both."""
     receptor_segs = set(receptor_segs)
-    peptide_segs = {name for name, s in segments.items()
-                    if s.get("chain_id") == author_chain and name not in receptor_segs}
-    return sorted((it["ligand_segment"], it["key"]) for it in items
-                  if it["ligand_segment"] in peptide_segs and it["receptor_segment"] in receptor_segs)
+    peptide_segs = {
+        name
+        for name, s in segments.items()
+        if s.get("chain_id") == author_chain and name not in receptor_segs
+    }
+    return sorted(
+        (it["ligand_segment"], it["key"])
+        for it in items
+        if it["ligand_segment"] in peptide_segs
+        and it["receptor_segment"] in receptor_segs
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -246,17 +292,45 @@ def peptide_items(segments, items, author_chain, receptor_segs):
 
 MAP_SCHEMA = "engine2-peptide-map/1"
 RECEPTOR_PREFIX = "receptor."
-RECEPTOR_KEYS = ("preferred_chain", "auth_chain", "status", "method", "segment", "segments",
-                 "n_ca_gpcrdb", "n_ca_matched", "n_covered", "gpcrdb_text_sha256", "note")
-MAP_COLUMNS = ("pdb", "gpcrdb_chain", "titles", "types", "auth_chain", "chain_method",
-               "status", "segments", "items", "outcomes", "note")
-PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
-                   "builder_sha256")
+RECEPTOR_KEYS = (
+    "preferred_chain",
+    "auth_chain",
+    "status",
+    "method",
+    "segment",
+    "segments",
+    "n_ca_gpcrdb",
+    "n_ca_matched",
+    "n_covered",
+    "gpcrdb_text_sha256",
+    "note",
+)
+MAP_COLUMNS = (
+    "pdb",
+    "gpcrdb_chain",
+    "titles",
+    "types",
+    "auth_chain",
+    "chain_method",
+    "status",
+    "segments",
+    "items",
+    "outcomes",
+    "note",
+)
+PROVENANCE_KEYS = (
+    "annotation_commit",
+    "ligands_sha256",
+    "structures_sha256",
+    "builder_sha256",
+)
 LIST_SEP = ","
 
 # Row statuses. Only "ok" carries items to import.
 ROW_OK = "ok"
-ROW_STATUSES = frozenset({ROW_OK, "chain_unresolved", "no_receptor_segment", "no_items"})
+ROW_STATUSES = frozenset(
+    {ROW_OK, "chain_unresolved", "no_receptor_segment", "no_items"}
+)
 
 
 class MapMismatch(si.MapMismatch):
@@ -271,36 +345,54 @@ def load_peptide_map(path):
     """(pdb, receptor dict, {gpcrdb_chain: row}, provenance, header) from one peptide_map.tsv."""
     header, fieldnames, rows = si._read_map(path)
     if header.get("schema") != MAP_SCHEMA:
-        raise MapMismatch("{}: schema {!r}, this importer reads {!r}".format(
-            path, header.get("schema"), MAP_SCHEMA))
+        raise MapMismatch(
+            "{}: schema {!r}, this importer reads {!r}".format(
+                path, header.get("schema"), MAP_SCHEMA
+            )
+        )
     if tuple(fieldnames or ()) != MAP_COLUMNS:
-        raise MapMismatch("{}: columns {}, expected {}".format(
-            path, list(fieldnames or []), list(MAP_COLUMNS)))
+        raise MapMismatch(
+            "{}: columns {}, expected {}".format(
+                path, list(fieldnames or []), list(MAP_COLUMNS)
+            )
+        )
     pdb = (header.get("pdb") or "").strip().upper()
     if not pdb:
         raise MapMismatch("{}: the header names no pdb".format(path))
     receptor = {}
     for key in RECEPTOR_KEYS:
         if RECEPTOR_PREFIX + key not in header:
-            raise MapMismatch("{}: the header has no {}{}".format(path, RECEPTOR_PREFIX, key))
+            raise MapMismatch(
+                "{}: the header has no {}{}".format(path, RECEPTOR_PREFIX, key)
+            )
         receptor[key] = header[RECEPTOR_PREFIX + key]
     receptor["segments_list"] = [x for x in receptor["segments"].split(LIST_SEP) if x]
     table = {}
     for r in rows:
         if (r.get("pdb") or "").strip().upper() != pdb:
-            raise MapMismatch("{}: a row for {!r} in the map of {}".format(path, r.get("pdb"), pdb))
+            raise MapMismatch(
+                "{}: a row for {!r} in the map of {}".format(path, r.get("pdb"), pdb)
+            )
         chain = r.get("gpcrdb_chain") or ""
         if not chain or chain in table:
-            raise MapMismatch("{}: missing or duplicate gpcrdb_chain {!r}".format(path, chain))
+            raise MapMismatch(
+                "{}: missing or duplicate gpcrdb_chain {!r}".format(path, chain)
+            )
         if r.get("status") not in ROW_STATUSES:
-            raise MapMismatch("{}: status {!r} for chain {}".format(path, r.get("status"), chain))
+            raise MapMismatch(
+                "{}: status {!r} for chain {}".format(path, r.get("status"), chain)
+            )
         r["segments_list"] = [x for x in (r.get("segments") or "").split(LIST_SEP) if x]
         r["items_list"] = [x for x in (r.get("items") or "").split(LIST_SEP) if x]
         r["outcomes_list"] = [x for x in (r.get("outcomes") or "").split(LIST_SEP) if x]
         if len(r["items_list"]) != len(r["outcomes_list"]) or (
-                (r["status"] == ROW_OK) != bool(r["items_list"])):
-            raise MapMismatch("{}: chain {}: items and outcomes do not agree with status {}".format(
-                path, chain, r["status"]))
+            (r["status"] == ROW_OK) != bool(r["items_list"])
+        ):
+            raise MapMismatch(
+                "{}: chain {}: items and outcomes do not agree with status {}".format(
+                    path, chain, r["status"]
+                )
+            )
         table[chain] = r
     provenance = {k: header.get(k, "") for k in PROVENANCE_KEYS}
     return pdb, receptor, table, provenance, header
@@ -315,8 +407,13 @@ def write_peptide_map(path, header, receptor, rows):
             fh.write("# {}\t{}\n".format(key, value))
         for key in RECEPTOR_KEYS:
             fh.write("# {}{}\t{}\n".format(RECEPTOR_PREFIX, key, receptor.get(key, "")))
-        writer = csv.DictWriter(fh, fieldnames=MAP_COLUMNS, delimiter="\t",
-                                lineterminator="\n", extrasaction="ignore")
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=MAP_COLUMNS,
+            delimiter="\t",
+            lineterminator="\n",
+            extrasaction="ignore",
+        )
         writer.writeheader()
         for r in rows:
             writer.writerow(r)
@@ -335,14 +432,23 @@ def sha256_file(path):
 # Peptide atom lines (pure)
 # ---------------------------------------------------------------------------
 
+
 class MalformedPeptideLine(MalformedProduct):
     """A peptide atom line that does not have the producer's layout."""
 
 
 # Residue names the structure preparation gives protonation and disulfide
 # states; GPCRdb's own text, and the legacy peptide table, use the standard one.
-PREPARED_NAMES = {"HID": "HIS", "HIE": "HIS", "HIP": "HIS", "CYX": "CYS", "ASH": "ASP",
-                  "GLH": "GLU", "LYN": "LYS", "ARN": "ARG"}
+PREPARED_NAMES = {
+    "HID": "HIS",
+    "HIE": "HIS",
+    "HIP": "HIS",
+    "CYX": "CYS",
+    "ASH": "ASP",
+    "GLH": "GLU",
+    "LYN": "LYS",
+    "ARN": "ARG",
+}
 
 
 def parse_peptide_line(line, product_chain):
@@ -358,21 +464,31 @@ def parse_peptide_line(line, product_chain):
         raise MalformedPeptideLine("not an atom record: {!r}".format(line[:30]))
     serial = line[6:11].strip()
     name = line[12:16].strip()
-    m = re.match(r"^(?P<resname>[A-Za-z0-9 ]{3,5}?) " + re.escape(product_chain)
-                 + r"(?P<num>[ -]*-?\d+)(?P<icode>[A-Za-z ]?)(?P<tail>.*)$", line[16:])
+    m = re.match(
+        r"^(?P<resname>[A-Za-z0-9 ]{3,5}?) "
+        + re.escape(product_chain)
+        + r"(?P<num>[ -]*-?\d+)(?P<icode>[A-Za-z ]?)(?P<tail>.*)$",
+        line[16:],
+    )
     tail = si._LIGAND_TAIL_RE.match(m.group("tail")) if m else None
     if not serial.isdigit() or not name or m is None or tail is None:
-        raise MalformedPeptideLine("chain {}: cannot read {!r}".format(product_chain, line))
+        raise MalformedPeptideLine(
+            "chain {}: cannot read {!r}".format(product_chain, line)
+        )
     return {
         "record": record,
         "serial": int(serial),
         "name": name,
-        "resname": PREPARED_NAMES.get(m.group("resname").strip().upper(),
-                                      m.group("resname").strip().upper()),
+        "resname": PREPARED_NAMES.get(
+            m.group("resname").strip().upper(), m.group("resname").strip().upper()
+        ),
         "resnum": int(m.group("num").replace(" ", "")),
         "icode": m.group("icode").strip(),
-        "x": float(tail.group("x")), "y": float(tail.group("y")), "z": float(tail.group("z")),
-        "occ": float(tail.group("occ")), "b": float(tail.group("b")),
+        "x": float(tail.group("x")),
+        "y": float(tail.group("y")),
+        "z": float(tail.group("z")),
+        "occ": float(tail.group("occ")),
+        "b": float(tail.group("b")),
         "element": tail.group("element").upper(),
     }
 
@@ -385,19 +501,34 @@ def standard_peptide_line(atom, gpcrdb_chain):
     """
     capped = atom["b"] > si._MAX_PDB_B
     out = "{:<6}{:>5} {} {:>3} {:1}{:>4}{:1}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2}".format(
-        atom["record"], atom["serial"] % 100000, si._pdb_atom_name(atom["name"], atom["element"]),
-        atom["resname"][:3], gpcrdb_chain, atom["resnum"], atom["icode"],
-        atom["x"], atom["y"], atom["z"], atom["occ"], min(atom["b"], si._MAX_PDB_B),
-        atom["element"])
+        atom["record"],
+        atom["serial"] % 100000,
+        si._pdb_atom_name(atom["name"], atom["element"]),
+        atom["resname"][:3],
+        gpcrdb_chain,
+        atom["resnum"],
+        atom["icode"],
+        atom["x"],
+        atom["y"],
+        atom["z"],
+        atom["occ"],
+        min(atom["b"], si._MAX_PDB_B),
+        atom["element"],
+    )
     if len(out) != si._PDB_ATOM_LINE_WIDTH or len(gpcrdb_chain) != 1:
-        raise MalformedPeptideLine("a field does not fit standard PDB columns: {!r}".format(atom))
+        raise MalformedPeptideLine(
+            "a field does not fit standard PDB columns: {!r}".format(atom)
+        )
     return out, capped
 
 
 def peptide_atoms(block, product_chain):
     """Parsed atoms of one row's ligand_pdb_block."""
-    return [parse_peptide_line(line, product_chain)
-            for line in (block or "").splitlines() if line.strip()]
+    return [
+        parse_peptide_line(line, product_chain)
+        for line in (block or "").splitlines()
+        if line.strip()
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +553,9 @@ PEPTIDE_TYPES = {
 
 # Families the peptide tables have no type for. They still go to RFI, except
 # Wat-HBond, which goes nowhere (si.EXCLUDED_FAMILIES).
-NOT_IN_PEPTIDE_TABLES = frozenset({"Accessible", "Covalent", "XBond", "Metal", "Wat-HBond"})
+NOT_IN_PEPTIDE_TABLES = frozenset(
+    {"Accessible", "Covalent", "XBond", "Metal", "Wat-HBond"}
+)
 
 # The legacy contact network names an aromatic ring by this pseudo-atom.
 RING_ATOM = "RN1"
@@ -431,9 +564,26 @@ RING_ATOM = "RN1"
 LEVEL = 0
 
 ONE_LETTER = {
-    "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q", "GLU": "E",
-    "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F",
-    "PRO": "P", "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
+    "ALA": "A",
+    "ARG": "R",
+    "ASN": "N",
+    "ASP": "D",
+    "CYS": "C",
+    "GLN": "Q",
+    "GLU": "E",
+    "GLY": "G",
+    "HIS": "H",
+    "ILE": "I",
+    "LEU": "L",
+    "LYS": "K",
+    "MET": "M",
+    "PHE": "F",
+    "PRO": "P",
+    "SER": "S",
+    "THR": "T",
+    "TRP": "W",
+    "TYR": "Y",
+    "VAL": "V",
 }
 
 
@@ -492,15 +642,23 @@ def plan_peptide_pairs(rows, receptor_chain_name, product_chain):
             continue
         counts["used"] += 1
         itype, detail, receptor_ring, peptide_ring = typed
-        receptor_atom = RING_ATOM if receptor_ring else str(row.get("receptor_atom_name") or "")
+        receptor_atom = (
+            RING_ATOM if receptor_ring else str(row.get("receptor_atom_name") or "")
+        )
         seq = int(res["pdb_residue_number"])
         for atom in peptide_atoms(row.get("ligand_pdb_block"), product_chain):
             if atom["icode"]:
                 counts["insertion_code_atoms"] += 1
                 continue
             key = (atom["resnum"], atom["icode"], atom["resname"], seq, amino_acid)
-            pairs[key].add((RING_ATOM if peptide_ring else atom["name"], receptor_atom,
-                            itype, detail))
+            pairs[key].add(
+                (
+                    RING_ATOM if peptide_ring else atom["name"],
+                    receptor_atom,
+                    itype,
+                    detail,
+                )
+            )
     out = {k: sorted(v) for k, v in pairs.items()}
     counts["pairs"] = len(out)
     counts["interactions"] = sum(len(v) for v in out.values())
@@ -539,20 +697,33 @@ def anchor_rows(data_dir, pdb, map_row):
         rec_path, yaml_path = item_paths(data_dir, pdb, key)
         record = read_json(rec_path)
         provenance = record.get("provenance")
-        version = provenance.get("contract_version") if isinstance(provenance, dict) else None
+        version = (
+            provenance.get("contract_version") if isinstance(provenance, dict) else None
+        )
         if version != PRODUCT_CONTRACT:
-            raise MalformedProduct("{}: contract_version {!r}, this importer reads {!r}".format(
-                rec_path, version, PRODUCT_CONTRACT))
+            raise MalformedProduct(
+                "{}: contract_version {!r}, this importer reads {!r}".format(
+                    rec_path, version, PRODUCT_CONTRACT
+                )
+            )
         if record.get("work_item_key") != key or record.get("outcome") != expected:
-            raise MalformedProduct("{}: record says {}/{}, the map says {}/{}".format(
-                rec_path, record.get("work_item_key"), record.get("outcome"), key, expected))
+            raise MalformedProduct(
+                "{}: record says {}/{}, the map says {}/{}".format(
+                    rec_path,
+                    record.get("work_item_key"),
+                    record.get("outcome"),
+                    key,
+                    expected,
+                )
+            )
         if expected == DONE:
             rows.extend(si.read_instance_rows(yaml_path))
         elif expected in FAILED:
             failed.append("{}:{}".format(key, expected))
         elif expected not in NO_INTERFACE:
-            raise MalformedProduct("{}: outcome {} leaves the question open".format(
-                rec_path, expected))
+            raise MalformedProduct(
+                "{}: outcome {} leaves the question open".format(rec_path, expected)
+            )
     return ([] if failed else rows), failed
 
 
@@ -560,13 +731,29 @@ def anchor_rows(data_dir, pdb, map_row):
 # Import of one structure (database)
 # ---------------------------------------------------------------------------
 
+
 class AnchorOutcome(object):
     """What happened to one in-scope anchor."""
 
-    __slots__ = ("sli_id", "chain", "mode", "items", "notes", "rfi_deleted", "rfi_written",
-                 "rfi_counts", "rfi_dropped", "fragments_created", "pairs_deleted",
-                 "interactions_deleted", "pairs_written", "interactions_written",
-                 "pair_counts", "pair_dropped", "complex_file")
+    __slots__ = (
+        "sli_id",
+        "chain",
+        "mode",
+        "items",
+        "notes",
+        "rfi_deleted",
+        "rfi_written",
+        "rfi_counts",
+        "rfi_dropped",
+        "fragments_created",
+        "pairs_deleted",
+        "interactions_deleted",
+        "pairs_written",
+        "interactions_written",
+        "pair_counts",
+        "pair_dropped",
+        "complex_file",
+    )
 
     def __init__(self, sli_id, chain):
         self.sli_id = sli_id
@@ -593,8 +780,11 @@ class MissingPeptideStructure(ValueError):
 
 
 def _receptor_residue(structure, seq, amino_acid, dropped):
-    residues = list(Residue.objects.filter(protein_conformation=structure.protein_conformation,
-                                           sequence_number=seq)[:2])
+    residues = list(
+        Residue.objects.filter(
+            protein_conformation=structure.protein_conformation, sequence_number=seq
+        )[:2]
+    )
     if not residues:
         dropped["residue_not_found"] += 1
         return None
@@ -611,27 +801,44 @@ def _write_rfi(structure, sli, records, types, outcome):
     """Write the RFI rows; returns the receptor residue numbers written."""
     written = set()
     for rec in records:
-        residue = _receptor_residue(structure, rec["sequence_number"], rec["amino_acid"],
-                                    outcome.rfi_dropped)
+        residue = _receptor_residue(
+            structure, rec["sequence_number"], rec["amino_acid"], outcome.rfi_dropped
+        )
         if residue is None:
             continue
-        rotamers = list(Rotamer.objects.filter(structure=structure, residue=residue)[:2])
+        rotamers = list(
+            Rotamer.objects.filter(structure=structure, residue=residue)[:2]
+        )
         if len(rotamers) != 1:
-            outcome.rfi_dropped["rotamer_not_found" if not rotamers else "rotamer_ambiguous"] += 1
+            outcome.rfi_dropped[
+                "rotamer_not_found" if not rotamers else "rotamer_ambiguous"
+            ] += 1
             continue
         text = si.fragment_text(rec["ligand_lines"])
-        fragment = (Fragment.objects
-                    .filter(ligand=sli.ligand, structure=structure, residue=residue,
-                            pdbdata__pdb=text)
-                    .order_by("id").first())
+        fragment = (
+            Fragment.objects.filter(
+                ligand=sli.ligand,
+                structure=structure,
+                residue=residue,
+                pdbdata__pdb=text,
+            )
+            .order_by("id")
+            .first()
+        )
         if fragment is None:
             fragment = Fragment.objects.create(
-                ligand=sli.ligand, structure=structure, residue=residue,
-                pdbdata=PdbData.objects.create(pdb=text))
+                ligand=sli.ligand,
+                structure=structure,
+                residue=residue,
+                pdbdata=PdbData.objects.create(pdb=text),
+            )
             outcome.fragments_created += 1
         ResidueFragmentInteraction.objects.create(
-            structure_ligand_pair=sli, rotamer=rotamers[0], fragment=fragment,
-            interaction_type=types[rec["slug"]])
+            structure_ligand_pair=sli,
+            rotamer=rotamers[0],
+            fragment=fragment,
+            interaction_type=types[rec["slug"]],
+        )
         outcome.rfi_written += 1
         written.add(rec["sequence_number"])
     return written
@@ -639,7 +846,9 @@ def _write_rfi(structure, sli, records, types, outcome):
 
 def _write_pairs(structure, peptide, pairs, outcome):
     bulk = []
-    for (resnum, icode, resname, seq, amino_acid), interactions in sorted(pairs.items()):
+    for (resnum, icode, resname, seq, amino_acid), interactions in sorted(
+        pairs.items()
+    ):
         residue = _receptor_residue(structure, seq, amino_acid, outcome.pair_dropped)
         if residue is None:
             continue
@@ -648,25 +857,41 @@ def _write_pairs(structure, peptide, pairs, outcome):
             peptide_amino_acid=ONE_LETTER.get(resname, "X"),
             peptide_sequence_number=resnum,
             peptide=peptide,
-            receptor_residue=residue)
+            receptor_residue=residue,
+        )
         outcome.pairs_written += 1
         for peptide_atom, receptor_atom, itype, detail in interactions:
-            bulk.append(InteractionPeptide(
-                interacting_peptide_pair=pair, peptide_atom=peptide_atom[:10],
-                receptor_atom=receptor_atom[:10], interaction_type=itype,
-                specific_type=detail, interaction_level=LEVEL))
+            bulk.append(
+                InteractionPeptide(
+                    interacting_peptide_pair=pair,
+                    peptide_atom=peptide_atom[:10],
+                    receptor_atom=receptor_atom[:10],
+                    interaction_type=itype,
+                    specific_type=detail,
+                    interaction_level=LEVEL,
+                )
+            )
     InteractionPeptide.objects.bulk_create(bulk)
     outcome.interactions_written += len(bulk)
 
 
 def _clear_anchor(sli, peptide, outcome):
-    _, deleted = ResidueFragmentInteraction.objects.filter(structure_ligand_pair=sli).delete()
+    _, deleted = ResidueFragmentInteraction.objects.filter(
+        structure_ligand_pair=sli
+    ).delete()
     si._only_deleted(deleted, {"interaction.ResidueFragmentInteraction"})
     outcome.rfi_deleted = deleted.get("interaction.ResidueFragmentInteraction", 0)
     _, deleted = InteractingPeptideResiduePair.objects.filter(peptide=peptide).delete()
-    si._only_deleted(deleted, {"contactnetwork.InteractingPeptideResiduePair",
-                               "contactnetwork.InteractionPeptide"})
-    outcome.pairs_deleted = deleted.get("contactnetwork.InteractingPeptideResiduePair", 0)
+    si._only_deleted(
+        deleted,
+        {
+            "contactnetwork.InteractingPeptideResiduePair",
+            "contactnetwork.InteractionPeptide",
+        },
+    )
+    outcome.pairs_deleted = deleted.get(
+        "contactnetwork.InteractingPeptideResiduePair", 0
+    )
     outcome.interactions_deleted = deleted.get("contactnetwork.InteractionPeptide", 0)
 
 
@@ -677,22 +902,32 @@ def choose_peptide_structure(candidates, chain, label):
     if len(found) > 1:
         found = [p for p in found if p.chain == chain]
     if len(found) != 1:
-        raise MissingPeptideStructure("{}: {} LigandPeptideStructure rows".format(label, len(found)))
+        raise MissingPeptideStructure(
+            "{}: {} LigandPeptideStructure rows".format(label, len(found))
+        )
     return found[0]
 
 
 def peptide_structure(structure, sli):
     return choose_peptide_structure(
         LigandPeptideStructure.objects.filter(structure=structure, ligand=sli.ligand),
-        (sli.chain_res or "").strip(), "{} anchor {}".format(structure.pdb_code.index, sli.id))
+        (sli.chain_res or "").strip(),
+        "{} anchor {}".format(structure.pdb_code.index, sli.id),
+    )
 
 
 def check_receptor(pdb, receptor):
     """Refuse a map whose receptor is not resolved to a primary segment it lists."""
-    if (receptor.get("status") != "ok" or not receptor.get("segment")
-            or receptor["segment"] not in receptor.get("segments_list", [])):
-        raise MapMismatch("{}: receptor not resolved ({} {})".format(
-            pdb, receptor.get("status"), receptor.get("note")))
+    if (
+        receptor.get("status") != "ok"
+        or not receptor.get("segment")
+        or receptor["segment"] not in receptor.get("segments_list", [])
+    ):
+        raise MapMismatch(
+            "{}: receptor not resolved ({} {})".format(
+                pdb, receptor.get("status"), receptor.get("note")
+            )
+        )
 
 
 def anchor_action(pdb, sli_id, chain, chain_rows):
@@ -706,10 +941,15 @@ def anchor_action(pdb, sli_id, chain, chain_rows):
         return "clear", None
     row = chain_rows.get(chain)
     if row is None:
-        raise MapMismatch("{}: the map has no row for anchor {} chain {!r}".format(pdb, sli_id, chain))
+        raise MapMismatch(
+            "{}: the map has no row for anchor {} chain {!r}".format(pdb, sli_id, chain)
+        )
     if row["status"] != ROW_OK:
-        raise UnresolvedAnchor("{}: anchor {} chain {}: {}: {}".format(
-            pdb, sli_id, chain, row["status"], row.get("note", "")))
+        raise UnresolvedAnchor(
+            "{}: anchor {} chain {}: {}: {}".format(
+                pdb, sli_id, chain, row["status"], row.get("note", "")
+            )
+        )
     return "import", row
 
 
@@ -717,20 +957,27 @@ def claim_peptide_structure(used, peptide_id, sli_id, pdb):
     """Record that an anchor owns a LigandPeptideStructure; refuse a second owner,
     whose clear would wipe the first anchor's pairs."""
     if peptide_id in used:
-        raise MissingPeptideStructure("{}: anchors {} and {} share LigandPeptideStructure {}".format(
-            pdb, used[peptide_id], sli_id, peptide_id))
+        raise MissingPeptideStructure(
+            "{}: anchors {} and {} share LigandPeptideStructure {}".format(
+                pdb, used[peptide_id], sli_id, peptide_id
+            )
+        )
     used[peptide_id] = sli_id
 
 
 def check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
     """Refuse a structure whose stored text or plan changed since the map was built."""
     if receptor.get("gpcrdb_text_sha256") != chain_map.text_sha256(gpcrdb_text):
-        raise MapMismatch("{}: GPCRdb structure text differs from the one the map was built "
-                          "from (new dump?); rebuild the maps".format(pdb))
+        raise MapMismatch(
+            "{}: GPCRdb structure text differs from the one the map was built "
+            "from (new dump?); rebuild the maps".format(pdb)
+        )
     plan = os.path.join(data_dir, pdb, PLAN_NAME)
     if not os.path.isfile(plan) or header.get("plan_sha256") != sha256_file(plan):
-        raise MapMismatch("{}: plan.json differs from the one the map was built from; check "
-                          "--data-dir or rebuild the maps".format(pdb))
+        raise MapMismatch(
+            "{}: plan.json differs from the one the map was built from; check "
+            "--data-dir or rebuild the maps".format(pdb)
+        )
 
 
 def import_structure(structure, data_dir, receptor, chain_rows, header):
@@ -754,16 +1001,25 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
     replaced_files = set()
     gpcrdb_text = structure.pdb_data.pdb if structure.pdb_data_id else ""
     with transaction.atomic():
-        slis = [sli for sli in (StructureLigandInteraction.objects
-                                .filter(structure=structure)
-                                .select_related("ligand__ligand_type")
-                                .order_by("id"))
-                if is_in_scope(sli)]
+        slis = [
+            sli
+            for sli in (
+                StructureLigandInteraction.objects.filter(structure=structure)
+                .select_related("ligand__ligand_type")
+                .order_by("id")
+            )
+            if is_in_scope(sli)
+        ]
         if not slis:
             return outcomes, collections.Counter()
         check_receptor(pdb, receptor)
-        check_fingerprints(pdb, data_dir, receptor, header,
-                           structure.pdb_data.pdb if structure.pdb_data_id else "")
+        check_fingerprints(
+            pdb,
+            data_dir,
+            receptor,
+            header,
+            structure.pdb_data.pdb if structure.pdb_data_id else "",
+        )
         used = {}
         for sli in slis:
             chain = (sli.chain_res or "").strip()
@@ -777,7 +1033,9 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
                 # in-scope anchor keeps no rows it was not given.
                 outcome.mode = "cleared"
                 outcome.notes.append("anchor names no chain")
-                outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")
+                outcome.complex_file, replaced = complex_file.write_complex_file(
+                    sli, ""
+                )
                 replaced_files.add(replaced)
                 outcomes.append(outcome)
                 continue
@@ -786,7 +1044,9 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             if failed:
                 outcome.mode = "no_product"
                 outcome.notes.append("items failed: " + LIST_SEP.join(failed))
-                outcome.complex_file, replaced = complex_file.write_complex_file(sli, "")
+                outcome.complex_file, replaced = complex_file.write_complex_file(
+                    sli, ""
+                )
                 replaced_files.add(replaced)
                 outcomes.append(outcome)
                 continue
@@ -794,7 +1054,9 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             # Both tables are planned before either is written: a row the
             # vocabulary cannot route fails the structure, not half of it. The
             # peptide pairs read the producer's lines, so they come first.
-            pairs, pair_counts = plan_peptide_pairs(rows, receptor["auth_chain"], row["auth_chain"])
+            pairs, pair_counts = plan_peptide_pairs(
+                rows, receptor["auth_chain"], row["auth_chain"]
+            )
             outcome.pair_counts.update(pair_counts)
             capped = standardise_blocks(rows, row["auth_chain"], chain)
             outcome.rfi_counts["ligand_lines_bfactor_capped"] = len(capped)
@@ -805,8 +1067,12 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
             # The anchor's 3D file: the peptide chain and the residues just written.
             text = ""
             if outcome.rfi_written:
-                text = complex_file.complex_text(gpcrdb_text, receptor["preferred_chain"],
-                                                 written_seqs, ligand_chain=chain)
+                text = complex_file.complex_text(
+                    gpcrdb_text,
+                    receptor["preferred_chain"],
+                    written_seqs,
+                    ligand_chain=chain,
+                )
             outcome.complex_file, replaced = complex_file.write_complex_file(sli, text)
             if outcome.rfi_written and not text:
                 outcome.complex_file = "ligand_not_found"

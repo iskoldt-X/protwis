@@ -18,9 +18,26 @@ from structure.models import Structure
 PEPTIDE_REFERENCE = "PEP"
 
 THREE_LETTER = {
-    "A": "ALA", "R": "ARG", "N": "ASN", "D": "ASP", "C": "CYS", "Q": "GLN", "E": "GLU",
-    "G": "GLY", "H": "HIS", "I": "ILE", "L": "LEU", "K": "LYS", "M": "MET", "F": "PHE",
-    "P": "PRO", "S": "SER", "T": "THR", "W": "TRP", "Y": "TYR", "V": "VAL",
+    "A": "ALA",
+    "R": "ARG",
+    "N": "ASN",
+    "D": "ASP",
+    "C": "CYS",
+    "Q": "GLN",
+    "E": "GLU",
+    "G": "GLY",
+    "H": "HIS",
+    "I": "ILE",
+    "L": "LEU",
+    "K": "LYS",
+    "M": "MET",
+    "F": "PHE",
+    "P": "PRO",
+    "S": "SER",
+    "T": "THR",
+    "W": "TRP",
+    "Y": "TYR",
+    "V": "VAL",
 }
 
 
@@ -72,7 +89,15 @@ def build_results(rows, chain):
         if three is None:
             continue
         per.setdefault((key, is_pep), []).append(
-            ["{}{}{}".format(three, number, chain), "", slug, name, type_ or "", direction or ""])
+            [
+                "{}{}{}".format(three, number, chain),
+                "",
+                slug,
+                name,
+                type_ or "",
+                direction or "",
+            ]
+        )
 
     def visible(interactions):
         return sum(1 for i in interactions if i[4] != HIDDEN_TYPE)
@@ -80,31 +105,48 @@ def build_results(rows, chain):
     ordered = sorted(per.items(), key=lambda kv: (kv[0][1], -visible(kv[1]), kv[0][0]))
     return collections.OrderedDict(
         (key, {"score": visible(interactions), "interactions": interactions})
-        for (key, _is_pep), interactions in ordered)
+        for (key, _is_pep), interactions in ordered
+    )
 
 
 def stored_results(pdbname):
     """(results, stored structure text) for an experimental structure GPCRdb has, else None."""
-    structure = (Structure.objects
-                 .filter(pdb_code__index__iexact=(pdbname or "").strip(),
-                         structure_type__origin="experiment")
-                 .select_related("pdb_data")
-                 .first())
+    structure = (
+        Structure.objects.filter(
+            pdb_code__index__iexact=(pdbname or "").strip(),
+            structure_type__origin="experiment",
+        )
+        .select_related("pdb_data")
+        .first()
+    )
     if structure is None or structure.pdb_data is None:
         return None
     chain = (structure.preferred_chain or "").split(",")[0].strip()
-    rows = list(ResidueFragmentInteraction.objects
-                .filter(structure_ligand_pair__structure=structure)
-                .order_by("structure_ligand_pair_id", "rotamer__residue__sequence_number",
-                          "interaction_type__slug", "id")
-                .values_list("structure_ligand_pair_id",
-                             "structure_ligand_pair__pdb_reference",
-                             "structure_ligand_pair__ligand__name",
-                             "structure_ligand_pair__chain_res",
-                             "rotamer__residue__amino_acid",
-                             "rotamer__residue__sequence_number",
-                             "interaction_type__slug", "interaction_type__name",
-                             "interaction_type__type", "interaction_type__direction"))
+    rows = list(
+        ResidueFragmentInteraction.objects.filter(
+            structure_ligand_pair__structure=structure
+        )
+        .order_by(
+            "structure_ligand_pair_id",
+            "rotamer__residue__sequence_number",
+            "interaction_type__slug",
+            "id",
+        )
+        .values_list(
+            "structure_ligand_pair_id",
+            "structure_ligand_pair__pdb_reference",
+            "structure_ligand_pair__ligand__name",
+            "structure_ligand_pair__chain_res",
+            "rotamer__residue__amino_acid",
+            "rotamer__residue__sequence_number",
+            "interaction_type__slug",
+            "interaction_type__name",
+            "interaction_type__type",
+            "interaction_type__direction",
+        )
+    )
     keys = anchor_keys({(r[0], r[1], r[2], r[3]) for r in rows})
-    return (build_results(((keys[r[0]],) + tuple(r[4:]) for r in rows), chain),
-            structure.pdb_data.pdb)
+    return (
+        build_results(((keys[r[0]],) + tuple(r[4:]) for r in rows), chain),
+        structure.pdb_data.pdb,
+    )

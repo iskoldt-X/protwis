@@ -17,7 +17,9 @@ from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
 
 
-def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM", lig=""):
+def row(
+    family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM", lig=""
+):
     return {
         "feature_family": family,
         "direction": direction,
@@ -35,21 +37,38 @@ def row(family, direction="", seq=100, aa="F", chain="A", atom="CB", block="ATOM
 
 ANCHOR_MAP = {
     ("6ZIN", "Q6Q", "A:1000"): {"status": "ok", "instance": "Q6Q_AAA_1000", "note": ""},
-    ("6N51", "QUS", "A:903"): {"status": "errata", "instance": "QUS_A_903", "note": "label says B"},
-    ("8E0G", "A1A7R", "A:54"): {"status": "no_product", "instance": "", "note": "no instance"},
+    ("6N51", "QUS", "A:903"): {
+        "status": "errata",
+        "instance": "QUS_A_903",
+        "note": "label says B",
+    },
+    ("8E0G", "A1A7R", "A:54"): {
+        "status": "no_product",
+        "instance": "",
+        "note": "no instance",
+    },
     ("7V68", "2CU", "R:502"): {"status": "unresolved", "instance": "", "note": "drift"},
     ("9X9X", "U7D", "R:601"): {"status": "ok", "instance": "U7D_R_601", "note": ""},
     ("9X9X", "U7D", "R:602"): {"status": "no_product", "instance": "", "note": "gone"},
-    ("7E2X", "CLR", ""): {"status": "all_copies", "instance": "CLR_A_1;CLR_A_2", "note": ""},
-    ("6CMO", "RET", ""): {"status": "no_product", "instance": "", "note": "not modelled"},
+    ("7E2X", "CLR", ""): {
+        "status": "all_copies",
+        "instance": "CLR_A_1;CLR_A_2",
+        "note": "",
+    },
+    ("6CMO", "RET", ""): {
+        "status": "no_product",
+        "instance": "",
+        "note": "not modelled",
+    },
 }
 
 
 class AnchorInstancesTests(unittest.TestCase):
-
     def test_renamed_chain(self):
-        self.assertEqual(si.anchor_instances("6zin", "q6q", "A:1000", ANCHOR_MAP, []),
-                         (["Q6Q_AAA_1000"], "mapped", []))
+        self.assertEqual(
+            si.anchor_instances("6zin", "q6q", "A:1000", ANCHOR_MAP, []),
+            (["Q6Q_AAA_1000"], "mapped", []),
+        )
 
     def test_errata_still_imports_and_is_reported(self):
         names, mode, notes = si.anchor_instances("6N51", "QUS", "A:903", ANCHOR_MAP, [])
@@ -57,14 +76,24 @@ class AnchorInstancesTests(unittest.TestCase):
         self.assertTrue(notes and notes[0].startswith("errata: "))
 
     def test_no_product_and_partial(self):
-        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, [])[:2], ([], "no_product"))
-        self.assertEqual(si.anchor_instances("9X9X", "U7D", "R:601, R:602", ANCHOR_MAP, [])[:2],
-                         (["U7D_R_601"], "mapped_partial"))
+        self.assertEqual(
+            si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, [])[:2],
+            ([], "no_product"),
+        )
+        self.assertEqual(
+            si.anchor_instances("9X9X", "U7D", "R:601, R:602", ANCHOR_MAP, [])[:2],
+            (["U7D_R_601"], "mapped_partial"),
+        )
 
     def test_chain_res_without_residue_uses_all_copies_row(self):
-        self.assertEqual(si.anchor_instances("7E2X", "CLR", None, ANCHOR_MAP, [])[:2],
-                         (["CLR_A_1", "CLR_A_2"], "all_copies"))
-        self.assertEqual(si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP, [])[:2], ([], "no_product"))
+        self.assertEqual(
+            si.anchor_instances("7E2X", "CLR", None, ANCHOR_MAP, [])[:2],
+            (["CLR_A_1", "CLR_A_2"], "all_copies"),
+        )
+        self.assertEqual(
+            si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP, [])[:2],
+            ([], "no_product"),
+        )
 
     def test_unresolved_and_missing_are_loud(self):
         with self.assertRaises(si.UnresolvedAnchor):
@@ -73,8 +102,10 @@ class AnchorInstancesTests(unittest.TestCase):
             si.anchor_instances("2RH1", "CAU", "A:408", ANCHOR_MAP, [])
 
     def test_receptor_chain(self):
-        rmap = {"6ZIN": {"status": "ok", "auth_chain": "AAA", "note": ""},
-                "7V68": {"status": "unresolved", "auth_chain": "", "note": "x"}}
+        rmap = {
+            "6ZIN": {"status": "ok", "auth_chain": "AAA", "note": ""},
+            "7V68": {"status": "unresolved", "auth_chain": "", "note": "x"},
+        }
         self.assertEqual(si.receptor_chain("6zin", rmap), "AAA")
         with self.assertRaises(si.UnresolvedAnchor):
             si.receptor_chain("7V68", rmap)
@@ -83,40 +114,64 @@ class AnchorInstancesTests(unittest.TestCase):
 
 
 class MapGuardTests(unittest.TestCase):
-
     def test_no_product_with_a_copy_in_the_tree_is_a_map_mismatch(self):
         with self.assertRaises(si.MapMismatch):
             si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, ["A1A7R_A_54"])
         with self.assertRaises(si.MapMismatch):
             si.anchor_instances("6CMO", "RET", "", ANCHOR_MAP, ["RET_A_1"])
         # a copy of another HET does not count
-        self.assertEqual(si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, ["CLR_A_403"])[:2],
-                         ([], "no_product"))
+        self.assertEqual(
+            si.anchor_instances("8E0G", "A1A7R", "A:54", ANCHOR_MAP, ["CLR_A_403"])[:2],
+            ([], "no_product"),
+        )
 
     @staticmethod
     def sli(ref, chain_res):
         return types.SimpleNamespace(pdb_reference=ref, chain_res=chain_res)
 
     def test_map_must_cover_every_database_copy(self):
-        amap = {("9X9X", "U7D", "R:601"): {}, ("9X9X", "U7D", "R:602"): {}, ("9X9X", "CLR", ""): {}}
-        si.check_map_covers("9X9X", [self.sli("U7D", "R:601, R:602"), self.sli("CLR", None)], amap)
-        with self.assertRaises(si.MapMismatch):   # database has a copy the map does not list
-            si.check_map_covers("9X9X", [self.sli("U7D", "R:601, R:602, R:603"), self.sli("CLR", "")], amap)
+        amap = {
+            ("9X9X", "U7D", "R:601"): {},
+            ("9X9X", "U7D", "R:602"): {},
+            ("9X9X", "CLR", ""): {},
+        }
+        si.check_map_covers(
+            "9X9X", [self.sli("U7D", "R:601, R:602"), self.sli("CLR", None)], amap
+        )
+        with self.assertRaises(
+            si.MapMismatch
+        ):  # database has a copy the map does not list
+            si.check_map_covers(
+                "9X9X",
+                [self.sli("U7D", "R:601, R:602, R:603"), self.sli("CLR", "")],
+                amap,
+            )
 
     def test_map_may_list_copies_the_database_cannot_hold(self):
         """The annotation splits copies by chain; SLI has no copy dimension."""
-        amap = {("9X9X", "U7D", "R:601"): {}, ("9X9X", "U7D", "S:601"): {}, ("9X9X", "CLR", ""): {}}
+        amap = {
+            ("9X9X", "U7D", "R:601"): {},
+            ("9X9X", "U7D", "S:601"): {},
+            ("9X9X", "CLR", ""): {},
+        }
         self.assertEqual(
-            si.check_map_covers("9X9X", [self.sli("U7D", "R:601"), self.sli("CLR", "")], amap),
-            [("U7D", "S:601")])
+            si.check_map_covers(
+                "9X9X", [self.sli("U7D", "R:601"), self.sli("CLR", "")], amap
+            ),
+            [("U7D", "S:601")],
+        )
         # a whole HET the database does not have is also extra, not an error,
         # but it is still handed back to be reported
-        self.assertEqual(si.check_map_covers("9X9X", [self.sli("U7D", "R:601")], amap),
-                         [("CLR", ""), ("U7D", "S:601")])
+        self.assertEqual(
+            si.check_map_covers("9X9X", [self.sli("U7D", "R:601")], amap),
+            [("CLR", ""), ("U7D", "S:601")],
+        )
 
     def test_map_covers_is_case_insensitive_in_the_pdb_code(self):
         amap = {("9X9X", "U7D", "R:601"): {}}
-        self.assertEqual(si.check_map_covers("9x9x", [self.sli("U7D", "R:601")], amap), [])
+        self.assertEqual(
+            si.check_map_covers("9x9x", [self.sli("U7D", "R:601")], amap), []
+        )
 
     def test_map_rows_of_another_structure_do_not_count_as_coverage(self):
         amap = {("OTHR", "U7D", "R:601"): {}}
@@ -132,10 +187,12 @@ class MapGuardTests(unittest.TestCase):
 
     def test_a_quoted_newline_in_a_row_cannot_forge_a_header(self):
         """A note may hold a newline; its continuation must stay in the body."""
-        note = 'unreadable:\n# schema\tengine1-chainmap/999'
-        path = self._write("# schema\tengine1-chainmap/1\n"
-                           "pdb\thet\ttoken\tnote\n"
-                           '6ZIN\tQ6Q\tA:1\t"%s"\n' % note)
+        note = "unreadable:\n# schema\tengine1-chainmap/999"
+        path = self._write(
+            "# schema\tengine1-chainmap/1\n"
+            "pdb\thet\ttoken\tnote\n"
+            '6ZIN\tQ6Q\tA:1\t"%s"\n' % note
+        )
         head, _, table = si._read_map(path)
         self.assertEqual(head, {"schema": "engine1-chainmap/1"})
         self.assertEqual(len(table), 1)
@@ -143,11 +200,20 @@ class MapGuardTests(unittest.TestCase):
 
     def test_fingerprints(self):
         from interaction import schrodinger_chain_map as cm
-        rmap = {"6ZIN": {"gpcrdb_text_sha256": cm.text_sha256("ATOM 1\n"),
-                         "product_instances_sha256": cm.instances_sha256(["Q6Q_AAA_1000", "CLR_AAA_1"])}}
+
+        rmap = {
+            "6ZIN": {
+                "gpcrdb_text_sha256": cm.text_sha256("ATOM 1\n"),
+                "product_instances_sha256": cm.instances_sha256(
+                    ["Q6Q_AAA_1000", "CLR_AAA_1"]
+                ),
+            }
+        }
         si.check_fingerprints("6zin", rmap, "ATOM 1\n", ["CLR_AAA_1", "Q6Q_AAA_1000"])
         with self.assertRaises(si.MapMismatch):
-            si.check_fingerprints("6ZIN", rmap, "ATOM 2\n", ["CLR_AAA_1", "Q6Q_AAA_1000"])
+            si.check_fingerprints(
+                "6ZIN", rmap, "ATOM 2\n", ["CLR_AAA_1", "Q6Q_AAA_1000"]
+            )
         with self.assertRaises(si.MapMismatch):
             si.check_fingerprints("6ZIN", rmap, "ATOM 1\n", ["Q6Q_AAA_1000"])
         with self.assertRaises(si.MapMismatch):
@@ -155,26 +221,41 @@ class MapGuardTests(unittest.TestCase):
 
     def test_ok_receptor_row_without_chain_is_refused(self):
         with self.assertRaises(si.MapMismatch):
-            si.receptor_chain("X", {"X": {"status": "ok", "auth_chain": "", "note": ""}})
-
+            si.receptor_chain(
+                "X", {"X": {"status": "ok", "auth_chain": "", "note": ""}}
+            )
 
 
 CHAINMAP_HEADER = "".join(
-    "# {}\t{}\n".format(k, v) for k, v in [
-        ("schema", "engine1-chainmap/1"), ("pdb", "6ZIN"),
-        ("annotation_commit", "9fe1875"), ("ligands_sha256", "aa"),
-        ("structures_sha256", "bb"), ("gpcrdb_pdb_sha256", "cc"),
-        ("cif_sha256", "dd"), ("builder_sha256", "ee"), ("product_summary", "yes"),
-        ("receptor.preferred_chain", "A"), ("receptor.auth_chain", "A"),
-        ("receptor.status", "ok"), ("receptor.method", "exact"),
-        ("receptor.n_ca_gpcrdb", "10"), ("receptor.n_ca_matched", "10"),
-        ("receptor.renumbered", "0"), ("receptor.note", ""),
-        ("receptor.gpcrdb_text_sha256", "ff"), ("receptor.product_instances_sha256", "gg"),
-    ])
+    "# {}\t{}\n".format(k, v)
+    for k, v in [
+        ("schema", "engine1-chainmap/1"),
+        ("pdb", "6ZIN"),
+        ("annotation_commit", "9fe1875"),
+        ("ligands_sha256", "aa"),
+        ("structures_sha256", "bb"),
+        ("gpcrdb_pdb_sha256", "cc"),
+        ("cif_sha256", "dd"),
+        ("builder_sha256", "ee"),
+        ("product_summary", "yes"),
+        ("receptor.preferred_chain", "A"),
+        ("receptor.auth_chain", "A"),
+        ("receptor.status", "ok"),
+        ("receptor.method", "exact"),
+        ("receptor.n_ca_gpcrdb", "10"),
+        ("receptor.n_ca_matched", "10"),
+        ("receptor.renumbered", "0"),
+        ("receptor.note", ""),
+        ("receptor.gpcrdb_text_sha256", "ff"),
+        ("receptor.product_instances_sha256", "gg"),
+    ]
+)
 CHAINMAP_COLUMNS = "\t".join(cm.ANCHOR_COLUMNS) + "\n"
 
 
-def chainmap_row(pdb="6ZIN", het="q6q", token="A:1000", instance="Q6Q_A_1000", status="ok"):
+def chainmap_row(
+    pdb="6ZIN", het="q6q", token="A:1000", instance="Q6Q_A_1000", status="ok"
+):
     row = dict.fromkeys(cm.ANCHOR_COLUMNS, "")
     row.update(pdb=pdb, het=het, token=token, instance=instance, status=status)
     return "\t".join(row[c] for c in cm.ANCHOR_COLUMNS) + "\n"
@@ -209,8 +290,10 @@ class ChainmapDirTests(unittest.TestCase):
 
     def test_an_unknown_schema_is_refused(self):
         for schema in ("engine1-chainmap/2", "", "engine1-chainmap"):
-            path = self.write("6ZIN", CHAINMAP_HEADER.replace(
-                "engine1-chainmap/1", schema) + CHAINMAP_BODY)
+            path = self.write(
+                "6ZIN",
+                CHAINMAP_HEADER.replace("engine1-chainmap/1", schema) + CHAINMAP_BODY,
+            )
             with self.assertRaises(si.MapMismatch):
                 si.load_chainmap(path)
         # a file with no header at all
@@ -219,15 +302,20 @@ class ChainmapDirTests(unittest.TestCase):
             si.load_chainmap(path)
 
     def test_a_missing_receptor_field_is_refused(self):
-        path = self.write("6ZIN", CHAINMAP_HEADER.replace(
-            "# receptor.auth_chain\tA\n", "") + CHAINMAP_BODY)
+        path = self.write(
+            "6ZIN",
+            CHAINMAP_HEADER.replace("# receptor.auth_chain\tA\n", "") + CHAINMAP_BODY,
+        )
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(path)
 
     def test_a_row_of_another_structure_is_refused(self):
-        path = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY +
-                          chainmap_row(pdb="2RH1", het="CAU", token="A:408",
-                                       instance="CAU_A_408"))
+        path = self.write(
+            "6ZIN",
+            CHAINMAP_HEADER
+            + CHAINMAP_BODY
+            + chainmap_row(pdb="2RH1", het="CAU", token="A:408", instance="CAU_A_408"),
+        )
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(path)
 
@@ -240,7 +328,8 @@ class ChainmapDirTests(unittest.TestCase):
         self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
         os.makedirs(os.path.join(self.root, "2RH1"))
         anchors, receptors, missing, prov, not_run = si.load_chainmap_dir(
-            self.root, ["6ZIN", "2RH1"])
+            self.root, ["6ZIN", "2RH1"]
+        )
         self.assertEqual(missing, ["2RH1"])
         self.assertEqual(not_run, [])
         self.assertEqual(sorted(receptors), ["6ZIN"])
@@ -248,9 +337,12 @@ class ChainmapDirTests(unittest.TestCase):
 
     def test_the_tree_can_contradict_a_not_run_header(self):
         """A header from another run must not drop this run's products."""
-        empty = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno") \
-            .replace("# receptor.product_instances_sha256\tgg",
-                     "# receptor.product_instances_sha256\t" + cm.instances_sha256([]))
+        empty = CHAINMAP_HEADER.replace(
+            "# product_summary\tyes", "# product_summary\tno"
+        ).replace(
+            "# receptor.product_instances_sha256\tgg",
+            "# receptor.product_instances_sha256\t" + cm.instances_sha256([]),
+        )
         self.write("6ZIN", empty + CHAINMAP_BODY)
         inst = os.path.join(self.root, "6ZIN", "Q6Q_A_1000")
         os.makedirs(inst)
@@ -267,36 +359,57 @@ class ChainmapDirTests(unittest.TestCase):
 
     def test_a_structure_nobody_ran_is_not_treated_as_one_with_no_ligand(self):
         """Clearing an anchor states that Engine 1 looked; it must have looked."""
-        empty = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno") \
-            .replace("# receptor.product_instances_sha256\tgg",
-                     "# receptor.product_instances_sha256\t" + cm.instances_sha256([]))
+        empty = CHAINMAP_HEADER.replace(
+            "# product_summary\tyes", "# product_summary\tno"
+        ).replace(
+            "# receptor.product_instances_sha256\tgg",
+            "# receptor.product_instances_sha256\t" + cm.instances_sha256([]),
+        )
         self.write("6ZIN", empty + CHAINMAP_BODY)
-        anchors, receptors, missing, prov, not_run = si.load_chainmap_dir(self.root, ["6ZIN"])
+        anchors, receptors, missing, prov, not_run = si.load_chainmap_dir(
+            self.root, ["6ZIN"]
+        )
         self.assertEqual(not_run, ["6ZIN"])
         self.assertEqual(anchors, {})
         self.assertEqual(receptors, {})
         # the same structure WITH products is imported, summary or not
-        both = CHAINMAP_HEADER.replace("# product_summary\tyes", "# product_summary\tno")
-        self.write("2RH1", both.replace("# pdb\t6ZIN", "# pdb\t2RH1") + CHAINMAP_COLUMNS)
+        both = CHAINMAP_HEADER.replace(
+            "# product_summary\tyes", "# product_summary\tno"
+        )
+        self.write(
+            "2RH1", both.replace("# pdb\t6ZIN", "# pdb\t2RH1") + CHAINMAP_COLUMNS
+        )
         _, receptors, _, _, not_run = si.load_chainmap_dir(self.root, ["2RH1"])
         self.assertEqual(not_run, [])
         self.assertEqual(sorted(receptors), ["2RH1"])
 
     def test_a_missing_or_bogus_product_summary_is_refused(self):
         for value in ("", "maybe", "Yes"):
-            path = self.write("6ZIN", CHAINMAP_HEADER.replace(
-                "# product_summary\tyes", "# product_summary\t" + value) + CHAINMAP_BODY)
+            path = self.write(
+                "6ZIN",
+                CHAINMAP_HEADER.replace(
+                    "# product_summary\tyes", "# product_summary\t" + value
+                )
+                + CHAINMAP_BODY,
+            )
             with self.assertRaises(si.MapMismatch):
                 si.load_chainmap(path)
-        path = self.write("6ZIN", CHAINMAP_HEADER.replace(
-            "# product_summary\tyes\n", "") + CHAINMAP_BODY)
+        path = self.write(
+            "6ZIN",
+            CHAINMAP_HEADER.replace("# product_summary\tyes\n", "") + CHAINMAP_BODY,
+        )
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(path)
 
     def test_provenance_counts_a_merged_tree(self):
         self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY)
-        self.write("2RH1", CHAINMAP_HEADER.replace("# pdb\t6ZIN", "# pdb\t2RH1")
-                   .replace("9fe1875", "deadbee") + CHAINMAP_COLUMNS)
+        self.write(
+            "2RH1",
+            CHAINMAP_HEADER.replace("# pdb\t6ZIN", "# pdb\t2RH1").replace(
+                "9fe1875", "deadbee"
+            )
+            + CHAINMAP_COLUMNS,
+        )
         _, _, _, prov, _ = si.load_chainmap_dir(self.root, ["6ZIN", "2RH1"])
         self.assertEqual(prov["annotation_commit"], {"9fe1875": 1, "deadbee": 1})
         self.assertEqual(prov["ligands_sha256"], {"aa": 2})
@@ -305,7 +418,7 @@ class ChainmapDirTests(unittest.TestCase):
         d = os.path.join(self.root, "2RH1")
         os.makedirs(d)
         with open(os.path.join(d, si.CHAINMAP_NAME), "w") as fh:
-            fh.write(CHAINMAP_HEADER + CHAINMAP_BODY)      # header says 6ZIN
+            fh.write(CHAINMAP_HEADER + CHAINMAP_BODY)  # header says 6ZIN
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap_dir(self.root, ["2RH1"])
 
@@ -322,14 +435,19 @@ class ChainmapDirTests(unittest.TestCase):
         header_only = self.write("6ZIN", CHAINMAP_HEADER)
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(header_only)
-        lost_a_column = self.write("6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY.replace("token\t", "", 1))
+        lost_a_column = self.write(
+            "6ZIN", CHAINMAP_HEADER + CHAINMAP_BODY.replace("token\t", "", 1)
+        )
         with self.assertRaises(si.MapMismatch):
             si.load_chainmap(lost_a_column)
 
     def test_crlf_does_not_leak_into_the_header_values(self):
-        path = self.write("6ZIN", (CHAINMAP_HEADER + CHAINMAP_BODY).replace("\n", "\r\n"))
+        path = self.write(
+            "6ZIN", (CHAINMAP_HEADER + CHAINMAP_BODY).replace("\n", "\r\n")
+        )
         _, _, receptor, _, _ = si.load_chainmap(path)
         self.assertEqual(receptor["auth_chain"], "A")
+
 
 class StructureVerdictTests(unittest.TestCase):
     """The pre-flight policy: what happens to a delivered structure, and why."""
@@ -344,28 +462,38 @@ class StructureVerdictTests(unittest.TestCase):
 
     def test_a_delivered_directory_with_no_chainmap_fails_the_run(self):
         """Never a skip: its anchors would keep whatever legacy wrote."""
-        self.assertEqual(self.verdict(has_chainmap=False),
-                         ("failed", "ERROR", "no_chainmap"))
+        self.assertEqual(
+            self.verdict(has_chainmap=False), ("failed", "ERROR", "no_chainmap")
+        )
 
     def test_a_structure_nobody_ran_is_left_alone(self):
-        self.assertEqual(self.verdict(was_run=False),
-                         ("not_run", "INFO", "not_run"))
+        self.assertEqual(self.verdict(was_run=False), ("not_run", "INFO", "not_run"))
 
     def test_leaving_anchors_as_legacy_wrote_them_fails_like_any_other_mixing(self):
         """Same end state as a missing map, so the same answer."""
-        self.assertEqual(self.verdict(was_run=False, anchors_at_risk=1),
-                         ("failed", "ERROR", "not_run"))
-        self.assertEqual(self.verdict(was_run=False, anchors_at_risk=1, allow_not_run=True),
-                         ("not_run", "WARNING", "not_run"))
+        self.assertEqual(
+            self.verdict(was_run=False, anchors_at_risk=1),
+            ("failed", "ERROR", "not_run"),
+        )
+        self.assertEqual(
+            self.verdict(was_run=False, anchors_at_risk=1, allow_not_run=True),
+            ("not_run", "WARNING", "not_run"),
+        )
         # the escape hatch changes nothing when there is nothing at risk
-        self.assertEqual(self.verdict(was_run=False, allow_not_run=True),
-                         ("not_run", "INFO", "not_run"))
+        self.assertEqual(
+            self.verdict(was_run=False, allow_not_run=True),
+            ("not_run", "INFO", "not_run"),
+        )
 
     def test_a_structure_this_import_does_not_serve_needs_no_chainmap(self):
-        self.assertEqual(self.verdict(in_db=False, has_chainmap=False),
-                         ("structure_not_in_db", "WARNING", "structure_not_in_db"))
-        self.assertEqual(self.verdict(experimental=False, has_chainmap=False),
-                         ("not_experimental", "INFO", "not_experimental"))
+        self.assertEqual(
+            self.verdict(in_db=False, has_chainmap=False),
+            ("structure_not_in_db", "WARNING", "structure_not_in_db"),
+        )
+        self.assertEqual(
+            self.verdict(experimental=False, has_chainmap=False),
+            ("not_experimental", "INFO", "not_experimental"),
+        )
 
     def test_never_run_outranks_a_missing_chainmap(self):
         """Both are true of a directory holding nothing at all; say the useful one."""
@@ -373,18 +501,21 @@ class StructureVerdictTests(unittest.TestCase):
 
 
 class StandardLigandLineTests(unittest.TestCase):
-
     # Lines as the producer writes them (no altloc column; widened for long names).
-    CAU = "HETATM    1  O17CAU A 408     -33.477  10.957   8.170  1.00 50.96           O"
+    CAU = (
+        "HETATM    1  O17CAU A 408     -33.477  10.957   8.170  1.00 50.96           O"
+    )
     FIVE = "HETATM 4817  C9 A1C5S A1202     -20.354 -13.384  28.940  1.00 22.97           C"
     AAA = "HETATM   10  N4 T0B AAA 601      -2.398  28.100  15.000  1.00 30.00           N"
     ABUT = "HETATM    7  C1 LIG A   1    -100.123-200.456-300.789  1.0033084.00           C"
     # A four-character atom name runs straight into the residue name, as the producer writes it.
-    HNAME = "HETATM   40 HN12CAU A 408     -30.000  11.000   9.000  1.00 50.96           H"
+    HNAME = (
+        "HETATM   40 HN12CAU A 408     -30.000  11.000   9.000  1.00 50.96           H"
+    )
 
     def check_standard(self, out, resname, chain, resnum, xyz):
         self.assertEqual(len(out), 78)
-        self.assertEqual(out[16], " ")                 # altloc column present and blank
+        self.assertEqual(out[16], " ")  # altloc column present and blank
         self.assertEqual(out[17:20].strip(), resname)
         self.assertEqual(out[21], chain)
         self.assertEqual(out[22:26].strip(), resnum)
@@ -416,7 +547,11 @@ class StandardLigandLineTests(unittest.TestCase):
         self.assertEqual(out[76:78], " H")
 
     def test_mismatches_raise(self):
-        for het, chain, resnum in (("CAZ", "A", "408"), ("CAU", "B", "408"), ("CAU", "A", "409")):
+        for het, chain, resnum in (
+            ("CAZ", "A", "408"),
+            ("CAU", "B", "408"),
+            ("CAU", "A", "409"),
+        ):
             with self.assertRaises(si.MalformedLigandLine):
                 si.standard_ligand_line(self.CAU, het, chain, resnum, "", "A")
         with self.assertRaises(si.MalformedLigandLine):
@@ -425,14 +560,35 @@ class StandardLigandLineTests(unittest.TestCase):
             si.standard_ligand_line(self.CAU[:60], "CAU", "A", "408", "", "A")
 
     def test_block_and_instance_chains(self):
-        text, capped = si.standard_ligand_block(self.CAU + "\n\n" + self.HNAME + "\n", "CAU_A_408", "A")
+        text, capped = si.standard_ligand_block(
+            self.CAU + "\n\n" + self.HNAME + "\n", "CAU_A_408", "A"
+        )
         self.assertEqual(len(text.splitlines()), 2)
-        amap = {("6ZIN", "Q6Q", "A:1000"): {"status": "ok", "instance": "Q6Q_AAA_1000", "note": ""},
-                ("7E2X", "CLR", ""): {"status": "all_copies", "instance": "CLR_R_602;CLR_R_603", "note": ""},
-                ("9X9X", "LIG", ""): {"status": "all_copies", "instance": "LIG_AB_1", "note": ""}}
-        self.assertEqual(si.instance_chains("6ZIN", "Q6Q", "A:1000", amap, ["Q6Q_AAA_1000"]), {"Q6Q_AAA_1000": "A"})
-        self.assertEqual(si.instance_chains("7E2X", "CLR", "", amap, ["CLR_R_602", "CLR_R_603"]),
-                         {"CLR_R_602": "R", "CLR_R_603": "R"})
+        amap = {
+            ("6ZIN", "Q6Q", "A:1000"): {
+                "status": "ok",
+                "instance": "Q6Q_AAA_1000",
+                "note": "",
+            },
+            ("7E2X", "CLR", ""): {
+                "status": "all_copies",
+                "instance": "CLR_R_602;CLR_R_603",
+                "note": "",
+            },
+            ("9X9X", "LIG", ""): {
+                "status": "all_copies",
+                "instance": "LIG_AB_1",
+                "note": "",
+            },
+        }
+        self.assertEqual(
+            si.instance_chains("6ZIN", "Q6Q", "A:1000", amap, ["Q6Q_AAA_1000"]),
+            {"Q6Q_AAA_1000": "A"},
+        )
+        self.assertEqual(
+            si.instance_chains("7E2X", "CLR", "", amap, ["CLR_R_602", "CLR_R_603"]),
+            {"CLR_R_602": "R", "CLR_R_603": "R"},
+        )
         with self.assertRaises(si.MapMismatch):
             si.instance_chains("9X9X", "LIG", "", amap, ["LIG_AB_1"])
 
@@ -444,11 +600,31 @@ class StandardLigandLineTests(unittest.TestCase):
 
     def test_fields_too_wide_raise(self):
         wide = (
-            ("HETATM    1  C1 LIG A10000     -1.000   2.000   3.000  1.00 20.00           C", "10000", ""),
-            ("HETATM    1  C1 LIG A   1   -1000.500   2.000   3.000  1.00 20.00           C", "1", ""),
-            ("HETATM    1  C1 LIG A   1    10000.000   2.000   3.000  1.00 20.00           C", "1", ""),
-            ("HETATM    1  C1 LIG A   1      1.000   2.000   3.000  1.00-100.00           C", "1", ""),
-            ("HETATM    1  C1 LIG A   1      1.000   2.000   3.0001000.00 20.00           C", "1", ""),
+            (
+                "HETATM    1  C1 LIG A10000     -1.000   2.000   3.000  1.00 20.00           C",
+                "10000",
+                "",
+            ),
+            (
+                "HETATM    1  C1 LIG A   1   -1000.500   2.000   3.000  1.00 20.00           C",
+                "1",
+                "",
+            ),
+            (
+                "HETATM    1  C1 LIG A   1    10000.000   2.000   3.000  1.00 20.00           C",
+                "1",
+                "",
+            ),
+            (
+                "HETATM    1  C1 LIG A   1      1.000   2.000   3.000  1.00-100.00           C",
+                "1",
+                "",
+            ),
+            (
+                "HETATM    1  C1 LIG A   1      1.000   2.000   3.0001000.00 20.00           C",
+                "1",
+                "",
+            ),
         )
         for line, resnum, icode in wide:
             with self.assertRaises(si.MalformedLigandLine, msg=line):
@@ -458,20 +634,24 @@ class StandardLigandLineTests(unittest.TestCase):
 
 
 class CascadeGuardTests(unittest.TestCase):
-
     def test_only_expected_models_may_be_deleted(self):
         si._only_deleted({"structure.Fragment": 3}, {"structure.Fragment"})
-        si._only_deleted({"structure.Fragment": 3, "structure.Rotamer": 0}, {"structure.Fragment"})
+        si._only_deleted(
+            {"structure.Fragment": 3, "structure.Rotamer": 0}, {"structure.Fragment"}
+        )
         with self.assertRaises(si.UnexpectedCascade):
-            si._only_deleted({"structure.PdbData": 1, "structure.Rotamer": 2}, {"structure.PdbData"})
+            si._only_deleted(
+                {"structure.PdbData": 1, "structure.Rotamer": 2}, {"structure.PdbData"}
+            )
 
     def test_fragment_text(self):
-        self.assertEqual(si.fragment_text(["HETATM 1", "HETATM 2"]), "HETATM 1\nHETATM 2\n")
+        self.assertEqual(
+            si.fragment_text(["HETATM 1", "HETATM 2"]), "HETATM 1\nHETATM 2\n"
+        )
         self.assertEqual(si.fragment_text([]), "")
 
 
 class RoutingTests(unittest.TestCase):
-
     # Every (family, direction) pair the producer emits.
     PRODUCTION_PAIRS = {
         ("VdW", ""): "Van der Waals",
@@ -493,28 +673,39 @@ class RoutingTests(unittest.TestCase):
 
     def test_every_production_pair_routes(self):
         for (family, direction), slug in self.PRODUCTION_PAIRS.items():
-            self.assertEqual(si.resolve_slug(family, direction), slug, (family, direction))
+            self.assertEqual(
+                si.resolve_slug(family, direction), slug, (family, direction)
+            )
 
-    def test_the_covalent_slug_is_the_one_the_seed_migration_seeds_and_it_is_visible(self):
+    def test_the_covalent_slug_is_the_one_the_seed_migration_seeds_and_it_is_visible(
+        self,
+    ):
         # The map and the migration name the same slug, or the first Covalent
         # row finds no ResidueFragmentInteractionType. And the type must not be
         # "hidden": the pages leave hidden types out, which would import the
         # rows and show them to no one.
         import importlib
+
         mig = importlib.import_module(
-            "interaction.migrations.0009_seed_schrodinger_interaction_types")
+            "interaction.migrations.0009_seed_schrodinger_interaction_types"
+        )
         slug, name, type_, direction = next(
-            row for row in mig.SEEDED_TYPES if row[0] == "covalent")
+            row for row in mig.SEEDED_TYPES if row[0] == "covalent"
+        )
         self.assertEqual(si.resolve_slug("Covalent", ""), slug)
         self.assertNotEqual(type_, "hidden")
-        self.assertEqual((slug, name, type_, direction),
-                         ("covalent", "covalent bond", "covalent", ""))
+        self.assertEqual(
+            (slug, name, type_, direction),
+            ("covalent", "covalent bond", "covalent", ""),
+        )
 
     def test_the_seed_writes_a_visible_covalent_type(self):
         # What seed() hands the ORM, not only the constant.
         import importlib
+
         mig = importlib.import_module(
-            "interaction.migrations.0009_seed_schrodinger_interaction_types")
+            "interaction.migrations.0009_seed_schrodinger_interaction_types"
+        )
         seen = []
 
         class _Objects:
@@ -531,18 +722,30 @@ class RoutingTests(unittest.TestCase):
                 return _Model
 
         mig.seed(_Apps(), None)
-        self.assertEqual([k for k in seen if k["slug"] == "covalent"],
-                         [{"slug": "covalent", "defaults": {
-                             "name": "covalent bond", "type": "covalent", "direction": ""}}])
+        self.assertEqual(
+            [k for k in seen if k["slug"] == "covalent"],
+            [
+                {
+                    "slug": "covalent",
+                    "defaults": {
+                        "name": "covalent bond",
+                        "type": "covalent",
+                        "direction": "",
+                    },
+                }
+            ],
+        )
 
     def test_the_map_is_the_one_the_producer_pins(self):
         # The producer pins the same digest (see the header of the map).
         import hashlib
+
         path = os.path.join(os.path.dirname(si.__file__), "interaction_type_map.yaml")
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "431a53fb1840a8add9740a24372e6249e2eface0e37aab7afca44da98ab7887e")
+            digest, "431a53fb1840a8add9740a24372e6249e2eface0e37aab7afca44da98ab7887e"
+        )
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -552,39 +755,63 @@ class RoutingTests(unittest.TestCase):
             si.resolve_slug("Acceptor", "ligand-donor")
 
     def test_backbone_override(self):
-        self.assertEqual(si.apply_backbone_override("polar_donor_protein", "N"), "polar_backbone")
-        self.assertEqual(si.apply_backbone_override("polar_acceptor_protein", " O "),
-                         "polar_backbone")
-        self.assertEqual(si.apply_backbone_override("polar_donor_protein", "OG"),
-                         "polar_donor_protein")
+        self.assertEqual(
+            si.apply_backbone_override("polar_donor_protein", "N"), "polar_backbone"
+        )
+        self.assertEqual(
+            si.apply_backbone_override("polar_acceptor_protein", " O "),
+            "polar_backbone",
+        )
+        self.assertEqual(
+            si.apply_backbone_override("polar_donor_protein", "OG"),
+            "polar_donor_protein",
+        )
         self.assertEqual(si.apply_backbone_override("hyd", "N"), "hyd")
-        self.assertEqual(si.apply_backbone_override("polar_donor_protein", None),
-                         "polar_donor_protein")
+        self.assertEqual(
+            si.apply_backbone_override("polar_donor_protein", None),
+            "polar_donor_protein",
+        )
 
     def test_only_main_chain_n_and_o_promote(self):
         for atom in ("CA", "C", "CB", "OG", "OG1", "ND2", "NE2", "OH", "H", ""):
             for slug in ("polar_donor_protein", "polar_acceptor_protein"):
-                self.assertEqual(si.apply_backbone_override(slug, atom), slug, (slug, atom))
+                self.assertEqual(
+                    si.apply_backbone_override(slug, atom), slug, (slug, atom)
+                )
 
     def test_required_slugs_exclude_water_bridge(self):
-        self.assertEqual(si.required_slugs(), frozenset({
-            "hyd", "polar_donor_protein", "polar_acceptor_protein", "aro_ef_protein",
-            "aro_ff", "polar_double_pos_protein", "polar_double_neg_protein",
-            "metal_coordination_protein", "aro_ion_protein", "halogen_protein",
-            "polar_backbone", "covalent", "Van der Waals", "acc",
-        }))
+        self.assertEqual(
+            si.required_slugs(),
+            frozenset(
+                {
+                    "hyd",
+                    "polar_donor_protein",
+                    "polar_acceptor_protein",
+                    "aro_ef_protein",
+                    "aro_ff",
+                    "polar_double_pos_protein",
+                    "polar_double_neg_protein",
+                    "metal_coordination_protein",
+                    "aro_ion_protein",
+                    "halogen_protein",
+                    "polar_backbone",
+                    "covalent",
+                    "Van der Waals",
+                    "acc",
+                }
+            ),
+        )
 
 
 class PlanRowsTests(unittest.TestCase):
-
     def test_accounting_identity_and_each_bucket(self):
         rows = [
             row("HPhob", seq=100),
-            row("HPhob", seq=100),                      # duplicate (100, hyd)
+            row("HPhob", seq=100),  # duplicate (100, hyd)
             row("Acceptor", "ligand-acceptor", seq=100, aa="F", atom="N"),  # backbone
-            row("Wat-HBond", seq=101),                  # excluded family
-            row("HPhob", seq=102, aa="X"),              # non-standard residue
-            row("HPhob", seq=103, chain="B"),           # other chain
+            row("Wat-HBond", seq=101),  # excluded family
+            row("HPhob", seq=102, aa="X"),  # non-standard residue
+            row("HPhob", seq=103, chain="B"),  # other chain
             row("Metal", seq=104, aa="H"),
         ]
         records, counts, by_chain = si.plan_rows(rows, "A")
@@ -597,18 +824,31 @@ class PlanRowsTests(unittest.TestCase):
         self.assertEqual(counts["planned"], len(records))
         self.assertEqual(
             counts["rows_in"],
-            counts["excluded_family"] + counts["nonstandard_residue"]
-            + counts["other_chain"] + counts["duplicate"] + counts["planned"])
-        self.assertEqual([(r["sequence_number"], r["slug"]) for r in records],
-                         [(100, "hyd"), (100, "polar_backbone"),
-                          (104, "metal_coordination_protein")])
+            counts["excluded_family"]
+            + counts["nonstandard_residue"]
+            + counts["other_chain"]
+            + counts["duplicate"]
+            + counts["planned"],
+        )
+        self.assertEqual(
+            [(r["sequence_number"], r["slug"]) for r in records],
+            [
+                (100, "hyd"),
+                (100, "polar_backbone"),
+                (104, "metal_coordination_protein"),
+            ],
+        )
 
     def test_distinct_slugs_on_one_residue_both_survive(self):
-        rows = [row("PosCharge", "pos-neg", seq=113, aa="D"),
-                row("Donor", "ligand-donor", seq=113, aa="D", atom="OD1")]
+        rows = [
+            row("PosCharge", "pos-neg", seq=113, aa="D"),
+            row("Donor", "ligand-donor", seq=113, aa="D", atom="OD1"),
+        ]
         records, counts, _ = si.plan_rows(rows, "A")
-        self.assertEqual({r["slug"] for r in records},
-                         {"polar_double_neg_protein", "polar_acceptor_protein"})
+        self.assertEqual(
+            {r["slug"] for r in records},
+            {"polar_double_neg_protein", "polar_acceptor_protein"},
+        )
         self.assertEqual(counts["duplicate"], 0)
 
     def test_empty_preferred_chain_keeps_every_chain(self):
@@ -627,19 +867,21 @@ class PlanRowsTests(unittest.TestCase):
 
 
 class LigandLinesTests(unittest.TestCase):
-
     def test_collapsed_rows_merge_ligand_atoms_in_first_seen_order(self):
-        rows = [row("HPhob", seq=100, lig="HETATM C1\nHETATM C2\n"),
-                row("HPhob", seq=100, lig="HETATM C2\nHETATM C3\n"),
-                row("Acceptor", "ligand-acceptor", seq=100, atom="OG", lig="HETATM O1\n")]
+        rows = [
+            row("HPhob", seq=100, lig="HETATM C1\nHETATM C2\n"),
+            row("HPhob", seq=100, lig="HETATM C2\nHETATM C3\n"),
+            row("Acceptor", "ligand-acceptor", seq=100, atom="OG", lig="HETATM O1\n"),
+        ]
         records, counts, _ = si.plan_rows(rows, "A")
         self.assertEqual(counts["duplicate"], 1)
-        self.assertEqual([r["ligand_lines"] for r in records],
-                         [["HETATM C1", "HETATM C2", "HETATM C3"], ["HETATM O1"]])
+        self.assertEqual(
+            [r["ligand_lines"] for r in records],
+            [["HETATM C1", "HETATM C2", "HETATM C3"], ["HETATM O1"]],
+        )
 
 
 class ProductFilesTests(unittest.TestCase):
-
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
@@ -654,7 +896,9 @@ class ProductFilesTests(unittest.TestCase):
         return path
 
     def test_instance_discovery(self):
-        good = self._write("2RH1/CAU_A_408/CAU_A_408.yaml", "result: {interactions: []}\n")
+        good = self._write(
+            "2RH1/CAU_A_408/CAU_A_408.yaml", "result: {interactions: []}\n"
+        )
         self._write("2RH1/summary.yaml", "x: 1\n")
         self._write("2RH1/not_an_instance/not_an_instance.yaml", "x: 1\n")
         os.makedirs(os.path.join(self.root, "2RH1", "CLR_A_1"))  # no YAML
@@ -664,19 +908,27 @@ class ProductFilesTests(unittest.TestCase):
     def test_read_rows(self):
         ok = self._write("a.yaml", "result:\n  interactions: []\n")
         self.assertEqual(si.read_instance_rows(ok), [])
-        for text in ("result: {}\n", "- 1\n", "", "result: {interactions: 3}\n", "a: [\n"):
+        for text in (
+            "result: {}\n",
+            "- 1\n",
+            "",
+            "result: {interactions: 3}\n",
+            "a: [\n",
+        ):
             bad = self._write("b.yaml", text)
             with self.assertRaises(si.MalformedProduct, msg=text):
                 si.read_instance_rows(bad)
 
 
 class ScopeTests(unittest.TestCase):
-
     @staticmethod
     def sli(reference, ligand_type):
         return types.SimpleNamespace(
             pdb_reference=reference,
-            ligand=types.SimpleNamespace(ligand_type=types.SimpleNamespace(slug=ligand_type)))
+            ligand=types.SimpleNamespace(
+                ligand_type=types.SimpleNamespace(slug=ligand_type)
+            ),
+        )
 
     def test_scope(self):
         self.assertTrue(si.is_in_scope(self.sli("CAU", "small-molecule")))
@@ -710,8 +962,12 @@ class ProductContractTests(unittest.TestCase):
         si.check_product_contract(self.dir, "2RH1")
 
     def test_another_version_no_version_no_summary_or_garbage_is_refused(self):
-        for text in ("contract_version: engine1/2.0\npdb_id: 2RH1\n", "pdb_id: 2RH1\n",
-                     "- a list\n", "contract_version: [unclosed\n"):
+        for text in (
+            "contract_version: engine1/2.0\npdb_id: 2RH1\n",
+            "pdb_id: 2RH1\n",
+            "- a list\n",
+            "contract_version: [unclosed\n",
+        ):
             self.summary(text)
             with self.assertRaises(si.MalformedProduct):
                 si.check_product_contract(self.dir, "2RH1")
@@ -725,12 +981,19 @@ class ProductContractTests(unittest.TestCase):
         import ast
         import inspect
         import textwrap
+
         tree = ast.parse(textwrap.dedent(inspect.getsource(si.import_structure)))
         calls = [(n.lineno, n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)]
-        checks = [line for line, f in calls
-                  if isinstance(f, ast.Name) and f.id == "check_product_contract"]
-        deletes = [line for line, f in calls
-                   if isinstance(f, ast.Attribute) and f.attr == "delete"]
+        checks = [
+            line
+            for line, f in calls
+            if isinstance(f, ast.Name) and f.id == "check_product_contract"
+        ]
+        deletes = [
+            line
+            for line, f in calls
+            if isinstance(f, ast.Attribute) and f.attr == "delete"
+        ]
         self.assertEqual(len(checks), 1)
         self.assertTrue(deletes)
         self.assertLess(checks[0], min(deletes))
@@ -741,6 +1004,7 @@ class ProductContractTests(unittest.TestCase):
         import ast
         import inspect
         import textwrap
+
         tree = ast.parse(textwrap.dedent(inspect.getsource(si.import_structure)))
         lines = {}
         for n in ast.walk(tree):
@@ -758,35 +1022,70 @@ class SeedTests(unittest.TestCase):
     @staticmethod
     def _migration():
         import importlib
-        return importlib.import_module("interaction.migrations.0009_seed_schrodinger_interaction_types")
+
+        return importlib.import_module(
+            "interaction.migrations.0009_seed_schrodinger_interaction_types"
+        )
 
     def test_the_seed_covers_every_slug_the_imports_write(self):
         slugs = [row[0] for row in self._migration().SEEDED_TYPES]
         self.assertEqual(len(slugs), len(set(slugs)), "a slug is seeded twice")
         self.assertEqual(set(slugs), set(si.required_slugs()))
         # Creation order sets the ids of the rows a legacy database lacks.
-        self.assertEqual(slugs[:4], ["aro_ion_protein", "halogen_protein",
-                                     "metal_coordination_protein", "covalent"])
+        self.assertEqual(
+            slugs[:4],
+            [
+                "aro_ion_protein",
+                "halogen_protein",
+                "metal_coordination_protein",
+                "covalent",
+            ],
+        )
 
     def test_the_seed_keeps_the_legacy_names(self):
         # Written out, not read back from the module: a page shows the name
         # and leaves "hidden" types out, so a changed value must fail here.
-        self.assertEqual(sorted(self._migration().SEEDED_TYPES), sorted([
-            ("acc", "accessible", "hidden", ""),
-            ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
-            ("aro_ff", "aromatic (face-to-face)", "aromatic", "none"),
-            ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
-            ("covalent", "covalent bond", "covalent", ""),
-            ("halogen_protein", "halogen contact", "polar", ""),
-            ("hyd", "hydrophobic", "hydrophobic", ""),
-            ("metal_coordination_protein", "metal coordination", "polar", ""),
-            ("polar_acceptor_protein", "polar (hydrogen bond)", "polar", "protein"),
-            ("polar_backbone", "polar (hydrogen bond with backbone)", "polar", "protein"),
-            ("polar_donor_protein", "polar (hydrogen bond)", "polar", "protein"),
-            ("polar_double_neg_protein", "polar (charge-charge)", "polar", ""),
-            ("polar_double_pos_protein", "polar (charge-charge)", "polar", ""),
-            ("Van der Waals", "Van der Waals", "waals", ""),
-        ]))
+        self.assertEqual(
+            sorted(self._migration().SEEDED_TYPES),
+            sorted(
+                [
+                    ("acc", "accessible", "hidden", ""),
+                    (
+                        "aro_ef_protein",
+                        "aromatic (edge-to-face)",
+                        "aromatic",
+                        "protein",
+                    ),
+                    ("aro_ff", "aromatic (face-to-face)", "aromatic", "none"),
+                    ("aro_ion_protein", "aromatic (pi-cation)", "aromatic", "protein"),
+                    ("covalent", "covalent bond", "covalent", ""),
+                    ("halogen_protein", "halogen contact", "polar", ""),
+                    ("hyd", "hydrophobic", "hydrophobic", ""),
+                    ("metal_coordination_protein", "metal coordination", "polar", ""),
+                    (
+                        "polar_acceptor_protein",
+                        "polar (hydrogen bond)",
+                        "polar",
+                        "protein",
+                    ),
+                    (
+                        "polar_backbone",
+                        "polar (hydrogen bond with backbone)",
+                        "polar",
+                        "protein",
+                    ),
+                    (
+                        "polar_donor_protein",
+                        "polar (hydrogen bond)",
+                        "polar",
+                        "protein",
+                    ),
+                    ("polar_double_neg_protein", "polar (charge-charge)", "polar", ""),
+                    ("polar_double_pos_protein", "polar (charge-charge)", "polar", ""),
+                    ("Van der Waals", "Van der Waals", "waals", ""),
+                ]
+            ),
+        )
 
     def test_the_seed_renames_an_old_halogen_bond_row_and_nothing_else(self):
         mig = self._migration()
@@ -799,8 +1098,10 @@ class SeedTests(unittest.TestCase):
             def save(self, update_fields):
                 saved.append((self.slug, self.name, update_fields))
 
-        existing = {"halogen_protein": _Row("halogen_protein", "halogen bond"),
-                    "hyd": _Row("hyd", "something else")}
+        existing = {
+            "halogen_protein": _Row("halogen_protein", "halogen bond"),
+            "hyd": _Row("hyd", "something else"),
+        }
 
         class _Objects:
             def get_or_create(self, slug, defaults):
@@ -823,6 +1124,7 @@ class SeedTests(unittest.TestCase):
         # The remedy _check_slugs prints (migrate interaction 0008, then
         # migrate interaction) needs the reverse to be a no-op.
         from django.db import migrations
+
         mig = self._migration().Migration
         self.assertEqual(mig.dependencies, [("interaction", "0008_auto_20260921_1803")])
         self.assertEqual(len(mig.operations), 1)
@@ -847,8 +1149,17 @@ class SeedTests(unittest.TestCase):
 
         mig.seed(_Apps(), None)
         self.assertEqual(
-            [(k["slug"], k["defaults"]["name"], k["defaults"]["type"], k["defaults"]["direction"])
-             for k in seen], list(mig.SEEDED_TYPES))
+            [
+                (
+                    k["slug"],
+                    k["defaults"]["name"],
+                    k["defaults"]["type"],
+                    k["defaults"]["direction"],
+                )
+                for k in seen
+            ],
+            list(mig.SEEDED_TYPES),
+        )
 
 
 if __name__ == "__main__":
