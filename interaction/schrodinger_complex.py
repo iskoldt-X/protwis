@@ -12,10 +12,10 @@ residue named like the ligand (a five-character code is cut to three in the
 stored text) with an atom within LIGAND_NEAR of a product ligand atom. HETATM
 only, because some ligands carry an amino acid's name and the receptor residue
 of that name next to them is ATOM. Not an exact match, because structure
-preparation can move product coordinates (by nearly 2 A has been seen, inside
-LIGAND_NEAR); atoms of two different molecules are not that close, and the
-name keeps a neighbouring molecule of another kind out. An alternate conformer stored as its own residue
-is taken too.
+preparation can move product coordinates by up to about 2 A, which LIGAND_NEAR
+allows for; atoms of two different molecules are not that close, and the name
+keeps a neighbouring molecule of another kind out. An alternate conformer
+stored as its own residue is taken too.
 """
 
 from interaction import schrodinger_chain_map as cm

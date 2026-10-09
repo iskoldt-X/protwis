@@ -810,9 +810,11 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
         if in_scope:
             check_product_contract(data_dir, pdb_code)
             unused = check_map_covers(pdb_code, in_scope, anchor_map)
+            # Receptor first: an unresolved receptor row carries no text
+            # fingerprint, and its note, not a fingerprint mismatch, is the reason.
+            chain = receptor_chain(pdb_code, receptor_map)
             check_fingerprints(pdb_code, receptor_map,
                                structure.pdb_data.pdb if structure.pdb_data_id else "", instances)
-            chain = receptor_chain(pdb_code, receptor_map)
             gpcrdb_text = structure.pdb_data.pdb if structure.pdb_data_id else ""
             label_chain = receptor_map[pdb_code]["preferred_chain"]
         for sli in in_scope:

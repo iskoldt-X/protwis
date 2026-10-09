@@ -542,7 +542,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "87ad0ad5b5c32dc325f4c59c7ca70ee4c9bfeabc0d5012af9774a9fcbf9ab3a2")
+            digest, "431a53fb1840a8add9740a24372e6249e2eface0e37aab7afca44da98ab7887e")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -734,6 +734,21 @@ class ProductContractTests(unittest.TestCase):
         self.assertEqual(len(checks), 1)
         self.assertTrue(deletes)
         self.assertLess(checks[0], min(deletes))
+
+    def test_import_structure_reports_an_unresolved_receptor_by_its_note(self):
+        # An unresolved receptor row has an empty text fingerprint; checked
+        # first, it would be reported as a changed dump instead of its note.
+        import ast
+        import inspect
+        import textwrap
+        tree = ast.parse(textwrap.dedent(inspect.getsource(si.import_structure)))
+        lines = {}
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
+                lines.setdefault(n.func.id, []).append(n.lineno)
+        self.assertEqual(len(lines["receptor_chain"]), 1)
+        self.assertEqual(len(lines["check_fingerprints"]), 1)
+        self.assertLess(lines["receptor_chain"][0], lines["check_fingerprints"][0])
 
 
 class SeedTests(unittest.TestCase):

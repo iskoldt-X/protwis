@@ -61,9 +61,10 @@ def build_results(rows, chain):
     with residue as three-letter name, number and chain (ASP113A, what
     interaction.views.regexaa reads); the fragment file is left empty, the page
     does not read it. A residue that is not a standard amino acid is left out.
-    calculate takes the first ligand as the main one, and the page has always
-    opened on a HET ligand, so HET ligands come first, then "pep" chains, each
-    by the number of visible rows, then by key. The score is that number.
+    calculate takes the first ligand as the main one, and the page opens on a
+    HET ligand when there is one, so HET ligands come first, then "pep"
+    chains, each by the number of visible rows, then by key. The score is that
+    number.
     """
     per = collections.OrderedDict()
     for (key, is_pep), amino_acid, number, slug, name, type_, direction in rows:

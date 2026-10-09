@@ -139,11 +139,12 @@ class Command(BaseCommand):
                       structures_sha256=sp.sha256_file(structures_tsv),
                       builder_sha256=builder_sha)
 
-        counts, rstatus, written, checked = {}, {}, 0, 0
+        counts, rstatus, written, checked, refused = {}, {}, 0, 0, 0
         for pdb in pdbs:
             name = planned[pdb]
             summary_sha = e1.product_input_sha256(index_dir, pdb)
-            checked += summary_sha is not None
+            checked += bool(summary_sha)
+            refused += summary_sha == ""
             receptor, rows, values = self.build_one(
                 pdb, os.path.join(data_dir, name), chains.get(pdb) or "",
                 peptides.get(pdb, {}), cm.index_path(index_dir, pdb),
@@ -161,8 +162,9 @@ class Command(BaseCommand):
         self.stdout.write("annotation_commit {} builder_sha256 {}".format(
             commit, builder_sha))
         self.stdout.write("peptide_map.tsv written: {}".format(written))
-        self.stdout.write("index checked against summary.yaml input_sha256: {} (no summary: {})".format(
-            checked, written - checked))
+        self.stdout.write("index checked against summary.yaml input_sha256: {} "
+                          "(no summary: {}, refused for a summary without it: {})".format(
+                              checked, written - checked - refused, refused))
         self.stdout.write("peptide chain rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor {}".format(sorted(rstatus.items())))
 

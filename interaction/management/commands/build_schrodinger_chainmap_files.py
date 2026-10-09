@@ -90,9 +90,10 @@ def annotation_commit(given, gdata):
 def product_input_sha256(tree, pdb):
     """The input sha256 Engine 1 recorded in <tree>/<PDB>/summary.yaml.
 
-    None when there is no summary (nothing was run, nothing to compare); "" when
-    a summary is there but unreadable or without the field, which the contract
-    does not allow and index_mismatch refuses.
+    None when there is no summary (Engine 1 did not finish the structure, so
+    there is no input to compare); "" when a summary is there but unreadable or
+    without the field, which the contract does not allow and index_mismatch
+    refuses.
     """
     path = os.path.join(tree, pdb, si.PRODUCT_SUMMARY_NAME)
     if not os.path.exists(path):
@@ -107,7 +108,11 @@ def product_input_sha256(tree, pdb):
 
 
 def index_mismatch(summary_sha, index_sha):
-    """The reason to refuse an index read from another mmCIF than the products, or None."""
+    """The reason to refuse the coordinate index, or None.
+
+    Refused: a summary without input_sha256, and an index read from another
+    mmCIF than the products.
+    """
     if summary_sha == "":
         return "summary.yaml has no input_sha256 to check the coordinate index against"
     if summary_sha and summary_sha != index_sha:
@@ -360,11 +365,12 @@ class Command(BaseCommand):
             si.CHAINMAP_SCHEMA, si.CHAINMAP_RECEPTOR_PREFIX, si.PRODUCT_SUMMARY_NAME,
             si.PRODUCT_SUMMARY_KEY])
 
-        counts, rstatus, written, no_products, checked = {}, {}, 0, 0, 0
+        counts, rstatus, written, no_products, checked, refused = {}, {}, 0, 0, 0, 0
         for pdb in pdbs:
             has_summary = has_product_summary(data_dir, pdb)
             summary_sha = product_input_sha256(data_dir, pdb)
-            checked += summary_sha is not None
+            checked += bool(summary_sha)
+            refused += summary_sha == ""
             rows, receptor, note = self.build_one(
                 pdb, anchors.get(pdb, []), chains.get(pdb), labels,
                 cm.index_path(index_dir, pdb), os.path.join(pdb_dir, pdb + ".pdb"),
@@ -393,8 +399,9 @@ class Command(BaseCommand):
                                                      structures_sha, builder_sha))
         self.stdout.write("chainmap.tsv written: {} ({} with no product instance)".format(
             written, no_products))
-        self.stdout.write("index checked against summary.yaml input_sha256: {} (no summary: {})".format(
-            checked, written - checked))
+        self.stdout.write("index checked against summary.yaml input_sha256: {} "
+                          "(no summary: {}, refused for a summary without it: {})".format(
+                              checked, written - checked - refused, refused))
         self.stdout.write("anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
 

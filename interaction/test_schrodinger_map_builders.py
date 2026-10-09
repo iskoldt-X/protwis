@@ -262,6 +262,10 @@ class ProductInputShaTests(unittest.TestCase):
         self.assertIsNone(e1.index_mismatch(None, SHA))
         write(os.path.join(self.tree, PDB, "summary.yaml"), "- not a mapping\n")
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
+        write(os.path.join(self.tree, PDB, "summary.yaml"), "a: [\n")
+        self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
+        write(os.path.join(self.tree, PDB, "summary.yaml"), "")
+        self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
         write(os.path.join(self.tree, PDB, "summary.yaml"), "input_sha256: %s\n" % SHA)
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), SHA)
 
