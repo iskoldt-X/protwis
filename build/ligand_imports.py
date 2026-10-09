@@ -4,15 +4,17 @@ Ligand interactions come from two imports of the Schrodinger deliveries:
 Engine 1 serves the anchors named by a HET code (import_schrodinger_interactions),
 Engine 2 the "pep" chains (import_schrodinger_peptides). The steps:
 
-1. build the maps that tell each import which product answers which database
+1. run the unit tests of the import code (run_ligand_import_tests), so a build
+   whose import code fails its own tests stops with nothing written;
+2. build the maps that tell each import which product answers which database
    anchor, from this build's annotation and structure text
    (build_schrodinger_chainmap_files, build_schrodinger_peptide_maps);
-2. dry-run both imports, so a structure that would fail stops the caller with
+3. dry-run both imports, so a structure that would fail stops the caller with
    nothing imported;
-3. run both imports;
-4. remove the maps (remove_schrodinger_maps); after a failed import they stay.
+4. run both imports;
+5. remove the maps (remove_schrodinger_maps); after a failed import they stay.
 
-build_all_interactions runs steps 1-2 before its contact-network pass and 3-4
+build_all_interactions runs steps 1-3 before its contact-network pass and 4-5
 after it.
 """
 
@@ -39,6 +41,7 @@ ENGINE2_RUN_DIR = os.sep.join(["logs", "engine2_peptide_import"])
 COMMANDS = ("import_schrodinger_interactions", "import_schrodinger_peptides")
 MAP_COMMANDS = ("build_schrodinger_chainmap_files", "build_schrodinger_peptide_maps")
 CLEAN_COMMAND = "remove_schrodinger_maps"
+TEST_COMMAND = "run_ligand_import_tests"
 
 # The deliveries each command reads. The peptide maps read Engine 1's tree too:
 # the producer delivers the coordinate indexes there.
@@ -48,6 +51,7 @@ READS = {
     MAP_COMMANDS[0]: ("Engine 1",),
     MAP_COMMANDS[1]: ("Engine 2", "Engine 1"),
     CLEAN_COMMAND: ("Engine 1", "Engine 2"),
+    TEST_COMMAND: (),
 }
 
 
@@ -107,7 +111,8 @@ def engine2_dir(options):
 
 
 def steps(options):
-    """[[command, options]]: the two maps, both imports as dry runs, both for real, the clean-up."""
+    """[[command, options]]: the tests, the two maps, both imports as dry runs, both
+    for real, the clean-up."""
     if options["skip_ligand_import"]:
         print(
             "{} SKIPPING the ligand imports: no ligand interactions are written".format(
@@ -172,7 +177,7 @@ def steps(options):
             {"engine1_dir": engine1_dir(options), "engine2_dir": engine2_dir(options)},
         ]
     ]
-    return maps + dry + real + clean
+    return [[TEST_COMMAND, {}]] + maps + dry + real + clean
 
 
 def check_deliveries(options, command_names):

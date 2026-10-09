@@ -5,6 +5,7 @@
         unittest.main(module='build.test_build_all_ligands', argv=['x'])"
 """
 
+import io
 import os
 import tempfile
 import unittest
@@ -39,6 +40,7 @@ class LigandImportStepsTests(unittest.TestCase):
         self.assertEqual(
             [(c, o.get("dry_run", False), o.get("data_dir")) for c, o in steps],
             [
+                ("run_ligand_import_tests", False, None),
                 ("build_schrodinger_chainmap_files", False, "/e1"),
                 ("build_schrodinger_peptide_maps", False, "/e2"),
                 ("import_schrodinger_interactions", True, "/e1"),
@@ -80,6 +82,7 @@ class LigandImportStepsTests(unittest.TestCase):
         self.assertEqual(
             [(c, o.get("dry_run", False)) for c, o in before],
             [
+                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -113,6 +116,29 @@ class LigandImportStepsTests(unittest.TestCase):
                 options(engine1_data_dir="/nonexistent-e1", engine2_data_dir=d2),
                 ["import_schrodinger_peptides"],
             )
+
+    def test_the_tests_run_first_and_need_no_delivery(self):
+        steps = ligand_imports.steps(options())
+        self.assertEqual(steps[0], ["run_ligand_import_tests", {}])
+        ligand_imports.check_deliveries(
+            options(
+                engine1_data_dir="/nonexistent-e1", engine2_data_dir="/nonexistent-e2"
+            ),
+            ["run_ligand_import_tests"],
+        )
+
+    def test_a_failing_test_stops_the_steps_before_the_maps(self):
+        calls = []
+
+        def tests_fail(name, **kw):
+            calls.append(name)
+            if name == "run_ligand_import_tests":
+                raise CommandError("1 of 220 ligand import tests failed")
+
+        with mock.patch.object(ligand_imports, "call_command", tests_fail):
+            with self.assertRaisesRegex(CommandError, "tests failed"):
+                ligand_imports.run(ligand_imports.steps(options()))
+        self.assertEqual(calls, ["run_ligand_import_tests"])
 
     def test_skipping_imports_nothing(self):
         self.assertEqual(
@@ -149,6 +175,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
         self.assertEqual(
             calls,
             [
+                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -183,6 +210,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
         self.assertEqual(
             calls,
             [
+                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -213,6 +241,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
         self.assertEqual(
             calls,
             [
+                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -247,6 +276,7 @@ class BuildAllInteractionsTests(unittest.TestCase):
         self.assertEqual(
             calls,
             [
+                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -371,6 +401,65 @@ class BuildAllInteractionsTests(unittest.TestCase):
                     )
                 )
         self.assertEqual(calls, [])
+
+
+class RunLigandImportTestsTests(unittest.TestCase):
+    """The command fails when the suite does, in the child process or in this one."""
+
+    def command(self):
+        from build.management.commands import run_ligand_import_tests
+
+        return run_ligand_import_tests
+
+    def test_a_failing_child_process_is_a_command_error(self):
+        mod = self.command()
+        for code, fails in ((0, False), (1, True)):
+            done = mock.Mock(returncode=code)
+            with mock.patch.object(mod.subprocess, "run", return_value=done) as run:
+                if fails:
+                    with self.assertRaisesRegex(CommandError, "tests failed"):
+                        mod.Command().handle(in_process=False)
+                else:
+                    mod.Command().handle(in_process=False)
+            self.assertIn("--in-process", run.call_args[0][0])
+
+    def test_a_failing_suite_is_a_command_error(self):
+        mod = self.command()
+
+        class Fails(unittest.TestCase):
+            def runTest(self):
+                self.fail("on purpose")
+
+        class Passes(unittest.TestCase):
+            def runTest(self):
+                pass
+
+        for case, fails in ((Passes, False), (Fails, True)):
+            suite = unittest.TestSuite([case()])
+            with mock.patch.object(
+                mod.unittest.defaultTestLoader, "loadTestsFromNames", return_value=suite
+            ):
+                cmd = mod.Command(stdout=io.StringIO())
+                if fails:
+                    with self.assertRaisesRegex(CommandError, "1 of 1"):
+                        cmd.handle(in_process=True)
+                else:
+                    cmd.handle(in_process=True)
+
+    def test_every_test_module_of_the_imports_is_listed(self):
+        import glob
+
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        found = {
+            os.path.relpath(p, here)[:-3].replace(os.sep, ".")
+            for pattern in (
+                "build/test_build_all_ligands.py",
+                "interaction/test_schrodinger_*.py",
+                "interaction/test_stored_interactions.py",
+            )
+            for p in glob.glob(os.path.join(here, pattern))
+        }
+        self.assertEqual(found, set(self.command().TEST_MODULES))
 
 
 if __name__ == "__main__":
