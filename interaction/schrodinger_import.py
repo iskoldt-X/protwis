@@ -422,9 +422,9 @@ def checked_receptor_chain(pdb, receptor_map, gpcrdb_text, instance_names):
 
     A map built from another stored text or product tree is reported as stale
     first, whatever its receptor row says: only a rebuild can tell more. A row
-    written before the builder could read the stored text has an empty text
-    fingerprint; nothing shows it stale, so its note is the reason and is
-    reported first. An ok row always has one, and without it is refused as
+    whose build failed before the stored text was read has an empty text
+    fingerprint; the text cannot show it stale, so its note is the reason and
+    is reported first. An ok row always has one, and without it is refused as
     stale.
     """
     row = receptor_map.get(pdb.upper())
@@ -614,13 +614,13 @@ def check_product_contract(data_dir, pdb_code):
     """
     path = os.path.join(data_dir, pdb_code, PRODUCT_SUMMARY_NAME)
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh)
     except OSError as exc:
         raise MalformedProduct(
             "no summary.yaml, so no contract version ({})".format(exc)
         )
-    except yaml.YAMLError as exc:
+    except (UnicodeDecodeError, yaml.YAMLError) as exc:
         raise MalformedProduct("{}: {}".format(path, exc))
     version = doc.get("contract_version") if isinstance(doc, dict) else None
     if version != PRODUCT_CONTRACT:
@@ -634,9 +634,9 @@ def check_product_contract(data_dir, pdb_code):
 def read_instance_rows(path):
     """Return the interaction rows of one instance YAML."""
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError) as exc:
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
         raise MalformedProduct("{}: {}".format(path, exc))
     result = (doc or {}).get("result") if isinstance(doc, dict) else None
     if not isinstance(result, dict) or not isinstance(result.get("interactions"), list):

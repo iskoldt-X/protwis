@@ -121,7 +121,10 @@ def index_mismatch(summary_sha, index_sha):
     mmCIF than the products.
     """
     if summary_sha == "":
-        return "summary.yaml has no input_sha256 to check the coordinate index against"
+        return (
+            "summary.yaml is unreadable or has no input_sha256 to check the "
+            "coordinate index against"
+        )
     if summary_sha and summary_sha != index_sha:
         return (
             "the coordinate index was read from another mmCIF than the products "
@@ -504,7 +507,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             "summary.yaml with input_sha256: {} "
-            "(no summary: {}; summary without it, refused: {})".format(
+            "(no summary: {}; summary unreadable or without it, refused: {})".format(
                 checked, written - checked - refused, refused
             )
         )

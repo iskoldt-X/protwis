@@ -997,9 +997,20 @@ class ProductContractTests(unittest.TestCase):
             self.summary(text)
             with self.assertRaises(si.MalformedProduct):
                 si.check_product_contract(self.dir, "2RH1")
+        with open(os.path.join(self.dir, "2RH1", "summary.yaml"), "wb") as fh:
+            fh.write(b"contract_version: \xff\n")
+        with self.assertRaises(si.MalformedProduct):
+            si.check_product_contract(self.dir, "2RH1")
         os.remove(os.path.join(self.dir, "2RH1", "summary.yaml"))
         with self.assertRaisesRegex(si.MalformedProduct, "no summary.yaml"):
             si.check_product_contract(self.dir, "2RH1")
+
+    def test_an_instance_yaml_that_is_not_utf8_is_malformed(self):
+        path = os.path.join(self.dir, "x.yaml")
+        with open(path, "wb") as fh:
+            fh.write(b"result: \xff\n")
+        with self.assertRaises(si.MalformedProduct):
+            si.read_instance_rows(path)
 
     def test_import_structure_checks_the_contract_before_writing(self):
         # import_structure needs the database; this pins the call statically,

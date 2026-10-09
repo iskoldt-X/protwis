@@ -265,11 +265,30 @@ class MapBuilderTests(unittest.TestCase):
         self.assertIn("another mmCIF", header["receptor.note"])
         text_sha = cm.text_sha256(gpcrdb_text())
         self.assertEqual(header["receptor.gpcrdb_text_sha256"], text_sha)
+        instances = si.instance_yaml_paths(d.engine1, PDB)
+        self.assertEqual(
+            header["receptor.product_instances_sha256"], cm.instances_sha256(instances)
+        )
         self.assertEqual([r["status"] for r in rows], ["unresolved"])
         header, _rows = self.peptide_map(d)
         self.assertEqual(header["receptor.status"], "unresolved")
         self.assertIn("another mmCIF", header["receptor.note"])
         self.assertEqual(header["receptor.gpcrdb_text_sha256"], text_sha)
+        plan = os.path.join(d.engine2, PDB, sp.PLAN_NAME)
+        self.assertEqual(header["plan_sha256"], sp.sha256_file(plan))
+
+    def test_a_stored_text_that_does_not_parse_keeps_its_fingerprint(self):
+        d = Delivery(self.root)
+        bad = gpcrdb_text() + (
+            "%-6s%5d %-4s %3s %1s%4s    %8s%8s%8s  1.00 20.00          %2s\n"
+            % ("ATOM", 99, "CA", "ALA", "R", "999", "x", "y", "z", "C")
+        )
+        write(os.path.join(d.gdata, "structure_data", "pdbs", PDB + ".pdb"), bad)
+        d.run(*ligand_imports.MAP_COMMANDS)
+        for header in (self.chainmap(d)[0], self.peptide_map(d)[0]):
+            self.assertEqual(header["receptor.status"], "unresolved")
+            self.assertIn("input unreadable", header["receptor.note"])
+            self.assertEqual(header["receptor.gpcrdb_text_sha256"], cm.text_sha256(bad))
 
     def test_a_summary_without_the_field_is_refused(self):
         d = Delivery(self.root, summary_sha=None)
