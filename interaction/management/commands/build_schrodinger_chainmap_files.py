@@ -106,7 +106,7 @@ def product_input_sha256(tree, pdb):
     if not os.path.exists(path):
         return None
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh)
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return ""
@@ -542,6 +542,7 @@ class Command(BaseCommand):
         }
         if preferred_chain is None:
             preferred_chain = ""
+        gtext = None
 
         def unresolved(exc):
             reason = (
@@ -566,7 +567,9 @@ class Command(BaseCommand):
                 preferred_chain=preferred_chain,
                 status="unresolved",
                 note=reason,
-                gpcrdb_text_sha256="",
+                # Whenever the stored text was read, so the importer can tell
+                # a map built from another dump.
+                gpcrdb_text_sha256="" if gtext is None else cm.text_sha256(gtext),
                 product_instances_sha256=cm.instances_sha256(instances),
             )
             return rows, receptor, note

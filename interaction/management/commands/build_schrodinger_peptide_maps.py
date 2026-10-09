@@ -248,9 +248,14 @@ class Command(BaseCommand):
         values = {"plan_sha256": "", "cif_sha256": "", "gpcrdb_pdb_sha256": ""}
         receptor = {k: "" for k in sp.RECEPTOR_KEYS}
         receptor["preferred_chain"] = preferred_chain.split(",")[0].strip()
+        gtext = None
 
         def unresolved(reason, rows_status="chain_unresolved"):
             receptor.update(status="unresolved", note=reason[:200])
+            # Whenever the stored text was read, so the importer can tell a
+            # map built from another dump.
+            if gtext is not None:
+                receptor["gpcrdb_text_sha256"] = cm.text_sha256(gtext)
             rows = [
                 self._row(pdb, chain, info, status=rows_status, note=reason[:200])
                 for chain, info in sorted(chain_info.items())

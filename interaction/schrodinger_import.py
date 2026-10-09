@@ -422,8 +422,10 @@ def checked_receptor_chain(pdb, receptor_map, gpcrdb_text, instance_names):
 
     A map built from another stored text or product tree is reported as stale
     first, whatever its receptor row says: only a rebuild can tell more. A row
-    the builder gave up on before reading the stored text has an empty text
-    fingerprint; its note is the reason and is reported instead.
+    written before the builder could read the stored text has an empty text
+    fingerprint; nothing shows it stale, so its note is the reason and is
+    reported first. An ok row always has one, and without it is refused as
+    stale.
     """
     row = receptor_map.get(pdb.upper())
     if row is not None and not row.get("gpcrdb_text_sha256"):

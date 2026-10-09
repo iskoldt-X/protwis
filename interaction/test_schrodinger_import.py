@@ -248,6 +248,8 @@ class MapGuardTests(unittest.TestCase):
         no_text = {"6ZIN": dict(row, gpcrdb_text_sha256="")}
         with self.assertRaisesRegex(si.MapMismatch, "rebuild"):
             si.checked_receptor_chain("6ZIN", no_text, old, names)
+        with self.assertRaisesRegex(si.MapMismatch, "product instances"):
+            si.checked_receptor_chain("6ZIN", renumbered, old, ["CLR_AAA_1"])
 
 
 CHAINMAP_HEADER = "".join(

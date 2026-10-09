@@ -245,8 +245,11 @@ class MapBuilderTests(unittest.TestCase):
         d.run(*ligand_imports.MAP_COMMANDS)
         header, rows = self.chainmap(d)
         self.assertEqual(header["receptor.status"], "unresolved")
+        self.assertEqual(header["receptor.gpcrdb_text_sha256"], "")
         self.assertEqual([r["status"] for r in rows], ["unresolved"])
-        self.assertEqual(self.peptide_map(d)[0]["receptor.status"], "unresolved")
+        header = self.peptide_map(d)[0]
+        self.assertEqual(header["receptor.status"], "unresolved")
+        self.assertEqual(header["receptor.gpcrdb_text_sha256"], "")
 
     def test_a_reformatted_index_is_unresolved_not_matched_by_a_fallback(self):
         d = Delivery(self.root, coord="%.2f")
@@ -260,10 +263,13 @@ class MapBuilderTests(unittest.TestCase):
         header, rows = self.chainmap(d)
         self.assertEqual(header["receptor.status"], "unresolved")
         self.assertIn("another mmCIF", header["receptor.note"])
+        text_sha = cm.text_sha256(gpcrdb_text())
+        self.assertEqual(header["receptor.gpcrdb_text_sha256"], text_sha)
         self.assertEqual([r["status"] for r in rows], ["unresolved"])
         header, _rows = self.peptide_map(d)
         self.assertEqual(header["receptor.status"], "unresolved")
         self.assertIn("another mmCIF", header["receptor.note"])
+        self.assertEqual(header["receptor.gpcrdb_text_sha256"], text_sha)
 
     def test_a_summary_without_the_field_is_refused(self):
         d = Delivery(self.root, summary_sha=None)

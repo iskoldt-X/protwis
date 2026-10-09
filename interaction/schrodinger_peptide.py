@@ -970,8 +970,9 @@ def check_receptor_and_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text
 
     The rule of schrodinger_import.checked_receptor_chain: a map built from
     another stored text or plan is reported as stale whatever its receptor row
-    says, unless the row has no text fingerprint (the builder gave up before
-    reading the text), when its note is the reason.
+    says, unless the row has no text fingerprint (written before the builder
+    could read the text), when its note is the reason. An ok row without one
+    is refused as stale.
     """
     if not receptor.get("gpcrdb_text_sha256"):
         check_receptor(pdb, receptor)

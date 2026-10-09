@@ -763,6 +763,12 @@ class TreeTests(unittest.TestCase):
         gave_up.update(gpcrdb_text_sha256="")
         with self.assertRaisesRegex(sp.MapMismatch, "input unreadable"):
             check("6DDF", self.dir, gave_up, header, "ATOM other\n")
+        no_text = dict(good, gpcrdb_text_sha256="")
+        with self.assertRaisesRegex(sp.MapMismatch, "structure text"):
+            check("6DDF", self.dir, no_text, header, "ATOM text\n")
+        other_plan = {"plan_sha256": "0" * 64}
+        with self.assertRaisesRegex(sp.MapMismatch, "plan.json"):
+            check("6DDF", self.dir, renumbered, other_plan, "ATOM text\n")
 
     def test_a_record_of_another_contract_version_raises(self):
         self.item("k1", "done", [row("HPhob", lig=GLN)], contract="engine2/2.0")
