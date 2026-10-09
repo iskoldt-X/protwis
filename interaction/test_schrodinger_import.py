@@ -999,7 +999,7 @@ class ProductContractTests(unittest.TestCase):
                 si.check_product_contract(self.dir, "2RH1")
         with open(os.path.join(self.dir, "2RH1", "summary.yaml"), "wb") as fh:
             fh.write(b"contract_version: \xff\n")
-        with self.assertRaises(si.MalformedProduct):
+        with self.assertRaisesRegex(si.MalformedProduct, "utf-8"):
             si.check_product_contract(self.dir, "2RH1")
         os.remove(os.path.join(self.dir, "2RH1", "summary.yaml"))
         with self.assertRaisesRegex(si.MalformedProduct, "no summary.yaml"):
@@ -1009,7 +1009,7 @@ class ProductContractTests(unittest.TestCase):
         path = os.path.join(self.dir, "x.yaml")
         with open(path, "wb") as fh:
             fh.write(b"result: \xff\n")
-        with self.assertRaises(si.MalformedProduct):
+        with self.assertRaisesRegex(si.MalformedProduct, "utf-8"):
             si.read_instance_rows(path)
 
     def test_import_structure_checks_the_contract_before_writing(self):
