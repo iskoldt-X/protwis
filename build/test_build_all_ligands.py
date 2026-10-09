@@ -40,7 +40,6 @@ class LigandImportStepsTests(unittest.TestCase):
         self.assertEqual(
             [(c, o.get("dry_run", False), o.get("data_dir")) for c, o in steps],
             [
-                ("run_ligand_import_tests", False, None),
                 ("build_schrodinger_chainmap_files", False, "/e1"),
                 ("build_schrodinger_peptide_maps", False, "/e2"),
                 ("import_schrodinger_interactions", True, "/e1"),
@@ -82,7 +81,6 @@ class LigandImportStepsTests(unittest.TestCase):
         self.assertEqual(
             [(c, o.get("dry_run", False)) for c, o in before],
             [
-                ("run_ligand_import_tests", False),
                 ("build_schrodinger_chainmap_files", False),
                 ("build_schrodinger_peptide_maps", False),
                 ("import_schrodinger_interactions", True),
@@ -117,9 +115,14 @@ class LigandImportStepsTests(unittest.TestCase):
                 ["import_schrodinger_peptides"],
             )
 
-    def test_the_tests_run_first_and_need_no_delivery(self):
-        steps = ligand_imports.steps(options())
-        self.assertEqual(steps[0], ["run_ligand_import_tests", {}])
+    def test_the_tests_lead_any_plan_with_an_import_and_need_no_delivery(self):
+        planned = ligand_imports.with_tests(ligand_imports.steps(options()))
+        self.assertEqual(planned[0], ["run_ligand_import_tests", {}])
+        self.assertEqual(planned[1:], ligand_imports.steps(options()))
+        self.assertEqual(ligand_imports.with_tests([]), [])
+        self.assertEqual(
+            ligand_imports.with_tests([["build_common"]]), [["build_common"]]
+        )
         ligand_imports.check_deliveries(
             options(
                 engine1_data_dir="/nonexistent-e1", engine2_data_dir="/nonexistent-e2"
@@ -137,8 +140,44 @@ class LigandImportStepsTests(unittest.TestCase):
 
         with mock.patch.object(ligand_imports, "call_command", tests_fail):
             with self.assertRaisesRegex(CommandError, "tests failed"):
-                ligand_imports.run(ligand_imports.steps(options()))
+                ligand_imports.run(
+                    ligand_imports.with_tests(ligand_imports.steps(options()))
+                )
         self.assertEqual(calls, ["run_ligand_import_tests"])
+
+    def first_command_of_build_all(self, **kw):
+        cmd = build_all.Command()
+        opts = vars(cmd.create_parser("manage.py", "build_all").parse_args([]))
+        calls = []
+
+        class Stop(Exception):
+            pass
+
+        def first(name, *a, **k):
+            calls.append(name)
+            raise Stop
+
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            opts.update(options(engine1_data_dir=d1, engine2_data_dir=d2))
+            opts.update(kw)
+            with mock.patch.object(build_all, "call_command", first):
+                with self.assertRaises(Stop):
+                    cmd.handle(**opts)
+        return calls[0]
+
+    def test_build_all_runs_the_tests_before_anything_else(self):
+        self.assertEqual(self.first_command_of_build_all(), "run_ligand_import_tests")
+        self.assertEqual(
+            self.first_command_of_build_all(phase=1), "run_ligand_import_tests"
+        )
+
+    def test_build_all_without_the_imports_runs_no_tests(self):
+        self.assertEqual(
+            self.first_command_of_build_all(phase=2), "build_structure_angles"
+        )
+        self.assertEqual(
+            self.first_command_of_build_all(skip_ligand_import=True), "clear_cache"
+        )
 
     def test_skipping_imports_nothing(self):
         self.assertEqual(
@@ -434,31 +473,47 @@ class RunLigandImportTestsTests(unittest.TestCase):
             def runTest(self):
                 pass
 
-        for case, fails in ((Passes, False), (Fails, True)):
-            suite = unittest.TestSuite([case()])
+        class Errors(unittest.TestCase):
+            def runTest(self):
+                raise ImportError("on purpose")
+
+        for cases, fails in (
+            ([Passes()], None),
+            ([Fails()], "1 of 1"),
+            ([Errors()], "1 of 1"),
+            ([], "no ligand import test"),
+        ):
+            suite = unittest.TestSuite(cases)
             with mock.patch.object(
                 mod.unittest.defaultTestLoader, "loadTestsFromNames", return_value=suite
-            ):
+            ) as load:
                 cmd = mod.Command(stdout=io.StringIO())
                 if fails:
-                    with self.assertRaisesRegex(CommandError, "1 of 1"):
+                    with self.assertRaisesRegex(CommandError, fails):
                         cmd.handle(in_process=True)
                 else:
                     cmd.handle(in_process=True)
+            load.assert_called_once_with(mod.TEST_MODULES)
+
+    def test_a_child_that_hangs_is_a_command_error(self):
+        mod = self.command()
+        hang = mod.subprocess.TimeoutExpired(cmd="x", timeout=1)
+        with mock.patch.object(mod.subprocess, "run", side_effect=hang):
+            with self.assertRaisesRegex(CommandError, "did not finish"):
+                mod.Command().handle(in_process=False)
 
     def test_every_test_module_of_the_imports_is_listed(self):
         import glob
 
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        found = {
-            os.path.relpath(p, here)[:-3].replace(os.sep, ".")
-            for pattern in (
-                "build/test_build_all_ligands.py",
-                "interaction/test_schrodinger_*.py",
-                "interaction/test_stored_interactions.py",
-            )
-            for p in glob.glob(os.path.join(here, pattern))
-        }
+        uses = ("schrodinger", "ligand_imports", "stored_interactions")
+        found = set()
+        for app in ("build", "interaction"):
+            for path in glob.glob(os.path.join(here, app, "test_*.py")):
+                with open(path) as fh:
+                    text = fh.read()
+                if any(word in text for word in uses):
+                    found.add(os.path.relpath(path, here)[:-3].replace(os.sep, "."))
         self.assertEqual(found, set(self.command().TEST_MODULES))
 
 

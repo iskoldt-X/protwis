@@ -4,18 +4,18 @@ Ligand interactions come from two imports of the Schrodinger deliveries:
 Engine 1 serves the anchors named by a HET code (import_schrodinger_interactions),
 Engine 2 the "pep" chains (import_schrodinger_peptides). The steps:
 
-1. run the unit tests of the import code (run_ligand_import_tests), so a build
-   whose import code fails its own tests stops with nothing written;
-2. build the maps that tell each import which product answers which database
+1. build the maps that tell each import which product answers which database
    anchor, from this build's annotation and structure text
    (build_schrodinger_chainmap_files, build_schrodinger_peptide_maps);
-3. dry-run both imports, so a structure that would fail stops the caller with
+2. dry-run both imports, so a structure that would fail stops the caller with
    nothing imported;
-4. run both imports;
-5. remove the maps (remove_schrodinger_maps); after a failed import they stay.
+3. run both imports;
+4. remove the maps (remove_schrodinger_maps); after a failed import they stay.
 
-build_all_interactions runs steps 1-3 before its contact-network pass and 4-5
-after it.
+Before anything else a caller runs, with_tests() puts the unit tests of the
+import code (run_ligand_import_tests): a build whose import code fails its own
+tests stops with nothing written. build_all_interactions runs the tests and
+steps 1-2 before its contact-network pass, and 3-4 after it.
 """
 
 import datetime
@@ -177,7 +177,14 @@ def steps(options):
             {"engine1_dir": engine1_dir(options), "engine2_dir": engine2_dir(options)},
         ]
     ]
-    return [[TEST_COMMAND, {}]] + maps + dry + real + clean
+    return maps + dry + real + clean
+
+
+def with_tests(planned):
+    """``planned`` [[command, ...]], led by the import tests when it holds an import."""
+    if any(step[0] in COMMANDS for step in planned):
+        return [[TEST_COMMAND, {}]] + planned
+    return planned
 
 
 def check_deliveries(options, command_names):

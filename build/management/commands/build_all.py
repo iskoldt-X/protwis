@@ -132,6 +132,8 @@ class Command(BaseCommand):
         else:
             commands = phase1+phase2+phase3
 
+        # The tests of the ligand import code run first, before anything is written.
+        commands = ligand_imports.with_tests(commands)
         ligand_imports.check_deliveries(options, [c[0] for c in commands])
 
         for c in commands:

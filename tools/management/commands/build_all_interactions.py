@@ -36,7 +36,9 @@ class Command(BaseBuild):
         # contact-network pass, so a problem stops the command early. The contact
         # network writes only InteractingResiduePair and Interaction, which the
         # imports neither read nor write, so the dry runs still hold after it.
-        before, imports = ligand_imports.split(ligand_imports.steps(options))
+        before, imports = ligand_imports.split(
+            ligand_imports.with_tests(ligand_imports.steps(options))
+        )
         ligand_imports.check_deliveries(options, [c for c, _o in before + imports])
         ligand_imports.run(before)
         try:
