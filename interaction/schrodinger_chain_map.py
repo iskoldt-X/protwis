@@ -18,8 +18,8 @@ when it disagrees, and is the only thing that can confirm a name-based
 fallback where GPCRdb stores an older model whose coordinates no longer match.
 
 No database access and no Django imports: the commands that build the maps
-(build_schrodinger_chainmap_files and build_schrodinger_peptide_maps from files,
-build_schrodinger_chain_map from the database) feed this module with text.
+(build_schrodinger_chainmap_files and build_schrodinger_peptide_maps) feed this
+module with text.
 """
 
 import collections

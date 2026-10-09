@@ -18,8 +18,7 @@ Two layers:
 
 Instance selection and the receptor chain come from a per-structure chain
 map, {data_dir}/{PDB}/chainmap.tsv, written by build_schrodinger_chainmap_files
-(or, for comparison, from the two whole-database maps of
-build_schrodinger_chain_map); both use interaction/schrodinger_chain_map.py.
+with interaction/schrodinger_chain_map.py.
 Product chain names are mmCIF author names, GPCRdb's are its own stored
 PDB-format names, and the two differ for a few dozen structures.
 
@@ -126,30 +125,6 @@ def _read_map(path):
     return header, reader.fieldnames, list(reader)
 
 
-def load_anchor_map(path):
-    """(header, {(pdb, HET, token): row}) from anchor_instance_map.tsv."""
-    header, _, rows = _read_map(path)
-    table = {}
-    for r in rows:
-        key = (r["pdb"].upper(), r["het"].upper(), r["token"])
-        if key in table:
-            raise MapMismatch("duplicate anchor map key {}".format(key))
-        table[key] = r
-    return header, table
-
-
-def load_receptor_map(path):
-    """(header, {pdb: row}) from receptor_chain_map.tsv."""
-    header, _, rows = _read_map(path)
-    table = {}
-    for r in rows:
-        key = r["pdb"].upper()
-        if key in table:
-            raise MapMismatch("duplicate receptor map key {}".format(key))
-        table[key] = r
-    return header, table
-
-
 # ---------------------------------------------------------------------------
 # Per-PDB chain maps
 # ---------------------------------------------------------------------------
@@ -228,9 +203,9 @@ def load_chainmap(path):
 def load_chainmap_dir(data_dir, pdb_codes):
     """Per-PDB chain maps from {data_dir}/{PDB}/chainmap.tsv.
 
-    Returns (anchor_table, receptor_table, missing, provenance, not_run). The
-    two tables are shaped exactly like load_anchor_map / load_receptor_map, so
-    import_structure does not know which format it was given.
+    Returns (anchor_table, receptor_table, missing, provenance, not_run):
+    anchor_table maps (PDB, HET, token) to its row, receptor_table maps PDB to
+    its receptor row.
 
     `missing` lists the PDB codes with no chainmap.tsv: they are reported and
     failed one at a time rather than aborting the run, so one absent file names
@@ -811,11 +786,7 @@ def check_map_covers(pdb, slis, anchor_map):
     are the visible cost of the subset rule, and silence about them would hide
     a ligand copy that was computed and then not imported.
 
-    A map built by build_schrodinger_chain_map lists exactly the database's
-    copies by construction: it walks the same StructureLigandInteraction rows
-    through the same split_tokens() call. (It also filters experiment-origin
-    structures, which the import command does separately.) The subset rule is
-    for a map built from the annotation instead (ligands.tsv), where extras are
+    The map is built from the annotation (ligands.tsv), where extras are
     normal: the annotation splits a ligand into physical copies, while
     StructureLigandInteraction is keyed on (structure, ligand, ligand_role,
     annotated) and has no copy dimension, so build_structures keeps one row per

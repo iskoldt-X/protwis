@@ -12,19 +12,8 @@ Every directory under --data-dir is one structure; whether Engine 1 ran it is
 read from its chain map and checked against the tree (see not_run below).
 --pdb / --pdb-list narrow that to a few.
 
-The older two-file maps are still accepted for comparing against a map built
-from the database::
-
-    python manage.py import_schrodinger_interactions \\
-        --data-dir /app/data/schrodinger --pdb 2RH1 --pdb 6CM4 \\
-        --anchor-map /runs/chainmap/anchor_instance_map.tsv \\
-        --receptor-map /runs/chainmap/receptor_chain_map.tsv \\
-        --anomaly-csv /runs/anomalies.csv
-
-Those two come from build_schrodinger_chain_map and must have been built
-against the same database dump and product tree. The per-PDB files carry the
-same fingerprints per structure instead, so a tree merged from several
-production runs is valid; the command reports the distinct provenance it saw.
+Each chainmap.tsv carries its own provenance, so a tree merged from several
+deliveries is valid; the command reports the distinct provenance it saw.
 
 A directory with no chainmap.tsv fails that structure and the run exits
 non-zero. It is never passed over: the anchors its map should have described
@@ -121,12 +110,6 @@ class Command(BaseCommand):
                             help="File with one PDB code per line (# comments allowed). "
                                  "Without it and without --pdb, every structure directory "
                                  "under --data-dir is imported.")
-        parser.add_argument("--anchor-map", default=None,
-                            help="anchor_instance_map.tsv from build_schrodinger_chain_map. "
-                                 "Without it the per-PDB {PDB}/chainmap.tsv files are read.")
-        parser.add_argument("--receptor-map", default=None,
-                            help="receptor_chain_map.tsv from build_schrodinger_chain_map; "
-                                 "required with --anchor-map, refused without it.")
         parser.add_argument("--anomaly-csv", required=True,
                             help="Where to write the per-anchor accounting CSV.")
         parser.add_argument("--report-json", default=None,
@@ -204,18 +187,9 @@ class Command(BaseCommand):
             raise CommandError("--data-dir {!r} is not a directory".format(options["data_dir"]))
         codes, whole_tree = self._pdb_codes(options)
         self._check_slugs()
-        if bool(options["anchor_map"]) != bool(options["receptor_map"]):
-            raise CommandError("--anchor-map and --receptor-map go together")
-        no_chainmap, provenance, not_run = [], {}, []
         try:
-            if options["anchor_map"]:
-                anchor_header, anchor_map = si.load_anchor_map(options["anchor_map"])
-                receptor_header, receptor_map = si.load_receptor_map(options["receptor_map"])
-                if anchor_header != receptor_header:
-                    raise CommandError("the anchor and receptor maps come from different builds")
-            else:
-                anchor_map, receptor_map, no_chainmap, provenance, not_run = si.load_chainmap_dir(
-                    options["data_dir"], codes)
+            anchor_map, receptor_map, no_chainmap, provenance, not_run = si.load_chainmap_dir(
+                options["data_dir"], codes)
         except (OSError, si.MapMismatch) as exc:
             raise CommandError("cannot read the chain maps: {}".format(exc))
         for key, values in sorted(provenance.items()):

@@ -130,19 +130,6 @@ class MapGuardTests(unittest.TestCase):
         self.addCleanup(os.unlink, fh.name)
         return fh.name
 
-    def test_map_files_header_and_duplicates(self):
-        header = "# dump_id\t20260917_phase2\n# structures\t1\n"
-        path = self._write(header + "pdb\thet\ttoken\tinstance\tstatus\n6zin\tq6q\tA:1000\tQ6Q_AAA_1000\tok\n")
-        head, table = si.load_anchor_map(path)
-        self.assertEqual(head, {"dump_id": "20260917_phase2", "structures": "1"})
-        self.assertEqual(table[("6ZIN", "Q6Q", "A:1000")]["instance"], "Q6Q_AAA_1000")
-        dup = self._write(header + "pdb\thet\ttoken\n6ZIN\tQ6Q\tA:1000\n6ZIN\tQ6Q\tA:1000\n")
-        with self.assertRaises(si.MapMismatch):
-            si.load_anchor_map(dup)
-        rdup = self._write(header + "pdb\tauth_chain\n6ZIN\tAAA\n6zin\tAAA\n")
-        with self.assertRaises(si.MapMismatch):
-            si.load_receptor_map(rdup)
-
     def test_a_quoted_newline_in_a_row_cannot_forge_a_header(self):
         """A note may hold a newline; its continuation must stay in the body."""
         note = 'unreadable:\n# schema\tengine1-chainmap/999'

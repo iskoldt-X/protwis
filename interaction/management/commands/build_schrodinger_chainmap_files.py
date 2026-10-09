@@ -1,11 +1,9 @@
 """Build one chainmap.tsv per PDB, from files only.
 
-Same decisions as build_schrodinger_chain_map: the per-anchor and per-receptor
-resolution is interaction.schrodinger_chain_map, imported by both. The branch
-for an anchor whose chain_res names no residue is written out in both commands
-and has to be kept in step by hand. Every input here comes from files instead of
-the database, and the output is one file per structure, written into that
-structure's product directory, where the importer looks for it::
+The per-anchor and per-receptor resolution is interaction.schrodinger_chain_map.
+Every input comes from files, not the database, and the output is one file per
+structure, written into that structure's product directory, where the importer
+looks for it::
 
     python manage.py build_schrodinger_chainmap_files \\
         --data-dir <DATA_DIR>/structure_data/schrodinger/engine1
