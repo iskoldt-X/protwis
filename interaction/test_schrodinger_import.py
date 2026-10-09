@@ -472,8 +472,7 @@ class CascadeGuardTests(unittest.TestCase):
 
 class RoutingTests(unittest.TestCase):
 
-    # Every (family, direction) pair in the 2026-09-17 production tree
-    # (12,718 instance YAMLs, 124,276 rows).
+    # Every (family, direction) pair the producer emits.
     PRODUCTION_PAIRS = {
         ("HPhob", ""): "hyd",
         ("Acceptor", "ligand-acceptor"): "polar_donor_protein",
@@ -487,8 +486,7 @@ class RoutingTests(unittest.TestCase):
         ("PiCat", "receptor-cation"): "aro_ion_protein",
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
-        # Not in the 2026-09-17 tree: the covalent family is newer, and its
-        # slug comes with the seed migration.
+        # Its slug comes with the seed migration.
         ("Covalent", ""): "covalent",
     }
 
@@ -547,7 +545,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "070e4d719f6f61e60d5147ddec2540ea5835eb3040205a624e53a8458e476c52")
+            digest, "b3376cdf1dc759516f2b30f5e21a298e5266368f0928d06616f1d243f8b2d808")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")

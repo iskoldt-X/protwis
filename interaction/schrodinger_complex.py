@@ -2,24 +2,20 @@
 
 The interaction page loads it into each ligand's viewer (through
 interaction.views.download) and structure/pdb/<pdb>/ligand/<lig> serves it.
-It used to be a by-product of the legacy calculation. The imports write it
-now: the ligand and the receptor residues the import wrote interaction rows
-for, as lines of GPCRdb's own stored structure text, so the viewer shows the
-residues the table lists, with the names and coordinates the rest of the site
-uses.
+The imports write it: the ligand and the receptor residues the import wrote
+interaction rows for, as lines of GPCRdb's own stored structure text, so the
+viewer shows the residues the table lists, with the names and coordinates the
+rest of the site uses.
 
 A HET ligand is found in that text by residue name and position: a HETATM
 residue named like the ligand (a five-character code is cut to three in the
 stored text) with an atom within LIGAND_NEAR of a product ligand atom. HETATM
-only, because some ligands carry an amino acid's name (free TRP in 7DD5, GLU
-in 8JD3) and the receptor residue of that name next to them is ATOM. Product
-coordinates come through structure preparation; most are within 0.01 A of the
-stored text, but in the products delivered on 2026-10-04, 8 anchors (3RZE,
-7V68 x2, 8IU2, 8JEF, 8VVG, 8WJX) are 0.6-1.9 A away, so an exact match would
-miss them.
-Atoms of two different molecules are not that close, and the name keeps a
-neighbouring molecule of another kind out. An alternate conformer stored as
-its own residue (7B6W T0B A:602) is taken too.
+only, because some ligands carry an amino acid's name and the receptor residue
+of that name next to them is ATOM. Not an exact match, because structure
+preparation can move product coordinates by up to about 2 A; atoms of two
+different molecules are not that close, and the name keeps a neighbouring
+molecule of another kind out. An alternate conformer stored as its own residue
+is taken too.
 """
 
 from interaction import schrodinger_chain_map as cm

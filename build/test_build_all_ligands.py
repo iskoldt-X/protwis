@@ -49,7 +49,7 @@ class LigandImportStepsTests(unittest.TestCase):
         self.assertEqual(steps["build_schrodinger_peptide_maps"],
                          {"data_dir": "/e2", "index_dir": "/e1"})
         # The annotation decides which structures get a map; a product directory
-        # it no longer lists is not a reason to stop the build.
+        # it does not list is not a reason to stop the build.
         self.assertEqual(steps["build_schrodinger_chainmap_files"],
                          {"data_dir": "/e1", "allow_stray": True})
 

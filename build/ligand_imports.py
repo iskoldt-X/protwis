@@ -1,19 +1,19 @@
 """The Schrodinger ligand imports, as build_all and build_all_interactions run them.
 
-Neither command computes ligand interactions with the legacy calculation; they
-come from two imports of the Schrodinger deliveries: Engine 1 serves the
-anchors named by a HET code (import_schrodinger_interactions), Engine 2's
-peptide import the "pep" chains (import_schrodinger_peptides). First the maps
-that tell each import which product answers which database anchor are built
-from this build's annotation and structure text (build_schrodinger_chainmap_files,
-build_schrodinger_peptide_maps), so they can never be older than the data they
-describe. Then both imports dry-run, then both run for real, so a structure that
-would fail stops the caller with nothing imported rather than half imported:
-recovering is a re-run, not an excavation. When both imports are done the maps
-are removed again (remove_schrodinger_maps), so the deliveries are left as they
-came; after a failed import they stay for the inspection. build_all_interactions
-runs the maps and the dry runs before its long contact-network pass and the
-imports and the clean-up after it.
+Ligand interactions come from two imports of the Schrodinger deliveries:
+Engine 1 serves the anchors named by a HET code (import_schrodinger_interactions),
+Engine 2 the "pep" chains (import_schrodinger_peptides). The steps:
+
+1. build the maps that tell each import which product answers which database
+   anchor, from this build's annotation and structure text
+   (build_schrodinger_chainmap_files, build_schrodinger_peptide_maps);
+2. dry-run both imports, so a structure that would fail stops the caller with
+   nothing imported;
+3. run both imports;
+4. remove the maps (remove_schrodinger_maps); after a failed import they stay.
+
+build_all_interactions runs steps 1-2 before its contact-network pass and 3-4
+after it.
 """
 
 import datetime
@@ -31,12 +31,8 @@ ENGINE1_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine1'])
 # go the same way.
 ENGINE2_DIR = os.sep.join(['structure_data', 'schrodinger', 'engine2'])
 
-# Where each import run leaves its accounting, relative to BASE_DIR. Not in
-# DATA_DIR: that is a git checkout of shared, versioned input, and a per-run,
-# per-machine output does not belong in it -- `git clean` there would take the
-# delivery with it. logs/ is this project's own runtime output directory and is
-# ignored by git in full. One directory per run, so a later run cannot
-# overwrite the record of an earlier one.
+# Where each import run leaves its accounting, relative to BASE_DIR (not in
+# DATA_DIR, which is shared input). One directory per run.
 ENGINE1_RUN_DIR = os.sep.join(['logs', 'engine1_import'])
 ENGINE2_RUN_DIR = os.sep.join(['logs', 'engine2_peptide_import'])
 
@@ -121,8 +117,7 @@ def steps(options):
               'report_json': os.path.join(run_dir, 'report.json')}]
             for command, data_dir, run_dir in imports]
     # allow_stray: a product directory the annotation no longer lists gets no
-    # map. The database is built from the same annotation, so it has no anchor
-    # there for the import to miss; the annotation decides, not the delivery.
+    # map; the database, built from the same annotation, has no anchor there.
     maps = [[MAP_COMMANDS[0], {'data_dir': engine1_dir(options), 'allow_stray': True}],
             [MAP_COMMANDS[1], {'data_dir': engine2_dir(options),
                                'index_dir': engine1_dir(options)}]]

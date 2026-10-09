@@ -1,8 +1,7 @@
 """Seed every interaction type the Schrodinger imports write.
 
-build_structures no longer computes ligand interactions, so nothing in a build
-creates the types the legacy calculation used to create on the fly. These rows
-are exactly schrodinger_import.required_slugs(): the targets of
+build_structures does not compute ligand interactions, so nothing else in a
+build creates these types. These rows are exactly schrodinger_import.required_slugs(): the targets of
 interaction_type_map.yaml outside the excluded families, plus polar_backbone,
 the backbone override.
 
@@ -13,10 +12,9 @@ stores: its rows carry no fragment). Three are new:
 
 * halogen_protein and metal_coordination_protein, targets of map rules the
   legacy calculation has no counterpart for. halogen_protein is named "halogen
-  contact", not "halogen bond": the producer criterion is a halogen within
-  3.5 A of a polar atom, and its halogen-end angle floor (90 degrees) removed
-  no row in the measured structures, so the rows are contacts rather than
-  proven halogen bonds.
+  contact", not "halogen bond": the producer's criterion is a halogen within
+  3.5 A of a polar atom with loose angle limits, so the rows are contacts
+  rather than proven halogen bonds.
 * covalent, for the Covalent rows: a bond of order >= 1 from a ligand atom to
   a receptor atom, as the Suite drew it from the input file's _struct_conn rows
   or as one of its bond builders added it during preparation; it says a bond
@@ -59,8 +57,8 @@ def seed(apps, schema_editor):
     for slug, name, type_, direction in SEEDED_TYPES:
         row, created = InteractionType.objects.get_or_create(
             slug=slug, defaults={"name": name, "type": type_, "direction": direction})
-        # A database seeded from the earlier fixture calls this slug
-        # "halogen bond"; the name is the only field corrected here.
+        # An existing database may name this slug "halogen bond"; the name is
+        # the only field corrected.
         if not created and slug == "halogen_protein" and row.name != name:
             row.name = name
             row.save(update_fields=["name"])

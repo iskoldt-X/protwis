@@ -16,10 +16,10 @@ Each chainmap.tsv carries its own provenance, so a tree merged from several
 deliveries is valid; the command reports the distinct provenance it saw.
 
 A directory with no chainmap.tsv fails that structure and the run exits
-non-zero. It is never passed over: the anchors its map should have described
-would otherwise keep their old rows without a word. For the same reason, when
-the corpus comes from the tree, a database structure with Engine 1 anchors and
-no directory at all stops the run before anything is touched.
+non-zero; it is never passed over, or its anchors would keep their old rows.
+For the same reason, when the corpus comes from the tree, a database structure
+with Engine 1 anchors and no directory at all stops the run before anything is
+touched.
 
 Each structure is imported in its own transaction. A structure that fails
 (unreadable YAML, a summary.yaml without the contract version this importer
@@ -27,21 +27,18 @@ reads, a row the type map cannot route, or any unexpected error) is rolled
 back and reported; the others are unaffected. The command exits
 non-zero when any structure failed, after all structures have been attempted.
 
-An anchor with no product instance loses its existing rows and is
-reported as a WARNING (anchor_cleared) with the map's reason. That applies
-only to a structure Engine 1 actually ran: one whose directory holds neither a
-product instance nor the producer's summary is left untouched and reported as
-not_run, because "never looked at" is not "looked and found nothing". When
-such a structure has anchors, its rows would stay as the legacy pipeline left
-them, so it fails the run like any other -- pass --allow-not-run to accept that
-and carry on.
+An anchor with no product instance loses its existing rows and is reported
+as a WARNING (anchor_cleared) with the map's reason. That applies only to a
+structure Engine 1 ran: one whose directory holds neither a product instance
+nor the producer's summary is left untouched and reported as not_run. When
+such a structure has anchors, they would keep rows this import did not write,
+so it fails the run; --allow-not-run accepts it.
 
-The anomaly CSV and the report JSON are per-run, per-machine output: point
-them at a fresh directory each run (build_all gives each build a timestamped
-one under logs/) rather than into the delivered tree, which is shared input.
-The anomaly CSV is written outside the transactions and flushed per row, so
-it survives any rollback. Every row that was read but not written is
-accounted for in it.
+Point the anomaly CSV and the report JSON at a fresh directory each run
+(build_all gives each build a timestamped one under logs/), not into the
+delivered tree. The anomaly CSV is written outside the transactions and
+flushed per row, so it survives any rollback; every row that was read but not
+written is accounted for in it.
 """
 
 import collections
@@ -134,9 +131,8 @@ class Command(BaseCommand):
                     if line:
                         codes.append(line.upper())
         if not codes:
-            # Every structure directory the tree offers. Which of them the
-            # producer actually ran is decided per structure from its chainmap,
-            # so a build consumes the tree without being told what is in it.
+            # Every structure directory the tree offers; which of them the
+            # producer ran is decided per structure from its chainmap.
             codes = si.product_pdb_codes(options["data_dir"])
             if not codes:
                 raise CommandError(
@@ -148,10 +144,9 @@ class Command(BaseCommand):
     def _uncovered(codes):
         """In-scope structures the database has and the delivered tree does not.
 
-        Only meaningful when the corpus came from the tree. Such a structure is
-        never visited, so it silently keeps whatever the legacy pipeline wrote
-        -- the one way this import can leave two methods in one table without
-        saying so.
+        Only meaningful when the corpus came from the tree: such a structure is
+        never visited, so its anchors would keep rows this import did not
+        write.
         """
         have = {c.upper() for c in codes}
         out = []
@@ -194,8 +189,7 @@ class Command(BaseCommand):
             raise CommandError("cannot read the chain maps: {}".format(exc))
         for key, values in sorted(provenance.items()):
             if len(values) > 1:
-                # Merging deliveries is the intended way to grow the tree, so
-                # this is reported, not refused.
+                # Maps built at different times are expected: reported, not refused.
                 self.stdout.write("{}: {} distinct values across the tree ({})".format(
                     key, len(values), ", ".join(
                         "{}x {}".format(n, v or "(blank)") for v, n in sorted(

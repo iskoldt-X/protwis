@@ -10,13 +10,10 @@
 # THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL. One copy
 # is read by the GPCRdb import (protwis, interaction/schrodinger_import.py); the
 # other, in the Schrodinger producer, only by that producer's tests. Each
-# repository's tests pin the same sha256 of the file, so a change on one side
-# only fails that side's tests. Nothing else compares them. A rule missing from
-# the import's copy is not harmless: resolve_slug raises on a receptor row of an
-# unknown (family, direction), so each import command fails every structure
-# holding one and exits non-zero; under build_all and build_all_interactions
-# the dry run fails first, and the build stops with nothing imported. So a
-# change here is a change to both files, and to both pinned digests, at once.
+# repository's tests pin the same sha256 of the file. A rule missing from the
+# import's copy fails every structure holding such a receptor row, and stops
+# build_all and build_all_interactions in their dry run. So a change here is a
+# change to both files, and to both pinned digests, at once.
 #
 # -----------------------------------------------------------------------------
 # DESIGN: the target slug is fully determined by (feature_family, direction).
@@ -102,9 +99,8 @@ rules:
     slug: halogen_protein
     rationale: >-
       Halogen contact: a ligand halogen within the producer's distance limit
-      of a receptor polar atom (backbone C=O, Asn/Gln O, His N, ...). The
-      producer's halogen-end angle floor (90 degrees) removed no row in the
-      measured structures, so these are contacts rather than proven halogen
+      of a receptor polar atom (backbone C=O, Asn/Gln O, His N, ...), with
+      loose angle limits, so these are contacts rather than proven halogen
       bonds, and the type is named "halogen contact". The Suite's SHORTFORM
       'XBond' is kept verbatim rather than renamed.
   - family: Wat-HBond
@@ -125,9 +121,7 @@ rules:
 
   # ---- Hydrophobic -------------------------------------------------------------
   # The Suite emits its SHORTFORM 'HPhob' verbatim, and the producer builds the
-  # contact with no direction, so direction arrives as '' -- the same shape as
-  # the three rules above. Without this rule every structure with a receptor
-  # HPhob row would fail in resolve_slug.
+  # contact with no direction, so direction arrives as ''.
   - family: HPhob
     direction: ''
     slug: hyd

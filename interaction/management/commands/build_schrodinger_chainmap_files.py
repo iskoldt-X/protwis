@@ -26,14 +26,10 @@ Where each input comes from:
     structure_type.origin == experiment   structures.tsv holds experimental only
     author chains, numbering, coordinates <index-dir>/<PDB>/<PDB>_structure_index.tsv
 
-The command issues no database query and imports no model of its own; the
-importer module it borrows constants and instance discovery from pulls in
-Django models at import time, but nothing here touches the ORM.
+The command issues no database query.
 
 Writes <out-dir>/<PDB>/chainmap.tsv, one per PDB, each carrying its own
-provenance header. No field enumerates what else was in the run, so trees built
-at different times can be merged by copying directories; the headers then differ
-between files, which is how a merged tree is recognised.
+provenance header, so maps built at different times can sit in one tree.
 
 An empty body means the annotation lists no ligand Engine 1 serves for that
 structure. It does not mean the engine looked and found none: the body is built
@@ -139,15 +135,11 @@ HEADER_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
 def has_product_summary(data_dir, pdb):
     """Did the producer leave its per-structure summary in this directory?
 
-    The only evidence in the delivery that Engine 1 ever looked at a structure.
-    Read from the product tree, never from the out dir: it is a fact about the
-    producer, so building into a separate directory must not change the answer.
+    Read from the product tree, never from the out dir.
     """
     path = os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME)
     try:
-        # An empty file is a truncated copy, not a run. The whole judgement
-        # rests on this one answer, so it does not accept a file that says
-        # nothing.
+        # An empty file is a truncated copy, not a run.
         return os.path.isfile(path) and os.path.getsize(path) > 0
     except OSError:
         return False
@@ -156,9 +148,8 @@ def has_product_summary(data_dir, pdb):
 def chainmap_header(pdb, values, receptor, has_summary):
     """The '# key<TAB>value' lines of one chainmap, in order.
 
-    Every field is a statement about this one structure or about an input that
-    was the same for every structure, so merging two runs by copying
-    directories leaves every file still telling the truth about itself.
+    Every field is about this structure or about an input common to all of
+    them, so each file stays true when trees are merged.
     """
     header = [("schema", SCHEMA), ("pdb", pdb)]
     header += [(key, values[key]) for key in HEADER_KEYS]
@@ -207,11 +198,9 @@ def read_tsv(path):
 def preferred_chains(rows):
     """PDB -> preferred chain, as structure.functions.ParseStructureCSV stores it.
 
-    That parser keeps only the first character of a chain id containing a dot,
-    which is how a numeric chain id has been seen to arrive; resolve_receptor
-    then takes the part before the first comma. Neither branch fires on the
-    annotation as it stands -- they are here because the database side applies
-    them, and the two must agree whatever the file holds.
+    That parser keeps only the first character of a chain id containing a dot;
+    resolve_receptor then takes the part before the first comma. Both rules are
+    applied here as the database side applies them, so the two always agree.
     """
     out = {}
     for r in rows:
@@ -228,13 +217,9 @@ def annotation_anchors(rows):
     """PDB -> [(HET, token, chain_res)] in file order, for the anchors Engine 1 serves.
 
     Mirrors schrodinger_import.is_in_scope: every row whose Name is a real
-    chemical component, whatever its Type. The reference says what the anchor
-    is in the structure; the type does not always agree between the annotation
-    and the database (6K1Q's IRL 2500, D2U: small-molecule here, peptide there),
-    and a type test on either side alone drops an anchor the other side keeps.
-    The (HET, token) pairs are the same set check_map_covers compares against
-    the database, so the ligand_role axis -- which the annotation does not
-    have -- never enters.
+    chemical component, whatever its Type (the type can disagree between the
+    annotation and the database). The (HET, token) pairs are the set
+    check_map_covers compares against the database.
     """
     out = {}
     seen = set()
@@ -304,8 +289,7 @@ class Command(BaseCommand):
         for label, path in (("--gpcrdb-data", gdata), ("--index-dir", index_dir), ("--data-dir", data_dir)):
             if not os.path.isdir(path):
                 raise CommandError("{} {!r} is not a directory".format(label, path))
-        # The out dir itself is created; its parent is not, so a typo there
-        # would otherwise build a whole tree somewhere nobody looks.
+        # The out dir itself is created, its parent is not: a typo fails.
         out_parent = os.path.dirname(os.path.abspath(out_dir))
         if not os.path.isdir(out_parent):
             raise CommandError("--out-dir {!r}: {} does not exist".format(out_dir, out_parent))
@@ -324,11 +308,9 @@ class Command(BaseCommand):
         anchors = annotation_anchors(ligand_rows)
         chains = preferred_chains(read_tsv(structures_tsv))
 
-        # The corpus is structures.tsv, the same list the producer runs, not
-        # the directories that happen to sit under --data-dir. Driving it off
-        # the tree would skip a structure whose run yielded nothing -- exactly
-        # the structures whose anchors have to be cleared -- and would write a
-        # chainmap into any stray directory, .git included.
+        # The corpus is structures.tsv, not the directories under --data-dir:
+        # a structure whose run yielded nothing still needs its map, and a
+        # stray directory must not get one.
         corpus = sorted(chains)
         if not corpus:
             raise CommandError("{} lists no structures".format(structures_tsv))
@@ -341,10 +323,8 @@ class Command(BaseCommand):
             pdbs = corpus
             # A directory holding products but absent from the corpus gets no
             # chainmap.tsv, and the importer fails on it if the database knows
-            # the structure. Housekeeping directories (.git, logs) hold no
-            # instance and are only worth a quiet note -- keeping the two apart
-            # is the point, so that the day a real structure lands in the list
-            # it is not read as noise.
+            # the structure. Directories without an instance (.git, logs) are
+            # only noted.
             dropped, housekeeping = [], []
             for name in sorted(os.listdir(data_dir)):
                 if name.upper() in chains or not os.path.isdir(os.path.join(data_dir, name)):
@@ -367,9 +347,7 @@ class Command(BaseCommand):
         structures_sha = _sha256_file(structures_tsv)
         # What produced these rows: the algorithm module, this command, and what
         # it borrows from the importer module (scope, instance discovery and the
-        # chainmap format constants). Hashing the whole of that module instead
-        # would move this stamp on every unrelated importer edit, and a merged
-        # tree would then report a difference that is not one.
+        # chainmap format constants), not the whole importer module.
         builder_sha = _sha256_parts([
             _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
             repr(sorted(si.PLACEHOLDER_REFERENCES)),
@@ -448,9 +426,8 @@ class Command(BaseCommand):
         except (OSError, UnicodeDecodeError) as exc:
             return unresolved(exc)
         try:
-            # Only the parsers get the wide clause: one malformed input must
-            # cost one structure rather than the whole run. Anything raised
-            # outside these two calls is a bug and is left to surface as one.
+            # Only the parsers get the wide clause: one malformed input costs
+            # one structure, not the run.
             # The header records the sha256 of the mmCIF the index was read
             # from, the file the products were computed from.
             note["cif_sha256"], cif_atoms = cm.parse_structure_index(index_text)

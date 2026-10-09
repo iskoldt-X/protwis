@@ -15,14 +15,12 @@ recomputes it:
 
 * the receptor's author chain is the one that carries GPCRdb's receptor chain
   (matched by CA coordinates), and the receptor side is every segment on it,
-  exactly as Engine 1's receptor selection is the whole receptor chain: a
-  receptor can be declared in pieces (an entry-referenced TM6-TM7, a chimeric
-  loop, three unreferenced N-terminal residues), and rows on a fusion partner
-  find no GPCRdb residue and are dropped and counted, as in Engine 1. The
+  as in Engine 1, since a receptor can be declared in several pieces; rows on a
+  fusion partner find no GPCRdb residue and are dropped and counted. The
   segment covering most of GPCRdb's receptor residues is recorded as the
   primary one; it must exist, or the receptor is not resolved. Sequence
-  references are not used: for a quarter of the constructs they name the
-  entry itself, or another species;
+  references are not used: they often name the entry itself or another
+  species;
 * a peptide's GPCRdb chain is matched to an author chain by CA coordinates,
   and by all atom coordinates when the chain has no standard CA (peptides of
   D-amino acids are all HETATM);
@@ -204,15 +202,13 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     """(author chain, method, note) for one GPCRdb peptide chain.
 
     method "ca": the receptor rule of the Engine 1 chain map, applied to the
-    peptide chain. A renumbered match is still a match -- the peptide numbers
-    written come from the product -- and is noted. method "any_atom": the
-    chain has no standard CA in GPCRdb's text (a peptide of D-amino acids is
-    all HETATM), so every atom of the chain there is looked up among the
-    author-side atoms. Those come from the producer's coordinate index, which
-    holds every HETATM record, every CA and every atom of a residue without a
-    CA: an all-HETATM chain is complete in it. A chain GPCRdb stores as HETATM
-    but the mmCIF as ATOM records with CA atoms would fall under the share and
-    be refused -- loudly; none among the structures delivered in October 2026.
+    peptide chain; a renumbered match is still a match (the peptide numbers
+    written come from the product) and is noted. method "any_atom": the chain
+    has no standard CA in GPCRdb's text (a peptide of D-amino acids is all
+    HETATM), so every atom of the chain there is looked up among the
+    author-side atoms of the coordinate index, which holds every atom of a
+    residue without a CA. A chain stored as HETATM in GPCRdb but as ATOM with CA
+    atoms in the mmCIF falls under the share and is refused.
     """
     res = chain_map.resolve_receptor(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms)
     if res["status"] in ("ok", "renumbered") and res["auth_chain"]:
@@ -475,10 +471,10 @@ def plan_peptide_pairs(rows, receptor_chain_name, product_chain):
 
         rows_in == not_in_peptide_tables + nonstandard_residue + other_chain + used
 
-    A peptide atom whose residue has an insertion code (antibody Kabat
-    numbering, e.g. TRP 100C) is left out and counted as insertion_code_atoms:
-    the table has no column for the code, and writing 100 would label the
-    position another residue holds. The RFI fragment text keeps the code.
+    A peptide atom whose residue has an insertion code (antibody numbering) is
+    left out and counted as insertion_code_atoms: the table has no column for
+    the code, and writing the bare number would name another residue. The RFI
+    fragment text keeps the code.
     """
     counts = collections.Counter()
     counts["rows_in"] = len(rows)

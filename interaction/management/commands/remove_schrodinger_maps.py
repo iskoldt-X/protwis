@@ -1,17 +1,11 @@
 """Remove the maps a build made for the Schrodinger imports, once both imports are done.
 
-build_all builds chainmap.tsv (Engine 1 tree) and peptide_map.tsv (Engine 2 tree)
-from the annotation of that build, imports with them, and then runs this, so the
-deliveries -- a gpcrdb_data checkout -- are left as they came: no build output in
-them, and no map of one build for the next to trip over. It removes those two
-file names one level below each tree, and a structure directory only when the
-map it just removed was the last thing in it -- the map builder makes such a
-directory for a structure with no delivered product. Nothing else is touched:
-an empty directory that held no map, symlinked directories, files of any other
-name.
-
-When an import fails the caller stops before this step, and the maps stay for
-the inspection; the next build rebuilds them.
+build_all builds chainmap.tsv (Engine 1 tree) and peptide_map.tsv (Engine 2
+tree), imports with them, and then runs this, so the deliveries (a gpcrdb_data
+checkout) are left as they came. It removes those two file names one level
+below each tree, and a structure directory only when the map it just removed
+was the last thing in it. Nothing else is touched. When an import fails the
+caller stops before this step and the maps stay for inspection.
 
     python manage.py remove_schrodinger_maps --engine1-dir <tree> --engine2-dir <tree>
 """

@@ -41,7 +41,7 @@ def rows(text):
 
 class ComplexTextTests(unittest.TestCase):
     def test_the_ligand_by_name_and_position_and_the_written_residues(self):
-        # A product coordinate 1.9 A off, as measured on 8IU2 RET.
+        # A product coordinate 1.9 A off the stored one, as preparation can leave it.
         out = cx.complex_text(TEXT, "R", {147, 293}, ligand_xyz=[(6.9, 5.0, 5.0)],
                               ligand_resname="ZMA")
         names = [(l[17:20], l[22:26].strip(), l[26]) for l in rows(out)]
@@ -70,7 +70,7 @@ class ComplexTextTests(unittest.TestCase):
         self.assertEqual({l[17:20] for l in rows(out)}, {"ZMA"})
 
     def test_a_ligand_named_like_an_amino_acid_is_the_hetatm_one(self):
-        # Free tryptophan next to the receptor's own Trp (7DD5 TRP 1108, Trp 70).
+        # Free tryptophan next to the receptor's own Trp.
         out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(13.4, 0.0, 0.0)], ligand_resname="TRP")
         self.assertEqual([(l[:6].strip(), l[22:26].strip()) for l in rows(out)], [("HETATM", "1108")])
 

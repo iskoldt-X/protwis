@@ -7,20 +7,18 @@
 The corpus is the database: every experimental structure with an anchor this
 import serves (schrodinger_peptide.is_in_scope). Each must have a directory with
 a peptide_map.tsv under --data-dir (build_schrodinger_peptide_maps); one that
-has none fails, and is never passed over -- its anchors would otherwise keep
-their old rows, or none, without a word. --pdb / --pdb-list narrow the corpus.
+has none fails rather than keep its old rows. --pdb / --pdb-list narrow the
+corpus.
 
 Each structure is imported in its own transaction and replaces, for each of
 its "pep" anchors, the anchor's RFI rows and its peptide pairs. An anchor whose
 items the run failed (preparation_failed, compute_failed, timed_out, crashed)
-gets no rows and is reported as a WARNING (anchor_cleared), as Engine 1 treats
-a structure it ran without a product; the structure and the run go on. A
-structure that fails (its map could not be built -- for one, a plan.json
-without the contract version this importer reads -- an item record with
-another contract version or unreadable, or any unexpected error) is rolled
-back and reported; the others are unaffected, and the command exits non-zero
-after all were attempted. --dry-run runs every
-structure and rolls each one back.
+gets no rows and is reported as a WARNING (anchor_cleared); the structure and
+the run go on. A structure that fails (its map could not be built, an item
+record is unreadable or carries another contract version, or any unexpected
+error) is rolled back and reported; the others are unaffected, and the command
+exits non-zero after all were attempted. --dry-run runs every structure and
+rolls each one back.
 
 The anomaly CSV is written outside the transactions and flushed per row, so it
 survives any rollback. Point it, and the report, at a fresh directory per run.

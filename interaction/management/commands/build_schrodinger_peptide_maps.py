@@ -8,9 +8,8 @@ build_all runs it before the imports, so the maps always match the annotation
 and structure text of that build. The author side comes from the coordinate
 index the producer delivers with the Engine 1 products; no mmCIF is read here.
 This relies on Engine 2 computing on Engine 1's prepared structure of the same
-mmCIF, which is how the producer runs it today: the Engine 2 products carry no
-record of their own input, so the index is checked against Engine 1's
-summary.yaml only.
+mmCIF: the Engine 2 products carry no record of their own input, so the index
+is checked against Engine 1's summary.yaml only.
 
 Where each input comes from:
 
@@ -27,14 +26,11 @@ Where each input comes from:
                                             item records beside it
 
 The map lists every chain the annotation names for a "pep" ligand of the
-structure, whatever its type and not only the one the database anchor chose:
-the annotation can list both copies of a homodimer's peptide, and which one the
-database kept is the importer's to look up. Which anchors are served is the
-importer's decision too (every "pep" anchor, whatever its type); the
-annotation's own Type column is recorded only, never used for scope. The rules themselves are in
-interaction.schrodinger_peptide, which the importer imports too.
+structure, whatever its type, not only the one the database anchor chose; the
+importer looks up which one that is. The annotation's Type column is recorded
+only, never used for scope. The rules are in interaction.schrodinger_peptide.
 
-The command issues no database query and touches no model.
+The command issues no database query.
 """
 
 import csv

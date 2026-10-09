@@ -18,9 +18,8 @@ Two layers:
 
 Instance selection and the receptor chain come from a per-structure chain
 map, {data_dir}/{PDB}/chainmap.tsv, written by build_schrodinger_chainmap_files
-with interaction/schrodinger_chain_map.py.
-Product chain names are mmCIF author names, GPCRdb's are its own stored
-PDB-format names, and the two differ for a few dozen structures.
+with interaction/schrodinger_chain_map.py. Product chain names are mmCIF author
+names, which can differ from the chain names in GPCRdb's stored text.
 
 Replacement semantics: every in-scope anchor loses all its existing rows, so
 an anchor never shows rows of the previous calculation next to, or instead
@@ -58,9 +57,9 @@ from structure.models import Fragment, PdbData, Rotamer
 # Scope
 # ---------------------------------------------------------------------------
 
-# pdb_reference values that name no chemical component (lower case in the
-# 2026-09 database, upper case in older dumps). Every other reference names one
-# and is Engine 1's (is_in_scope); PEP anchors are chains, served by Engine 2.
+# pdb_reference values that name no chemical component (compared upper-cased).
+# Every other reference names one and is Engine 1's (is_in_scope); PEP anchors
+# are polymer chains, served by Engine 2.
 PLACEHOLDER_REFERENCES = frozenset({"PEP", "APO"})
 
 # Families never written to the database. Wat-HBond: the bridging water is not
@@ -112,10 +111,8 @@ def _read_map(path):
     header, body = {}, []
     with open(path, newline="") as fh:
         for line in fh:
-            # Header lines only precede the column row. A body field may hold a
-            # quoted newline whose continuation begins with "# "; without this
-            # guard such a line would be read as a header key, and the header
-            # is where the schema and the receptor row live.
+            # Header lines only precede the column row: a quoted newline in a
+            # body field may continue with "# " and must not become a header key.
             if not body and line.startswith("# "):
                 key, _, value = line[2:].rstrip("\r\n").partition("\t")
                 header[key] = value
@@ -131,26 +128,20 @@ def _read_map(path):
 
 CHAINMAP_NAME = "chainmap.tsv"
 
-# The only chainmap layout this importer reads. A file naming another one is
-# refused, never guessed at: the header carries the receptor row, so a layout
-# change can move a field without changing any column name.
+# The only chainmap layout this importer reads; any other is refused.
 CHAINMAP_SCHEMA = "engine1-chainmap/1"
 
-# The single receptor row is per structure, so it rides in the header under
-# this prefix instead of being a one-row table. Both the builder and the
-# reader take it from here; two literals would let a rename pass unnoticed.
+# The structure's one receptor row is stored in the header under this prefix.
 CHAINMAP_RECEPTOR_PREFIX = "receptor."
 
-# The producer writes one of these per structure it processed, so its presence
-# is the evidence that a run happened. The builder records it in the header as
-# PRODUCT_SUMMARY_KEY; without it an empty directory cannot be told from one
-# the builder created for a structure nobody ran.
+# The producer writes summary.yaml for every structure it ran to the end. The
+# map builder records its presence as PRODUCT_SUMMARY_KEY, which tells an
+# empty directory of a structure never run from one that was run.
 PRODUCT_SUMMARY_NAME = "summary.yaml"
 PRODUCT_SUMMARY_KEY = "product_summary"
 
-# Header keys that say where a chainmap came from. They are expected to differ
-# across a tree merged from several production runs; the importer reports the
-# distinct values rather than insisting on one.
+# Header keys that record where a chainmap came from. Maps built at different
+# times differ in them, so the importer reports the distinct values.
 PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
                    "builder_sha256")
 
@@ -158,9 +149,7 @@ PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
 def load_chainmap(path):
     """(pdb, anchors, receptor_row, provenance, ran) from one chainmap.tsv.
 
-    `ran` is the header's record of whether the producer left its summary in
-    that structure's directory, which is the only evidence that Engine 1 ever
-    looked at it.
+    `ran` says whether the structure's directory held the producer's summary.
     """
     header, fieldnames, rows = _read_map(path)
     if not header:
@@ -207,27 +196,18 @@ def load_chainmap_dir(data_dir, pdb_codes):
     anchor_table maps (PDB, HET, token) to its row, receptor_table maps PDB to
     its receptor row.
 
-    `missing` lists the PDB codes with no chainmap.tsv: they are reported and
-    failed one at a time rather than aborting the run, so one absent file names
-    itself instead of hiding every other.
+    `missing` lists the PDB codes with no chainmap.tsv; the caller fails them
+    one at a time.
 
     `not_run` lists the PDB codes whose directory holds neither a product
-    instance nor the producer's summary. Nobody ran those structures, and that
-    is not the same statement as "Engine 1 ran and found no ligand" -- only the
-    second one justifies clearing an anchor. The caller leaves them
-    alone and says so.
+    instance nor the producer's summary. Nobody ran them, which is not the
+    same as "ran and found no ligand", so the caller leaves their anchors
+    alone. The header's claim is checked against the tree: a header saying
+    "no products" beside a directory that holds some is not treated as not run.
 
-    That judgement is read from the header but checked against the tree it is
-    being applied to: a header claiming no products beside a directory that
-    holds some means the two came from different runs, and dropping Engine 1's
-    output for that structure without a word would be the worst of both.
+    `provenance` counts the distinct values of each PROVENANCE_KEY.
 
-    `provenance` counts the distinct values of each PROVENANCE_KEY, which a
-    tree merged from several runs will show as more than one.
-
-    A chainmap that is present but malformed raises, which ends the whole run:
-    unlike an absent one, a malformed one means the delivery cannot be trusted
-    at all. That happens before the caller has opened its accounting file.
+    A chainmap that is present but malformed raises and ends the run.
     """
     anchors, receptors, missing, not_run = {}, {}, [], []
     provenance = dict((k, {}) for k in PROVENANCE_KEYS)
@@ -262,20 +242,15 @@ def structure_verdict(in_db, experimental, was_run, has_chainmap, anchors_at_ris
 
     Returns (status, level, category), or None when the structure is imported.
 
-    The order is the policy, not a coincidence:
+    The order is the policy:
 
-    * a structure this import does not serve needs no chain map at all, so the
-      two "not ours" answers come first;
-    * a structure nobody ran is left exactly as it is -- clearing its anchors
-      would state that Engine 1 looked and found nothing, and it did
-      not look. When it has no anchors to lose, and most have none, that costs
-      nothing and is worth a note. When it does have anchors, leaving them
-      means the table keeps whatever the legacy pipeline wrote for them, which
-      is the same end state as the two failures below and gets the same answer
-      unless the caller explicitly allows it;
-    * a delivered directory with no chain map is a failure, never a skip. The
-      anchors its map should have described would otherwise keep whatever the
-      legacy pipeline wrote, without a word.
+    * a structure this import does not serve needs no chain map, so the two
+      "not ours" answers come first;
+    * a structure nobody ran is left as it is: clearing its anchors would claim
+      that Engine 1 found nothing. Without anchors that is a note; with anchors
+      it is a failure unless ``allow_not_run``, because they would keep rows
+      this import did not write;
+    * a delivered directory with no chain map is a failure, never a skip.
     """
     if not in_db:
         return "structure_not_in_db", "WARNING", "structure_not_in_db"
@@ -295,14 +270,10 @@ def structure_verdict(in_db, experimental, was_run, has_chainmap, anchors_at_ris
 def product_pdb_codes(data_dir):
     """Every structure directory of a delivered tree, sorted.
 
-    This is what the tree offers, not what the producer ran: the map builder
-    writes a directory for every structure in the annotation. Which of them
-    Engine 1 actually looked at is load_chainmap_dir's `not_run`.
-
-    Names are returned as they are on disk. Upper-casing them here would make a
-    lower-case delivery directory invisible, and would fold 2rh1 and 2RH1 into
-    one code so that one of the two deliveries vanished without a word.
-    Anything beginning with a dot is tooling, not a structure.
+    This is what the tree offers, not what the producer ran (see
+    load_chainmap_dir's `not_run`). Names are returned as they are on disk, so
+    two directories differing only in case stay two. Names beginning with a dot
+    are skipped.
     """
     return sorted(name for name in os.listdir(data_dir)
                   if not name.startswith(".") and os.path.isdir(os.path.join(data_dir, name)))
@@ -598,10 +569,9 @@ def is_in_scope(sli):
     component (a HET code), whatever type the database gives the ligand.
 
     The reference says what the anchor is in the structure; the database's
-    ligand type does not always agree with the annotation's. 6K1Q's IRL 2500 is
-    a peptide in the database and a small molecule in ligands.tsv, referenced
-    as the one component D2U: Engine 1 computes it and the chain map maps it,
-    and a type test here would leave it out of both imports.
+    ligand type can disagree (a peptide drug referenced by one chemical
+    component), and a type test here would leave such an anchor out of both
+    imports.
     """
     reference = (sli.pdb_reference or "").strip().upper()
     return bool(reference) and reference not in PLACEHOLDER_REFERENCES
@@ -781,39 +751,15 @@ def check_map_covers(pdb, slis, anchor_map):
     """Every copy the database has must be listed; extra copies are allowed.
 
     Returns the copies the map lists that this database cannot use, sorted, so
-    the caller can report them. They are never looked up -- anchor_instances
-    only asks for the tokens of the chain_res the database stores -- but they
-    are the visible cost of the subset rule, and silence about them would hide
-    a ligand copy that was computed and then not imported.
+    the caller can report them: a ligand copy computed but not imported should
+    not pass in silence.
 
-    The map is built from the annotation (ligands.tsv), where extras are
-    normal: the annotation splits a ligand into physical copies, while
-    StructureLigandInteraction is keyed on (structure, ligand, ligand_role,
-    annotated) and has no copy dimension, so build_structures keeps one row per
-    (structure, ligand, role).
-
-    Measured on the GPCRdb database dump of 2026-09-17 against ligands.tsv at
-    gpcrdb_data 9fe1875, over the 1,672 in-scope structures: the file side is
-    never short of a copy the database has (0 missing) and lists 373 extra
-    copies across 239 structures. Classifying each extra by whether its chain
-    is one the database already uses for the same HET: 328 on another chain, 44
-    further copies on a chain the database does use (35 of them the calcium
-    ion), and
-    one whole HET -- 7IPG A1CS8, whose SMILES normalises to the same
-    stereochemistry-stripped InChIKey as A1CQL, and Ligand.clean_inchikey is
-    unique, so the two annotation rows end up on one ligand and one SLI.
-
-    The cost of allowing extras: set-equality was the only per-structure
-    witness that the SLI rows still match the ones the map was built from.
-    check_fingerprints does not cover them -- it compares the stored structure
-    text and the product instance names, not chain_res, pdb_reference or the
-    ligand type. What still fails loud is any (het, token) the database holds
-    that the map does not list. What now passes silently is drift that moves a
-    copy onto a pair the map already lists: a chain rename onto a listed
-    second-chain copy, or two HETs collapsing onto one ligand. Both then import
-    what the database still has an anchor for -- in the collapsed case that
-    means one real chemical entity is never imported at all -- and both show up
-    in the returned unused copies rather than as an exception.
+    The map is built from the annotation (ligands.tsv), which lists every
+    physical copy of a ligand, while StructureLigandInteraction keeps one row
+    per (structure, ligand, role); extra copies on the map side are normal.
+    The cost: a change that moves a database copy onto a pair the map already
+    lists (a renamed chain, two HETs merged into one ligand) is not refused,
+    only reported among the unused copies.
     """
     pdb = pdb.upper()
     wanted = set()
@@ -914,9 +860,8 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                 if len(rotamers) != 1:
                     outcome.dropped["rotamer_not_found" if not rotamers else "rotamer_ambiguous"] += 1
                     continue
-                # The fragment holds the ligand atoms of this contact. Reuse only
-                # a fragment with exactly this text (one this import wrote
-                # earlier); legacy fragments hold other content.
+                # The fragment holds the ligand atoms of this contact; reuse only
+                # a fragment with exactly this text.
                 text = fragment_text(rec["ligand_lines"])
                 fragment = (Fragment.objects
                             .filter(ligand=sli.ligand, structure=structure, residue=residue,
