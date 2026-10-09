@@ -12,6 +12,7 @@ import logging, json, os
 
 class Command(BaseBuild):
 
+    # help = "Function to calculate interaction for all GPCR structures."
     help = ("Recompute the interactions of all experimental GPCR structures: the "
             "intra-receptor contact network, and the ligand interactions imported "
             "from the Schrodinger deliveries as build_all imports them. Do not change "
