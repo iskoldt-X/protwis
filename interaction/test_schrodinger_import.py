@@ -225,6 +225,30 @@ class MapGuardTests(unittest.TestCase):
                 "X", {"X": {"status": "ok", "auth_chain": "", "note": ""}}
             )
 
+    def test_a_stale_map_is_reported_before_its_receptor_row(self):
+        old, new, names = "ATOM 1\n", "ATOM 2\n", ["Q6Q_AAA_1000"]
+        row = {
+            "auth_chain": "AAA",
+            "status": "ok",
+            "note": "",
+            "gpcrdb_text_sha256": cm.text_sha256(old),
+            "product_instances_sha256": cm.instances_sha256(names),
+        }
+        chain = si.checked_receptor_chain("6zin", {"6ZIN": row}, old, names)
+        self.assertEqual(chain, "AAA")
+        renumbered = {"6ZIN": dict(row, status="renumbered", note="numbering differs")}
+        with self.assertRaisesRegex(si.MapMismatch, "rebuild"):
+            si.checked_receptor_chain("6ZIN", renumbered, new, names)
+        with self.assertRaisesRegex(si.UnresolvedAnchor, "numbering differs"):
+            si.checked_receptor_chain("6ZIN", renumbered, old, names)
+        gave_up = dict(row, status="unresolved", note="input unreadable")
+        gave_up.update(auth_chain="", gpcrdb_text_sha256="")
+        with self.assertRaisesRegex(si.UnresolvedAnchor, "input unreadable"):
+            si.checked_receptor_chain("6ZIN", {"6ZIN": gave_up}, new, names)
+        no_text = {"6ZIN": dict(row, gpcrdb_text_sha256="")}
+        with self.assertRaisesRegex(si.MapMismatch, "rebuild"):
+            si.checked_receptor_chain("6ZIN", no_text, old, names)
+
 
 CHAINMAP_HEADER = "".join(
     "# {}\t{}\n".format(k, v)
@@ -744,7 +768,7 @@ class RoutingTests(unittest.TestCase):
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "431a53fb1840a8add9740a24372e6249e2eface0e37aab7afca44da98ab7887e"
+            digest, "7b3fb89dbac84b7463de7fe59f902673046668d3f54dd5b39a81dd1c49d277e8"
         )
 
     def test_none_direction_is_empty(self):
@@ -997,22 +1021,6 @@ class ProductContractTests(unittest.TestCase):
         self.assertEqual(len(checks), 1)
         self.assertTrue(deletes)
         self.assertLess(checks[0], min(deletes))
-
-    def test_import_structure_reports_an_unresolved_receptor_by_its_note(self):
-        # An unresolved receptor row has an empty text fingerprint; checked
-        # first, it would be reported as a changed dump instead of its note.
-        import ast
-        import inspect
-        import textwrap
-
-        tree = ast.parse(textwrap.dedent(inspect.getsource(si.import_structure)))
-        lines = {}
-        for n in ast.walk(tree):
-            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
-                lines.setdefault(n.func.id, []).append(n.lineno)
-        self.assertEqual(len(lines["receptor_chain"]), 1)
-        self.assertEqual(len(lines["check_fingerprints"]), 1)
-        self.assertLess(lines["receptor_chain"][0], lines["check_fingerprints"][0])
 
 
 class SeedTests(unittest.TestCase):

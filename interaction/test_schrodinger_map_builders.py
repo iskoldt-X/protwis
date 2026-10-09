@@ -357,6 +357,9 @@ class ProductInputShaTests(unittest.TestCase):
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
         write(os.path.join(self.tree, PDB, "summary.yaml"), "")
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
+        with open(os.path.join(self.tree, PDB, "summary.yaml"), "wb") as fh:
+            fh.write(b"input_sha256: \xff\xfe\n")
+        self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
         write(os.path.join(self.tree, PDB, "summary.yaml"), "input_sha256: %s\n" % SHA)
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), SHA)
 

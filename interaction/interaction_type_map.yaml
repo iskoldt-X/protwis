@@ -152,7 +152,8 @@ rules:
     rationale: >-
       Van der Waals contact label: a close heavy-atom contact; the criterion
       is the producer's. By default the producer writes it only on a residue
-      with no other row for the same ligand instance.
+      with no imported interaction for the same ligand instance; the
+      Accessible label does not count.
       Existing slug, type waals, shown on the pages.
   - family: Accessible
     direction: ''

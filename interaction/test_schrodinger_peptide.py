@@ -740,6 +740,30 @@ class TreeTests(unittest.TestCase):
                 "6DDF", self.dir, receptor, {"plan_sha256": "0" * 64}, "ATOM text\n"
             )
 
+    def test_a_stale_map_is_reported_before_its_receptor_row(self):
+        plan = os.path.join(self.dir, "6DDF", "plan.json")
+        with open(plan, "w") as fh:
+            fh.write("{}")
+        header = {"plan_sha256": sp.sha256_file(plan)}
+        good = {
+            "status": "ok",
+            "segment": "R_1",
+            "segments_list": ["R_1"],
+            "note": "",
+            "gpcrdb_text_sha256": cm.text_sha256("ATOM text\n"),
+        }
+        check = sp.check_receptor_and_fingerprints
+        check("6DDF", self.dir, good, header, "ATOM text\n")
+        renumbered = dict(good, status="renumbered", note="numbering differs")
+        with self.assertRaisesRegex(sp.MapMismatch, "structure text"):
+            check("6DDF", self.dir, renumbered, header, "ATOM other\n")
+        with self.assertRaisesRegex(sp.MapMismatch, "numbering differs"):
+            check("6DDF", self.dir, renumbered, header, "ATOM text\n")
+        gave_up = dict(good, status="unresolved", note="input unreadable")
+        gave_up.update(gpcrdb_text_sha256="")
+        with self.assertRaisesRegex(sp.MapMismatch, "input unreadable"):
+            check("6DDF", self.dir, gave_up, header, "ATOM other\n")
+
     def test_a_record_of_another_contract_version_raises(self):
         self.item("k1", "done", [row("HPhob", lig=GLN)], contract="engine2/2.0")
         with self.assertRaisesRegex(sp.MalformedProduct, "contract_version"):

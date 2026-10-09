@@ -98,10 +98,9 @@ def annotation_commit(given, gdata):
 def product_input_sha256(tree, pdb):
     """The input sha256 Engine 1 recorded in <tree>/<PDB>/summary.yaml.
 
-    None when there is no summary (Engine 1 did not finish the structure, so
-    there is no input to compare); "" when a summary is there but unreadable or
-    without the field, which the contract does not allow and index_mismatch
-    refuses.
+    None when there is no summary (no recorded input sha256 to compare
+    against); "" when a summary is there but unreadable or without the field,
+    which the contract does not allow and index_mismatch refuses.
     """
     path = os.path.join(tree, pdb, si.PRODUCT_SUMMARY_NAME)
     if not os.path.exists(path):
@@ -109,7 +108,7 @@ def product_input_sha256(tree, pdb):
     try:
         with open(path) as fh:
             doc = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return ""
     value = doc.get("input_sha256") if isinstance(doc, dict) else None
     return value or ""
@@ -504,8 +503,8 @@ class Command(BaseCommand):
             )
         )
         self.stdout.write(
-            "index checked against summary.yaml input_sha256: {} "
-            "(no summary: {}, refused for a summary without it: {})".format(
+            "summary.yaml with input_sha256: {} "
+            "(no summary: {}; summary without it, refused: {})".format(
                 checked, written - checked - refused, refused
             )
         )

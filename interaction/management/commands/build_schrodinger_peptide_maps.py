@@ -218,8 +218,8 @@ class Command(BaseCommand):
         )
         self.stdout.write("peptide_map.tsv written: {}".format(written))
         self.stdout.write(
-            "index checked against summary.yaml input_sha256: {} "
-            "(no summary: {}, refused for a summary without it: {})".format(
+            "summary.yaml with input_sha256: {} "
+            "(no summary: {}; summary without it, refused: {})".format(
                 checked, written - checked - refused, refused
             )
         )

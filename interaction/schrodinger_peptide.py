@@ -965,6 +965,20 @@ def claim_peptide_structure(used, peptide_id, sli_id, pdb):
     used[peptide_id] = sli_id
 
 
+def check_receptor_and_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
+    """check_receptor and check_fingerprints, a stale map reported first.
+
+    The rule of schrodinger_import.checked_receptor_chain: a map built from
+    another stored text or plan is reported as stale whatever its receptor row
+    says, unless the row has no text fingerprint (the builder gave up before
+    reading the text), when its note is the reason.
+    """
+    if not receptor.get("gpcrdb_text_sha256"):
+        check_receptor(pdb, receptor)
+    check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text)
+    check_receptor(pdb, receptor)
+
+
 def check_fingerprints(pdb, data_dir, receptor, header, gpcrdb_text):
     """Refuse a structure whose stored text or plan changed since the map was built."""
     if receptor.get("gpcrdb_text_sha256") != chain_map.text_sha256(gpcrdb_text):
@@ -1012,8 +1026,7 @@ def import_structure(structure, data_dir, receptor, chain_rows, header):
         ]
         if not slis:
             return outcomes, collections.Counter()
-        check_receptor(pdb, receptor)
-        check_fingerprints(
+        check_receptor_and_fingerprints(
             pdb,
             data_dir,
             receptor,

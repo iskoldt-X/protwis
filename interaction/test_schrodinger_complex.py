@@ -48,7 +48,7 @@ class ComplexTextTests(unittest.TestCase):
         out = cx.complex_text(
             TEXT, "R", {147, 293}, ligand_xyz=[(6.9, 5.0, 5.0)], ligand_resname="ZMA"
         )
-        names = [(line[17:20], line[22:26].strip(), line[26]) for line in rows(out)]
+        names = [(rec[17:20], rec[22:26].strip(), rec[26]) for rec in rows(out)]
         self.assertEqual(
             names,
             [
@@ -92,7 +92,7 @@ class ComplexTextTests(unittest.TestCase):
         out = cx.complex_text(
             TEXT, "R", set(), ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="zma1x"
         )
-        self.assertEqual({line[17:20] for line in rows(out)}, {"ZMA"})
+        self.assertEqual({rec[17:20] for rec in rows(out)}, {"ZMA"})
 
     def test_a_ligand_named_like_an_amino_acid_is_the_hetatm_one(self):
         # Free tryptophan next to the receptor's own Trp.
@@ -100,7 +100,7 @@ class ComplexTextTests(unittest.TestCase):
             TEXT, "R", set(), ligand_xyz=[(13.4, 0.0, 0.0)], ligand_resname="TRP"
         )
         self.assertEqual(
-            [(line[:6].strip(), line[22:26].strip()) for line in rows(out)],
+            [(rec[:6].strip(), rec[22:26].strip()) for rec in rows(out)],
             [("HETATM", "1108")],
         )
 
@@ -118,7 +118,7 @@ class ComplexTextTests(unittest.TestCase):
     def test_a_chain_anchor_takes_the_whole_chain(self):
         out = cx.complex_text(TEXT, "R", {300}, ligand_chain="P")
         self.assertEqual(
-            [(line[17:20], line[21], line[22:26].strip()) for line in rows(out)],
+            [(rec[17:20], rec[21], rec[22:26].strip()) for rec in rows(out)],
             [
                 ("SER", "R", "300"),
                 ("TYR", "P", "1"),
@@ -131,7 +131,7 @@ class ComplexTextTests(unittest.TestCase):
         out = cx.complex_text(
             TEXT, "Q", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA"
         )
-        self.assertEqual({line[17:20] for line in rows(out)}, {"ZMA"})
+        self.assertEqual({rec[17:20] for rec in rows(out)}, {"ZMA"})
         out = cx.complex_text(
             TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA"
         )

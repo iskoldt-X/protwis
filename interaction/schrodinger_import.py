@@ -417,6 +417,21 @@ def standard_ligand_block(block, instance, gpcrdb_chain):
     return "\n".join(out), capped
 
 
+def checked_receptor_chain(pdb, receptor_map, gpcrdb_text, instance_names):
+    """receptor_chain, once the map is known to fit the structure.
+
+    A map built from another stored text or product tree is reported as stale
+    first, whatever its receptor row says: only a rebuild can tell more. A row
+    the builder gave up on before reading the stored text has an empty text
+    fingerprint; its note is the reason and is reported instead.
+    """
+    row = receptor_map.get(pdb.upper())
+    if row is not None and not row.get("gpcrdb_text_sha256"):
+        receptor_chain(pdb, receptor_map)
+    check_fingerprints(pdb, receptor_map, gpcrdb_text, instance_names)
+    return receptor_chain(pdb, receptor_map)
+
+
 def receptor_chain(pdb, receptor_map):
     """The product chain that is GPCRdb's preferred chain, from the receptor map."""
     row = receptor_map.get(pdb.upper())
@@ -925,10 +940,7 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
         if in_scope:
             check_product_contract(data_dir, pdb_code)
             unused = check_map_covers(pdb_code, in_scope, anchor_map)
-            # Receptor first: an unresolved receptor row carries no text
-            # fingerprint, and its note, not a fingerprint mismatch, is the reason.
-            chain = receptor_chain(pdb_code, receptor_map)
-            check_fingerprints(
+            chain = checked_receptor_chain(
                 pdb_code,
                 receptor_map,
                 structure.pdb_data.pdb if structure.pdb_data_id else "",
