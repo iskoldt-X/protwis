@@ -43,7 +43,7 @@ class Command(BaseCommand):
     )
     # The system checks load every URL module, whose views query the database;
     # the tests need none of it.
-    requires_system_checks = False
+    requires_system_checks = []
 
     def add_arguments(self, parser):
         parser.add_argument(

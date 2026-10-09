@@ -111,8 +111,8 @@ def engine2_dir(options):
 
 
 def steps(options):
-    """[[command, options]]: the tests, the two maps, both imports as dry runs, both
-    for real, the clean-up."""
+    """[[command, options]]: the two maps, both imports as dry runs, both for real,
+    the clean-up. with_tests() puts the tests in front."""
     if options["skip_ligand_import"]:
         print(
             "{} SKIPPING the ligand imports: no ligand interactions are written".format(
@@ -204,7 +204,7 @@ def check_deliveries(options, command_names):
 
 
 def split(planned):
-    """(maps and dry runs, real imports and the clean-up) of the steps ``steps`` planned.
+    """(tests, maps and dry runs; real imports and the clean-up) of a planned list.
 
     Each part keeps its order. Plan once and split, so the dry runs and the
     imports they vouch for share one accounting directory per import, and read the

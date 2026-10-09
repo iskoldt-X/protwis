@@ -461,6 +461,7 @@ class RunLigandImportTestsTests(unittest.TestCase):
                 else:
                     mod.Command().handle(in_process=False)
             self.assertIn("--in-process", run.call_args[0][0])
+            self.assertEqual(run.call_args[1]["timeout"], mod.TIMEOUT_SECONDS)
 
     def test_a_failing_suite_is_a_command_error(self):
         mod = self.command()
