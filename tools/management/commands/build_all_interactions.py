@@ -57,6 +57,7 @@ class Command(BaseBuild):
                 # compute_interactions(pdb, True)
                 # The contact network only: the receptor x peptide pairs are imported
                 # in handle() (import_schrodinger_peptides, via ligand_imports.run).
+                # compute_interactions(pdb, do_interactions=True, do_peptide_ligand=True, save_to_db=True)
                 compute_interactions(pdb, do_interactions=True, do_peptide_ligand=False, save_to_db=True)
             except:
                 print('Issue making interactions for',pdb)
