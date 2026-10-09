@@ -14,10 +14,10 @@ import tempfile
 import types
 import unittest
 
+from build.management.commands import build_schrodinger_peptide_maps as builder
 from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
 from interaction import schrodinger_peptide as sp
-from interaction.management.commands import build_schrodinger_peptide_maps as builder
 
 # A peptide atom line as the producer writes it (no altloc column).
 GLN = "HETATM   93  NE2GLN D  19      50.943 -11.924  33.028  1.00 83.04           N"
@@ -812,7 +812,7 @@ class TreeTests(unittest.TestCase):
 
 class OutcomeLogTests(unittest.TestCase):
     def test_an_anchor_without_product_is_a_cleared_warning(self):
-        from interaction.management.commands.import_schrodinger_peptides import Command
+        from build.management.commands.import_schrodinger_peptides import Command
 
         logged = []
 

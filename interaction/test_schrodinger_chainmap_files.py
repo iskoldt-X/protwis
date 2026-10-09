@@ -13,9 +13,9 @@ import shutil
 import tempfile
 import unittest
 
+from build.management.commands import build_schrodinger_chainmap_files as b
 from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
-from interaction.management.commands import build_schrodinger_chainmap_files as b
 
 
 def tsv(rows):

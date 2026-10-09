@@ -19,10 +19,10 @@ from django.core.management import call_command
 from django.test import override_settings
 
 from build import ligand_imports
+from build.management.commands import build_schrodinger_chainmap_files as e1
 from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_import as si
 from interaction import schrodinger_peptide as sp
-from interaction.management.commands import build_schrodinger_chainmap_files as e1
 
 PDB = "1ABC"
 EMPTY = "9XYZ"  # in the annotation, nothing delivered

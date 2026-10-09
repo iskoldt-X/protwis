@@ -31,13 +31,13 @@ import os
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from interaction import schrodinger_import as si
-from interaction import schrodinger_peptide as sp
-from interaction.management.commands.import_schrodinger_interactions import (
+from build.management.commands.import_schrodinger_interactions import (
     AnomalyLog,
     _Rollback,
     _make_room_for,
 )
+from interaction import schrodinger_import as si
+from interaction import schrodinger_peptide as sp
 from interaction.models import (
     ResidueFragmentInteractionType,
     StructureLigandInteraction,

@@ -39,9 +39,9 @@ import os
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from build.management.commands import build_schrodinger_chainmap_files as e1
 from interaction import schrodinger_chain_map as cm
 from interaction import schrodinger_peptide as sp
-from interaction.management.commands import build_schrodinger_chainmap_files as e1
 
 
 def peptide_chains(rows):
