@@ -3,9 +3,10 @@
 The products name chains as the RCSB mmCIF does (author chain, up to four
 characters). GPCRdb names them as its stored PDB-format structure text does
 (one character, sometimes renamed, split or hand-edited by curators). This
-module builds two maps, from GPCRdb's text on one side and, on the other, the
-coordinate index the producer delivers with the products (the atoms of the
-mmCIF they were computed from, see below):
+module decides two kinds of rows, both written into one chainmap.tsv per
+structure, from GPCRdb's text on one side and, on the other, the coordinate
+index the producer delivers with the products (the atoms of the mmCIF they
+were computed from, see below):
 
 * anchor map: one row per GPCRdb ligand-anchor copy (pdb, HET, chain_res
   token) naming the product instance that is the same ligand copy;

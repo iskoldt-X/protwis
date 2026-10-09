@@ -3,8 +3,8 @@
 # Maps a Schrodinger product row (feature_family, direction) to the protwis
 # ResidueFragmentInteractionType slug it is stored under. The consumer
 # (interaction/schrodinger_import.py, load_type_map and resolve_slug) reads only
-# family, direction and slug of each rule; rationale (which the producer's tests
-# require on every rule) and the rest are for the reader.
+# family, direction and slug of each rule; rationale and the rest are for the
+# reader.
 #
 # -----------------------------------------------------------------------------
 # THIS FILE EXISTS TWICE AND THE TWO COPIES MUST STAY BYTE-IDENTICAL. One copy
@@ -116,8 +116,7 @@ rules:
     slug: metal_coordination_protein
     rationale: >-
       Metal coordination: ligand -> metal cofactor -> receptor coordinating
-      residue (His/Asp/Cys/Glu). The Suite's metal detection is relative to the
-      van der Waals radii (metal_cutoff + radii) or 2.5 A absolute.
+      residue (His/Asp/Cys/Glu).
 
   # ---- Hydrophobic -------------------------------------------------------------
   # The Suite emits its SHORTFORM 'HPhob' verbatim, and the producer builds the
@@ -127,33 +126,26 @@ rules:
     slug: hyd
     rationale: >-
       Hydrophobic contact: apolar ligand atom against an apolar receptor atom.
-      Routes to the existing protwis slug `hyd`; no new slug. The chemical
-      criterion is fixed on the producer side (the Suite's hydrophobic atom
-      definition, dist <= 1.2 * (r_i + r_j)); the consumer only routes.
+      Routes to the existing protwis slug `hyd`; the criterion is the
+      producer's, the consumer only routes.
 
   # ---- Covalent bond -----------------------------------------------------------
   # Not a vendor family: the Suite has no function that reports a covalent
   # bond, so the producer writes the rows itself, one per ligand-receptor bond,
-  # with direction ''. The slug is new (seeded by a data migration), and
+  # with direction ''. The slug is seeded by interaction migration 0009, and
   # its type `covalent` is not `hidden`, so the rows are shown on the pages.
   - family: Covalent
     direction: ''
     slug: covalent
     rationale: >-
-      Covalent bond: a bond of order >= 1 from a ligand atom to a receptor atom,
-      as the Suite drew it from the input file's _struct_conn rows (the
-      depositor's, or one the producer added for a bond the file left out) or
-      as one of its bond builders added it in preparation. The row says a bond
-      exists, not its order: the reader gives every declared bond order 1, so a
-      protonated Schiff base reads as a single bond.
+      Covalent bond: a bond of order >= 1 from a ligand atom to a receptor
+      atom. The row says a bond exists, not its order.
 
   # ---- Contact labels ----------------------------------------------------------
   # LABELS, not interactions: each says a residue lines the ligand, one row per
   # (ligand instance, residue). Not vendor families: the producer writes the
-  # rows itself, with direction ''. Both route to slugs GPCRdb already used; the
-  # seed migration creates them in a database that lacks them. The same slugs
-  # also hold rows computed by the previous GPCRdb rule on anchors the
-  # Schrodinger imports do not serve.
+  # rows itself, with direction ''. Both route to existing GPCRdb slugs; the
+  # seed migration creates them where missing.
   - family: VdW
     direction: ''
     slug: Van der Waals
@@ -167,12 +159,12 @@ rules:
     direction: ''
     slug: acc
     rationale: >-
-      Accessible label, the previous GPCRdb rule copied: a heavy atom of the
-      residue other than the backbone C, O and N (CA counts) strictly within
-      5 A of a heavy ligand atom. Existing slug, type hidden, as before.
+      Accessible label, GPCRdb's own rule: a heavy atom of the residue other
+      than the backbone C, O and N (CA counts) strictly within 5 A of a heavy
+      ligand atom. Existing slug, type hidden.
 
 # -----------------------------------------------------------------------------
-# Not handled by this map. These are intentionally not routed here.
+# Not handled by this map.
 # -----------------------------------------------------------------------------
 deferred:
   polar_backbone:
@@ -186,8 +178,9 @@ deferred:
       One ligand atom can produce several rows (e.g. Donor + PosCharge +
       PiCat). This map translates one row to one slug; it does not merge rows.
       The import keeps one record per residue and slug (schrodinger_import.py,
-      plan_rows); unlike remove_hyd in the previous calculation, it keeps a
-      hydrophobic row next to a polar or aromatic one on the same residue.
+      plan_rows); unlike remove_hyd in the legacy calculation
+      (interaction/views.py), it keeps a hydrophobic row next to a polar or
+      aromatic one on the same residue.
   aro_fe_protein:
     note: >-
       The protwis face-to-edge slug has no Schrodinger source: the Suite's

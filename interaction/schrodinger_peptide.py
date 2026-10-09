@@ -38,10 +38,8 @@ The import writes two places, both replaced per anchor:
   table has no type for are not written there.
 
 The anchors served are those whose pdb_reference is "pep", whatever the
-ligand type: peptides, peptide drugs typed as small molecules, and proteins
-(antibodies and nanobodies, chemokines, glycoprotein hormones, toxins and
-other protein partners). Engine 1 skips every "pep" anchor, so the two imports
-never meet.
+ligand type: peptides, peptide drugs typed as small molecules, and protein
+partners. Engine 1 skips every "pep" anchor, so the two imports never meet.
 """
 
 import collections
@@ -206,9 +204,10 @@ def peptide_author_chain(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms):
     written come from the product) and is noted. method "any_atom": the chain
     has no standard CA in GPCRdb's text (a peptide of D-amino acids is all
     HETATM), so every atom of the chain there is looked up among the
-    author-side atoms of the coordinate index, which holds every atom of a
-    residue without a CA. A chain stored as HETATM in GPCRdb but as ATOM with CA
-    atoms in the mmCIF falls under the share and is refused.
+    author-side atoms of the coordinate index, which keeps every HETATM record,
+    so an all-HETATM chain is complete in it. A chain stored as HETATM in GPCRdb
+    but as ATOM with CA atoms in the mmCIF falls under the share and is
+    refused.
     """
     res = chain_map.resolve_receptor(pdb, gpcrdb_chain, cif_atoms, gpcrdb_atoms)
     if res["status"] in ("ok", "renumbered") and res["auth_chain"]:

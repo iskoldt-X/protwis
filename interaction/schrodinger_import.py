@@ -22,8 +22,8 @@ with interaction/schrodinger_chain_map.py. Product chain names are mmCIF author
 names, which can differ from the chain names in GPCRdb's stored text.
 
 Replacement semantics: every in-scope anchor loses all its existing rows, so
-an anchor never shows rows of the previous calculation next to, or instead
-of, Schrodinger rows. Anchors with a product instance get the Schrodinger
+an anchor never shows rows of another calculation next to, or instead of,
+Schrodinger rows. Anchors with a product instance get the Schrodinger
 rows; anchors without one (the map says no_product) are left empty and
 reported with the map's reason. Anchors outside Engine 1 scope ("pep" chains
 and placeholder references, see is_in_scope) are never touched. Fragments left
@@ -128,7 +128,8 @@ def _read_map(path):
 
 CHAINMAP_NAME = "chainmap.tsv"
 
-# The only chainmap layout this importer reads; any other is refused.
+# The only chainmap layout this importer reads; any other is refused, never
+# guessed at (a layout change can move a header field without renaming a column).
 CHAINMAP_SCHEMA = "engine1-chainmap/1"
 
 # The structure's one receptor row is stored in the header under this prefix.
@@ -149,7 +150,8 @@ PROVENANCE_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
 def load_chainmap(path):
     """(pdb, anchors, receptor_row, provenance, ran) from one chainmap.tsv.
 
-    `ran` says whether the structure's directory held the producer's summary.
+    `ran` says whether the structure's directory held the producer's summary
+    when the map was built.
     """
     header, fieldnames, rows = _read_map(path)
     if not header:
@@ -207,7 +209,8 @@ def load_chainmap_dir(data_dir, pdb_codes):
 
     `provenance` counts the distinct values of each PROVENANCE_KEY.
 
-    A chainmap that is present but malformed raises and ends the run.
+    A chainmap that is present but malformed raises and ends the run, before
+    the caller has opened its anomaly CSV.
     """
     anchors, receptors, missing, not_run = {}, {}, [], []
     provenance = dict((k, {}) for k in PROVENANCE_KEYS)
@@ -271,9 +274,9 @@ def product_pdb_codes(data_dir):
     """Every structure directory of a delivered tree, sorted.
 
     This is what the tree offers, not what the producer ran (see
-    load_chainmap_dir's `not_run`). Names are returned as they are on disk, so
-    two directories differing only in case stay two. Names beginning with a dot
-    are skipped.
+    load_chainmap_dir's `not_run`). Names are returned as they are on disk, so a
+    lower-case directory is found and two differing only in case stay two.
+    Names beginning with a dot are skipped.
     """
     return sorted(name for name in os.listdir(data_dir)
                   if not name.startswith(".") and os.path.isdir(os.path.join(data_dir, name)))
@@ -861,7 +864,8 @@ def import_structure(structure, data_dir, anchor_map, receptor_map):
                     outcome.dropped["rotamer_not_found" if not rotamers else "rotamer_ambiguous"] += 1
                     continue
                 # The fragment holds the ligand atoms of this contact; reuse only
-                # a fragment with exactly this text.
+                # a fragment with exactly this text (an older fragment of the
+                # same ligand and residue can hold other text).
                 text = fragment_text(rec["ligand_lines"])
                 fragment = (Fragment.objects
                             .filter(ligand=sli.ligand, structure=structure, residue=residue,

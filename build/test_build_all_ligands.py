@@ -85,7 +85,7 @@ class LigandImportStepsTests(unittest.TestCase):
 
 
 class BuildAllInteractionsTests(unittest.TestCase):
-    """build_all_interactions keeps its job: contact network and the same imports,
+    """build_all_interactions runs the contact network and the same imports,
     dry-run before the contacts and imported after them."""
 
     def test_it_takes_the_import_options_and_dry_runs_before_the_contacts(self):
@@ -157,8 +157,8 @@ class BuildAllInteractionsTests(unittest.TestCase):
                                  ("import_schrodinger_interactions", False)])
 
     def test_a_contact_network_that_raises_does_not_stop_the_imports(self):
-        # The contact network is the legacy calculation; its failures are
-        # printed and logged as before, and the ligand imports still run.
+        # The contact network's failures are printed and logged, and the ligand
+        # imports still run.
         from tools.management.commands import build_all_interactions as bai
         calls = []
 

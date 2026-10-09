@@ -1,26 +1,20 @@
 """Seed every interaction type the Schrodinger imports write.
 
 build_structures does not compute ligand interactions, so nothing else in a
-build creates these types. These rows are exactly schrodinger_import.required_slugs(): the targets of
-interaction_type_map.yaml outside the excluded families, plus polar_backbone,
-the backbone override.
+build creates these types. These rows are exactly
+schrodinger_import.required_slugs(): the targets of interaction_type_map.yaml
+outside the excluded families, plus polar_backbone, the backbone override.
 
 Eleven of them are types the legacy calculation also computes, and keep the
 slug, name, type and direction it gives them, so a database built either way
-names them alike (aro_ion_protein the legacy calculation computes but never
-stores: its rows carry no fragment). Three are new:
+names them alike. Three are new:
 
-* halogen_protein and metal_coordination_protein, targets of map rules the
-  legacy calculation has no counterpart for. halogen_protein is named "halogen
-  contact", not "halogen bond": the producer's criterion is a halogen within
-  3.5 A of a polar atom with loose angle limits, so the rows are contacts
-  rather than proven halogen bonds.
-* covalent, for the Covalent rows: a bond of order >= 1 from a ligand atom to
-  a receptor atom, as the Suite drew it from the input file's _struct_conn rows
-  or as one of its bond builders added it during preparation; it says a bond
-  exists, not its order. Its type is ``covalent`` and not ``hidden``: pages
-  leave out hidden types, and the rows are imported so that the pages show
-  them.
+* halogen_protein and metal_coordination_protein. halogen_protein is named
+  "halogen contact", not "halogen bond": the producer's criterion has loose
+  angle limits, so the rows are contacts rather than proven halogen bonds.
+* covalent, one row per ligand-receptor bond; a row says a bond exists, not
+  its order. Its type is ``covalent`` and not ``hidden``: pages leave out
+  hidden types, and the rows are imported so that the pages show them.
 
 Existing rows are never modified, except that an existing halogen_protein row
 is renamed to "halogen contact". The reverse operation is a deliberate no-op:

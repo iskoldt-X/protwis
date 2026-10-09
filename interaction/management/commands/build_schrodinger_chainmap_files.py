@@ -68,11 +68,9 @@ def _sha256_file(path):
 def annotation_commit(given, gdata):
     """The gpcrdb_data commit to record: the one given, else the HEAD of ``gdata``.
 
-    Only recorded in the map headers, never compared, so anything that keeps git
-    from answering for that very directory -- no git binary (e.g. a container
-    without git), a directory that is not a repository's top level (git would
-    otherwise answer for an enclosing repository), a worktree whose git directory
-    is not reachable -- records "unknown" rather than stopping a build.
+    Only recorded in the map headers, never compared, so when git cannot answer
+    for that very directory (not an enclosing repository) the value is
+    "unknown" rather than a stopped build.
     """
     if given:
         return given
@@ -90,23 +88,28 @@ def annotation_commit(given, gdata):
 
 
 def product_input_sha256(tree, pdb):
-    """The input sha256 Engine 1 recorded in <tree>/<PDB>/summary.yaml, or None.
+    """The input sha256 Engine 1 recorded in <tree>/<PDB>/summary.yaml.
 
-    None when there is no summary or it predates the field: there is then
-    nothing to compare the coordinate index with.
+    None when there is no summary (nothing was run, nothing to compare); "" when
+    a summary is there but unreadable or without the field, which the contract
+    does not allow and index_mismatch refuses.
     """
     path = os.path.join(tree, pdb, si.PRODUCT_SUMMARY_NAME)
+    if not os.path.exists(path):
+        return None
     try:
         with open(path) as fh:
             doc = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError):
-        return None
+        return ""
     value = doc.get("input_sha256") if isinstance(doc, dict) else None
-    return value or None
+    return value or ""
 
 
 def index_mismatch(summary_sha, index_sha):
     """The reason to refuse an index read from another mmCIF than the products, or None."""
+    if summary_sha == "":
+        return "summary.yaml has no input_sha256 to check the coordinate index against"
     if summary_sha and summary_sha != index_sha:
         return ("the coordinate index was read from another mmCIF than the products "
                 "(index {}, summary.yaml {})".format(index_sha[:12], summary_sha[:12]))
@@ -135,7 +138,7 @@ HEADER_KEYS = ("annotation_commit", "ligands_sha256", "structures_sha256",
 def has_product_summary(data_dir, pdb):
     """Did the producer leave its per-structure summary in this directory?
 
-    Read from the product tree, never from the out dir.
+    Read from the product tree, never from the out dir, which may be elsewhere.
     """
     path = os.path.join(data_dir, pdb, si.PRODUCT_SUMMARY_NAME)
     try:
@@ -198,9 +201,9 @@ def read_tsv(path):
 def preferred_chains(rows):
     """PDB -> preferred chain, as structure.functions.ParseStructureCSV stores it.
 
-    That parser keeps only the first character of a chain id containing a dot;
-    resolve_receptor then takes the part before the first comma. Both rules are
-    applied here as the database side applies them, so the two always agree.
+    That parser keeps only the first character of a chain id containing a dot.
+    The dot rule is applied here and the comma rule by resolve_receptor, as on
+    the database side.
     """
     out = {}
     for r in rows:
@@ -347,7 +350,8 @@ class Command(BaseCommand):
         structures_sha = _sha256_file(structures_tsv)
         # What produced these rows: the algorithm module, this command, and what
         # it borrows from the importer module (scope, instance discovery and the
-        # chainmap format constants), not the whole importer module.
+        # chainmap format constants), so an unrelated importer edit does not move
+        # the stamp.
         builder_sha = _sha256_parts([
             _sha256_file(cm.__file__), _sha256_file(os.path.abspath(__file__)),
             repr(sorted(si.PLACEHOLDER_REFERENCES)),
@@ -389,7 +393,7 @@ class Command(BaseCommand):
                                                      structures_sha, builder_sha))
         self.stdout.write("chainmap.tsv written: {} ({} with no product instance)".format(
             written, no_products))
-        self.stdout.write("index checked against summary.yaml input_sha256: {} (no field: {})".format(
+        self.stdout.write("index checked against summary.yaml input_sha256: {} (no summary: {})".format(
             checked, written - checked))
         self.stdout.write("anchor rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor rows {}: {}".format(sum(rstatus.values()), sorted(rstatus.items())))
@@ -427,7 +431,7 @@ class Command(BaseCommand):
             return unresolved(exc)
         try:
             # Only the parsers get the wide clause: one malformed input costs
-            # one structure, not the run.
+            # one structure, not the run; anything raised elsewhere is a bug.
             # The header records the sha256 of the mmCIF the index was read
             # from, the file the products were computed from.
             note["cif_sha256"], cif_atoms = cm.parse_structure_index(index_text)

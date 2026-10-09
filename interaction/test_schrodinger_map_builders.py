@@ -182,11 +182,11 @@ class MapBuilderTests(unittest.TestCase):
         self.assertEqual(header["receptor.status"], "unresolved")
         self.assertIn("another mmCIF", header["receptor.note"])
 
-    def test_a_summary_without_the_field_is_not_compared(self):
+    def test_a_summary_without_the_field_is_refused(self):
         d = Delivery(self.root, summary_sha=None)
         d.run(*ligand_imports.MAP_COMMANDS)
-        self.assertEqual(self.chainmap(d)[0]["receptor.status"], "ok")
-        self.assertEqual(self.peptide_map(d)[0]["receptor.status"], "ok")
+        self.assertEqual(self.chainmap(d)[0]["receptor.status"], "unresolved")
+        self.assertEqual(self.peptide_map(d)[0]["receptor.status"], "unresolved")
 
     def test_the_commit_is_recorded_as_given_or_unknown(self):
         d = Delivery(self.root)
@@ -254,10 +254,14 @@ class ProductInputShaTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tree)
 
-    def test_read_from_the_summary_or_none(self):
+    def test_read_from_the_summary_none_without_one_empty_without_the_field(self):
         self.assertIsNone(e1.product_input_sha256(self.tree, PDB))
         write(os.path.join(self.tree, PDB, "summary.yaml"), "pdb_id: X\n")
-        self.assertIsNone(e1.product_input_sha256(self.tree, PDB))
+        self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
+        self.assertIn("no input_sha256", e1.index_mismatch("", SHA))
+        self.assertIsNone(e1.index_mismatch(None, SHA))
+        write(os.path.join(self.tree, PDB, "summary.yaml"), "- not a mapping\n")
+        self.assertEqual(e1.product_input_sha256(self.tree, PDB), "")
         write(os.path.join(self.tree, PDB, "summary.yaml"), "input_sha256: %s\n" % SHA)
         self.assertEqual(e1.product_input_sha256(self.tree, PDB), SHA)
 

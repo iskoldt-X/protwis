@@ -116,7 +116,7 @@ def steps(options):
               'anomaly_csv': os.path.join(run_dir, 'anomalies.csv'),
               'report_json': os.path.join(run_dir, 'report.json')}]
             for command, data_dir, run_dir in imports]
-    # allow_stray: a product directory the annotation no longer lists gets no
+    # allow_stray: a product directory the annotation does not list gets no
     # map; the database, built from the same annotation, has no anchor there.
     maps = [[MAP_COMMANDS[0], {'data_dir': engine1_dir(options), 'allow_stray': True}],
             [MAP_COMMANDS[1], {'data_dir': engine2_dir(options),

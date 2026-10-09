@@ -161,7 +161,7 @@ class Command(BaseCommand):
         self.stdout.write("annotation_commit {} builder_sha256 {}".format(
             commit, builder_sha))
         self.stdout.write("peptide_map.tsv written: {}".format(written))
-        self.stdout.write("index checked against summary.yaml input_sha256: {} (no field: {})".format(
+        self.stdout.write("index checked against summary.yaml input_sha256: {} (no summary: {})".format(
             checked, written - checked))
         self.stdout.write("peptide chain rows {}: {}".format(sum(counts.values()), sorted(counts.items())))
         self.stdout.write("receptor {}".format(sorted(rstatus.items())))

@@ -113,7 +113,7 @@ class SegmentTests(unittest.TestCase):
         ]
         self.assertEqual(sp.peptide_items(self.SEGMENTS, items, "H", {"A_OPRD_1_338"}),
                          [("H_PEP_1_5", "k1"), ("H_seg_6_6", "k3")])
-        # A receptor declared in two pieces (8KIG): items against both.
+        # A receptor declared in two pieces: items against both.
         self.assertEqual(sp.peptide_items(self.SEGMENTS, items, "H",
                                           {"A_OPRD_1_338", "A_BRIL_1001_1106"}),
                          [("H_PEP_1_5", "k1"), ("H_PEP_1_5", "k4"), ("H_seg_6_6", "k3")])

@@ -474,6 +474,8 @@ class RoutingTests(unittest.TestCase):
 
     # Every (family, direction) pair the producer emits.
     PRODUCTION_PAIRS = {
+        ("VdW", ""): "Van der Waals",
+        ("Accessible", ""): "acc",
         ("HPhob", ""): "hyd",
         ("Acceptor", "ligand-acceptor"): "polar_donor_protein",
         ("Donor", "ligand-donor"): "polar_acceptor_protein",
@@ -486,7 +488,6 @@ class RoutingTests(unittest.TestCase):
         ("PiCat", "receptor-cation"): "aro_ion_protein",
         ("Wat-HBond", ""): "water_bridge_protein",
         ("XBond", ""): "halogen_protein",
-        # Its slug comes with the seed migration.
         ("Covalent", ""): "covalent",
     }
 
@@ -510,9 +511,7 @@ class RoutingTests(unittest.TestCase):
                          ("covalent", "covalent bond", "covalent", ""))
 
     def test_the_seed_writes_a_visible_covalent_type(self):
-        # What seed() actually hands the ORM, not only the constant: a type of
-        # "hidden" written here would import every Covalent row and show it to
-        # no page.
+        # What seed() hands the ORM, not only the constant.
         import importlib
         mig = importlib.import_module(
             "interaction.migrations.0009_seed_schrodinger_interaction_types")
@@ -537,15 +536,13 @@ class RoutingTests(unittest.TestCase):
                              "name": "covalent bond", "type": "covalent", "direction": ""}}])
 
     def test_the_map_is_the_one_the_producer_pins(self):
-        # The producer keeps an identical copy of the map and pins the same
-        # digest in its own tests. Nothing else compares the two files; a
-        # one-sided change fails that side's tests.
+        # The producer pins the same digest (see the header of the map).
         import hashlib
         path = os.path.join(os.path.dirname(si.__file__), "interaction_type_map.yaml")
         with open(path, "rb") as fh:
             digest = hashlib.sha256(fh.read()).hexdigest()
         self.assertEqual(
-            digest, "b3376cdf1dc759516f2b30f5e21a298e5266368f0928d06616f1d243f8b2d808")
+            digest, "87ad0ad5b5c32dc325f4c59c7ca70ee4c9bfeabc0d5012af9774a9fcbf9ab3a2")
 
     def test_none_direction_is_empty(self):
         self.assertEqual(si.resolve_slug("HPhob", None), "hyd")
@@ -687,7 +684,7 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(si.is_in_scope(self.sli("pep", "small-molecule")))
         self.assertFalse(si.is_in_scope(self.sli("APO", "none")))
         # A component reference is Engine 1's whatever the database calls the
-        # ligand (6K1Q: IRL 2500, D2U, typed peptide in the database).
+        # ligand (a peptide drug referenced by one component).
         self.assertTrue(si.is_in_scope(self.sli("D2U", "peptide")))
         self.assertTrue(si.is_in_scope(self.sli("XYZ", "protein")))
         self.assertFalse(si.is_in_scope(self.sli("PEP", "peptide")))
@@ -740,8 +737,8 @@ class ProductContractTests(unittest.TestCase):
 
 
 class SeedTests(unittest.TestCase):
-    """build_structures creates no interaction type any more, so the seed
-    migration must create every slug the imports can write."""
+    """build_structures creates no interaction type, so the seed migration
+    must create every slug the imports can write."""
 
     @staticmethod
     def _migration():
@@ -759,8 +756,6 @@ class SeedTests(unittest.TestCase):
     def test_the_seed_keeps_the_legacy_names(self):
         # Written out, not read back from the module: a page shows the name
         # and leaves "hidden" types out, so a changed value must fail here.
-        # Every row but covalent, halogen_protein and metal_coordination_protein
-        # is what the legacy calculation computes.
         self.assertEqual(sorted(self._migration().SEEDED_TYPES), sorted([
             ("acc", "accessible", "hidden", ""),
             ("aro_ef_protein", "aromatic (edge-to-face)", "aromatic", "protein"),
