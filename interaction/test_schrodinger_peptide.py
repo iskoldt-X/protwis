@@ -220,7 +220,7 @@ class PeptideLineTests(unittest.TestCase):
     def test_standardise_blocks_rewrites_in_place(self):
         rows = [row("HPhob", lig=GLN + "\n" + producer_line("CB", "GLN", "D", 19))]
         sp.standardise_blocks(rows, "D", "P")
-        self.assertEqual([l[21] for l in rows[0]["ligand_pdb_block"].splitlines()], ["P", "P"])
+        self.assertEqual([line[21] for line in rows[0]["ligand_pdb_block"].splitlines()], ["P", "P"])
 
 
 class PeptideTypeTests(unittest.TestCase):

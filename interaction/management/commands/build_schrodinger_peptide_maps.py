@@ -33,8 +33,6 @@ only, never used for scope. The rules are in interaction.schrodinger_peptide.
 The command issues no database query.
 """
 
-import csv
-import hashlib
 import inspect
 import os
 

@@ -44,7 +44,7 @@ class ComplexTextTests(unittest.TestCase):
         # A product coordinate 1.9 A off the stored one, as preparation can leave it.
         out = cx.complex_text(TEXT, "R", {147, 293}, ligand_xyz=[(6.9, 5.0, 5.0)],
                               ligand_resname="ZMA")
-        names = [(l[17:20], l[22:26].strip(), l[26]) for l in rows(out)]
+        names = [(line[17:20], line[22:26].strip(), line[26]) for line in rows(out)]
         self.assertEqual(names, [("ASP", "147", " "), ("ASP", "147", " "), ("TRP", "293", " "),
                                  ("ZMA", "401", " "), ("ZMA", "401", " "), ("ZMA", "401", " ")])
         self.assertEqual(out.splitlines()[-1], "END")
@@ -67,12 +67,12 @@ class ComplexTextTests(unittest.TestCase):
         self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)]), "")
         # A five-character code is cut to three, as in the stored text.
         out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="zma1x")
-        self.assertEqual({l[17:20] for l in rows(out)}, {"ZMA"})
+        self.assertEqual({line[17:20] for line in rows(out)}, {"ZMA"})
 
     def test_a_ligand_named_like_an_amino_acid_is_the_hetatm_one(self):
         # Free tryptophan next to the receptor's own Trp.
         out = cx.complex_text(TEXT, "R", set(), ligand_xyz=[(13.4, 0.0, 0.0)], ligand_resname="TRP")
-        self.assertEqual([(l[:6].strip(), l[22:26].strip()) for l in rows(out)], [("HETATM", "1108")])
+        self.assertEqual([(line[:6].strip(), line[22:26].strip()) for line in rows(out)], [("HETATM", "1108")])
 
     def test_no_ligand_no_file(self):
         self.assertEqual(cx.complex_text(TEXT, "R", {147}, ligand_xyz=[], ligand_resname="ZMA"), "")
@@ -81,12 +81,12 @@ class ComplexTextTests(unittest.TestCase):
 
     def test_a_chain_anchor_takes_the_whole_chain(self):
         out = cx.complex_text(TEXT, "R", {300}, ligand_chain="P")
-        self.assertEqual([(l[17:20], l[21], l[22:26].strip()) for l in rows(out)],
+        self.assertEqual([(line[17:20], line[21], line[22:26].strip()) for line in rows(out)],
                          [("SER", "R", "300"), ("TYR", "P", "1"), ("TYR", "P", "1"), ("GLY", "P", "2")])
 
     def test_only_the_receptor_chain_and_no_insertion_code(self):
         out = cx.complex_text(TEXT, "Q", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA")
-        self.assertEqual({l[17:20] for l in rows(out)}, {"ZMA"})
+        self.assertEqual({line[17:20] for line in rows(out)}, {"ZMA"})
         out = cx.complex_text(TEXT, "R", {147}, ligand_xyz=[(5.0, 5.0, 5.0)], ligand_resname="ZMA")
         self.assertNotIn("GLY", out)
 

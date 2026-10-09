@@ -49,7 +49,6 @@ import json
 import os
 import re
 
-import yaml
 from django.db import transaction
 
 from interaction import schrodinger_chain_map as chain_map
